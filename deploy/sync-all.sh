@@ -63,6 +63,32 @@ sync_cc() {
   echo "  ✅ Claude Code"
 }
 
+# === Profile-specific skills ===
+sync_profiles() {
+  echo "→ Syncing profile-specific skills..."
+  local pd
+
+  # gongbu skills
+  pd=~/.hermes/profiles/gongbu/skills
+  [ -d "$REPO_ROOT/profiles/gongbu/disk-cleanup" ] && cp -r "$REPO_ROOT/profiles/gongbu/disk-cleanup" "$pd/"
+  [ -d "$REPO_ROOT/profiles/gongbu/infra-health-check" ] && cp -r "$REPO_ROOT/profiles/gongbu/infra-health-check" "$pd/"
+  [ -d "$REPO_ROOT/profiles/gongbu/infra-monitoring" ] && cp -r "$REPO_ROOT/profiles/gongbu/infra-monitoring" "$pd/"
+
+  # jiangzuojian skills
+  pd=~/.hermes/profiles/jiangzuojian/skills
+  [ -d "$REPO_ROOT/profiles/jiangzuojian/delivery-gate" ] && cp -r "$REPO_ROOT/profiles/jiangzuojian/delivery-gate" "$pd/"
+
+  # protocol skills
+  pd=~/.hermes/profiles/protocol/skills
+  [ -d "$REPO_ROOT/profiles/protocol/md-to-pdf" ] && cp -r "$REPO_ROOT/profiles/protocol/md-to-pdf" "$pd/"
+
+  # tester skills
+  pd=~/.hermes/profiles/tester/skills
+  [ -d "$REPO_ROOT/profiles/tester/code-review-toolkit" ] && cp -r "$REPO_ROOT/profiles/tester/code-review-toolkit" "$pd/"
+
+  echo "  ✅ Profile skills (gongbu, jiangzuojian, protocol, tester)"
+}
+
 # === pi ===
 sync_pi() {
   local base="${PI_SKILLS_DIR:-~/.pi/skills}"
@@ -85,13 +111,17 @@ sync_pi() {
 
 # === Main ===
 case "${1:-all}" in
-  hermes) sync_hermes ;;
+  hermes)
+    sync_hermes
+    sync_profiles
+    ;;
   cc)     sync_cc ;;
   pi)     sync_pi ;;
   all)
     sync_hermes
     sync_cc
     sync_pi
+    sync_profiles
     ;;
   *)
     echo "Usage: $0 {hermes|cc|pi|all}"

@@ -64,12 +64,28 @@ PAIRS=(
   "hermes/tradingagents|research/tradingagents"
   "hermes/llm-wiki|research/llm-wiki"
   "hermes/arxiv|research/arxiv"
+  "profiles/gongbu/disk-cleanup|profiles/gongbu/skills/disk-cleanup"
+  "profiles/gongbu/infra-health-check|profiles/gongbu/skills/infra-health-check"
+  "profiles/gongbu/infra-monitoring|profiles/gongbu/skills/infra-monitoring"
+  "profiles/jiangzuojian/delivery-gate|profiles/jiangzuojian/skills/delivery-gate"
+  "profiles/protocol/md-to-pdf|profiles/protocol/skills/md-to-pdf"
+  "profiles/tester/code-review-toolkit|profiles/tester/skills/code-review-toolkit"
 )
 
 for pair in "${PAIRS[@]}"; do
   repo_path="${pair%%|*}"
   herm_path="${pair##*|}"
-  src="$HERMES_BASE/$herm_path"
+  
+  # Profile skills live under ~/.hermes/profiles/, not ~/.hermes/skills/
+  if [[ "$herm_path" == profiles/* ]]; then
+    # Strip the leading "profiles/<name>/" part — the actual skill path should be
+    # ~/.hermes/profiles/<name>/skills/<category>/<skill>
+    # herm_path format: profiles/gongbu/skills/gongbu/disk-cleanup
+    #           maps to: ~/.hermes/profiles/gongbu/skills/gongbu/disk-cleanup
+    src="$HOME/.hermes/$herm_path"
+  else
+    src="$HERMES_BASE/$herm_path"
+  fi
   dst="$REPO_ROOT/$repo_path"
 
   [ ! -d "$src" ] && { echo "  ⚠️  $repo_path → source not found — skipped"; continue; }
