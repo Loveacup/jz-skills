@@ -231,22 +231,61 @@ A passing skill scores ≥4 on all dimensions.
 All skills now live in the **jz-skills git repo** as canonical source of truth:
 `https://github.com/Loveacup/jz-skills`
 
-After ANY update to this SKILL.md:
+### Repository Structure
 
-1. **Commit to git repo** (canonical source):
-   ```bash
-   cd ~/code/jz-skills
-   git add -A && git commit -m "update skill-authoring: <what changed>"
-   git push origin main
-   ```
+```
+jz-skills/
+├── shared/          ← Cross-platform skills (Hermes + CC + pi)
+├── hermes/          ← Hermes-specific (三省六部, trading, wiki)
+├── cc/              ← Claude Code specific
+├── pi/              ← pi specific
+└── deploy/
+    ├── sync-all.sh   ← Forward: repo → local agents
+    └── sync-back.sh  ← Reverse: local agents → repo
+```
 
-2. **Deploy to Hermes** (local → profiles):
-   ```bash
-   cd ~/code/jz-skills && ./deploy/sync-all.sh hermes
-   ```
+### Bidirectional Sync Workflow
 
-3. **On other machines:** `cd ~/code/jz-skills && git pull && ./deploy/sync-all.sh <platform>`
+**Local Agent → GitHub (push changes up)**
+```bash
+cd ~/code/jz-skills
+./deploy/sync-back.sh --dry-run   # preview
+./deploy/sync-back.sh              # apply (Hermes → repo)
+git diff && git commit -am "描述改动" && git push
+```
 
-4. Update Obsidian documentation if one exists for this skill
+**GitHub → Local Agent (pull changes down)**
+```bash
+cd ~/code/jz-skills
+git pull && ./deploy/sync-all.sh hermes   # or: cc / pi / all
+```
+
+**Daily one-liners:**
+```bash
+git pull && ./deploy/sync-all.sh hermes           # before work
+./deploy/sync-back.sh && git commit -am "daily" && git push  # after work
+```
+
+### ⚠️ Sanitization Before Push
+
+**Run before every `git push` to a public repo.** Check for:
+
+- [ ] No `/Users/<username>/` absolute paths (use `~/` instead)
+- [ ] No GitHub account names or token scopes in docs/tests
+- [ ] No email addresses, API keys, or internal IPs
+- [ ] No Obsidian vault absolute paths
+
+```bash
+grep -rIn --include="*.md" -E "(/Users/[a-z]|gho_|sk-|192\.168|@foxmail)" . | grep -v .git/
+```
+
+Full sanitization guide + platform-specific sync details: `references/deployment-workflow.md`
+
+### After ANY update to this SKILL.md:
+
+1. **Commit to git repo** (canonical source)
+2. **Deploy to Hermes:** `cd ~/code/jz-skills && ./deploy/sync-all.sh hermes`
+3. **On other machines:** `git pull && ./deploy/sync-all.sh <platform>`
+4. Update Obsidian documentation if one exists
 5. `qmd update`
 6. Spot-check 2-3 profiles for SKILL.md presence

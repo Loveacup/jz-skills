@@ -7,7 +7,7 @@ tests after setup changes.
 ## Environment
 
 - Hermes default profile, macOS 26.2
-- `gh` CLI: authenticated via gh CLI
+- `gh` CLI: authenticated (Loveacup, token scopes: repo, read:org, gist, admin:public_key)
 - CodeGraph MCP: active
 - Exa MCP: active
 - Session model: gpt-5.5 (openai-codex)
