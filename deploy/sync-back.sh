@@ -37,6 +37,13 @@ sanitize_dir() {
     sed -i '' -E 's/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)[0-9]+\.[0-9]+/<internal IP redacted>/g' "$tmp" 2>/dev/null || \
     sed -i -E 's/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)[0-9]+\.[0-9]+/<internal IP redacted>/g' "$tmp"
 
+    # 4. API keys & tokens → <redacted>
+    #    Matches: gho_xxx, sk-xxx, hf_xxx, and KEY/TOKEN/SECRET=value patterns
+    sed -i '' -E 's/\b(gho|sk|sk-ant|hf)_[a-zA-Z0-9_-]{25,}/<API key redacted>/g' "$tmp" 2>/dev/null || \
+    sed -i -E 's/\b(gho|sk|sk-ant|hf)_[a-zA-Z0-9_-]{25,}/<API key redacted>/g' "$tmp"
+    sed -i '' -E 's/\b[A-Z_]{3,}(KEY|TOKEN|SECRET)\s*=\s*["'"'"']?[a-zA-Z0-9_\.\-]{20,}["'"'"']?/<API key redacted>/g' "$tmp" 2>/dev/null || \
+    sed -i -E 's/\b[A-Z_]{3,}(KEY|TOKEN|SECRET)\s*=\s*["'"'"']?[a-zA-Z0-9_\.\-]{20,}["'"'"']?/<API key redacted>/g' "$tmp"
+
     if ! cmp -s "$file" "$tmp"; then
       cp "$tmp" "$file"
       [ "$DRY_RUN" = false ] && echo "     🧹 sanitized: $(basename "$file")"
@@ -87,7 +94,7 @@ elif [ "$CHANGED" -eq 0 ]; then
   echo "✅ No changes — repo is up to date."
 else
   echo "✅ $CHANGED skill(s) synced back."
-  [ "$SANITIZE" = true ] && echo "   🧹 Auto-sanitized: home paths → ~/, emails → redacted, private IPs → redacted"
+  [ "$SANITIZE" = true ] && echo "   🧹 Auto-sanitized: home paths → ~/, emails → redacted, private IPs → redacted, API keys → redacted"
   echo ""
   echo "  cd $REPO_ROOT && git diff && git commit -am 'sync back' && git push"
 fi
