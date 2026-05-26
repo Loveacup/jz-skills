@@ -228,17 +228,25 @@ A passing skill scores ≥4 on all dimensions.
 
 ## Deployment & Sync
 
+All skills now live in the **jz-skills git repo** as canonical source of truth:
+`https://github.com/Loveacup/jz-skills`
+
 After ANY update to this SKILL.md:
 
-1. Sync to ALL Hermes profiles (dynamic discovery):
+1. **Commit to git repo** (canonical source):
    ```bash
-   for prof in $(ls -d ~/.hermes/profiles/*/ 2>/dev/null | xargs -n1 basename); do
-     dst=~/.hermes/profiles/$prof/skills/governance/skill-authoring
-     [ -d "$dst" ] && cp -r "$dst" ~/.hermes/profiles/$prof/backups/skill-authoring-$(date +%Y%m%d_%H%M%S)
-     rm -rf "$dst"
-     cp -r ~/.hermes/skills/governance/skill-authoring "$dst"
-   done
+   cd ~/code/jz-skills
+   git add -A && git commit -m "update skill-authoring: <what changed>"
+   git push origin main
    ```
-2. Update Obsidian documentation if one exists for this skill
-3. `qmd update`
-4. Spot-check 2-3 profiles for SKILL.md presence
+
+2. **Deploy to Hermes** (local → profiles):
+   ```bash
+   cd ~/code/jz-skills && ./deploy/sync-all.sh hermes
+   ```
+
+3. **On other machines:** `cd ~/code/jz-skills && git pull && ./deploy/sync-all.sh <platform>`
+
+4. Update Obsidian documentation if one exists for this skill
+5. `qmd update`
+6. Spot-check 2-3 profiles for SKILL.md presence
