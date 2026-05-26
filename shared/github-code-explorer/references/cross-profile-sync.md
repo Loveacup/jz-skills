@@ -23,8 +23,8 @@ from pathlib import Path
 import shutil
 from datetime import datetime
 
-profiles_root = Path('/Users/alexcai/.hermes/profiles')
-skill_src = Path('/Users/alexcai/.hermes/skills/github/github-code-explorer')
+profiles_root = Path('~/.hermes/profiles')
+skill_src = Path('~/.hermes/skills/github/github-code-explorer')
 stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
 for prof in sorted(p for p in profiles_root.iterdir() if p.is_dir()):
@@ -46,7 +46,7 @@ for prof in sorted(p for p in profiles_root.iterdir() if p.is_dir()):
 ```python
 from pathlib import Path
 
-profiles_root = Path('/Users/alexcai/.hermes/profiles')
+profiles_root = Path('~/.hermes/profiles')
 missing = []
 for prof in sorted(p for p in profiles_root.iterdir() if p.is_dir()):
     skill = prof / 'skills/github/github-code-explorer/SKILL.md'

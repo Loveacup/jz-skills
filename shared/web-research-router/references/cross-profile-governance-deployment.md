@@ -44,8 +44,8 @@ Copy the default profile skill to profile-local skill trees:
 from pathlib import Path
 import shutil, datetime
 
-src = Path('/Users/alexcai/.hermes/skills/research/web-research-router')
-profiles_root = Path('/Users/alexcai/.hermes/profiles')
+src = Path('~/.hermes/skills/research/web-research-router')
+profiles_root = Path('~/.hermes/profiles')
 stamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 
 for prof in sorted(p for p in profiles_root.iterdir() if p.is_dir()):
@@ -85,7 +85,7 @@ Useful verification shape:
 from pathlib import Path
 import subprocess, sys
 
-profiles_root = Path('/Users/alexcai/.hermes/profiles')
+profiles_root = Path('~/.hermes/profiles')
 missing = []
 stale = []
 compile_fail = []

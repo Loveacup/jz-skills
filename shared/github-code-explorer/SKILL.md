@@ -412,7 +412,7 @@ rm -rf /tmp/explore-repo
    ```
    This auto-scales — new profiles are picked up without code changes.
 
-2. **Sync Obsidian documentation** — update `/Users/alexcai/Documents/Obsidian/AlexCai/00-Inbox/工具制作_Hermes检索总控与GitHub源码探索_三省六部体系_20260526.md`:
+2. **Sync Obsidian documentation** — update `~/Documents/Obsidian/AlexCai/00-Inbox/工具制作_Hermes检索总控与GitHub源码探索_三省六部体系_20260526.md`:
    - Bump version history table
    - Update one-line summary if scope changed
    - Bump `modified` timestamp

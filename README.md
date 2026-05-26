@@ -40,11 +40,55 @@ cd ~/jz-skills && ./deploy/sync-all.sh all
 ./deploy/sync-all.sh pi
 ```
 
-## Daily Workflow
+## Sync Workflow
 
-1. Edit skills in `shared/` or `hermes/` / `cc/` / `pi/`
-2. `git commit && git push`
-3. On each machine: `git pull && ./deploy/sync-all.sh all`
+jz-skills supports **bidirectional sync** between GitHub and your local agents.
+
+```
+ ┌─────────────────────────────────────┐
+ │        GitHub (source of truth)     │
+ │    github.com/Loveacup/jz-skills    │
+ └──────────┬──────────────┬───────────┘
+            │ git pull     │ git pull
+            ▼              ▼
+     ┌──────────┐   ┌──────────┐
+     │ Mac mini │   │  MacBook │
+     │          │   │          │
+     │ Hermes   │   │ CC       │
+     │ sync-all │   │ sync-all │
+     └──────────┘   └──────────┘
+```
+
+### Local Agent → GitHub (push changes up)
+
+When you modify a skill directly in `~/.hermes/skills/` (via agent or manual edit):
+
+```bash
+./deploy/sync-back.sh --dry-run   # preview what changed
+./deploy/sync-back.sh              # apply (Hermes → repo)
+git diff                           # review
+git commit -am "描述改动"
+git push
+```
+
+### GitHub → Local Agent (pull changes down)
+
+When another machine pushed updates, or you edited directly in the repo:
+
+```bash
+git pull
+./deploy/sync-all.sh hermes   # or: cc / pi / all
+```
+
+### One-Line Daily
+
+```bash
+# Before work: pull latest
+git pull && ./deploy/sync-all.sh hermes
+
+# After work: push changes
+./deploy/sync-back.sh && git commit -am "daily sync" && git push
+```
 
 ## Skill Format
 

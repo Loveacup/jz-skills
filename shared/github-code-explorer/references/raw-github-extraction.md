@@ -39,4 +39,4 @@ Findings from 2026-05-26 session testing which tools can reliably fetch raw GitH
 
 - `mcp_exa_web_fetch_exa` — Exa MCP fetch tool
 - `web_extract` — blocked for GitHub, use only for non-GitHub URLs
-- `gh` — GitHub CLI (logged in as Loveacup, token scopes: admin:public_key, gist, read:org, repo)
+- `gh` — GitHub CLI (logged in via gh CLI)
