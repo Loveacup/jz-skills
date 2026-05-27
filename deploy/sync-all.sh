@@ -63,7 +63,7 @@ sync_profiles() {
   # regent (监国太子)
   pd=~/.hermes/profiles/regent/skills
   mkdir -p "$pd"
-  for skill in kanban-orchestrator kanban-worker kanban-gate 6m-smoke-test morning-news-briefing claude-code; do
+  for skill in kanban-orchestrator kanban-worker kanban-gate 6m-smoke-test morning-news-briefing; do
     [ -d "$REPO_ROOT/hermes-3S6M-profiles/regent/$skill" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/regent/$skill" "$pd/"
   done
 
