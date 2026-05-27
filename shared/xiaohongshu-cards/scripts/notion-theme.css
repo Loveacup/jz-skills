@@ -1,0 +1,92 @@
+/*
+ * Xiaohongshu Card — Notion Theme
+ * 1080×1440px (3:4 portrait), optimized for mobile reading
+ *
+ * Usage: Copy this <style> block into slides.html, or reference as design system.
+ * Each slide is a <div class="slide" id="slide-NN"> with inner content.
+ */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #FFFFFF;
+  --bg2: #F7F6F3;
+  --text: #37352F;
+  --text2: #787774;
+  --blue: #2383E2;
+  --blue-bg: #E8F0FE;
+  --green: #0F7B6C;
+  --green-bg: #DBEDDB;
+  --red: #E03E3E;
+  --red-bg: #FBE4E4;
+  --yellow: #DFAB01;
+  --yellow-bg: #FBF3DB;
+  --purple: #9065B0;
+  --purple-bg: #EDE4F0;
+  --orange: #D9730D;
+  --orange-bg: #FAEBDD;
+  --border: #E9E9E7;
+}
+
+body {
+  font-family: 'Noto Sans SC', -apple-system, 'Helvetica Neue', sans-serif;
+  background: var(--bg2);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== Slide Container ===== */
+.slide {
+  width: 1080px;
+  height: 1440px;
+  background: var(--bg);
+  padding: 50px 50px 46px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ===== Typography ===== */
+.t1 { font-size: 58px; font-weight: 800; color: var(--text); line-height: 1.18; letter-spacing: -0.5px; margin-bottom: 12px; }
+.t2 { font-size: 30px; color: var(--text2); line-height: 1.5; margin-bottom: 26px; }
+.t3 { font-size: 34px; font-weight: 700; color: var(--text); line-height: 1.3; margin-bottom: 14px; }
+.p  { font-size: 32px; color: var(--text); line-height: 1.65; }
+.ps { font-size: 28px; color: var(--text); line-height: 1.6; }
+.pm { font-size: 26px; color: var(--text2); line-height: 1.55; }
+.b  { font-weight: 700; }
+.blue   { color: var(--blue); }
+.green  { color: var(--green); }
+.red    { color: var(--red); }
+.purple { color: var(--purple); }
+.orange { color: var(--orange); }
+
+/* ===== Callout Blocks ===== */
+.co        { display:flex; align-items:flex-start; gap:16px; background:var(--bg2);       border-radius:6px; padding:28px 32px; margin-bottom:16px; }
+.co-blue   { display:flex; align-items:flex-start; gap:16px; background:var(--blue-bg);   border-radius:6px; padding:28px 32px; margin-bottom:16px; }
+.co-green  { display:flex; align-items:flex-start; gap:16px; background:var(--green-bg);  border-radius:6px; padding:28px 32px; margin-bottom:16px; }
+.co-red    { display:flex; align-items:flex-start; gap:16px; background:var(--red-bg);    border-radius:6px; padding:28px 32px; margin-bottom:16px; }
+.co-yellow { display:flex; align-items:flex-start; gap:16px; background:var(--yellow-bg); border-radius:6px; padding:28px 32px; margin-bottom:16px; }
+.co-purple { display:flex; align-items:flex-start; gap:16px; background:var(--purple-bg); border-radius:6px; padding:28px 32px; margin-bottom:16px; }
+.co-orange { display:flex; align-items:flex-start; gap:16px; background:var(--orange-bg); border-radius:6px; padding:28px 32px; margin-bottom:16px; }
+.ic { font-size: 36px; line-height: 1; flex-shrink: 0; margin-top: 2px; }
+
+/* ===== Card (bordered block) ===== */
+.card { background: var(--bg); border: 1.5px solid var(--border); border-radius: 6px; padding: 30px 34px; margin-bottom: 16px; }
+
+/* ===== Quote ===== */
+.qt { border-left: 4px solid var(--text); padding: 6px 0 6px 26px; margin-bottom: 16px; }
+
+/* ===== Tag ===== */
+.tag { display: inline-block; font-size: 26px; font-weight: 500; padding: 8px 20px; border-radius: 4px; margin: 0 8px 8px 0; }
+
+/* ===== Grid Layouts ===== */
+.g2  { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+.g3  { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+
+/* ===== Step Number ===== */
+.sn { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px; background: var(--blue); color: white; font-size: 24px; font-weight: 700; border-radius: 8px; margin-right: 14px; flex-shrink: 0; }
+
+/* ===== Big Metric ===== */
+.met { font-size: 54px; font-weight: 800; line-height: 1.1; letter-spacing: -1.5px; }
+
+/* ===== Divider ===== */
+.div { border: 0; border-top: 1.5px solid var(--border); margin: 14px 0; }
