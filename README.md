@@ -6,7 +6,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/skills-19-blue" alt="19 skills">
-  <img src="https://img.shields.io/badge/profiles-4%20三省六部-orange" alt="4 profile types">
+  <img src="https://img.shields.io/badge/profiles-15%20三省六部-orange" alt="15 profiles">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
   <img src="https://img.shields.io/badge/license-MIT-brightgreen" alt="MIT license">
@@ -25,6 +25,7 @@
 - [Structure · 结构](#structure--结构)
 - [Quick Start · 快速开始](#quick-start--快速开始)
 - [Sync Workflow · 同步流程](#sync-workflow--同步流程)
+- [三省六部多智能体体系](#三省六部多智能体体系)
 - [三省六部 Profile Skills](#三省六部-profile-skills)
 - [Pi Skills · Windows 端技能](#pi-skills--windows-端技能)
 - [Skill Format · 技能格式](#skill-format--技能格式)
@@ -148,6 +149,43 @@ git pull && ./deploy/sync-all.sh hermes
 # Evening: push changes · 晚上推变更
 ./deploy/sync-back.sh && git commit -am "daily sync" && git push
 ```
+
+---
+
+## 三省六部多智能体体系
+
+**监国三省六部制 Agent 架构 (Regent 3S6M Architecture)** — 面向复杂任务的多 Agent 治理体系，借鉴唐代三省六部制分权思想。
+
+> 用户授权，监国统筹；中书拟案，门下封驳，尚书派工；六部分职，御史监察，史馆留痕。
+
+**核心切分**：中书能想不能干、门下能驳不能干、尚书能派不能改目标、六部能办不能越权、御史能查不参与执行、史馆能记不制造事实、监国能统筹但重大事项请示用户。
+
+### 部门 · 15 Profiles
+
+| 三省 · 3 Departments | Profile | 职能 |
+|:---|:---|:---|
+| 中书省 | `planner` | 拟制方案 |
+| 门下省 | `reviewer` | 封驳审核 |
+| 尚书省 | `shangshu` | 派工调度 |
+
+| 六部 · 6 Ministries | Profile | 职能 |
+|:---|:---|:---|
+| 兵部 | `engineer` | 代码实现、架构、重构 |
+| 工部 | `gongbu` | 基础设施、部署、监控 |
+| 户部 | `budget` | 数据搜索、统计、报表 |
+| 礼部 | `protocol` | 文档编制、PDF 渲染 |
+| 刑部 | `tester` | 代码审查、测试、安全 |
+| 吏部 | `registry` | Agent 管理、培训 |
+
+| 独立机构 · Independent | Profile | 职能 |
+|:---|:---|:---|
+| 监国太子 | `regent` | 总揽仲裁 |
+| 御史台 | `auditor` | 独立审计 |
+| 史馆 | `archivist` | 全程归档 |
+| 将作监 | `jiangzuojian` | 外聘工程专家 |
+| 翰林院 | `hanlinyuan` | 知识研究 |
+
+> v0.13 · 15/15 profiles active · 六部冒 smoke test 全线闭环 (16min) · [架构方案 →](https://github.com/Loveacup/jz-skills)
 
 ---
 
