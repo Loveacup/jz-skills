@@ -63,7 +63,7 @@ Bidirectional sync between GitHub and local agents · GitHub ↔ 本地双向同
 # 📤 Push: local changes → GitHub (auto-sanitized · 自动脱敏)
 ./deploy/sync-back.sh --dry-run   # 👀 preview · 预览
 ./deploy/sync-back.sh             # ✅ apply (strips home paths, emails, IPs, API keys)
-git diff && git commit -am "sync: <what changed>" && git push
+git diff && git add <changed skills> && git commit -m "sync: <what changed>" && git push
 
 # 📥 Pull: GitHub → local
 git pull && ./deploy/sync-all.sh hermes
