@@ -56,6 +56,8 @@ Delegate coding tasks to Claude Code CLI via print mode or interactive tmux sess
 6. **超时后先检查产物再重试** — CC 可能已写了部分文件但超时被截断。检查输出路径、文件列表、transcript，别重复劳动。
 7. **不要杀慢会话** — CC 在做多步工作。用 `capture-pane` 检查进度，确认卡死（多轮无工具调用 + 无 prompt）才 `Ctrl+C`。
 8. **清理一次性 tmux 会话** — 只保留长会话。用完就 `tmux kill-session`，避免泄漏。
+9. **⚡ 始终使用 bypass permissions 模式** — tmux 启动后立即 `Shift+Tab` 切换到 `bypass permissions on`（标题栏显示 `⏵⏵ bypass permissions on`）。此模式下 CC 不会弹出权限确认对话框，避免阻塞。print mode 加 `--dangerously-skip-permissions`。
+10. **📡 tmux 模式持续汇报进度** — 发送任务给 CC 后，每 30-60 秒 polling `capture-pane`，向用户汇报：当前正在做什么（最后一条工具调用/输出）、是否有错误、是否完成。不要沉默等待——用户需要知道 CC 在干活。
 
 ## 🚀 Prerequisites & Smoke Test
 
@@ -84,16 +86,76 @@ claude -p 'Fix the auth bug in src/auth.py' \
 ## 🖥️ Interactive Mode — Multi-Turn via tmux
 
 ```bash
-# 启动或复用
+# 1. 启动或复用长会话
 tmux new-session -d -s hermes-claude-longterm -x 140 -y 40
 tmux send-keys -t hermes-claude-longterm 'cd /path/to/project && claude' Enter
 
-# 发送任务
+# 2. ⚡ 切换到 bypass permissions 模式（必须）
+sleep 3
+tmux send-keys -t hermes-claude-longterm Shift-Tab
+# 确认标题栏显示：⏵⏵ bypass permissions on
+
+# 3. 发送任务
 tmux send-keys -t hermes-claude-longterm 'Refactor auth to use JWT' Enter
 
-# 监控
-sleep 15 && tmux capture-pane -t hermes-claude-longterm -p -S -50
+# 4. 📡 持续监控进度（见下方 Progress Reporting）
 ```
+
+### ⚡ Bypass Permissions（启动后必须执行）
+
+CC 默认权限模式会弹出确认对话框，阻塞自动化流程。启动后必须立即切换到 bypass：
+
+```bash
+# 新建会话后
+sleep 3  # 等 CC 初始化完成
+tmux send-keys -t hermes-claude-longterm Shift-Tab
+
+# 验证：标题栏应显示 ⏵⏵ bypass permissions on
+tmux capture-pane -t hermes-claude-longterm -p | grep "bypass permissions on"
+```
+
+如果已有长会话，检查当前模式：
+```bash
+tmux capture-pane -t hermes-claude-longterm -p -S -5 | grep -o "bypass permissions \(on\|off\)"
+```
+如果是 `off`，发送 `Shift-Tab` 切换。
+
+### 📡 Progress Reporting（持续汇报进度）
+
+**tmux 模式下必须主动汇报，不要沉默等待。**
+
+**汇报节奏：**
+- 发送任务后 15 秒 → 首次检查
+- 之后每 30-60 秒 → 轮询一次
+- 看到关键信号 → 立即汇报（不等到下次轮询）
+
+**检查方法：**
+```bash
+# 取最后 60 行，看 CC 在做什么
+tmux capture-pane -t hermes-claude-longterm -p -S -60
+```
+
+**关键信号识别：**
+
+| 信号 | 含义 | 动作 |
+|------|------|------|
+| `●` 前缀 + 工具名 | CC 正在调用工具 | 汇报："CC 正在 [工具名]：[简短描述]" |
+| `❯` 前缀（最后一行） | CC 等待输入/完成 | 检查是否已完成任务。如果任务结束 → 汇报完成 |
+| `Error` / `Traceback` | 出错 | 立即汇报错误内容 |
+| `bypass permissions off` | 权限模式丢失 | 立即发 `Shift-Tab` 恢复 |
+| 多轮无 `●` 也无 `❯` | 可能卡死 | 等待 2 分钟。仍无变化 → `Ctrl+C` 中断 |
+
+**汇报模板：**
+```
+📡 CC 进度 [已运行 X 分钟]
+  ● 正在：<最后一条工具调用>
+  ✅ 已完成：<已完成的里程碑>
+  ⚠️ <任何异常>
+```
+
+**结束信号：** 当 `capture-pane` 最后一行是 `❯` 且上方不再有 `●` 工具调用时，CC 已完成当前任务。汇报最终结果并询问用户是否继续。
+
+> 💡 用户在 TG 收到进度汇报后可能回复新指令。收到用户消息后立即 `capture-pane` 检查 CC 是否空闲（`❯`），空闲则发送新指令。
 
 ### ⚠️ PTY 对话框处理（关键）
 
@@ -172,9 +234,11 @@ claude -p 'Review this PR' --from-pr 42 --max-turns 10
 
 ## ✅ Verification Checklist
 
+- [ ] Bypass permissions：tmux 会话是否切换到 `bypass permissions on`？print mode 是否加了 `--dangerously-skip-permissions`？
 - [ ] Print mode：是否设置了 `--max-turns` 和 `workdir`？
 - [ ] Print mode：长任务是否用了 `background=true, notify_on_complete=true`？
 - [ ] Interactive：是否处理了 PTY 对话框（Dialog 2 = Down+Enter）？
+- [ ] Progress：tmux 模式下是否每 30-60 秒 polling `capture-pane` 并向用户汇报进度？
 - [ ] Agent team：是否用了 CC 原生 team 机制而非普通 Task subagent？
 - [ ] 超时/错误后：是否先检查了产物再重试？
 - [ ] 完成后：一次性 tmux session 是否清理了？
