@@ -20,7 +20,7 @@ sync_hermes() {
   cp -r "$REPO_ROOT/shared/voice-to-markdown-workflow"  "$base/productivity/"
 
   # Hermes-specific skills
-  mkdir -p "$base/research" "$base/productivity" "$base/governance"
+  mkdir -p "$base/research" "$base/productivity" "$base/governance" "$base/autonomous-ai-agents"
   cp -r "$REPO_ROOT/hermes/web-research-router"             "$base/research/"
   cp -r "$REPO_ROOT/hermes/github-code-explorer"            "$base/github/"
   cp -r "$REPO_ROOT/hermes/tradingagents"                   "$base/research/"
@@ -31,12 +31,13 @@ sync_hermes() {
   cp -r "$REPO_ROOT/hermes/xhs-crawler"                     "$base/"
   cp -r "$REPO_ROOT/hermes/calendar-manager"               "$base/"
   cp -r "$REPO_ROOT/hermes/de-slop"                        "$base/"
+  cp -r "$REPO_ROOT/hermes/claude-code"                    "$base/autonomous-ai-agents/"
 
   # Sync to all profiles
   echo "→ Syncing to profiles..."
   for prof in $(ls -d ~/.hermes/profiles/*/ 2>/dev/null | xargs -n1 basename); do
     local pd=~/.hermes/profiles/$prof/skills
-    mkdir -p "$pd/research" "$pd/github" "$pd/governance" "$pd/productivity"
+    mkdir -p "$pd/research" "$pd/github" "$pd/governance" "$pd/productivity" "$pd/autonomous-ai-agents"
     cp -r "$REPO_ROOT/shared/grill-with-docs"        "$pd/governance/"
     cp -r "$REPO_ROOT/shared/skill-authoring"        "$pd/governance/"
     cp -r "$REPO_ROOT/hermes/web-research-router"             "$pd/research/"
@@ -46,6 +47,7 @@ sync_hermes() {
     cp -r "$REPO_ROOT/hermes/arxiv"                           "$pd/research/"
     cp -r "$REPO_ROOT/hermes/calendar-manager"               "$pd/"
     cp -r "$REPO_ROOT/hermes/de-slop"                        "$pd/"
+    cp -r "$REPO_ROOT/hermes/claude-code"                    "$pd/autonomous-ai-agents/"
     cp -r "$REPO_ROOT/hermes-3S6M-profiles/common/three-provinces-constitution"  "$pd/governance/"
     cp -r "$REPO_ROOT/hermes-3S6M-profiles/common/financial-research-agents"     "$pd/research/"
   done

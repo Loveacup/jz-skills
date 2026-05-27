@@ -63,6 +63,7 @@ PAIRS=(
   "hermes/xhs-crawler|xhs-crawler"
   "hermes/calendar-manager|calendar-manager"
   "hermes/de-slop|de-slop"
+  "hermes/claude-code|autonomous-ai-agents/claude-code"
 
   # === hermes-3S6M-profiles/common ===
   "hermes-3S6M-profiles/common/three-provinces-constitution|governance/three-provinces-constitution"
