@@ -89,31 +89,31 @@ cd ~/code/jz-skills && ./deploy/sync-all.sh all
 
 Deployed to Hermes + Claude Code + Pi · 三端同步。
 
-| Skill | Purpose · 用途 |
-|:---|:---|
-| 🐙 [`github`](shared/github/) | Full GitHub operations: auth, issues, PR, code review, exploration, README — 7 skills consolidated |
-| 📋 [`grill-with-docs`](shared/grill-with-docs/) | Design review against governance docs + ADR · 设计审查 |
-| ✍️ [`skill-authoring`](shared/skill-authoring/) | Skill compliance: 11-step flow, 7-dim scoring, deployment-grounded audit · 合规创作 |
-| 📄 [`pdf`](shared/pdf/) | PDF manipulation: OCR, extract, edit, convert · PDF 处理 |
-| 📝 [`strategic-insight-longform`](shared/strategic-insight-longform/) | Long-form strategy analysis with multi-agent pipeline · 战略洞察长文 |
-| 🎙️ [`voice-to-markdown-workflow`](shared/voice-to-markdown-workflow/) | Speech/audio transcript → structured markdown · 语音转文稿 |
+| Skill | Purpose · 用途 | Refs · 引用 |
+|:---|:---|:---|
+| 🐙 [`github`](shared/github/) | Full GitHub operations: auth, issues, PR, code review, exploration, README — 7 skills consolidated | ← `web-research-router` `grill-with-docs` `skill-authoring` |
+| 📋 [`grill-with-docs`](shared/grill-with-docs/) | Design review against governance docs + ADR · 设计审查 | → `web-research-router` `github` |
+| ✍️ [`skill-authoring`](shared/skill-authoring/) | Skill compliance: 11-step flow, 7-dim scoring, deployment-grounded audit · 合规创作 | → `grill-with-docs` `web-research-router` `github` |
+| 📄 [`pdf`](shared/pdf/) | PDF manipulation: OCR, extract, edit, convert · PDF 处理 | |
+| 📝 [`strategic-insight-longform`](shared/strategic-insight-longform/) | Long-form strategy analysis with multi-agent pipeline · 战略洞察长文 | |
+| 🎙️ [`voice-to-markdown-workflow`](shared/voice-to-markdown-workflow/) | Speech/audio transcript → structured markdown · 语音转文稿 | |
 
 ### ⚙️ Layer 2 — `hermes/` · 平台通用
 
 Deployed to main Hermes + all 15 profiles. Not tied to 三省六部 governance.
 
-| Skill | Purpose · 用途 |
-|:---|:---|
-| 🔍 [`web-research-router`](hermes/web-research-router/) | Search routing: Exa / Tavily / Brave / arXiv / GitHub · 检索总控 |
-| 📈 [`tradingagents`](hermes/tradingagents/) | A-share / market analysis via TradingAgents · 交易分析 |
-| 🧠 [`llm-wiki`](hermes/llm-wiki/) | LLM knowledge base builder (Karpathy's wiki) · LLM 知识库 |
-| 📚 [`arxiv`](hermes/arxiv/) | Academic paper search and retrieval · 论文检索 |
-| 📔 [`auto-diary`](hermes/auto-diary/) | Automated daily diary + weekly summary generation · 日记生成 |
-| 📺 [`bilibili-video-analyzer`](hermes/bilibili-video-analyzer/) | Bilibili video deep analysis with subtitle/transcription · B站视频分析 |
-| 📕 [`xhs-crawler`](hermes/xhs-crawler/) | Xiaohongshu (RED) content extraction via CDP · 小红书爬虫 |
-| 📅 [`calendar-manager`](hermes/calendar-manager/) | Smart calendar & reminders management for family · 智能日历管理 |
-| ✂️ [`de-slop`](hermes/de-slop/) | Bilingual EN/ZH AI writing detector & humanizer · 中英双语去 AI 味 |
-| 🤖 [`claude-code`](hermes/claude-code/) | Orchestrate Claude Code CLI: print mode, interactive tmux, agent team · CC 编排 |
+| Skill | Purpose · 用途 | Refs · 引用 |
+|:---|:---|:---|
+| 🔍 [`web-research-router`](hermes/web-research-router/) | Search routing: Exa / Tavily / Brave / arXiv / GitHub · 检索总控 | → `github` ← `grill-with-docs` `skill-authoring` |
+| 📈 [`tradingagents`](hermes/tradingagents/) | A-share / market analysis via TradingAgents · 交易分析 | |
+| 🧠 [`llm-wiki`](hermes/llm-wiki/) | LLM knowledge base builder (Karpathy's wiki) · LLM 知识库 | |
+| 📚 [`arxiv`](hermes/arxiv/) | Academic paper search and retrieval · 论文检索 | |
+| 📔 [`auto-diary`](hermes/auto-diary/) | Automated daily diary + weekly summary generation · 日记生成 | |
+| 📺 [`bilibili-video-analyzer`](hermes/bilibili-video-analyzer/) | Bilibili video deep analysis with subtitle/transcription · B站视频分析 | |
+| 📕 [`xhs-crawler`](hermes/xhs-crawler/) | Xiaohongshu (RED) content extraction via CDP · 小红书爬虫 | |
+| 📅 [`calendar-manager`](hermes/calendar-manager/) | Smart calendar & reminders management for family · 智能日历管理 | |
+| ✂️ [`de-slop`](hermes/de-slop/) | Bilingual EN/ZH AI writing detector & humanizer · 中英双语去 AI 味 | |
+| 🤖 [`claude-code`](hermes/claude-code/) | Orchestrate Claude Code CLI: print mode, interactive tmux, agent team · CC 编排 | |
 
 ### 🏯 Layer 3a — `hermes-3S6M-profiles/common/` · 全部门通用
 
@@ -121,26 +121,26 @@ Deployed to all 15 profiles. Foundation of the governance system · 治理体系
 
 | Skill | Purpose · 用途 |
 |:---|:---|
-| 📜 `three-provinces-constitution` | 三省六部 governance constitution v3.0 — task routing, escalation, handoff |
-| 💹 `financial-research-agents` | Financial research via Kanban multi-profile orchestration |
+| 📜 `three-provinces-constitution` | 三省六部 governance constitution v3.0 — task routing, escalation, handoff · 三省六部治理宪法 — 任务路由、升级、交接 |
+| 💹 `financial-research-agents` | Financial research via Kanban multi-profile orchestration · 金融研究多部门调度，Kanban 多 profile 编排 |
 
 ### 🏷️ Layer 3b — `hermes-3S6M-profiles/<dept>/` · 部门专属
 
 Deployed only to matching profile · 仅部署到对应部门。
 
-| Department · 部门 | Profile | Skills |
-|:---|:---|:---|
-| 👑 监国太子 | `regent` | `kanban-orchestrator`, `kanban-worker`, `kanban-gate`, `6m-smoke-test`, `morning-news-briefing` |
-| 🛠️ 工部 | `gongbu` | `disk-cleanup`, `infra-health-check`, `infra-monitoring`, `surge-gateway`, `agent-observability` |
-| ⚖️ 刑部 | `tester` | `code-review-toolkit`, `agent-security-audit` |
-| 🔧 将作监 | `jiangzuojian` | `delivery-gate`, `specialist-engineer` |
-| 📡 尚书省 | `shangshu` | [`a2a-protocol`](https://github.com/Loveacup/hermes-a2a) ← A2A 互通 |
-| 🎭 礼部 | `protocol` | `md-to-pdf` |
-| 🔎 御史台 | `auditor` | `agent-audit-evaluation` |
-| 📖 史馆 | `archivist` | `agent-memory-manager` |
-| 💰 户部 | `budget` | `agent-cost-manager` |
-| 👥 吏部 | `registry` | `agent-registry` |
-| 🎓 翰林院 | `hanlinyuan` | `deep-research-agent` |
+| Department · 部门 | Profile | Skills | Role · 职责 |
+|:---|:---|:---|:---|
+| 👑 监国太子 | `regent` | `kanban-orchestrator` `kanban-worker` `kanban-gate` `6m-smoke-test` `morning-news-briefing` | 总揽仲裁、任务编排、六部巡检、晨报生成 · Oversight & orchestration |
+| 🛠️ 工部 | `gongbu` | `disk-cleanup` `infra-health-check` `infra-monitoring` `surge-gateway` `agent-observability` | 基础设施运维、部署监控、网关管理 · Infrastructure & monitoring |
+| ⚖️ 刑部 | `tester` | `code-review-toolkit` `agent-security-audit` | 代码审查、测试、安全审计 · Code review & security |
+| 🔧 将作监 | `jiangzuojian` | `delivery-gate` `specialist-engineer` | 交付把关、专家评审 · Delivery gate & expert review |
+| 📡 尚书省 | `shangshu` | [`a2a-protocol`](https://github.com/Loveacup/hermes-a2a) | Agent 间互通协议、任务派发 · [A2A interop](https://github.com/Loveacup/hermes-a2a) |
+| 🎭 礼部 | `protocol` | `md-to-pdf` | 文档编制、PDF 渲染 · Document formatting |
+| 🔎 御史台 | `auditor` | `agent-audit-evaluation` | 独立审计、合规评估 · Audit & compliance |
+| 📖 史馆 | `archivist` | `agent-memory-manager` | 全程归档、记忆管理 · Archival & memory |
+| 💰 户部 | `budget` | `agent-cost-manager` | 数据搜索、成本管理 · Data & cost tracking |
+| 👥 吏部 | `registry` | `agent-registry` | Agent 注册、培训管理 · Registry & training |
+| 🎓 翰林院 | `hanlinyuan` | `deep-research-agent` | 深度研究、知识探索 · Deep research |
 
 ### 🪟 Layer 4 — `pi/` · Windows 专属
 
