@@ -13,7 +13,9 @@ metadata:
 
 # Web Research Router v3.0
 
-**Progressive-disclosure search routing.** This file is ~150 lines. Detailed mode descriptions, query patterns, academic lane policy, and schema live in `references/` — loaded only when needed.
+**Progressive-disclosure search routing.** This file is ~130 lines. Detailed mode descriptions, query patterns, academic lane policy, and schema live in `references/` — loaded only when needed.
+
+> ⚙️ **Tuning:** `CROSS_CHECK_DEPTH=1` (fast, single-source) to `3` (thorough, triple-verify). Default: `2`.
 
 ---
 
@@ -54,8 +56,8 @@ Before ANY public search, check: Hindsight (cross-session) → session_search (t
 
 Detailed mode instructions: `references/research-modes.md`
 
-### Step 3: Cross-check only when warranted
-Cross-check when: numbers, dates, prices, legal claims, attribution, SOTA claims, financial decisions, fast-changing news, suspicious claims.
+### Step 3: Cross-check only when warranted (respect `CROSS_CHECK_DEPTH`)
+Cross-check when: numbers, dates, prices, legal claims, attribution, SOTA claims, financial decisions, fast-changing news, suspicious claims. At depth 1, skip cross-check. At depth 2 (default), cross-check one source. At depth 3, triple-verify.
 
 ### Step 4: Fetch discipline
 Search first, fetch second. Fetch 1–3 high-signal URLs only. Prefer primary/official sources.
@@ -119,15 +121,15 @@ Full pitfalls (13 items): `references/common-pitfalls.md`
 
 ## ✅ Verification Checklist (RUN BEFORE RETURNING RESULTS)
 
-- [ ] Did I check local knowledge first (Hindsight/session/qmd/CodeGraph)?
-- [ ] Did I pick a research mode (discovery/grounding/research/academic/recovery)?
-- [ ] Did I use the right primary engine for that mode?
-- [ ] Did I cross-check important claims with a second source?
-- [ ] Did I fetch ≤3 high-signal URLs, not bulk-dump?
-- [ ] Did I separate confirmed facts from inference?
-- [ ] For GitHub URLs: did I skip `web_extract` and use Exa/gh instead?
+- [ ] CHECK: Local knowledge first (Hindsight/session/qmd/CodeGraph)?
+- [ ] CHECK: Picked a research mode (discovery/grounding/research/academic/recovery)?
+- [ ] CHECK: Used the right primary engine for that mode?
+- [ ] CHECK: Cross-checked important claims at the right depth (CROSS_CHECK_DEPTH)?
+- [ ] CHECK: Fetched ≤3 high-signal URLs, not bulk-dump?
+- [ ] CHECK: Separated confirmed facts from inference?
+- [ ] CHECK: For GitHub URLs — skipped `web_extract`, used Exa/gh instead?
 
-**If any box is unchecked, go back.**
+**Every box must honestly pass before returning results. If unchecked, go back.**
 
 ---
 

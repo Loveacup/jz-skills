@@ -237,6 +237,7 @@ Case studies: `references/slimming-case-studies.md` — strategic-insight-longfo
 | `references/example-web-research-router-v3.md` | Case study: web-research-router 500→146 line restructure |
 | `references/slimming-case-studies.md` | Case studies: strategic-insight-longform (513→130) + voice-to-markdown (349→133) |
 | `references/skill-evolution-research.md` | SkillEvolver + EmbodiSkill papers (2026-05): deployment-driven skill evolution |
+| `references/absorption-analysis.md` | When to absorb external inspiration vs when NOT to (AnySearch case study) |
 
 ---
 
@@ -255,7 +256,7 @@ Case studies: `references/slimming-case-studies.md` — strategic-insight-longfo
 - [ ] Did I accumulate ≥3 reflections before consolidating and revising (Step 10)?
 - [ ] If multi-profile: are Deployment & Sync rules embedded?
 
-**If any box is unchecked, fix it before deploying.**
+**Every box must honestly pass before deploying. If unchecked, fix it.**
 
 ---
 

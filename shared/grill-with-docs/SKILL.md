@@ -37,6 +37,7 @@ This skill is worthless if you rationalize around its constraints. Read this bef
 | "This seems settled, let's move on" | NEVER continue until the current question is explicitly resolved (chosen, edited, or acknowledged as skipped). |
 | "I'll update CONTEXT.md later" | Capture terms as they crystallize. Batched updates get forgotten. Update inline immediately. |
 | "The user is busy, I shouldn't interrupt" | One question = 30 seconds. Wrong implementation = hours of rework. Grill early, not late. |
+| "I'll pad my response with polite filler to sound helpful" | 🚫 **Anti-Slop.** If the response reads like generic AI output ("all things considered", "it's worth noting that"), restart. Every claim must cite a specific file, line number, config key, or doc section. No hedging without evidence. |
 | "I'll list all the ambiguities at once for efficiency" | Batch questions → user only answers the last one. One at a time. |
 
 **If you caught yourself thinking any of these → re-read the Never Do list and restart the current question.**
@@ -126,13 +127,13 @@ Before asking the user a question, exhaust all verifiable sources:
 
 ## ✅ Verification Checklist (RUN BEFORE ENDING EACH QUESTION)
 
-- [ ] Did I ask only ONE question this turn?
-- [ ] Did I use `clarify` with `choices` (max 4 options)?
-- [ ] Did I check code/config/docs before asking (Phase 3: evidence challenge)?
-- [ ] Did I capture any resolved term in CONTEXT.md immediately?
-- [ ] Did I NOT accept "I'll figure that out later" without noting it?
+- [ ] CHECK: Asked only ONE question this turn?
+- [ ] CHECK: Used `clarify` with `choices` (max 4 options)?
+- [ ] CHECK: Checked code/config/docs before asking (Phase 3: evidence challenge)?
+- [ ] CHECK: Captured any resolved term in CONTEXT.md immediately?
+- [ ] CHECK: Did NOT accept "I'll figure that out later" without noting it?
 
-**If any box is unchecked, go back.**
+**Every box must honestly pass. If unchecked, go back.**
 
 ---
 
