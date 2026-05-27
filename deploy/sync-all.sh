@@ -16,6 +16,8 @@ sync_hermes() {
   cp -r "$REPO_ROOT/shared/grill-with-docs"        "$base/governance/"
   cp -r "$REPO_ROOT/shared/skill-authoring"        "$base/governance/"
   cp -r "$REPO_ROOT/shared/pdf"                    "$base/productivity/"
+  cp -r "$REPO_ROOT/shared/strategic-insight-longform"  "$base/productivity/"
+  cp -r "$REPO_ROOT/shared/voice-to-markdown-workflow"  "$base/productivity/"
 
   # Hermes-specific skills
   mkdir -p "$base/research" "$base/productivity" "$base/governance"
@@ -26,8 +28,6 @@ sync_hermes() {
   cp -r "$REPO_ROOT/hermes/llm-wiki"                        "$base/research/"
   cp -r "$REPO_ROOT/hermes/arxiv"                           "$base/research/"
   cp -r "$REPO_ROOT/hermes/three-provinces-constitution"    "$base/governance/"
-  cp -r "$REPO_ROOT/hermes/strategic-insight-longform"      "$base/imported-claude/"
-  cp -r "$REPO_ROOT/hermes/voice-to-markdown-workflow"      "$base/imported-claude/"
   cp -r "$REPO_ROOT/hermes/auto-diary"                      "$base/"
   cp -r "$REPO_ROOT/hermes/bilibili-video-analyzer"         "$base/"
   cp -r "$REPO_ROOT/hermes/xhs-crawler"                     "$base/"
@@ -59,54 +59,54 @@ sync_profiles() {
   pd=~/.hermes/profiles/regent/skills
   mkdir -p "$pd"
   for skill in kanban-orchestrator kanban-worker kanban-gate 6m-smoke-test morning-news-briefing; do
-    [ -d "$REPO_ROOT/profiles/regent/$skill" ] && cp -r "$REPO_ROOT/profiles/regent/$skill" "$pd/"
+    [ -d "$REPO_ROOT/hermes-3S6M-profiles/regent/$skill" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/regent/$skill" "$pd/"
   done
 
   # gongbu (工部)
   pd=~/.hermes/profiles/gongbu/skills
   for skill in disk-cleanup infra-health-check infra-monitoring surge-gateway agent-observability; do
-    [ -d "$REPO_ROOT/profiles/gongbu/$skill" ] && cp -r "$REPO_ROOT/profiles/gongbu/$skill" "$pd/"
+    [ -d "$REPO_ROOT/hermes-3S6M-profiles/gongbu/$skill" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/gongbu/$skill" "$pd/"
   done
 
   # tester (刑部)
   pd=~/.hermes/profiles/tester/skills
   for skill in code-review-toolkit agent-security-audit; do
-    [ -d "$REPO_ROOT/profiles/tester/$skill" ] && cp -r "$REPO_ROOT/profiles/tester/$skill" "$pd/"
+    [ -d "$REPO_ROOT/hermes-3S6M-profiles/tester/$skill" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/tester/$skill" "$pd/"
   done
 
   # jiangzuojian (将作监)
   pd=~/.hermes/profiles/jiangzuojian/skills
   for skill in delivery-gate specialist-engineer; do
-    [ -d "$REPO_ROOT/profiles/jiangzuojian/$skill" ] && cp -r "$REPO_ROOT/profiles/jiangzuojian/$skill" "$pd/"
+    [ -d "$REPO_ROOT/hermes-3S6M-profiles/jiangzuojian/$skill" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/jiangzuojian/$skill" "$pd/"
   done
 
   # protocol (礼部)
   pd=~/.hermes/profiles/protocol/skills
-  [ -d "$REPO_ROOT/profiles/protocol/md-to-pdf" ] && cp -r "$REPO_ROOT/profiles/protocol/md-to-pdf" "$pd/"
+  [ -d "$REPO_ROOT/hermes-3S6M-profiles/protocol/md-to-pdf" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/protocol/md-to-pdf" "$pd/"
 
   # auditor (御史台)
   pd=~/.hermes/profiles/auditor/skills
-  [ -d "$REPO_ROOT/profiles/auditor/agent-audit-evaluation" ] && cp -r "$REPO_ROOT/profiles/auditor/agent-audit-evaluation" "$pd/"
+  [ -d "$REPO_ROOT/hermes-3S6M-profiles/auditor/agent-audit-evaluation" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/auditor/agent-audit-evaluation" "$pd/"
 
   # archivist (史馆)
   pd=~/.hermes/profiles/archivist/skills
-  [ -d "$REPO_ROOT/profiles/archivist/agent-memory-manager" ] && cp -r "$REPO_ROOT/profiles/archivist/agent-memory-manager" "$pd/"
+  [ -d "$REPO_ROOT/hermes-3S6M-profiles/archivist/agent-memory-manager" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/archivist/agent-memory-manager" "$pd/"
 
   # shangshu (尚书省)
   pd=~/.hermes/profiles/shangshu/skills
-  [ -d "$REPO_ROOT/profiles/shangshu/a2a-protocol" ] && cp -r "$REPO_ROOT/profiles/shangshu/a2a-protocol" "$pd/"
+  [ -d "$REPO_ROOT/hermes-3S6M-profiles/shangshu/a2a-protocol" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/shangshu/a2a-protocol" "$pd/"
 
   # budget (户部)
   pd=~/.hermes/profiles/budget/skills
-  [ -d "$REPO_ROOT/profiles/budget/agent-cost-manager" ] && cp -r "$REPO_ROOT/profiles/budget/agent-cost-manager" "$pd/"
+  [ -d "$REPO_ROOT/hermes-3S6M-profiles/budget/agent-cost-manager" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/budget/agent-cost-manager" "$pd/"
 
   # registry (吏部)
   pd=~/.hermes/profiles/registry/skills
-  [ -d "$REPO_ROOT/profiles/registry/agent-registry" ] && cp -r "$REPO_ROOT/profiles/registry/agent-registry" "$pd/"
+  [ -d "$REPO_ROOT/hermes-3S6M-profiles/registry/agent-registry" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/registry/agent-registry" "$pd/"
 
   # hanlinyuan (翰林院)
   pd=~/.hermes/profiles/hanlinyuan/skills
-  [ -d "$REPO_ROOT/profiles/hanlinyuan/deep-research-agent" ] && cp -r "$REPO_ROOT/profiles/hanlinyuan/deep-research-agent" "$pd/"
+  [ -d "$REPO_ROOT/hermes-3S6M-profiles/hanlinyuan/deep-research-agent" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/hanlinyuan/deep-research-agent" "$pd/"
 
   echo "  ✅ Profile skills (11 departments)"
 }

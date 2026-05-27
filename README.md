@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-34-blue" alt="34 skills">
+  <img src="https://img.shields.io/badge/skills-41-blue" alt="41 skills">
   <img src="https://img.shields.io/badge/profiles-15%20三省六部-orange" alt="15 profiles">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
@@ -41,44 +41,64 @@
 ```
 jz-skills/
 ├── shared/                    ← 跨平台通用技能 (Cross-platform)
-│   ├── web-research-router/        检索总控：Exa/Tavily/Brave/arXiv 路由
-│   ├── github-code-explorer/       GitHub 源码四层探索 (L1→L4)
 │   ├── grill-with-docs/            设计审查：对照 CONTEXT.md + ADR
-│   └── skill-authoring/            Skill 合规增强层
+│   ├── skill-authoring/            Skill 合规增强层
+│   ├── pdf/                        PDF 处理：OCR、提取、编辑
+│   ├── strategic-insight-longform/  战略洞察长文
+│   └── voice-to-markdown-workflow/  语音转Markdown
 │
 ├── hermes/                    ← Hermes 专属技能
+│   ├── web-research-router/        检索总控：Exa/Tavily/Brave/arXiv 路由
+│   ├── github-code-explorer/       GitHub 源码四层探索 (L1→L4)
 │   ├── three-provinces-constitution/ 三省六部通用治理宪章 v3.0
-│   ├── 6m-smoke-test/               六部运转冒烟测试
-│   ├── kanban-orchestrator/         多 Agent 编排与派工
-│   ├── kanban-worker/               Kanban Worker 手册
-│   ├── kanban-gate/                 制度硬拦截闸门
-│   ├── surge-gateway/               Surge 家庭网关管控
-│   ├── agent-security-audit/         Agent 安全审计(49条OWASP规则)
-│   ├── a2a-protocol/                 A2A 互通协议(Google→Linux基金会)
-│   ├── agent-observability/          多Agent可观测性(OTel追踪)
-│   ├── agent-memory-manager/         长期记忆管理(时间衰减+知识图谱)
-│   ├── agent-audit-evaluation/        御史台独立稽核(7维审计+回归检测)
-│   ├── agent-cost-manager/            户部API成本管控(硬预算+2,600模型)
-│   ├── agent-registry/                吏部Agent注册与能力发现
-│   ├── deep-research-agent/           翰林院深度研究(任务图+证据链)
-│   ├── specialist-engineer/           将作监外聘专家(8阶段聘用管道)
 │   ├── financial-research-agents/   三省六部金融研究
 │   ├── tradingagents/               A股/市场交易分析
 │   ├── llm-wiki/                    LLM 知识库构建
-│   └── arxiv/                       学术论文检索
+│   ├── arxiv/                       学术论文检索
+│   ├── auto-diary/                   自动化日记生成
+│   ├── bilibili-video-analyzer/     B站视频分析
+│   ├── xhs-crawler/                 小红书爬虫
 │
-├── profiles/                  ← 三省六部 profile 专属技能
-│   ├── gongbu/                     工部：基建运维 (disk-cleanup, health-check, monitoring)
-│   ├── jiangzuojian/               将作监：Kanban 投送门闸 (delivery-gate)
-│   ├── protocol/                   礼部：MD→PDF/EPUB 文档渲染 (md-to-pdf)
-│   └── tester/                     刑部：代码审查工具集 (code-review-toolkit)
+├── hermes-3S6M-profiles/     ← 三省六部 profile 专属技能
+│   ├── regent/         监国太子
+│   │   ├── kanban-orchestrator/        多 Agent 编排派工
+│   │   ├── kanban-worker/              Kanban Worker 手册
+│   │   ├── kanban-gate/                制度硬拦截闸门
+│   │   ├── 6m-smoke-test/              六部运转冒烟测试
+│   │   └── morning-news-briefing/      早间新闻简报
+│   ├── gongbu/         工部
+│   │   ├── disk-cleanup/              磁盘清理与缓存回收
+│   │   ├── infra-health-check/        系统健康巡检
+│   │   ├── infra-monitoring/          基础设施监控
+│   │   ├── surge-gateway/             Surge 家庭网关管控
+│   │   └── agent-observability/       多Agent可观测性(OTel)
+│   ├── tester/         刑部
+│   │   ├── code-review-toolkit/       代码审查工具集
+│   │   └── agent-security-audit/      安全审计(49条OWASP)
+│   ├── jiangzuojian/   将作监
+│   │   ├── delivery-gate/             投送门闸
+│   │   └── specialist-engineer/       外聘专家(8阶段管道)
+│   ├── protocol/       礼部
+│   │   └── md-to-pdf/                 MD→PDF 渲染
+│   ├── auditor/        御史台
+│   │   └── agent-audit-evaluation/    独立稽核(7维审计)
+│   ├── archivist/      史馆
+│   │   └── agent-memory-manager/      长期记忆管理
+│   ├── shangshu/       尚书省
+│   │   └── a2a-protocol/              A2A互通协议
+│   ├── budget/         户部
+│   │   └── agent-cost-manager/        API成本管控
+│   ├── registry/       吏部
+│   │   └── agent-registry/            Agent注册发现
+│   └── hanlinyuan/     翰林院
+│       └── deep-research-agent/       深度研究
 │
 ├── pi/                        ← Pi 专属技能 (Windows · 5 skills)
-│   ├── web-research-router/        Pi 版检索总控 (TypeScript extension)
-│   ├── pi-grill/                   主动歧义守护 v3.1 (compliance-reviewed)
+│   ├── web-research-router/        Pi 版检索总控 (TypeScript)
+│   ├── pi-grill/                   主动歧义守护 v3.1
 │   ├── skill-creator/              合规优先 Skill 创作 v6.0
-│   ├── pi-hermes-setup/            Pi ↔ Hermes 跨机器联动架构
-│   └── recover-hindsight-mcp/      Hindsight MCP 连接恢复
+│   ├── pi-hermes-setup/            Pi ↔ Hermes 联动架构
+│   └── recover-hindsight-mcp/      Hindsight MCP 恢复
 │
 ├── cc/                        ← Claude Code 专属 (WIP)
 │
@@ -87,8 +107,8 @@ jz-skills/
     └── sync-back.sh                回传：本地 agents → GitHub（含自动脱敏）
 ```
 
-**25 skills total** — 4 shared · 10 Hermes · 6 profile-specific · 5 pi  \
-**共计 25 个技能** — 4 个跨平台通用 · 10 个 Hermes 专属 · 6 个三省六部 profile 专属 · 5 个 Pi 专属
+**41 skills total** — 5 shared · 10 Hermes · 21 3S6M-profile · 5 pi  \
+**共计 41 个技能** — 5 个跨平台通用 · 10 个 Hermes 专属 · 21 个三省六部 profile · 5 个 Pi
 
 ---
 
@@ -233,7 +253,7 @@ Core governance skills for the Regent (监国太子) and the Three-Provinces-Six
 
 ## 三省六部 Profile Skills
 
-The `profiles/` directory contains skills that are **specific to one 三省六部 department profile** — they deploy only to that profile, not all 16.
+The `hermes-3S6M-profiles/` directory contains skills that are **specific to one 三省六部 department profile** — they deploy only to that profile, not all 16.
 
 | Profile · 部门 | Skill · 技能 | Purpose · 用途 |
 |:---|:---|:---|

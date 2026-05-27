@@ -49,6 +49,8 @@ PAIRS=(
   "shared/grill-with-docs|governance/grill-with-docs"
   "shared/skill-authoring|governance/skill-authoring"
   "shared/pdf|productivity/pdf"
+  "shared/strategic-insight-longform|productivity/strategic-insight-longform"
+  "shared/voice-to-markdown-workflow|productivity/voice-to-markdown-workflow"
 
   # === hermes ===
   "hermes/web-research-router|research/web-research-router"
@@ -58,54 +60,52 @@ PAIRS=(
   "hermes/llm-wiki|research/llm-wiki"
   "hermes/arxiv|research/arxiv"
   "hermes/three-provinces-constitution|governance/three-provinces-constitution"
-  "hermes/strategic-insight-longform|imported-claude/strategic-insight-longform"
-  "hermes/voice-to-markdown-workflow|imported-claude/voice-to-markdown-workflow"
   "hermes/auto-diary|auto-diary"
   "hermes/bilibili-video-analyzer|bilibili-video-analyzer"
   "hermes/xhs-crawler|xhs-crawler"
 
   # === profiles/regent ===
-  "profiles/regent/kanban-orchestrator|profiles/regent/skills/kanban-orchestrator"
-  "profiles/regent/kanban-worker|profiles/regent/skills/kanban-worker"
-  "profiles/regent/kanban-gate|profiles/regent/skills/kanban-gate"
-  "profiles/regent/6m-smoke-test|profiles/regent/skills/6m-smoke-test"
-  "profiles/regent/morning-news-briefing|profiles/regent/skills/productivity/morning-news-briefing"
+  "hermes-3S6M-profiles/regent/kanban-orchestrator|profiles/regent/skills/kanban-orchestrator"
+  "hermes-3S6M-profiles/regent/kanban-worker|profiles/regent/skills/kanban-worker"
+  "hermes-3S6M-profiles/regent/kanban-gate|profiles/regent/skills/kanban-gate"
+  "hermes-3S6M-profiles/regent/6m-smoke-test|profiles/regent/skills/6m-smoke-test"
+  "hermes-3S6M-profiles/regent/morning-news-briefing|profiles/regent/skills/productivity/morning-news-briefing"
 
   # === profiles/gongbu ===
-  "profiles/gongbu/disk-cleanup|profiles/gongbu/skills/disk-cleanup"
-  "profiles/gongbu/infra-health-check|profiles/gongbu/skills/infra-health-check"
-  "profiles/gongbu/infra-monitoring|profiles/gongbu/skills/infra-monitoring"
-  "profiles/gongbu/surge-gateway|profiles/gongbu/skills/surge-gateway"
-  "profiles/gongbu/agent-observability|profiles/gongbu/skills/agent-observability"
+  "hermes-3S6M-profiles/gongbu/disk-cleanup|profiles/gongbu/skills/disk-cleanup"
+  "hermes-3S6M-profiles/gongbu/infra-health-check|profiles/gongbu/skills/infra-health-check"
+  "hermes-3S6M-profiles/gongbu/infra-monitoring|profiles/gongbu/skills/infra-monitoring"
+  "hermes-3S6M-profiles/gongbu/surge-gateway|profiles/gongbu/skills/surge-gateway"
+  "hermes-3S6M-profiles/gongbu/agent-observability|profiles/gongbu/skills/agent-observability"
 
   # === profiles/tester ===
-  "profiles/tester/code-review-toolkit|profiles/tester/skills/code-review-toolkit"
-  "profiles/tester/agent-security-audit|profiles/tester/skills/agent-security-audit"
+  "hermes-3S6M-profiles/tester/code-review-toolkit|profiles/tester/skills/code-review-toolkit"
+  "hermes-3S6M-profiles/tester/agent-security-audit|profiles/tester/skills/agent-security-audit"
 
   # === profiles/jiangzuojian ===
-  "profiles/jiangzuojian/delivery-gate|profiles/jiangzuojian/skills/delivery-gate"
-  "profiles/jiangzuojian/specialist-engineer|profiles/jiangzuojian/skills/specialist-engineer"
+  "hermes-3S6M-profiles/jiangzuojian/delivery-gate|profiles/jiangzuojian/skills/delivery-gate"
+  "hermes-3S6M-profiles/jiangzuojian/specialist-engineer|profiles/jiangzuojian/skills/specialist-engineer"
 
   # === profiles/protocol ===
-  "profiles/protocol/md-to-pdf|profiles/protocol/skills/md-to-pdf"
+  "hermes-3S6M-profiles/protocol/md-to-pdf|profiles/protocol/skills/md-to-pdf"
 
   # === profiles/auditor ===
-  "profiles/auditor/agent-audit-evaluation|profiles/auditor/skills/agent-audit-evaluation"
+  "hermes-3S6M-profiles/auditor/agent-audit-evaluation|profiles/auditor/skills/agent-audit-evaluation"
 
   # === profiles/archivist ===
-  "profiles/archivist/agent-memory-manager|profiles/archivist/skills/agent-memory-manager"
+  "hermes-3S6M-profiles/archivist/agent-memory-manager|profiles/archivist/skills/agent-memory-manager"
 
   # === profiles/shangshu ===
-  "profiles/shangshu/a2a-protocol|profiles/shangshu/skills/a2a-protocol"
+  "hermes-3S6M-profiles/shangshu/a2a-protocol|profiles/shangshu/skills/a2a-protocol"
 
   # === profiles/budget ===
-  "profiles/budget/agent-cost-manager|profiles/budget/skills/agent-cost-manager"
+  "hermes-3S6M-profiles/budget/agent-cost-manager|profiles/budget/skills/agent-cost-manager"
 
   # === profiles/registry ===
-  "profiles/registry/agent-registry|profiles/registry/skills/agent-registry"
+  "hermes-3S6M-profiles/registry/agent-registry|profiles/registry/skills/agent-registry"
 
   # === profiles/hanlinyuan ===
-  "profiles/hanlinyuan/deep-research-agent|profiles/hanlinyuan/skills/deep-research-agent"
+  "hermes-3S6M-profiles/hanlinyuan/deep-research-agent|profiles/hanlinyuan/skills/deep-research-agent"
 )
 
 for pair in "${PAIRS[@]}"; do
