@@ -5,7 +5,7 @@
 The active family/work calendars have migrated from the previous iCloud account to the iCloud account:
 
 ```text
-<redacted>
+<email redacted>
 ```
 
 All Calendar.app operations should target calendars under this account. Alex confirmed the foxmail iCloud calendars are the display-name set with suffix `1`: `个人1`, `工作1`, `Naomi1`, `Zelda1`.

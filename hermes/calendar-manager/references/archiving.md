@@ -8,7 +8,7 @@ Naomi/Zelda 日历事件过多会导致 AppleScript 不稳定，因此每季度�
 
 - **频率**：每季度执行一次（1/4/7/10 月 1 号凌晨 2 点）
 - **目标**：归档超过 90 天的事件
-- **源日历**：Naomi1、Zelda1（`<redacted>` iCloud 账户）
+- **源日历**：Naomi1、Zelda1（`<email redacted>` iCloud 账户）
 - **归档目标**：History Archive 日历（自动创建）
 
 ## 手动执行
