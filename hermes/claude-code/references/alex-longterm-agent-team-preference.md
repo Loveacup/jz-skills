@@ -33,7 +33,7 @@ Long-lived session name used successfully:
 
 ```bash
 tmux new-session -d -s hermes-claude-longterm -x 140 -y 40
-tmux send-keys -t hermes-claude-longterm 'cd /Users/alexcai/.hermes/hermes-agent && claude' Enter
+tmux send-keys -t hermes-claude-longterm 'cd ~/.hermes/hermes-agent && claude' Enter
 ```
 
 Monitoring:

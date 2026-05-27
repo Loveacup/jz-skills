@@ -214,7 +214,7 @@ This skill is synced to `jz-skills` via the standard bidirectional flow. After A
 cd ~/code/jz-skills && ./deploy/sync-back.sh
 
 # 2. Sanitize — never blind commit (catches secrets, emails, IPs, home paths)
-grep -rE '(/Users/[a-z]|gho_|sk-[0-9a-zA-Z]|192\.168|@foxmail)' hermes/autonomous-ai-agents/claude-code/ \
+grep -rE '(/Users/[a-z]|gho_|sk-[0-9a-zA-Z]|192\.168|@[a-zA-Z0-9.-]+\.(com|cn))' hermes/autonomous-ai-agents/claude-code/ \
   && echo "⚠️  SENSITIVE DATA FOUND — sanitize before commit" && exit 1 || true
 
 # 3. Stage skill directory only, then push
