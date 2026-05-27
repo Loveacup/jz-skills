@@ -74,6 +74,7 @@ PAIRS=(
   "hermes/a2a-protocol|governance/a2a-protocol"
   "hermes/agent-observability|devops/agent-observability"
   "hermes/agent-memory-manager|devops/agent-memory-manager"
+  "hermes/agent-audit-evaluation|governance/agent-audit-evaluation"
   "profiles/gongbu/disk-cleanup|profiles/gongbu/skills/disk-cleanup"
   "profiles/gongbu/infra-health-check|profiles/gongbu/skills/infra-health-check"
   "profiles/gongbu/infra-monitoring|profiles/gongbu/skills/infra-monitoring"
