@@ -86,6 +86,7 @@ PAIRS=(
   "custom/auto-diary|auto-diary"
   "custom/bilibili-video-analyzer|bilibili-video-analyzer"
   "custom/xhs-crawler|xhs-crawler"
+  "profiles/regent/morning-news-briefing|profiles/regent/skills/productivity/morning-news-briefing"
 )
 
 for pair in "${PAIRS[@]}"; do
