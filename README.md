@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-42-blue" alt="42 skills">
+  <img src="https://img.shields.io/badge/skills-43-blue" alt="43 skills">
   <img src="https://img.shields.io/badge/profiles-15%20三省六部-orange" alt="15 profiles">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
@@ -32,7 +32,7 @@
 | Layer | Directory | Skills | Scope |
 |:---|:---|:---|:---|
 | 🌐 1 | `shared/` | 5 | Cross-platform — deployed to all 3 agents |
-| ⚙️ 2 | `hermes/` | 9 | Hermes platform — not 3S6M-specific |
+| ⚙️ 2 | `hermes/` | 10 | Hermes platform — not 3S6M-specific |
 | 🏯 3a | `hermes-3S6M-profiles/common/` | 2 | 3S6M-wide — deployed to all 15 profiles |
 | 🏷️ 3b | `hermes-3S6M-profiles/<dept>/` | 21 | Department-specific — deployed to one profile |
 | 🪟 4 | `pi/` | 5 | Pi (Windows) platform — authored by Pi itself |
@@ -102,6 +102,7 @@ Deployed to main Hermes + all 15 profiles. Not tied to 三省六部 governance.
 | 📺 `bilibili-video-analyzer` | Bilibili video deep analysis with subtitle/transcription · B站视频分析 |
 | 📕 `xhs-crawler` | Xiaohongshu (RED) content extraction via CDP · 小红书爬虫 |
 | 📅 `calendar-manager` | Smart calendar & reminders management for family · 智能日历管理 |
+| ✂️ `de-slop` | Bilingual (EN/ZH) AI writing detector & humanizer · 中英双语去 AI 味 |
 
 ### 🏯 Layer 3a — `hermes-3S6M-profiles/common/` (三省六部全部门通用)
 

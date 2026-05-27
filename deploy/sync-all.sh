@@ -30,6 +30,7 @@ sync_hermes() {
   cp -r "$REPO_ROOT/hermes/bilibili-video-analyzer"         "$base/"
   cp -r "$REPO_ROOT/hermes/xhs-crawler"                     "$base/"
   cp -r "$REPO_ROOT/hermes/calendar-manager"               "$base/"
+  cp -r "$REPO_ROOT/hermes/de-slop"                        "$base/"
 
   # Sync to all profiles
   echo "→ Syncing to profiles..."
@@ -44,6 +45,7 @@ sync_hermes() {
     cp -r "$REPO_ROOT/hermes/llm-wiki"                        "$pd/research/"
     cp -r "$REPO_ROOT/hermes/arxiv"                           "$pd/research/"
     cp -r "$REPO_ROOT/hermes/calendar-manager"               "$pd/"
+    cp -r "$REPO_ROOT/hermes/de-slop"                        "$pd/"
     cp -r "$REPO_ROOT/hermes-3S6M-profiles/common/three-provinces-constitution"  "$pd/governance/"
     cp -r "$REPO_ROOT/hermes-3S6M-profiles/common/financial-research-agents"     "$pd/research/"
   done
