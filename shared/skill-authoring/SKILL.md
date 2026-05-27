@@ -192,6 +192,7 @@ When the user says "把这个 skill 推到 GitHub" or "审查后入库" for an e
 8. **Update README badge**: increment skill count
 9. **Commit**: `feat: add <skill> (compliance-reviewed, slimmed from X→Y lines)`
 10. **Push**
+11. **Verify no stale references**: if this skill absorbed/deleted old skills, run `grep -rn "<old-skill-name>" ~/.hermes/skills/ --include="*.md" | grep -v "replaces:" | grep -v "consolidation-case-study"` to catch every remaining reference. Fix ALL before declaring done. Also check jz-skills repo: `grep -rn "<old-name>" ~/code/jz-skills/ --include="*.md"`.
 
 Case studies: `references/slimming-case-studies.md` — strategic-insight-longform (513→130), voice-to-markdown (349→133), xhs-crawler (813→124), auto-diary (324→139).
 
@@ -226,6 +227,8 @@ Case studies: `references/slimming-case-studies.md` — strategic-insight-longfo
 | **Confused Execution Lapse with Skill Defect (EmbodiSkill 2026)** | Agent ignoring valid skill ≠ skill is wrong. Classify failures before revising: if agent didn't follow a correct rule, preserve it and add emphasis instead of changing it. |
 | **Revised immediately after each failure (EmbodiSkill 2026)** | Immediate single-signal fixes cause oscillation. Accumulate B=3-5 reflections, consolidate, then revise. |
 | **`cp -r` trailing slash missing when skill name matches category directory** | `cp -r shared/<name> $base/<name>/` creates nested `<name>/<name>/` when `$base/<name>/` already exists (because `cp -r source dest_dir/` copies source *into* dest_dir). For skills whose name IS the category (e.g., `github` → `$pd/github/`), use trailing slash on source: `cp -r shared/<name>/ $base/<name>/` to copy CONTENTS without nesting. Affects both `sync_hermes()` and the per-profile loop. |
+| **sync-back.sh PAIR herm_path wrong when skill name = category name** | When the skill name matches the category directory name (e.g., `github` skill lives in `~/.hermes/skills/github/`), the PAIR should be `"shared/github|github"` — NOT `"shared/github|github/github"`. The herm_path is the local path relative to `~/.hermes/skills/`, so a skill that IS the github directory maps to just `github`. Contrast with a subcategory skill like `grill-with-docs` which maps to `governance/grill-with-docs`. Symptom: sync-back.sh dry-run says `source not found — skipped`. |
+| **Consolidated/deleted old skills without global grep for stale references** | After deleting absorbed skills, other skills' `related_skills`, `description`, decision trees, and reference files may still point to the OLD skill names. Run `grep -rn "<old-name>" ~/.hermes/skills/ --include="*.md" | grep -v "replaces:"` to find every remaining reference. Fix ALL of them before declaring done. Case study: `github-code-explorer` → `github` consolidation left 7 stale references across web-research-router, grill-with-docs, and skill-authoring. |
 
 ---
 
@@ -238,6 +241,7 @@ Case studies: `references/slimming-case-studies.md` — strategic-insight-longfo
 | `references/example-web-research-router-v3.md` | Case study: web-research-router 500→146 line restructure |
 | `references/slimming-case-studies.md` | Case studies: strategic-insight-longform (513→130) + voice-to-markdown (349→133) |
 | `references/skill-evolution-research.md` | SkillEvolver + EmbodiSkill papers (2026-05): deployment-driven skill evolution |
+| `references/consolidation-case-study.md` | Multi-skill consolidation pattern (8→1): shared state, decision tree, governance |
 | `references/cross-project-evaluation.md` | Decision tree for evaluating external projects before absorbing features (case studies: AnySearch, ECC, taste-skill) |
 | `references/absorption-analysis.md` | When to absorb external inspiration vs when NOT to (AnySearch case study) |
 
