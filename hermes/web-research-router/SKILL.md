@@ -98,8 +98,10 @@ Full Source Map Schema: `references/source-map-schema.md`
 | Detailed mode instructions (default paths, examples) | `references/research-modes.md` |
 | Query patterns for common tasks | `references/query-patterns.md` |
 | Academic lane policy (arXiv, Semantic Scholar, PubMed, etc.) | `references/academic-lane.md` |
+| Vertical domain → engine mapping (finance, security, health, etc.) | `references/vertical-domains.md` |
 | Full Source Map Schema JSON | `references/source-map-schema.md` |
 | MCP tool names by profile | `references/tool-names.md` |
+| Deployment & Sync instructions | `references/deployment.md` |
 
 ---
 
@@ -129,18 +131,4 @@ Full pitfalls (13 items): `references/common-pitfalls.md`
 
 ---
 
-## Deployment & Sync
-
-After ANY update to this skill:
-1. Sync to ALL Hermes profiles (dynamic discovery):
-   ```bash
-   for prof in $(ls -d ~/.hermes/profiles/*/ 2>/dev/null | xargs -n1 basename); do
-     dst=~/.hermes/profiles/$prof/skills/research/web-research-router
-     [ -d "$dst" ] && cp -r "$dst" ~/.hermes/profiles/$prof/backups/web-research-router-$(date +%Y%m%d_%H%M%S)
-     rm -rf "$dst"
-     cp -r ~/.hermes/skills/research/web-research-router "$dst"
-   done
-   ```
-2. Update Obsidian doc: `00-Inbox/工具制作_Hermes检索总控与GitHub源码探索_三省六部体系_20260526.md`
-3. `qmd update`
-4. Spot-check 2-3 profiles for SKILL.md presence.
+> 🔄 Deployment & Sync: `references/deployment.md`
