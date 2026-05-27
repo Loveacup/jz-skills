@@ -64,7 +64,7 @@ metadata:
 | 完整 schema | `references/schema.md` | "Schema: references/..." |
 | Pitfalls >5条 | `references/common-pitfalls.md` | "Full pitfalls: references/..." |
 
-> 案例见 [references/example-web-research-router-v3.md](references/example-web-research-router-v3.md) (500→146行)
+> 案例见 [references/slimming-case-studies.md](references/slimming-case-studies.md) 和 [references/example-web-research-router-v3.md](references/example-web-research-router-v3.md)
 
 ### Step 4: 反理性化（Red Flags）
 **最重要的一步。** 正文 TOP 10%，预判 agent 借口。
@@ -160,9 +160,12 @@ metadata:
 | 文件 | 用途 |
 |------|------|
 | [compliance-research.md](references/compliance-research.md) | 合规优先设计的学术依据 |
+| [skill-evolution-research.md](references/skill-evolution-research.md) | SkillEvolver + EmbodiSkill 论文细节 |
 | [anti-rationalization-catalog.md](references/anti-rationalization-catalog.md) | Agent 借口全分类 |
 | [example-web-research-router-v3.md](references/example-web-research-router-v3.md) | 案例：500→146 行重构 |
 | [slimming-case-studies.md](references/slimming-case-studies.md) | 瘦身案例（513→130 等） |
+| [absorption-analysis.md](references/absorption-analysis.md) | Skill 吸收分析 |
+| [cross-project-evaluation.md](references/cross-project-evaluation.md) | 跨项目评估 |
 | [deployment.md](references/deployment.md) | 部署和同步规则 |
 | [changelog.md](references/changelog.md) | 版本变更记录 |
 
