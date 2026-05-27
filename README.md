@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-30-blue" alt="30 skills">
+  <img src="https://img.shields.io/badge/skills-34-blue" alt="34 skills">
   <img src="https://img.shields.io/badge/profiles-15%20三省六部-orange" alt="15 profiles">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
@@ -58,6 +58,10 @@ jz-skills/
 │   ├── agent-observability/          多Agent可观测性(OTel追踪)
 │   ├── agent-memory-manager/         长期记忆管理(时间衰减+知识图谱)
 │   ├── agent-audit-evaluation/        御史台独立稽核(7维审计+回归检测)
+│   ├── agent-cost-manager/            户部API成本管控(硬预算+2,600模型)
+│   ├── agent-registry/                吏部Agent注册与能力发现
+│   ├── deep-research-agent/           翰林院深度研究(任务图+证据链)
+│   ├── specialist-engineer/           将作监外聘专家(8阶段聘用管道)
 │   ├── financial-research-agents/   三省六部金融研究
 │   ├── tradingagents/               A股/市场交易分析
 │   ├── llm-wiki/                    LLM 知识库构建
@@ -219,7 +223,11 @@ Core governance skills for the Regent (监国太子) and the Three-Provinces-Six
 | **a2a-protocol** | v1.0 | 尚书省 A2A 互通协议 — Agent Card 能力发现、流式任务委派、跨 profile 结构化交付 (基于 Google A2A) |
 | **agent-observability** | v1.0 | 工部多 Agent 可观测性 — 分布式追踪、Span 级成本归因、信号异常检测、实时看板 (基于 Laminar/Opik) |
 | **agent-memory-manager** | v1.0 | 史馆长期记忆管理 — 事实提取/去重/时间衰减/知识图谱/多 Agent 98% 召回 (基于 ICM/mnem) |
-| **agent-audit-evaluation** | v1.0 | 御史台独立稽核 — 7维审计框架、YAML测试套件、Welch t-test回归检测、证据收集与结构化报告 (基于 OpenAgentBench/agenteval) | — 事实提取/去重/时间衰减/知识图谱/多 Agent 98% 召回 (基于 ICM/mnem) |
+| **agent-audit-evaluation** | v1.0 | 御史台独立稽核 — 7维审计框架、YAML测试套件、Welch t-test回归检测、证据收集与结构化报告 (基于 OpenAgentBench/agenteval) |
+| **agent-cost-manager** | v1.0 | 户部 API 成本管控 — 硬预算熔断、per-agent成本归因、2,600+模型定价、异常检测与优化建议 (基于 AgentBudget 101⭐) |
+| **agent-registry** | v1.0 | 吏部 Agent 注册发现 — 协议无关(A2A+MCP+ACP)、心跳监控、动态组队、人才库管理 (基于 agentregistry 245⭐) |
+| **deep-research-agent** | v1.0 | 翰林院深度研究 — 层级任务图、证据链合成、迭代深化(2,048+工具调用)、文献综述 (基于 KResearch 336⭐ ICLR'26) |
+| **specialist-engineer** | v1.0 | 将作监外聘专家 — 8阶段聘用管道、对抗审查闸门、Bayesian信任账本、多模型路由 (基于 Nexus Hyper Agent Team) | — 事实提取/去重/时间衰减/知识图谱/多 Agent 98% 召回 (基于 ICM/mnem) |
 
 ---
 
