@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-31-blue" alt="31 skills">
+  <img src="https://img.shields.io/badge/skills-29-blue" alt="29 skills">
   <img src="https://img.shields.io/badge/profiles-15%20三省六部-orange" alt="15 profiles">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
@@ -53,6 +53,10 @@ jz-skills/
 │   ├── kanban-worker/               Kanban Worker 手册
 │   ├── kanban-gate/                 制度硬拦截闸门
 │   ├── surge-gateway/               Surge 家庭网关管控
+│   ├── agent-security-audit/         Agent 安全审计(49条OWASP规则)
+│   ├── a2a-protocol/                 A2A 互通协议(Google→Linux基金会)
+│   ├── agent-observability/          多Agent可观测性(OTel追踪)
+│   ├── agent-memory-manager/         长期记忆管理(时间衰减+知识图谱)
 │   ├── financial-research-agents/   三省六部金融研究
 │   ├── tradingagents/               A股/市场交易分析
 │   ├── llm-wiki/                    LLM 知识库构建
@@ -210,6 +214,10 @@ Core governance skills for the Regent (监国太子) and the Three-Provinces-Six
 | **kanban-worker** | v2.0 | Kanban Worker 手册 — 工作空间处理、handoff metadata 格式、retry 诊断、do-not 清单 |
 | **kanban-gate** | v1.0 | 制度硬拦截闸门 — 五层权限校验(权限矩阵→状态机→高风险拦截→数据清洗→审计日志)，CLI+plugin 双闸 |
 | **surge-gateway** | v1.0 | Surge 家庭网关管控 — 安全分级(只读/高影响/危险)、设备清册三角定位、分流规则、WoL/SSH |
+| **agent-security-audit** | v1.0 | 刑部 Agent 安全审计 — 49条OWASP规则、注入检测、污点分析、MCP配置审计 (基于 agent-audit) |
+| **a2a-protocol** | v1.0 | 尚书省 A2A 互通协议 — Agent Card 能力发现、流式任务委派、跨 profile 结构化交付 (基于 Google A2A) |
+| **agent-observability** | v1.0 | 工部多 Agent 可观测性 — 分布式追踪、Span 级成本归因、信号异常检测、实时看板 (基于 Laminar/Opik) |
+| **agent-memory-manager** | v1.0 | 史馆长期记忆管理 — 事实提取/去重/时间衰减/知识图谱/多 Agent 98% 召回 (基于 ICM/mnem) |
 
 ---
 
