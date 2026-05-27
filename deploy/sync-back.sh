@@ -51,10 +51,10 @@ PAIRS=(
   "shared/pdf|productivity/pdf"
   "shared/strategic-insight-longform|productivity/strategic-insight-longform"
   "shared/voice-to-markdown-workflow|productivity/voice-to-markdown-workflow"
+  "shared/github|github/github"
 
   # === hermes ===
   "hermes/web-research-router|research/web-research-router"
-  "hermes/github-code-explorer|github/github-code-explorer"
   "hermes/tradingagents|research/tradingagents"
   "hermes/llm-wiki|research/llm-wiki"
   "hermes/arxiv|research/arxiv"

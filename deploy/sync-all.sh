@@ -18,11 +18,11 @@ sync_hermes() {
   cp -r "$REPO_ROOT/shared/pdf"                    "$base/productivity/"
   cp -r "$REPO_ROOT/shared/strategic-insight-longform"  "$base/productivity/"
   cp -r "$REPO_ROOT/shared/voice-to-markdown-workflow"  "$base/productivity/"
+  cp -r "$REPO_ROOT/shared/github"                    "$base/github/"
 
   # Hermes-specific skills
   mkdir -p "$base/research" "$base/productivity" "$base/governance" "$base/autonomous-ai-agents"
   cp -r "$REPO_ROOT/hermes/web-research-router"             "$base/research/"
-  cp -r "$REPO_ROOT/hermes/github-code-explorer"            "$base/github/"
   cp -r "$REPO_ROOT/hermes/tradingagents"                   "$base/research/"
   cp -r "$REPO_ROOT/hermes/llm-wiki"                        "$base/research/"
   cp -r "$REPO_ROOT/hermes/arxiv"                           "$base/research/"
@@ -40,8 +40,8 @@ sync_hermes() {
     mkdir -p "$pd/research" "$pd/github" "$pd/governance" "$pd/productivity" "$pd/autonomous-ai-agents"
     cp -r "$REPO_ROOT/shared/grill-with-docs"        "$pd/governance/"
     cp -r "$REPO_ROOT/shared/skill-authoring"        "$pd/governance/"
+    cp -r "$REPO_ROOT/shared/github"                 "$pd/github/"
     cp -r "$REPO_ROOT/hermes/web-research-router"             "$pd/research/"
-    cp -r "$REPO_ROOT/hermes/github-code-explorer"            "$pd/github/"
     cp -r "$REPO_ROOT/hermes/tradingagents"                   "$pd/research/"
     cp -r "$REPO_ROOT/hermes/llm-wiki"                        "$pd/research/"
     cp -r "$REPO_ROOT/hermes/arxiv"                           "$pd/research/"

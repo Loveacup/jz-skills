@@ -31,8 +31,8 @@
 
 | Layer | Directory | Skills | Scope |
 |:---|:---|:---|:---|
-| 🌐 1 | `shared/` | 5 | Cross-platform — deployed to all 3 agents |
-| ⚙️ 2 | `hermes/` | 11 | Hermes platform — not 3S6M-specific |
+| 🌐 1 | `shared/` | 6 | Cross-platform — deployed to all 3 agents |
+| ⚙️ 2 | `hermes/` | 10 | Hermes platform — not 3S6M-specific |
 | 🏯 3a | `hermes-3S6M-profiles/common/` | 2 | 3S6M-wide — deployed to all 15 profiles |
 | 🏷️ 3b | `hermes-3S6M-profiles/<dept>/` | 21 | Department-specific — deployed to one profile |
 | 🪟 4 | `pi/` | 5 | Pi (Windows) platform — authored by Pi itself |
@@ -83,6 +83,7 @@ Deployed to Hermes + Claude Code + Pi · 三端同步。
 |:---|:---|
 | 📋 `grill-with-docs` | Design review against governance docs + ADR · 设计审查 |
 | ✍️ `skill-authoring` | Skill compliance: 10-step flow, 6-dim scoring, test cases · 合规创作 |
+| 🐙 `github` | GitHub full operations: auth, issues, PR, repo, code review, exploration, README · 全操作 |
 | 📄 `pdf` | PDF manipulation: OCR, extract, edit, convert · PDF 处理 |
 | 📝 `strategic-insight-longform` | Long-form strategy analysis with multi-agent pipeline · 战略洞察长文 |
 | 🎙️ `voice-to-markdown-workflow` | Speech/audio transcript → structured markdown · 语音转文稿 |
@@ -94,7 +95,6 @@ Deployed to main Hermes + all 15 profiles. Not tied to 三省六部 governance.
 | Skill | Purpose · 用途 |
 |:---|:---|
 | 🔍 `web-research-router` | Search routing: Exa / Tavily / Brave / arXiv / GitHub · 检索总控 |
-| 🐙 `github-code-explorer` | GitHub source exploration: L1→L4 depth · 源码探索 |
 | 📈 `tradingagents` | A-share / market analysis via TradingAgents · 交易分析 |
 | 🧠 `llm-wiki` | LLM knowledge base builder (Karpathy's wiki) · LLM 知识库 |
 | 📚 `arxiv` | Academic paper search and retrieval · 论文检索 |

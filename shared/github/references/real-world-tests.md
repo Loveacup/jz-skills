@@ -1,6 +1,6 @@
 # Real-World Tool Path Testing (Session 2026-05-26)
 
-Verification of every code-reading path in the github-code-explorer four-layer
+Verification of every code-reading path in the github skill (references/code-explorer.md) four-layer
 strategy. Tool names and behaviors are environment-specific — run equivalent
 tests after setup changes.
 
