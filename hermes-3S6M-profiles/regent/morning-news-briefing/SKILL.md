@@ -232,11 +232,11 @@ This is a **regent profile** skill. After ANY update:
 cd ~/code/jz-skills && ./deploy/sync-back.sh
 
 # 2. Sanitize — never blind commit (catches secrets, emails, IPs, home paths)
-grep -rE '(/Users/[a-z]|gho_|sk-[0-9a-zA-Z]|192\.168|@foxmail)' hermes/productivity/morning-news-briefing/ \
+grep -rE '(/Users/[a-z]|gho_|sk-[0-9a-zA-Z]|192\.168|@[a-zA-Z0-9.-]+\.(com|cn))' hermes-3S6M-profiles/regent/morning-news-briefing/ \
   && echo "⚠️  SENSITIVE DATA FOUND — sanitize before commit" && exit 1 || true
 
 # 3. Stage skill directory only, then push
-git add hermes/productivity/morning-news-briefing/ \
+git add hermes-3S6M-profiles/regent/morning-news-briefing/ \
   && git commit -m "sync: morning-news-briefing" \
   && git push
 ```

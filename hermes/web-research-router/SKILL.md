@@ -1,6 +1,6 @@
 ---
 name: web-research-router
-description: "Searches the web, finds papers, explores GitHub source code, and verifies facts using Exa/Tavily/Brave plus local knowledge (Hindsight/qmd/Obsidian/CodeGraph). Use when the user needs to 搜索, 检索, 查找, 调研, 核实, 找资料, 找项目, search, research, find, look up, or verify information — even if they don't explicitly say 'search'. Routes GitHub source code tasks to github-code-explorer (看看源码, 找实现, 搜用法). Do NOT use for reading local files, editing code, running terminal commands, or tasks not involving external or knowledge-base retrieval."
+description: "Searches the web, finds papers, explores GitHub source code, and verifies facts using Exa/Tavily/Brave plus local knowledge (Hindsight/qmd/Obsidian/CodeGraph). Use when the user needs to 搜索, 检索, 查找, 调研, 核实, 找资料, 找项目, search, research, find, look up, or verify information — even if they don't explicitly say 'search'. Routes GitHub source code tasks to github (references/code-explorer.md — 看看源码, 找实现, 搜用法). Do NOT use for reading local files, editing code, running terminal commands, or tasks not involving external or knowledge-base retrieval."
 version: 3.0.0
 author: Hermes Agent
 license: MIT
@@ -8,7 +8,7 @@ platforms: [macos, linux, windows]
 metadata:
   hermes:
     tags: [search, research, router, exa, tavily, brave, academic, papers, citations, sources, mcp]
-    related_skills: [source-search, exa-research, source-reader, source-verification, content-source-workflow, qmd, obsidian, arxiv, native-mcp, github-code-explorer]
+    related_skills: [source-search, exa-research, source-reader, source-verification, content-source-workflow, qmd, obsidian, arxiv, native-mcp, github]
 ---
 
 # Web Research Router v3.0
@@ -41,8 +41,8 @@ Before calling ANY search tool, check this table. If any excuse below sounds fam
 Before ANY public search, check: Hindsight (cross-session) → session_search (this session) → qmd/Obsidian (knowledge base) → CodeGraph (local code). Only go public if local is exhausted or needs validation.
 
 ### Step 1: Is this a GitHub source code task?
-- `github.com` / `raw.githubusercontent.com` / `gist.github.com` URL → **⚠️ Skip `web_extract`** (it blocks GitHub as "internal network"). Load `github-code-explorer` → L1 Exa/gh api → L2 gh search → L3 browser → L4 clone+CodeGraph.
-- "看看 X 项目源码" / "这个函数怎么实现" → load `github-code-explorer`.
+- `github.com` / `raw.githubusercontent.com` / `gist.github.com` URL → **⚠️ Skip `web_extract`** (it blocks GitHub as "internal network"). Load `github` (references/code-explorer.md) → L1 Exa/gh api → L2 gh search → L3 browser → L4 clone+CodeGraph.
+- "看看 X 项目源码" / "这个函数怎么实现" → load `github`.
 
 ### Step 2: Pick the search mode and engine
 

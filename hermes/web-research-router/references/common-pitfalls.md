@@ -14,7 +14,7 @@ Full pitfalls list. Top 5 are in SKILL.md. Loaded on-demand.
 10. **arXiv rate limiting.** arXiv's public API enforces ~1 req / 3 seconds. If rate-limited (HTTP 429), do NOT retry immediately — wait 5+ seconds, or fall back to Semantic Scholar for discovery.
 11. **Cron job model pinning.** When creating cron jobs that call the LLM, always pin the model explicitly — never rely on the default. The default model may be rate-limited, and a cron job will silently fail.
 12. **Web-research-router copies diverge.** The default profile skill is authoritative, but profile copies are independent. Verify ALL profiles after updates: search for `### Red Flags` or `v3.0` in each profile's copy.
-13. **GitHub URL blocked by `web_extract`.** `web_extract` blocks `github.com` / `raw.githubusercontent.com` / `gist.github.com` as "internal network." This is NOT a network block — it's a Hermes URL validator false positive. Bypass: use `mcp_exa_web_fetch_exa` or `gh api` via `github-code-explorer` skill.
+13. **GitHub URL blocked by `web_extract`.** `web_extract` blocks `github.com` / `raw.githubusercontent.com` / `gist.github.com` as "internal network." This is NOT a network block — it's a Hermes URL validator false positive. Bypass: use `mcp_exa_web_fetch_exa` or `gh api` via `github` skill.
 
 ## Multi-engine Dedup / RRF
 

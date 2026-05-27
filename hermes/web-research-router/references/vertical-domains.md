@@ -6,7 +6,7 @@ Inspired by AnySearch's 23 vertical search domains. When a query clearly belongs
 |:---|:---|:---|:---|
 | **Finance** | US stock, crypto, forex | Brave (coverage) or Tavily (facts) | Include ticker + metric wanted |
 | **Academic** | Papers, citations, SOTA | arXiv / Semantic Scholar | Use academic lane (`references/academic-lane.md`) |
-| **Code** | Implementation, API usage | `github-code-explorer` skill | Route before touching web search |
+| **Code** | Implementation, API usage | `github` skill | Route before touching web search |
 | **Security** | CVE, vulnerability, exploit | Tavily (grounding) | Include CVE ID if known |
 | **Legal** | Case law, regulation, patent | Tavily (grounding) | Cross-check with Brave |
 | **Health** | Drug, condition, clinical trial | Tavily → PubMed if biomedical | Require cross-check; label study type |
@@ -21,7 +21,7 @@ Inspired by AnySearch's 23 vertical search domains. When a query clearly belongs
 | **Audio** | Podcast, sound, music | Web search | Consider `spotify` skill for music |
 | **Data** | Statistics, dataset, CSV | Exa (discovery) → fetch | Prefer official sources (.gov, .edu, .org) |
 | **Document** | PDF, report, whitepaper | Exa (discovery) | Use `filetype:pdf` in query |
-| **API** | Endpoint, SDK, integration | `github-code-explorer` or Exa | Search GitHub for examples |
+| **API** | Endpoint, SDK, integration | `github` or Exa | Search GitHub for examples |
 | **DevOps** | Config, Docker, k8s, CI/CD | Exa → fetch docs | Prefer official docs over blog posts |
 | **AI/ML** | Model, benchmark, paper | arXiv / Semantic Scholar | Use academic lane; cross-check with Papers with Code |
 | **Game** | Walkthrough, mod, strategy | Web search (Exa) | No domain-specific engine; general web |

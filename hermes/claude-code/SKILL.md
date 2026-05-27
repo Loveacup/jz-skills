@@ -20,13 +20,12 @@ Delegate coding tasks to Claude Code CLI via print mode or interactive tmux sess
 
 ## 🚨 Red Flags: DO NOT SKIP THIS SKILL
 
-| Excuse your brain will make | Why it's wrong |
-|------------------------------|----------------|
+| agent 会找的借口 | 为什么是错的 |
+|-----------------|-------------|
 | "我直接用 terminal 调 claude 就行" | 不加载 skill = 不知道 PTY 对话框处理、不知道 `--max-turns` 防止失控、不知道 background 超时会被杀 |
 | "任务太简单，print mode 就行" | 简单任务也有坑：`--max-turns` 不设 = 可能无限循环烧钱；`--model` 不指定 = 开销不可控 |
 | "我用 tmux 不需要这个 skill" | PTY 有两个对话框需要精确按键序列。权限对话框默认是"No, exit"——你必须 Down+Enter。错过 = Claude 直接退出 |
 | "agent team 就是普通 Task subagent" | Claude Code 的 agent team 是独立机制。用户明确说过不要用普通 Task subagent 冒充 team |
-| "用 MCP bridge 调 CC 更方便，不用管 tmux" | MCP 对长任务超时不稳定（实测已验证）。安全/架构/运维并行审查、Obsidian 大规模重写等——必须走 tmux，MCP 仅用于只读探针 |
 | "我设置 budget=$0.05 够了" | 系统 prompt cache 创建本身就 ~$0.05。更低 → 立即报错。烟雾测试用 `$0.2` |
 
 ## 🔀 Decision Tree
@@ -57,7 +56,6 @@ Delegate coding tasks to Claude Code CLI via print mode or interactive tmux sess
 6. **超时后先检查产物再重试** — CC 可能已写了部分文件但超时被截断。检查输出路径、文件列表、transcript，别重复劳动。
 7. **不要杀慢会话** — CC 在做多步工作。用 `capture-pane` 检查进度，确认卡死（多轮无工具调用 + 无 prompt）才 `Ctrl+C`。
 8. **清理一次性 tmux 会话** — 只保留长会话。用完就 `tmux kill-session`，避免泄漏。
-9. **始终设 budget 上限** — 无上限 = 失控烧钱。烟雾测试 `$0.2`，简单任务 `$0.5`，复杂任务 `$2-5`。低于 `$0.05` 会因 prompt cache 创建开销立即报错。
 
 ## 🚀 Prerequisites & Smoke Test
 
@@ -129,26 +127,10 @@ Hermes 通过 `claude_octopus` MCP 直接调用 CC，获得结构化 `run_id`/`s
 
 ## 👥 Non-Code Agent Team Reviews
 
-Agent team ≠ 普通 Task subagent。用于审查 skills、工作流、配置、设计文档等非代码制品。
-
-### 快速模式：Skill/Workflow Audit（已验证）
-
-送审文件 + 3 路并行 agent（安全/架构/运维视角）→ P0/P1/P2 分级报告。
-完整配方见 `references/agent-team-skill-review.md`。
-
-要点：
-1. 把目标文件全文内联到 prompt（或确保 CC 可读路径）
-2. 明确要求 3 个 agent，各自独立审查，每人一个 lens
-3. 要求合并报告落盘到 `/tmp/cc-agent-team-review.md`
-4. 要求 bullet markdown（Telegram 兼容），不要 pipe table
-5. 读报告 → 逐条 patch → skill_view 验证 → 删临时文件
-
-### 通用模式
-
-用户要 team 时：
+Agent team ≠ 普通 Task subagent。用户要 team 时：
 1. 写 context 到 `~/.hermes/tmp/` markdown 文件
 2. 用 CC team/teammate 流程（`--teammate-mode` 或 tmux team workflow）
-3. 让 team 用多个 lens（engineering/API、content/UX、compliance、security、ops）
+3. 让 team 用多个 lens（engineering/API、content/UX、compliance）
 4. 保存为 Telegram 可读的 bullet Markdown（不要表格）
 5. 报告用了哪种 team workflow + 输出路径
 
@@ -164,19 +146,15 @@ claude -w pr-review --tmux  # 创建隔离 worktree + tmux
 claude -p 'Review this PR' --from-pr 42 --max-turns 10
 ```
 
-## ⚠️ Critical Pitfalls
+## ⚠️ Critical Pitfalls (Top 5)
 
-| Pitfall | Why it burns you | Recovery |
-|---------|-----------------|----------|
-| **Dialog 2 默认"No"** | `--dangerously-skip-permissions` 时默认选中退出。错过 = CC 直接退出 | Down+Enter，不等 |
-| **Budget 低于 $0.05** | prompt cache 创建就 ~$0.05。设更低 → 立即报错 | 烟雾测试 $0.2 起步 |
-| **Foreground 超时 600s** | 长 print 任务超时被杀，产出空 JSON | 用 `background=true, notify_on_complete=true` |
-| **`--bare` 需要 API key** | 跳过 OAuth 但没有 `ANTHROPIC_API_KEY` → 立即失败 | 确认 env 设置后再跑 |
-| **Context 超 70% 退化** | 窗口用满后 CC 开始重复/遗忘指令 | `/context` 监控，`/compact` 主动压缩 |
-| **CC tmux 会话崩溃** | send-keys 后无响应，capture-pane 空白 | 先 `capture-pane` 检查 TUI 状态（`❯`/`●`/空）。确认崩溃→ `tmux kill-session`→重建→重新 send-keys。不要盲目重发 |
-| **MCP bridge 长任务超时** | 并行 agent team 审查超 2min → MCP timeout，无产出 | 长任务必须走 tmux，MCP 仅用于 <30s 只读探针 |
+1. **Dialog 2 默认"No"** — 用 `--dangerously-skip-permissions` 时，对话框默认选中"No, exit"。必须 Down+Enter
+2. **Budget 下限 ~$0.05** — prompt cache 创建本身就要这些。设更低 → 立即报错
+3. **Foreground 超时 600s** — 长任务用 background，否则超时被截断
+4. **`--bare` 需要 API key** — 跳过 OAuth，必须设 `ANTHROPIC_API_KEY`
+5. **Context 退化** — 超出 70% 窗口后质量下降。用 `/context` 监控，`/compact` 主动压缩
 
-完整 Pitfalls (19 条) 见 `references/print-mode.md`。
+完整 Pitfalls (16 条) 见 references → 已嵌入本文件 Core Rules 和 `references/print-mode.md`。
 
 ## 📦 References
 
@@ -187,7 +165,6 @@ claude -p 'Review this PR' --from-pr 42 --max-turns 10
 | `references/interactive-reference.md` | Slash Commands + 键盘快捷键 |
 | `references/configuration.md` | Settings/CLAUDE.md/Subagents/Hooks/MCP/环境变量/同步 |
 | `references/claude-octopus-hermes-mcp.md` | MCP 桥接配方 |
-| `references/agent-team-skill-review.md` | Non-code agent team audit recipe (P0/P1/P2, 3-lens, validated) |
 | `references/obsidian-agent-team-rewrite.md` | Obsidian 大规模重写模式 |
 | `references/alex-longterm-agent-team-preference.md` | 用户偏好：默认 tmux 长会话 > print mode |
 
@@ -202,23 +179,3 @@ claude -p 'Review this PR' --from-pr 42 --max-turns 10
 - [ ] 超时/错误后：是否先检查了产物再重试？
 - [ ] 完成后：一次性 tmux session 是否清理了？
 - [ ] 结果是否向用户报告了（做了什么、改了什么、是否用了 team）？
-
----
-
-## Deployment & Sync
-
-This skill is synced to `jz-skills` via the standard bidirectional flow. After ANY update:
-
-```bash
-# 1. Sync back from local to repo
-cd ~/code/jz-skills && ./deploy/sync-back.sh
-
-# 2. Sanitize — never blind commit (catches secrets, emails, IPs, home paths)
-grep -rE '(/Users/[a-z]|gho_|sk-[0-9a-zA-Z]|192\.168|@[a-zA-Z0-9.-]+\.(com|cn))' hermes/autonomous-ai-agents/claude-code/ \
-  && echo "⚠️  SENSITIVE DATA FOUND — sanitize before commit" && exit 1 || true
-
-# 3. Stage skill directory only, then push
-git add hermes/autonomous-ai-agents/claude-code/ \
-  && git commit -m "sync: claude-code" \
-  && git push
-```

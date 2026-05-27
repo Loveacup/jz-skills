@@ -8,7 +8,7 @@ platforms: [macos, linux]
 metadata:
   hermes:
     tags: [grill, review, design-review, plan-validation, governance, 三省六部]
-    related_skills: [web-research-router, github-code-explorer, docs-driven-design-review]
+    related_skills: [web-research-router, github, docs-driven-design-review]
 ---
 
 # Grill With Docs — Hermes/三省六部 版 v2.0

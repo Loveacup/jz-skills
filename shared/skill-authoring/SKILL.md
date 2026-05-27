@@ -7,7 +7,7 @@ license: MIT
 metadata:
   hermes:
     tags: [skill-authoring, compliance, progressive-disclosure, anti-rationalization, governance]
-    related_skills: [grill-with-docs, web-research-router, github-code-explorer, hermes-agent-skill-authoring]
+    related_skills: [grill-with-docs, web-research-router, github, hermes-agent-skill-authoring]
 ---
 
 # Skill Authoring — Compliance-First Edition v3.0
@@ -225,6 +225,7 @@ Case studies: `references/slimming-case-studies.md` — strategic-insight-longfo
 | **Revised whole skill for one bug (EmbodiSkill 2026)** | Coarse whole-skill rewrites corrupt valid content. Only change skill content IMPLICATED by deployment evidence. |
 | **Confused Execution Lapse with Skill Defect (EmbodiSkill 2026)** | Agent ignoring valid skill ≠ skill is wrong. Classify failures before revising: if agent didn't follow a correct rule, preserve it and add emphasis instead of changing it. |
 | **Revised immediately after each failure (EmbodiSkill 2026)** | Immediate single-signal fixes cause oscillation. Accumulate B=3-5 reflections, consolidate, then revise. |
+| **`cp -r` trailing slash missing when skill name matches category directory** | `cp -r shared/<name> $base/<name>/` creates nested `<name>/<name>/` when `$base/<name>/` already exists (because `cp -r source dest_dir/` copies source *into* dest_dir). For skills whose name IS the category (e.g., `github` → `$pd/github/`), use trailing slash on source: `cp -r shared/<name>/ $base/<name>/` to copy CONTENTS without nesting. Affects both `sync_hermes()` and the per-profile loop. |
 
 ---
 

@@ -46,7 +46,7 @@ Full bidirectional sync workflow for the jz-skills git repo. This reference cove
 
 Maps shared skills to their platform-specific paths:
 - `shared/web-research-router` → `research/web-research-router` (Hermes)
-- `shared/github-code-explorer` → `github/github-code-explorer` (Hermes)
+- `shared/github` → `github/` (Hermes, use trailing slash: `cp -r shared/github/ $base/github/`)
 - `shared/grill-with-docs` → `governance/grill-with-docs` (Hermes)
 - `shared/skill-authoring` → `governance/skill-authoring` (Hermes)
 
