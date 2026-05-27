@@ -1,6 +1,6 @@
 ---
 name: pi-grill
-description: "主动歧义守护 — 每当用户的表述有歧义、模糊、矛盾或缺失关键信息时自动切入，一次一个问题逐层澄清直到精准理解。不坐等召唤。触发场景：指代不明（它/那个/这个）、需求模糊（做好点/优化一下/快一点）、信息矛盾（A vs 非A）、多解方案（A或B或C均可行）、缺关键约束（规模/技术栈/优先级/场景）。同时也支持显式召唤：'grill me'、'拷打我'、'challenge this'、'找漏洞'、'压力测试'、'方案评审'、'质疑方案'、'poke holes'、'test my plan'。决不批量提问。能读代码/文档验证的就不问用户。不要用于：指令清晰无歧义的简单任务、纯执行（不改方案只做事）、用户已明确要求直接执行不要问。"
+description: "Detects and resolves ambiguity in user requests — when statements are vague, contradictory, missing key constraints, or have multiple valid interpretations, grills one question at a time until precise understanding is reached. Also responds to explicit summons: 'grill me', '拷打我', 'challenge this', '找漏洞', '压力测试', '方案评审', 'poke holes', 'test my plan'. Never batches questions. Reads code/docs before asking. Do NOT use for clear unambiguous instructions, pure execution tasks, or when user explicitly says 'just do it'."
 version: 3.0.0
 author: Hermes Agent
 license: MIT
@@ -75,29 +75,9 @@ metadata:
 
 ---
 
-## 示例：自动歧义检测
-
-```
-User:   加个搜索功能
-
-Agent:  搜什么内容？站内文章 / 文件全文 / 用户列表？
-        建议先说清楚搜索对象和范围。
-
-User:   站内文章
-
-Agent:  要不要实时搜索（Elasticsearch）还是简单 LIKE 查询（PostgreSQL）？
-        文章量大了 LIKE 会慢。你现在多少篇文章？预期会增长到多少？
-
-User:   现在 50 篇，预计一年内 5000 篇
-
-Agent:  5000 篇 LIKE 还行，但到了 5 万就会慢。要不要现在就用 ES？
-        代价是增加运维复杂度。还是先用 LIKE，到了瓶颈再切？
-
-User:   先用 LIKE 吧
-
-Agent:  明白了。搜索范围：站内文章。方案：PostgreSQL LIKE 查询，适合 <5 万篇规模。
-        下一步：需要哪些搜索字段？标题？正文？标签？时间范围？
-```
+> 完整示例见 [references/conversation-example.md](references/conversation-example.md)
+>
+> 触发测试用例见 [references/trigger-tests.md](references/trigger-tests.md)
 
 ---
 
