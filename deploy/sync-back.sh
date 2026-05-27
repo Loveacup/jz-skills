@@ -79,6 +79,9 @@ PAIRS=(
   "imported-claude/pdf|imported-claude/pdf"
   "imported-claude/strategic-insight-longform|imported-claude/strategic-insight-longform"
   "imported-claude/voice-to-markdown-workflow|imported-claude/voice-to-markdown-workflow"
+  "custom/auto-diary|auto-diary"
+  "custom/bilibili-video-analyzer|bilibili-video-analyzer"
+  "custom/xhs-crawler|xhs-crawler"
 )
 
 for pair in "${PAIRS[@]}"; do

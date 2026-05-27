@@ -28,6 +28,11 @@ sync_hermes() {
   cp -r "$REPO_ROOT/imported-claude/strategic-insight-longform"  "$base/imported-claude/"
   cp -r "$REPO_ROOT/imported-claude/voice-to-markdown-workflow"  "$base/imported-claude/"
 
+  # Custom skills
+  cp -r "$REPO_ROOT/custom/auto-diary"                "$base/"
+  cp -r "$REPO_ROOT/custom/bilibili-video-analyzer"   "$base/"
+  cp -r "$REPO_ROOT/custom/xhs-crawler"               "$base/"
+
   # Sync to all profiles
   echo "→ Syncing to profiles..."
   for prof in $(ls -d ~/.hermes/profiles/*/ 2>/dev/null | xargs -n1 basename); do
