@@ -55,16 +55,18 @@ PAIRS=(
   # === hermes ===
   "hermes/web-research-router|research/web-research-router"
   "hermes/github-code-explorer|github/github-code-explorer"
-  "hermes/financial-research-agents|research/financial-research-agents"
   "hermes/tradingagents|research/tradingagents"
   "hermes/llm-wiki|research/llm-wiki"
   "hermes/arxiv|research/arxiv"
-  "hermes/three-provinces-constitution|governance/three-provinces-constitution"
   "hermes/auto-diary|auto-diary"
   "hermes/bilibili-video-analyzer|bilibili-video-analyzer"
   "hermes/xhs-crawler|xhs-crawler"
 
-  # === profiles/regent ===
+  # === hermes-3S6M-profiles/common ===
+  "hermes-3S6M-profiles/common/three-provinces-constitution|governance/three-provinces-constitution"
+  "hermes-3S6M-profiles/common/financial-research-agents|research/financial-research-agents"
+
+  # === hermes-3S6M-profiles/regent ===
   "hermes-3S6M-profiles/regent/kanban-orchestrator|profiles/regent/skills/kanban-orchestrator"
   "hermes-3S6M-profiles/regent/kanban-worker|profiles/regent/skills/kanban-worker"
   "hermes-3S6M-profiles/regent/kanban-gate|profiles/regent/skills/kanban-gate"

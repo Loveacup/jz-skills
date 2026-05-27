@@ -47,19 +47,20 @@ jz-skills/
 │   ├── strategic-insight-longform/  战略洞察长文
 │   └── voice-to-markdown-workflow/  语音转Markdown
 │
-├── hermes/                    ← Hermes 专属技能
+├── hermes/                    ← Hermes 专属技能 (非三省六部)
 │   ├── web-research-router/        检索总控：Exa/Tavily/Brave/arXiv 路由
 │   ├── github-code-explorer/       GitHub 源码四层探索 (L1→L4)
-│   ├── three-provinces-constitution/ 三省六部通用治理宪章 v3.0
-│   ├── financial-research-agents/   三省六部金融研究
 │   ├── tradingagents/               A股/市场交易分析
 │   ├── llm-wiki/                    LLM 知识库构建
 │   ├── arxiv/                       学术论文检索
 │   ├── auto-diary/                   自动化日记生成
 │   ├── bilibili-video-analyzer/     B站视频分析
-│   ├── xhs-crawler/                 小红书爬虫
+│   └── xhs-crawler/                 小红书爬虫
 │
 ├── hermes-3S6M-profiles/     ← 三省六部 profile 专属技能
+│   ├── common/         三省六部全部门通用
+│   │   ├── three-provinces-constitution/ 治理宪章 v3.0
+│   │   └── financial-research-agents/    金融研究
 │   ├── regent/         监国太子
 │   │   ├── kanban-orchestrator/        多 Agent 编排派工
 │   │   ├── kanban-worker/              Kanban Worker 手册
@@ -107,8 +108,8 @@ jz-skills/
     └── sync-back.sh                回传：本地 agents → GitHub（含自动脱敏）
 ```
 
-**41 skills total** — 5 shared · 10 Hermes · 21 3S6M-profile · 5 pi  \
-**共计 41 个技能** — 5 个跨平台通用 · 10 个 Hermes 专属 · 21 个三省六部 profile · 5 个 Pi
+**41 skills total** — 5 shared · 8 Hermes · 23 3S6M-profile · 5 pi  \
+**共计 41 个技能** — 5 个跨平台通用 · 8 个 Hermes 专属 · 23 个三省六部 profile · 5 个 Pi
 
 ---
 
