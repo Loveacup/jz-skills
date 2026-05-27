@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-19-blue" alt="19 skills">
+  <img src="https://img.shields.io/badge/skills-25-blue" alt="25 skills">
   <img src="https://img.shields.io/badge/profiles-15%20三省六部-orange" alt="15 profiles">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
@@ -26,6 +26,7 @@
 - [Quick Start · 快速开始](#quick-start--快速开始)
 - [Sync Workflow · 同步流程](#sync-workflow--同步流程)
 - [三省六部多智能体体系](#三省六部多智能体体系)
+- [三省六部 Governance Skills · 治理技能](#三省六部-governance-skills--治理技能)
 - [三省六部 Profile Skills](#三省六部-profile-skills)
 - [Pi Skills · Windows 端技能](#pi-skills--windows-端技能)
 - [Skill Format · 技能格式](#skill-format--技能格式)
@@ -46,10 +47,16 @@ jz-skills/
 │   └── skill-authoring/            Skill 合规增强层
 │
 ├── hermes/                    ← Hermes 专属技能
-│   ├── financial-research-agents/  三省六部金融研究
-│   ├── tradingagents/              A股/市场交易分析
-│   ├── llm-wiki/                   LLM 知识库构建
-│   └── arxiv/                      学术论文检索
+│   ├── three-provinces-constitution/ 三省六部通用治理宪章 v3.0
+│   ├── 6m-smoke-test/               六部运转冒烟测试
+│   ├── kanban-orchestrator/         多 Agent 编排与派工
+│   ├── kanban-worker/               Kanban Worker 手册
+│   ├── kanban-gate/                 制度硬拦截闸门
+│   ├── surge-gateway/               Surge 家庭网关管控
+│   ├── financial-research-agents/   三省六部金融研究
+│   ├── tradingagents/               A股/市场交易分析
+│   ├── llm-wiki/                    LLM 知识库构建
+│   └── arxiv/                       学术论文检索
 │
 ├── profiles/                  ← 三省六部 profile 专属技能
 │   ├── gongbu/                     工部：基建运维 (disk-cleanup, health-check, monitoring)
@@ -71,8 +78,8 @@ jz-skills/
     └── sync-back.sh                回传：本地 agents → GitHub（含自动脱敏）
 ```
 
-**19 skills total** — 4 shared · 4 Hermes · 6 profile-specific · 5 pi  
-**共计 19 个技能** — 4 个跨平台通用 · 4 个 Hermes 专属 · 6 个三省六部 profile 专属 · 5 个 Pi 专属
+**25 skills total** — 4 shared · 10 Hermes · 6 profile-specific · 5 pi  \
+**共计 25 个技能** — 4 个跨平台通用 · 10 个 Hermes 专属 · 6 个三省六部 profile 专属 · 5 个 Pi 专属
 
 ---
 
@@ -186,6 +193,23 @@ git pull && ./deploy/sync-all.sh hermes
 | 翰林院 | `hanlinyuan` | 知识研究 |
 
 > v0.13 · 15/15 profiles active · 六部冒 smoke test 全线闭环 (16min) · [架构方案 →](https://github.com/Loveacup/jz-skills)
+
+---
+
+## 三省六部 Governance Skills · 治理技能
+
+Core governance skills for the Regent (监国太子) and the Three-Provinces-Six-Ministries system. These skills define the constitution, enforcement, orchestration, and testing of the multi-agent governance model.
+
+三省六部体系核心治理技能 — 定义多 Agent 治理模型的宪章、执行、编排与测试。
+
+| Skill · 技能 | Ver | Purpose · 用途 |
+|:---|:---|:---|
+| **three-provinces-constitution** | v3.0 | 三省六部通用治理宪章 — 任务路由(L0-L3)、plan-preview触发、封驳/返修分离、escalation规则、handoff schema v2 |
+| **6m-smoke-test** | v1.0 | 六部运转冒烟测试 — 中书→门下→尚书→六部→史馆 端到端闭环验证，含 P0/P1/P2 修复流程 |
+| **kanban-orchestrator** | v3.5 | 多 Agent 编排与派工 — 反理性化陷阱表、分解 playbook、尚书省强制插入、6+ 次皇帝纠正教训 |
+| **kanban-worker** | v2.0 | Kanban Worker 手册 — 工作空间处理、handoff metadata 格式、retry 诊断、do-not 清单 |
+| **kanban-gate** | v1.0 | 制度硬拦截闸门 — 五层权限校验(权限矩阵→状态机→高风险拦截→数据清洗→审计日志)，CLI+plugin 双闸 |
+| **surge-gateway** | v1.0 | Surge 家庭网关管控 — 安全分级(只读/高影响/危险)、设备清册三角定位、分流规则、WoL/SSH |
 
 ---
 
