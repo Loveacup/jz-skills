@@ -1,8 +1,8 @@
 ---
 name: skill-authoring
-description: "Creates, audits, and improves Agent Skills with a compliance-first approach. Unlike other skill-creators that only teach 'how to write', this adds 'how to ensure agents actually follow the skill'. Use when the user wants to create a new skill, audit an existing one for compliance gaps, restructure a bloated skill into progressive disclosure, or add anti-rationalization/verification checklists. Triggers on: 制作skill, 写skill, 优化skill, 审查skill, skill太长了, agent不遵循skill, create skill, improve skill, audit skill, skill compliance. Load after Anthropic skill-creator for basic authoring, then apply this compliance layer."
-version: 1.0.0
-author: Hermes Agent
+description: "Creates, audits, and improves Agent Skills with a compliance-first approach. 9-step creation flow: grill intent → capture → progressive disclosure audit → anti-rationalization → rule positioning → verification checklist → compliance scoring (6-dimension) → test case generation → evaluate & iterate → deploy. Unlike other skill-creators that only teach 'how to write', this ensures agents actually FOLLOW the skill. Use when the user wants to create a new skill, audit an existing one for compliance gaps, restructure a bloated skill into progressive disclosure, or add anti-rationalization/verification checklists. Triggers on: 制作skill, 写skill, 优化skill, 审查skill, skill太长了, agent不遵循skill, create skill, improve skill, audit skill, skill compliance. Load after Anthropic skill-creator for basic authoring, then apply this compliance layer. DO NOT use for general documentation or one-off tasks."
+version: 2.0.0
+author: Hermes Agent (v2.0 absorbs pi/skill-creator v6.0)
 license: MIT
 metadata:
   hermes:
@@ -10,56 +10,72 @@ metadata:
     related_skills: [grill-with-docs, web-research-router, github-code-explorer, hermes-agent-skill-authoring]
 ---
 
-# Skill Authoring — Compliance-First Edition
+# Skill Authoring — Compliance-First Edition v2.0
 
-**This skill adds a compliance layer on top of existing skill-creators.** Anthropic's `skill-creator` and OpenAI's equivalent teach you HOW to write a SKILL.md. This skill teaches you how to make sure agents actually FOLLOW it.
+**This skill adds a compliance layer on top of existing skill-creators.** Anthropic's `skill-creator` teaches HOW to write a SKILL.md. This teaches how to make agents actually FOLLOW it. v2.0 absorbs pi/skill-creator v6.0's 9-step flow, decision tree, and test case generation.
 
 ## 🚨 Author Red Flags: Don't Ship a Skill That Won't Be Followed
 
 | If you catch yourself thinking... | Reality check |
 |-----------------------------------|---------------|
-| "The instructions are clear, the agent will figure it out" | Clear ≠ followed. Agent attention windows are finite. Instructions outside the first ~200 lines may be ignored. |
-| "I'll add the anti-rationalization table later" | Without it upfront, the agent will rationalize skipping the skill entirely. Add it NOW. |
-| "500+ lines is fine, it's all important" | Every line past 500 reduces compliance probability. Split into references/ or accept lower compliance. |
-| "I don't need a verification checklist, the steps are obvious" | Agents need explicit self-check triggers. Without a checklist, steps get skipped. |
-| "This skill is for a specific task, general principles don't apply" | Compliance gaps hit ALL skill types — research routers, code reviewers, deployment scripts alike. |
-| "I taught this rule to others, my own skill is fine" | **Reflexivity trap.** Meta-skills that teach compliance are the most likely to miss their own rules. Always run the Compliance Scorecard on your own skill before shipping. This very skill was caught missing its own Deployment & Sync section during self-audit. |
+| "The instructions are clear, the agent will figure it out" | Clear ≠ followed. Attention windows are finite. >200 lines may be ignored. |
+| "I'll add the Red Flags table later" | Without it upfront, the agent rationalizes skipping the skill. Add it NOW. |
+| "300+ lines is fine, it's all important" | Every line past 300 reduces compliance. Split into `references/`. |
+| "I don't need a verification checklist" | Agents need explicit self-check triggers. Without one, steps get skipped. |
+| "This skill is special, general rules don't apply" | Compliance gaps hit ALL skill types — routers, reviewers, deployers alike. |
+| "The description is good enough" | Description determines trigger rate. Not pushy enough → undertrigger. Missing do-not → overtrigger. |
+| "I taught this rule to others, my own skill is fine" | **Reflexivity trap.** Meta-skills teaching compliance are most likely to miss their own rules. This very skill was caught missing its Deployment & Sync section during self-audit. Always run the Compliance Scorecard on your own skill before shipping. |
+
+**If you caught yourself thinking any of these → stop and follow the process below.**
+
+## 🔀 Decision Tree: Should You Create a Skill?
+
+```
+User requests skill-related operation?
+├── YES → Continue
+│   ├── Grill interview (one question at a time) → understand intent
+│   ├── Read existing skill/code/doc → supplement context
+│   └── Enter creation flow (Steps 1-9 below)
+└── NO → Is this just documentation or a one-off task? → ❌ Don't create a skill
+```
 
 ## Before You Start
 
-1. **If the user has never created a skill before:** Load Anthropic's `skill-creator` first for basic YAML/progressive disclosure/description authoring. Then apply this skill's compliance layer.
-
-2. **If auditing/improving an existing skill:** Skip Anthropic skill-creator. Go directly to the compliance checklists below.
-
-3. **Full design → build workflow (recommended for new skills):** Load `grill-with-docs` first to clarify scope. Research existing solutions (search GitHub, papers). Then build with this compliance layer. This session demonstrated the pattern: grill scope → research 5 papers + 4 projects → build skill-authoring → self-audit → fix reflexivity gaps → deploy.
-
-## Step 1: Progressive Disclosure Audit
-
-A skill must follow the 3-level loading standard. Audit the skill against this table:
-
-| Level | Content | Budget | ✅ Check |
-|-------|---------|--------|---------|
-| 1 | YAML frontmatter (name + description) | ~100 tokens | "Use when..." triggers are explicit, not generic |
-| 2 | SKILL.md body | **<500 lines** (<5000 tokens) | If >500 lines → restructure, move content to references/ |
-| 3 | `references/`, `scripts/`, `assets/` | Unlimited (lazy-loaded) | Each file referenced from SKILL.md with precise "Read when..." conditions |
-
-**Common Level 2 bloat → fix:**
-
-| Bloated SKILL.md contains... | Move to... | Reference from SKILL.md as... |
-|------------------------------|-----------|-------------------------------|
-| Detailed mode instructions (>2 paragraphs each) | `references/modes.md` | "See `references/modes.md` for full mode instructions" |
-| Query examples (>3 per type) | `references/query-patterns.md` | "For query patterns, see `references/query-patterns.md`" |
-| Full JSON/YAML schemas | `references/schema.md` | "Schema: `references/schema.md`" |
-| Academic/research depth | `references/academic-lane.md` | "Academic lane: `references/academic-lane.md`" |
-| Pitfalls beyond top 5 | `references/common-pitfalls.md` | "Full pitfalls (13 items): `references/common-pitfalls.md`" |
+1. **First-time skill author:** Load Anthropic `skill-creator` for basic YAML/progressive disclosure/description authoring. Then apply this compliance layer.
+2. **Auditing an existing skill:** Skip Anthropic skill-creator. Jump to Progressive Disclosure Audit (Step 3) and Compliance Scorecard (Step 7).
+3. **Full design→build (recommended):** Load `grill-with-docs` to clarify scope → research existing solutions → build with this compliance layer.
 
 ---
 
-## Step 2: Add Anti-Rationalization (🚨 Red Flags)
+## Step 1: Capture Intent
 
-**This is the highest-leverage compliance tool.** Add a table to the TOP of the skill (before the main content) that preempts the agent's most common excuses for skipping the skill.
+What to build? When should it trigger? What's the expected output? What test cases are needed?
 
-### Pattern
+## Step 2: Grill Interview
+
+One question at a time. Never batch. Read code/docs to answer before asking the user. Use `clarify` with `choices`.
+
+## Step 3: Progressive Disclosure Audit
+
+| Level | Content | Budget | ✅ Check |
+|-------|---------|--------|---------|
+| 1 | YAML frontmatter (name + description) | ~100 tokens | "Use when..." triggers explicit, not generic |
+| 2 | SKILL.md body | **<300 lines** | If >300 → restructure, move to references/ |
+| 3 | `references/`, `scripts/`, `assets/` | Unlimited (lazy) | Each file referenced with "Read when..." conditions |
+
+**Common bloat → fix:**
+
+| Bloated SKILL.md contains... | Move to... | Reference as... |
+|------------------------------|-----------|-----------------|
+| Detailed mode instructions (>2 paragraphs) | `references/modes.md` | "See `references/modes.md`" |
+| Query examples (>3 per type) | `references/query-patterns.md` | "For query patterns: `references/query-patterns.md`" |
+| Full JSON/YAML schemas | `references/schema.md` | "Schema: `references/schema.md`" |
+| Academic/research depth | `references/academic-lane.md` | "Academic lane: `references/academic-lane.md`" |
+| Pitfalls beyond top 5 | `references/common-pitfalls.md` | "Full pitfalls: `references/common-pitfalls.md`" |
+
+## Step 4: Add Anti-Rationalization (🚨 Red Flags)
+
+**Highest-leverage compliance tool.** Add a table at the TOP of the skill that preempts common excuses.
 
 ```markdown
 ## 🚨 Red Flags: DO NOT SKIP THIS SKILL
@@ -67,138 +83,94 @@ A skill must follow the 3-level loading standard. Audit the skill against this t
 | Excuse your brain will make | Why it's wrong |
 |------------------------------|----------------|
 | "[excuse 1]" | [rebuttal 1] |
-| "[excuse 2]" | [rebuttal 2] |
-| "[excuse 3]" | [rebuttal 3] |
 ```
 
-### How to Generate Red Flags
+**How to generate:** Ask "What would an agent say to justify NOT following this skill?" See `references/anti-rationalization-catalog.md` for the full catalog by skill type.
 
-For a given skill, ask: **"What would an agent say to justify NOT following this skill?"** Common patterns:
+## Step 5: Critical Rule Positioning
 
-| Skill type | Common excuses |
-|-----------|---------------|
-| Search/router | "web_search is faster", "I know the answer", "decision tree too complex" |
-| Code review | "diff is small", "I read it already", "tests pass so it's fine" |
-| Deployment | "config hasn't changed", "last deploy worked", "this is a minor update" |
-| Research | "I already summarized this", "let me just fetch one more thing" |
-
-See `references/anti-rationalization-catalog.md` for the full catalog of excuses by skill type.
-
----
-
-## Step 3: Critical Rule Positioning
-
-**Rules outside the attention window don't exist.** Audit positioning:
+**Rules outside the attention window don't exist.**
 
 | Check | Standard |
 |-------|----------|
-| Decision tree / core workflow | **Top 15-30% of file** (withink first ~75 lines for a 200-line skill) |
-| Red Flags table | **Top 10%** — the very first content after frontmatter |
+| Decision tree / core workflow | **Top 15-30%** of file |
+| Red Flags table | **Top 10%** — first content after frontmatter |
 | Verification checklist | **Bottom 10%** — last thing agent reads before acting |
-| Detailed instructions | **Below main workflow** — or in references/ |
-| Reference file pointers | **Throughout body** — "For X, see `references/x.md`" |
+| Detailed instructions | Below main workflow, or in `references/` |
 
-**Why this matters:** AAAI 2026 research shows LLMs have "strong inherent biases toward certain constraint types" and instructions outside the attention window are effectively invisible. The Compliance Gap paper (arXiv 2605.01771) formalizes this as a "structural inevitability" — models default to high-reward shortcuts when procedural instructions are not frontloaded.
+Why: LLMs have "strong inherent biases toward certain constraint types" (AAAI 2026). Instructions outside the attention window are effectively invisible.
 
----
-
-## Step 4: Add Verification Checklist
-
-Every skill must end with a self-check. The checklist should be action items the agent can verify before returning results.
-
-### Pattern
+## Step 6: Add Verification Checklist
 
 ```markdown
 ## ✅ Verification Checklist (RUN BEFORE RETURNING RESULTS)
 
 - [ ] Did I [primary action 1]?
 - [ ] Did I [primary action 2]?
-- [ ] Did I [cross-check / validate]?
-- [ ] Did I [output format check]?
-
+...
 **If any box is unchecked, go back.**
 ```
 
-### Checklist Design Rules
+Rules: **3-7 items**, yes/no questions, actionable, last thing in the file.
 
-- **3-7 items** — more than 7 is noise, less than 3 is too vague
-- **Yes/no questions** — agent can self-assess without external input
-- **Actionable** — "Did I pick the right research mode?" not "Is the result good?"
-- **Last thing in the file** — agent reads it immediately before returning results
+## Step 7: Compliance Scoring
 
----
-
-## Step 5: Embed Deployment & Sync
-
-If the skill will be deployed across profiles (三省六部 pattern), embed self-sync rules:
-
-```markdown
-## Deployment & Sync
-
-After ANY update to this SKILL.md:
-1. Sync to ALL Hermes profiles (dynamic discovery):
-   ```bash
-   for prof in $(ls -d ~/.hermes/profiles/*/ 2>/dev/null | xargs -n1 basename); do
-     dst=~/.hermes/profiles/$prof/skills/<category>/<skill-name>
-     [ -d "$dst" ] && cp -r "$dst" ~/.hermes/profiles/$prof/backups/<skill-name>-$(date +%Y%m%d_%H%M%S)
-     rm -rf "$dst"
-     cp -r ~/.hermes/skills/<category>/<skill-name> "$dst"
-   done
-   ```
-2. Update Obsidian documentation if this skill has one
-3. `qmd update`
-4. Spot-check 2-3 profiles for SKILL.md presence
-```
-
----
-
-## Full Skill Structure Template
-
-A compliant skill follows this structure:
-
-```
-skill-name/
-├── SKILL.md              (~150-300 lines)
-│   ├── YAML frontmatter
-│   ├── Overview (3-5 lines)
-│   ├── 🚨 Red Flags table
-│   ├── Decision tree / core workflow (top 15-30%)
-│   ├── Detailed steps / modes
-│   ├── Quick reference tables
-│   ├── Reference file pointers
-│   ├── Common pitfalls (top 5)
-│   ├── Deployment & sync
-│   └── ✅ Verification checklist
-└── references/
-    ├── <modes / patterns / schemas>.md
-    └── common-pitfalls.md (full list)
-```
-
----
-
-## Compliance Scorecard
-
-Rate any skill against these dimensions (1-5):
+Rate the skill against 6 dimensions (1-5). Target: **≥4 on all dimensions**.
 
 | Dimension | What to check | Target |
 |-----------|--------------|--------|
-| **Progressive disclosure** | SKILL.md <500 lines? References/ used for depth? | ≥4 |
-| **Anti-rationalization** | Red Flags table present? ≥3 specific excuses with rebuttals? | ≥4 |
+| **Progressive disclosure** | SKILL.md <300 lines? References/ used for depth? | ≥4 |
+| **Anti-rationalization** | Red Flags table present? ≥3 specific excuse-rebuttal pairs? | ≥4 |
 | **Rule positioning** | Core workflow in top 15-30%? Checklist at bottom? | ≥4 |
-| **Description quality** | "Use when..." explicit? Trigger phrases embedded? | ≥4 |
+| **Description quality** | "Use when..." explicit? Trigger phrases + do-not included? | ≥4 |
 | **Verification** | Checklist present? 3-7 actionable items? | ≥4 |
 | **Deployment** | Self-sync rules included? (If multi-profile) | ≥3 |
 
-A passing skill scores ≥4 on all dimensions.
+See `references/compliance-research.md` for detailed scoring methodology.
+
+## Step 8: Generate Test Cases
+
+8-12 **should-trigger** scenarios + 8-12 **should-not-trigger** scenarios. Examples:
+
+| Scenario | Should trigger? | Why |
+|----------|:-:|-----|
+| "搜一下 React 19 新特性" | ✅ | Matches "搜" trigger |
+| "帮我读一下 README.md" | ❌ | Read local file, not search |
+| ... | | |
+
+Save full test cases to `references/trigger-tests.md`.
+
+## Step 9: Evaluate & Iterate
+
+- Fix over/under-triggering based on test cases
+- If ≥5 batch edits: re-read full file to check structural integrity
+- Re-run Compliance Scorecard after each major edit
+
+## Step 10: Deploy
+
+Put skill in the correct directory. Verify triggering. Follow Deployment & Sync rules at the bottom of this file.
 
 ---
 
-## Common Pitfalls in Skill Authoring
+## Pitfalls
 
-1. **Writing for yourself instead of the agent.** The skill is read by an LLM with limited attention. Be explicit, structured, frontloaded.
-2. **Assuming the agent will remember.** Attention decays. Repeat critical rules in the checklist even if mentioned earlier.
-3. **Over-engineering the first draft.** Ship a 200-line skill with Red Flags + checklist. Iterate based on observed compliance failures.
-4. **No negative examples.** Tell the agent what NOT to do, not just what to do. Red Flags table is the structured form of this.
+| Trap | Consequence |
+|------|-------------|
+| Description not pushy enough | Undertriggering — skill never loads |
+| Missing do-not in description | Overtriggering — loads on irrelevant tasks |
+| Body >300 lines | Content beyond line 300 ignored by agent |
+| Only explaining WHAT, not WHY | Agent can't prioritize |
+| Inconsistent terminology | Agent confuses similar concepts |
+| No test cases | Changing description breaks triggering silently |
+| Vague name | Use gerund form (e.g., `recover-hindsight-mcp`) |
+| Creating a skill for a one-off task | Wastes tokens, pollutes skill list |
+| Batch-interviewing the user | User only answers the last question |
+| Asking questions that code/docs could answer | Wastes user time, reduces trust |
+| Missing Red Flags table | ⚠️ MANDATORY. Without it, skill is dead on arrival |
+| Decision tree buried too deep | Must be in top 20% of body |
+| Batch-patching without re-check | ≥5 edits → re-read full file |
+| Writing for humans instead of agents | The agent is the reader; humans are reviewers |
+| No verification checklist | Agent has no self-check mechanism |
 
 ---
 
@@ -212,17 +184,19 @@ A passing skill scores ≥4 on all dimensions.
 
 ---
 
-## ✅ Author Verification Checklist
+## ✅ Author Verification Checklist (RUN BEFORE DEPLOYING)
 
 - [ ] Did I load Anthropic `skill-creator` if this is a first-time authoring task?
-- [ ] Is SKILL.md under 500 lines, with detailed content in `references/`?
-- [ ] Is the 🚨 Red Flags table in the top 10% with ≥3 specific excuse-rebuttal pairs?
-- [ ] Is the core workflow / decision tree in the first 15-30% of the file?
-- [ ] Does the description include explicit "Use when..." trigger phrases?
-- [ ] Is there a ✅ Verification Checklist (3-7 items) at the bottom?
-- [ ] If multi-profile, are Deployment & Sync rules embedded?
+- [ ] Is SKILL.md under 300 lines, with depth in `references/`?
+- [ ] Is 🚨 Red Flags table in top 10% with ≥3 specific excuse-rebuttal pairs?
+- [ ] Is the decision tree in top 15-30%?
+- [ ] Does description include explicit "Use when..." + do-not?
+- [ ] Is ✅ Verification Checklist (3-7 items) at bottom 10%?
+- [ ] Did I score ≥4 on all 6 compliance dimensions?
+- [ ] Did I generate 8-12 should-trigger + 8-12 should-not-trigger test cases?
+- [ ] If multi-profile: are Deployment & Sync rules embedded?
 
-**If any box is unchecked, fix it before shipping.**
+**If any box is unchecked, fix it before deploying.**
 
 ---
 
@@ -243,43 +217,6 @@ jz-skills/
     ├── sync-all.sh   ← Forward: repo → local agents
     └── sync-back.sh  ← Reverse: local agents → repo
 ```
-
-### Bidirectional Sync Workflow
-
-**Local Agent → GitHub (push changes up)**
-```bash
-cd ~/code/jz-skills
-./deploy/sync-back.sh --dry-run   # preview
-./deploy/sync-back.sh              # apply (Hermes → repo)
-git diff && git commit -am "描述改动" && git push
-```
-
-**GitHub → Local Agent (pull changes down)**
-```bash
-cd ~/code/jz-skills
-git pull && ./deploy/sync-all.sh hermes   # or: cc / pi / all
-```
-
-**Daily one-liners:**
-```bash
-git pull && ./deploy/sync-all.sh hermes           # before work
-./deploy/sync-back.sh && git commit -am "daily" && git push  # after work
-```
-
-### ⚠️ Sanitization Before Push
-
-**Run before every `git push` to a public repo.** Check for:
-
-- [ ] No `/Users/<username>/` absolute paths (use `~/` instead)
-- [ ] No GitHub account names or token scopes in docs/tests
-- [ ] No email addresses, API keys, or internal IPs
-- [ ] No Obsidian vault absolute paths
-
-```bash
-grep -rIn --include="*.md" -E "(/Users/[a-z]|gho_|sk-|192\.168|@foxmail)" . | grep -v .git/
-```
-
-Full sanitization guide + platform-specific sync details: `references/deployment-workflow.md`
 
 ### After ANY update to this SKILL.md:
 

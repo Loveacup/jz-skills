@@ -1,8 +1,8 @@
 ---
 name: grill-with-docs
-description: "Grills a plan or design against the Hermes/三省六部 domain model — challenges against CONTEXT.md glossary, cross-references with code and configs, stress-tests with concrete scenarios, and updates documentation inline as decisions crystallise. Use when the user wants to stress-test a plan, review an edict, or validate a design against the system's language and documented decisions."
-version: 1.2.0
-author: Hermes Agent (adapted from mattpocock/skills)
+description: "Grills a plan or design against the Hermes/三省六部 domain model — challenges against CONTEXT.md glossary, cross-references with code and configs, stress-tests with concrete scenarios, and updates documentation inline as decisions crystallise. Structured 4-phase flow: load domain → walk decision tree (one question at a time via clarify+choices) → evidence challenge (read code/docs before asking) → capture & summarize. Use when the user wants to stress-test a plan, review an edict, validate a design, or explicitly invokes 'grill me' / '拷打我' / 'challenge this' / '找漏洞'. DO NOT trigger on simple unambiguous instructions or pure execution tasks."
+version: 2.0.0
+author: Hermes Agent (v2.0 absorbs pi/pi-grill v3.1 structured phases)
 license: MIT
 platforms: [macos, linux]
 metadata:
@@ -11,9 +11,9 @@ metadata:
     related_skills: [web-research-router, github-code-explorer, docs-driven-design-review]
 ---
 
-# Grill With Docs — Hermes/三省六部 版
+# Grill With Docs — Hermes/三省六部 版 v2.0
 
-Adapted from [mattpocock/skills](https://github.com/mattpocock/skills). Original: `grill-with-docs` and `grill-me`.
+Adapted from [mattpocock/skills](https://github.com/mattpocock/skills). Original: `grill-with-docs` and `grill-me`. v2.0 absorbs pi-grill v3.1's structured 4-phase flow and evidence-challenge discipline.
 
 Interview the user relentlessly about every aspect of a plan until shared understanding is reached. Walk down each branch of the design tree, resolving dependencies one-by-one. For each question, provide your recommended answer.
 
@@ -31,11 +31,13 @@ This skill is worthless if you rationalize around its constraints. Read this bef
 
 | Excuse your brain will make | Why it's wrong |
 |------------------------------|----------------|
-| "This is a simple question, I'll just type it out" | Every question MUST use `clarify` with `choices`. Typing questions as open-ended text forces the user to type back — slower, more friction, violates the core promise of this skill. |
+| "This is a simple question, I'll just type it out" | Every question MUST use `clarify` with `choices`. Typing questions as open-ended text forces the user to type back — slower, more friction. |
 | "I can ask a few questions at once to save time" | One. Question. At. A. Time. Batching kills the decision-tree walk. Each question depends on the previous answer. |
-| "I know what they mean, no need to challenge this" | Your job IS to challenge. Vague terms → sharpen. Conflicting terms → call out. Assumptions → test. If you don't grill, this skill does nothing. |
-| "This seems settled, let's move to the next branch" | NEVER continue until the current question is explicitly resolved (chosen, edited, or acknowledged as skipped). |
+| "I know what they mean, no need to challenge this" | Your job IS to challenge. Vague terms → sharpen. Conflicting terms → call out. Assumptions → test. |
+| "This seems settled, let's move on" | NEVER continue until the current question is explicitly resolved (chosen, edited, or acknowledged as skipped). |
 | "I'll update CONTEXT.md later" | Capture terms as they crystallize. Batched updates get forgotten. Update inline immediately. |
+| "The user is busy, I shouldn't interrupt" | One question = 30 seconds. Wrong implementation = hours of rework. Grill early, not late. |
+| "I'll list all the ambiguities at once for efficiency" | Batch questions → user only answers the last one. One at a time. |
 
 **If you caught yourself thinking any of these → re-read the Never Do list and restart the current question.**
 
@@ -73,39 +75,38 @@ The "code" to verify against includes:
 
 ---
 
-## During the Session
+## Grill Flow (4 Phases)
 
-### Challenge against the glossary
+### Phase 1: Load Domain
 
-When the user uses a term that conflicts with existing language in CONTEXT.md, call it out immediately: "CONTEXT.md defines '中书省' as 拟制层, but you seem to mean 执行层 — which is it?"
+Read CONTEXT.md + search for relevant ADRs (`qmd` or `search_files` for `EmpireThread_*ADR*`). Ask the user to describe what they want to build/change.
 
-### Sharpen fuzzy language
+### Phase 2: Walk the Decision Tree
 
-When the user uses vague or overloaded terms, propose a precise canonical term: "你说'同步'——是指 profile sync、Obsidian sync、还是 skill 三文件同步？这是三件不同的事。"
+One question at a time, resolving each branch:
 
-### Cross-reference with code
+- **Challenge against glossary:** When a term conflicts with CONTEXT.md, call it out: "CONTEXT.md defines '中书省' as 拟制层, but you seem to mean 执行层 — which is it?"
+- **Sharpen fuzzy language:** When terms are vague or overloaded, propose a precise canonical term: "你说'同步'——是指 profile sync、Obsidian sync、还是 skill 三文件同步？这是三件不同的事。"
+- **Cross-reference with code:** When the user states how something works, check whether actual code/config agrees. Surface contradictions.
+- **Stress-test with scenarios:** Invent edge cases that force precision: "如果新 profile 加了但 skill 没同步到，grill-with-docs 自己会检测到吗？"
+- **Quantify vagueness:** "好一点"→"响应时间从 500ms 降到 200ms 行吗？" "快一点"→"方案A 3天但完整，方案B 1天但少30%功能，选哪个？"
+- **Expose contradictions immediately:** "你说要高可用但单机部署。这两件事矛盾——你更看重哪个？"
 
-When the user states how something works, check whether the actual code/config agrees. If you find a contradiction, surface it: "你说 cron job X 用 deepseek，但 config 里显示它是默认模型——需要更新吗？"
+### Phase 3: Evidence Challenge
 
-### Discuss concrete scenarios
+Before asking the user a question, exhaust all verifiable sources:
 
-Stress-test with specific edge cases. Invent scenarios that force precision about boundaries:
-- "如果新 profile 加了但 skill 没同步到，grill-with-docs 自己会检测到吗？"
-- "如果 CONTEXT.md 和某个 skill 的 SKILL.md 对同一个术语定义不一致，以谁为准？"
+- **Read code first:** "上次的方案"→ read .md or `git log` before asking
+- **Check configs:** Don't ask "what model does X use" — read `config.yaml`
+- **Search memory:** Check `hindsight_recall` for past decisions before re-litigating
+- **Only ask when:** No code/doc/config/memory can answer it
 
-### Update CONTEXT.md inline
+### Phase 4: Capture & Summarize
 
-When a term is resolved, update `20-Areas/10_AI实践/三省六部_Hermes/CONTEXT.md` immediately. Don't batch — capture as they happen. CONTEXT.md is a glossary only, never a spec or scratch pad.
-
-### Offer ADRs sparingly
-
-Only create an ADR when all three are true:
-
-1. **Hard to reverse** — the cost of changing your mind later is meaningful
-2. **Surprising without context** — a future reader will wonder "why did they do it this way?"
-3. **The result of a real trade-off** — there were genuine alternatives and you picked one for specific reasons
-
-If any of the three is missing, skip the ADR.
+- **Update CONTEXT.md inline:** When a term is resolved, update immediately. Don't batch — capture as they happen.
+- **Offer ADRs sparingly:** Only when (1) hard to reverse, (2) surprising without context, (3) result of a real trade-off. If any criterion is missing, skip.
+- **Know when to stop:** Ambiguity resolved / user calls stop / 3 consecutive questions on same topic. If hitting the limit: "上述理解对吗？可以继续了吗？"
+- **Summarize:** Restate the full plan with decisions made, terms resolved, and anything left open. What was clarified + what was decided + next steps.
 
 ---
 
@@ -118,20 +119,20 @@ If any of the three is missing, skip the ADR.
 - NEVER treat CONTEXT.md as a spec, PRD, or implementation plan — it is a glossary only
 - NEVER create an ADR without all three criteria met
 - NEVER continue to the next question until the current one is resolved (chosen, edited, or explicitly skipped)
+- NEVER exceed 3 consecutive questions on the same topic without checking: "上述理解对吗？可以继续了吗？"
+- NEVER ask a question that code/docs/config could answer — evidence-challenge first
 
 ---
 
-## Session Flow
+## ✅ Verification Checklist (RUN BEFORE ENDING EACH QUESTION)
 
-1. **Load domain:** Read CONTEXT.md + search for relevant ADRs (`qmd` or `search_files` for `EmpireThread_*ADR*`)
-2. **Understand the plan:** Ask the user to describe what they want to build/change
-3. **Walk the decision tree:** One question at a time, resolving each branch:
-   - Does this conflict with existing glossary terms?
-   - Does this conflict with existing ADRs?
-   - Does the code/config support what's being proposed?
-   - Are there edge cases the plan doesn't cover?
-4. **Capture decisions:** Update CONTEXT.md for resolved terms, offer ADRs for irreversible decisions
-5. **Summarize:** Restate the full plan with decisions made, terms resolved, and anything left open
+- [ ] Did I ask only ONE question this turn?
+- [ ] Did I use `clarify` with `choices` (max 4 options)?
+- [ ] Did I check code/config/docs before asking (Phase 3: evidence challenge)?
+- [ ] Did I capture any resolved term in CONTEXT.md immediately?
+- [ ] Did I NOT accept "I'll figure that out later" without noting it?
+
+**If any box is unchecked, go back.**
 
 ---
 
@@ -150,9 +151,8 @@ If any of the three is missing, skip the ADR.
    ```
 
 2. **Sync Obsidian documentation** — update `00-Inbox/工具制作_Hermes检索总控与GitHub源码探索_三省六部体系_20260526.md`:
-   - Add grill-with-docs to the skill inventory
-   - Add CONTEXT.md creation to knowledge base updates
    - Bump `modified` timestamp
+   - Update grill-with-docs version to v2.0
 
 3. **Update CONTEXT.md** — ensure `grill-with-docs` is listed in the glossary under "核心 skill"
 
@@ -173,15 +173,3 @@ Agent: [cross-references cron jobs] There's already a sync-memory-to-regent cron
 
 ... [continues one question at a time]
 ```
-
----
-
-## ✅ Verification Checklist (RUN BEFORE ENDING EACH QUESTION)
-
-- [ ] Did I ask only ONE question this turn?
-- [ ] Did I use `clarify` with `choices` (max 4 options)?
-- [ ] Did I check code/config before asking (not ask blindly)?
-- [ ] Did I capture any resolved term in CONTEXT.md immediately?
-- [ ] Did I NOT accept "I'll figure that out later" without noting it?
-
-**If any box is unchecked, go back.**
