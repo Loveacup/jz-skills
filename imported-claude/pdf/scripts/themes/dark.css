@@ -1,0 +1,25 @@
+/*
+[theme]
+name = dark
+description = Charcoal background, VS Code-inspired
+hljs_theme = atom-one-dark
+*/
+
+body { color: #d4d4d4; background: #1e1e1e; }
+h1 { color: #569cd6; border-bottom-color: #569cd6; }
+h2 { color: #569cd6; border-bottom-color: #4a6a8a; }
+h3 { color: #4ec9b0; }
+h4 { color: #9cdcfe; }
+strong { color: #ce9178; }
+em { color: #9a9a9a; }
+a { color: #6ab0f3; }
+mark { background: #806d20; color: #d4d4d4; }
+blockquote { background: #2a2a2a; border-left-color: #555; color: #aaa; }
+th { background: linear-gradient(180deg, #2d4a6a 0%, #1e3450 100%); border-color: #2d4a6a; }
+td { border-color: #444; }
+tr:nth-child(even) td { background: #252525; }
+pre { background: #1a1a2e; }
+pre code, pre code.hljs { color: #d4d4d4 !important; }
+code { background: #2a2a2a; color: #f48771; }
+hr { border-top-color: #444; }
+.doc-meta { color: #888; border-bottom-color: #333; }

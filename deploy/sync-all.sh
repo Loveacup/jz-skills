@@ -23,6 +23,11 @@ sync_hermes() {
   cp -r "$REPO_ROOT/hermes/llm-wiki"                  "$base/research/"
   cp -r "$REPO_ROOT/hermes/arxiv"                     "$base/research/"
 
+  # Claude Code imported skills
+  cp -r "$REPO_ROOT/imported-claude/pdf"                         "$base/imported-claude/"
+  cp -r "$REPO_ROOT/imported-claude/strategic-insight-longform"  "$base/imported-claude/"
+  cp -r "$REPO_ROOT/imported-claude/voice-to-markdown-workflow"  "$base/imported-claude/"
+
   # Sync to all profiles
   echo "→ Syncing to profiles..."
   for prof in $(ls -d ~/.hermes/profiles/*/ 2>/dev/null | xargs -n1 basename); do

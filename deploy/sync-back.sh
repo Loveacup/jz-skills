@@ -76,6 +76,9 @@ PAIRS=(
   "profiles/jiangzuojian/delivery-gate|profiles/jiangzuojian/skills/delivery-gate"
   "profiles/protocol/md-to-pdf|profiles/protocol/skills/md-to-pdf"
   "profiles/tester/code-review-toolkit|profiles/tester/skills/code-review-toolkit"
+  "imported-claude/pdf|imported-claude/pdf"
+  "imported-claude/strategic-insight-longform|imported-claude/strategic-insight-longform"
+  "imported-claude/voice-to-markdown-workflow|imported-claude/voice-to-markdown-workflow"
 )
 
 for pair in "${PAIRS[@]}"; do
