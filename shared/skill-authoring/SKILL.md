@@ -260,21 +260,4 @@ Case studies: `references/slimming-case-studies.md` — strategic-insight-longfo
 ---
 
 > 📋 Changelog: `references/changelog.md`
-
-## Deployment & Sync
-
-All skills now live in the **jz-skills git repo** as canonical source of truth:
-`https://github.com/Loveacup/jz-skills`
-
-### Repository Structure (see jz-skills README for full tree)
-
-Skills organized by platform: `shared/` (cross-platform), `hermes/` (Hermes non-3S6M), `hermes-3S6M-profiles/common/` (3S6M all-dept), `hermes-3S6M-profiles/<dept>/` (dept-specific), `pi/` (Windows), `cc/` (Claude Code). Never create catch-all directories like `custom/` or `imported-claude/`.
-
-### After ANY update to this SKILL.md:
-
-1. **Commit to git repo** (canonical source)
-2. **Deploy to Hermes:** `cd ~/code/jz-skills && ./deploy/sync-all.sh hermes`
-3. **On other machines:** `git pull && ./deploy/sync-all.sh <platform>`
-4. Update Obsidian documentation if one exists
-5. `qmd update`
-6. Spot-check 2-3 profiles for SKILL.md presence
+> 🔄 Deployment & Sync: `references/deployment.md`
