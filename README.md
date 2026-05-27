@@ -134,7 +134,7 @@ Deployed only to matching profile · 仅部署到对应部门。
 | 🛠️ 工部 | `gongbu` | `disk-cleanup`, `infra-health-check`, `infra-monitoring`, `surge-gateway`, `agent-observability` |
 | ⚖️ 刑部 | `tester` | `code-review-toolkit`, `agent-security-audit` |
 | 🔧 将作监 | `jiangzuojian` | `delivery-gate`, `specialist-engineer` |
-| 📡 尚书省 | `shangshu` | `a2a-protocol` |
+| 📡 尚书省 | `shangshu` | [`a2a-protocol`](https://github.com/Loveacup/hermes-a2a) ← A2A 互通 |
 | 🎭 礼部 | `protocol` | `md-to-pdf` |
 | 🔎 御史台 | `auditor` | `agent-audit-evaluation` |
 | 📖 史馆 | `archivist` | `agent-memory-manager` |
@@ -183,7 +183,7 @@ Authored by Pi itself · Pi 自行创作。Deployed only to `~/.pi/skills/`.
 | 🔧 将作监 | `jiangzuojian` | 外聘工程专家 |
 | 🎓 翰林院 | `hanlinyuan` | 知识研究 |
 
-> v0.13 · 15/15 active · 六部 smoke test 全线闭环
+> v0.13 · 15/15 active · 六部 smoke test 全线闭环 · [A2A 架构 →](https://github.com/Loveacup/hermes-a2a)
 
 ---
 
