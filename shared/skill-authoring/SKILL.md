@@ -237,6 +237,7 @@ Case studies: `references/slimming-case-studies.md` — strategic-insight-longfo
 | `references/example-web-research-router-v3.md` | Case study: web-research-router 500→146 line restructure |
 | `references/slimming-case-studies.md` | Case studies: strategic-insight-longform (513→130) + voice-to-markdown (349→133) |
 | `references/skill-evolution-research.md` | SkillEvolver + EmbodiSkill papers (2026-05): deployment-driven skill evolution |
+| `references/cross-project-evaluation.md` | Decision tree for evaluating external projects before absorbing features (case studies: AnySearch, ECC, taste-skill) |
 | `references/absorption-analysis.md` | When to absorb external inspiration vs when NOT to (AnySearch case study) |
 
 ---

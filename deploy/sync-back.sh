@@ -74,6 +74,7 @@ PAIRS=(
   "hermes-3S6M-profiles/regent/kanban-gate|profiles/regent/skills/kanban-gate"
   "hermes-3S6M-profiles/regent/6m-smoke-test|profiles/regent/skills/6m-smoke-test"
   "hermes-3S6M-profiles/regent/morning-news-briefing|profiles/regent/skills/productivity/morning-news-briefing"
+  "hermes-3S6M-profiles/regent/claude-code|profiles/regent/skills/autonomous-ai-agents/claude-code"
 
   # === profiles/gongbu ===
   "hermes-3S6M-profiles/gongbu/disk-cleanup|profiles/gongbu/skills/disk-cleanup"
