@@ -1,8 +1,8 @@
 ---
 name: skill-authoring
-description: "Creates, audits, and improves Agent Skills with a compliance-first approach. 9-step creation flow: grill intent → capture → progressive disclosure audit → anti-rationalization → rule positioning → verification checklist → compliance scoring (6-dimension) → test case generation → evaluate & iterate → deploy. Unlike other skill-creators that only teach 'how to write', this ensures agents actually FOLLOW the skill. Use when the user wants to create a new skill, audit an existing one for compliance gaps, restructure a bloated skill into progressive disclosure, or add anti-rationalization/verification checklists. Triggers on: 制作skill, 写skill, 优化skill, 审查skill, skill太长了, agent不遵循skill, create skill, improve skill, audit skill, skill compliance. Load after Anthropic skill-creator for basic authoring, then apply this compliance layer. DO NOT use for general documentation or one-off tasks."
-version: 2.0.0
-author: Hermes Agent (v2.0 absorbs pi/skill-creator v6.0)
+description: "Creates, audits, and improves Agent Skills with a compliance-first approach. 11-step flow: capture → grill → progressive disclosure → anti-rationalization → rule positioning → checklist → 7-dim compliance scoring → test cases → deployment-grounded audit → failure classification (DISCOVERY/OPTIMIZATION/SKILL DEFECT/EXECUTION LAPSE) → targeted revision → deploy. v3.0 absorbs SkillEvolver + EmbodiSkill (2026-05) for deployment-driven skill evolution. Use when creating, auditing, restructuring, or adding compliance elements to skills. Triggers on: 制作skill, 写skill, 优化skill, 审查skill, skill太长了, agent不遵循skill, create/improve/audit skill. DO NOT use for general documentation or one-off tasks."
+version: 3.0.0
+author: Hermes Agent (v3.0 absorbs SkillEvolver + EmbodiSkill insights)
 license: MIT
 metadata:
   hermes:
@@ -10,9 +10,9 @@ metadata:
     related_skills: [grill-with-docs, web-research-router, github-code-explorer, hermes-agent-skill-authoring]
 ---
 
-# Skill Authoring — Compliance-First Edition v2.0
+# Skill Authoring — Compliance-First Edition v3.0
 
-**This skill adds a compliance layer on top of existing skill-creators.** Anthropic's `skill-creator` teaches HOW to write a SKILL.md. This teaches how to make agents actually FOLLOW it. v2.0 absorbs pi/skill-creator v6.0's 9-step flow, decision tree, and test case generation.
+**This skill adds a compliance layer on top of existing skill-creators.** Anthropic's `skill-creator` teaches HOW to write a SKILL.md. This teaches how to make agents actually FOLLOW it. v3.0 adds deployment-grounded audit, failure classification (SkillEvolver + EmbodiSkill, 2026-05), and the Evolution Spiral.
 
 ## 🚨 Author Red Flags: Don't Ship a Skill That Won't Be Followed
 
@@ -25,6 +25,7 @@ metadata:
 | "This skill is special, general rules don't apply" | Compliance gaps hit ALL skill types — routers, reviewers, deployers alike. |
 | "The description is good enough" | Description determines trigger rate. Not pushy enough → undertrigger. Missing do-not → overtrigger. |
 | "I taught this rule to others, my own skill is fine" | **Reflexivity trap.** Meta-skills teaching compliance are most likely to miss their own rules. This very skill was caught missing its Deployment & Sync section during self-audit. Always run the Compliance Scorecard on your own skill before shipping. |
+| "I'll just review it myself, I wrote it" | **Self-review is NOT deployment-grounded.** SkillEvolver (2026) shows that learning signals from ANOTHER agent using the skill are 30% more reliable than self-reflection. Always deploy to a fresh agent before finalizing. |
 
 **If you caught yourself thinking any of these → stop and follow the process below.**
 
@@ -115,7 +116,7 @@ Rules: **3-7 items**, yes/no questions, actionable, last thing in the file.
 
 ## Step 7: Compliance Scoring
 
-Rate the skill against 6 dimensions (1-5). Target: **≥4 on all dimensions**.
+Rate the skill against 7 dimensions (1-5). Target: **≥4 on all dimensions**.
 
 | Dimension | What to check | Target |
 |-----------|--------------|--------|
@@ -124,6 +125,7 @@ Rate the skill against 6 dimensions (1-5). Target: **≥4 on all dimensions**.
 | **Rule positioning** | Core workflow in top 15-30%? Checklist at bottom? | ≥4 |
 | **Description quality** | "Use when..." explicit? Trigger phrases + do-not included? | ≥4 |
 | **Verification** | Checklist present? 3-7 actionable items? | ≥4 |
+| **Runtime invocation** | Deployed to fresh agent and actually INVOKED? Silent-bypass checked? | ≥4 |
 | **Deployment** | Self-sync rules included? (If multi-profile) | ≥3 |
 
 See `references/compliance-research.md` for detailed scoring methodology.
@@ -140,15 +142,58 @@ See `references/compliance-research.md` for detailed scoring methodology.
 
 Save full test cases to `references/trigger-tests.md`.
 
-## Step 9: Evaluate & Iterate
+## Step 9: Deployment-Grounded Audit (SkillEvolver 2026)
 
-- Fix over/under-triggering based on test cases
-- If ≥5 batch edits: re-read full file to check structural integrity
-- Re-run Compliance Scorecard after each major edit
+**Do NOT self-review.** Deploy the candidate skill to a FRESH agent (different model or fresh context) and observe:
 
-## Step 10: Deploy
+1. **Deploy** skill to a different agent/config than the authoring agent
+2. **Execute** a test task that the skill should handle
+3. **Observe**: Did the agent invoke the skill? Did it follow key instructions? Did it produce correct output?
+4. **Classify failures** (see Step 9a)
+5. **Collect ≥2 deployment signals** before revising
+
+### Step 9a: Failure Classification (EmbodiSkill 2026)
+
+For every failure observed during deployment, classify into exactly ONE category:
+
+| Classification | Meaning | Action |
+|:---|:---|:---|
+| 🔍 **DISCOVERY** | Skill is missing content the agent needed | Add new rule/step to skill body |
+| ⚡ **OPTIMIZATION** | Skill rule is valid but a better approach exists | Revise the specific rule |
+| 🐛 **SKILL DEFECT** | Skill rule is wrong, incomplete, or underspecified | Correct the implicated rule |
+| 🏃 **EXECUTION LAPSE** | Skill is correct but agent failed to follow it | **Do NOT change skill body.** Add emphasis to skill appendix |
+
+**Critical rule:** Execution Lapse ≠ Skill Defect. If the agent ignored valid skill content, the skill is RIGHT — the agent failed. Preserve valid content; add an emphasis marker instead of changing the rule.
+
+## Step 10: Targeted Revision
+
+- **Accumulate first:** collect B=3-5 reflections before consolidating. Immediate fixes cause oscillation.
+- **Consolidate:** merge overlapping reflections, remove redundant ones, resolve conflicts.
+- **Revise targeted:** only change skill content IMPLICATED by the evidence. Skill content not referenced by any reflection → leave untouched.
+- **Appendix update:** for Execution Lapse reflections, add emphasis markers to the skill appendix without changing the skill body.
+
+## Step 11: Deploy
 
 Put skill in the correct directory. Verify triggering. Follow Deployment & Sync rules at the bottom of this file.
+
+---
+
+## Repo Import Workflow (Existing Skill → jz-skills)
+
+When the user says "把这个 skill 推到 GitHub" or "审查后入库" for an existing skill that's NOT yet in jz-skills:
+
+1. **Load skill-authoring** → audit against compliance scorecard
+2. **Identify gaps**: missing Red Flags? No decision tree? No verification checklist? >300 lines?
+3. **Slim if needed**: move verbose sections to `references/`, add missing compliance elements
+4. **Run 7-dimension scorecard with line-position evidence**: show Red Flags%, decision tree%, checklist lines-from-bottom. Present this to the user before pushing. The scorecard IS the proof that review happened. Example scorecard format above in Step 7.
+5. **Sanitize**: replace home paths (`/Users/<name>/` → `~/`), emails → `<redacted>`, private IPs → `<redacted>`, API keys → `<redacted>`
+6. **Copy to jz-skills**: `cp ~/.hermes/skills/<skill> jz-skills/<category>/<skill>/`
+7. **Update both sync scripts**: `deploy/sync-all.sh` (forward deploy) AND `deploy/sync-back.sh` (reverse sync pairs). Missing either = broken sync.
+8. **Update README badge**: increment skill count
+9. **Commit**: `feat: add <skill> (compliance-reviewed, slimmed from X→Y lines)`
+10. **Push**
+
+Case studies: `references/slimming-case-studies.md` — strategic-insight-longform (513→130), voice-to-markdown (349→133), xhs-crawler (813→124), auto-diary (324→139).
 
 ---
 
@@ -171,6 +216,15 @@ Put skill in the correct directory. Verify triggering. Follow Deployment & Sync 
 | Batch-patching without re-check | ≥5 edits → re-read full file |
 | Writing for humans instead of agents | The agent is the reader; humans are reviewers |
 | No verification checklist | Agent has no self-check mechanism |
+| **Adding skill category but not updating both sync scripts** | `sync-all.sh` deploys forward but `sync-back.sh` pairs missing → reverse sync silently broken. Always update BOTH. |
+| **Patched sync scripts without re-reading after each edit** | shell script `patch` operations can accidentally remove adjacent lines (e.g., merging two `cp -r` blocks removed `auto-diary` and `bilibili-video-analyzer`). After EVERY patch to a shell script: re-read the surrounding 10 lines to verify. |
+| **Moving skill between directories but only updating one of two locations in sync-all.sh** | `sync-all.sh` references hermes skills in TWO places: the main `sync_hermes()` section AND the per-profile loop. Both must be updated when a skill moves (e.g., to `hermes-3S6M-profiles/common/`). |
+| **Forgot to update README badge after push** | Badge shows stale count. After every skill push: increment the badge number. |
+| **Applied compliance silently — didn't present the scorecard** | User can't verify the review was actually done. After modifying any skill, run the 7-dimension scorecard with line-position evidence (Red Flags at X%, decision tree at Y%, checklist at Z lines from bottom) and present it before declaring done. The scorecard IS the proof of review. |
+| **Self-reviewed instead of deployment-grounded (SkillEvolver 2026)** | Self-review misses silent-bypass, overfit, and execution-lapse failures. Always deploy to a FRESH agent (different model/context) and observe actual usage before finalizing. |
+| **Revised whole skill for one bug (EmbodiSkill 2026)** | Coarse whole-skill rewrites corrupt valid content. Only change skill content IMPLICATED by deployment evidence. |
+| **Confused Execution Lapse with Skill Defect (EmbodiSkill 2026)** | Agent ignoring valid skill ≠ skill is wrong. Classify failures before revising: if agent didn't follow a correct rule, preserve it and add emphasis instead of changing it. |
+| **Revised immediately after each failure (EmbodiSkill 2026)** | Immediate single-signal fixes cause oscillation. Accumulate B=3-5 reflections, consolidate, then revise. |
 
 ---
 
@@ -181,6 +235,8 @@ Put skill in the correct directory. Verify triggering. Follow Deployment & Sync 
 | `references/compliance-research.md` | Academic papers supporting compliance-first design |
 | `references/anti-rationalization-catalog.md` | Full catalog of agent excuses by skill type |
 | `references/example-web-research-router-v3.md` | Case study: web-research-router 500→146 line restructure |
+| `references/slimming-case-studies.md` | Case studies: strategic-insight-longform (513→130) + voice-to-markdown (349→133) |
+| `references/skill-evolution-research.md` | SkillEvolver + EmbodiSkill papers (2026-05): deployment-driven skill evolution |
 
 ---
 
@@ -192,8 +248,11 @@ Put skill in the correct directory. Verify triggering. Follow Deployment & Sync 
 - [ ] Is the decision tree in top 15-30%?
 - [ ] Does description include explicit "Use when..." + do-not?
 - [ ] Is ✅ Verification Checklist (3-7 items) at bottom 10%?
-- [ ] Did I score ≥4 on all 6 compliance dimensions?
+- [ ] Did I score ≥4 on all 7 compliance dimensions (including Runtime Invocation)?
 - [ ] Did I generate 8-12 should-trigger + 8-12 should-not-trigger test cases?
+- [ ] Did I deploy to a FRESH agent and verify the skill was actually INVOKED (Step 9)?
+- [ ] Did I classify deployment failures using the 4-type system (Step 9a)?
+- [ ] Did I accumulate ≥3 reflections before consolidating and revising (Step 10)?
 - [ ] If multi-profile: are Deployment & Sync rules embedded?
 
 **If any box is unchecked, fix it before deploying.**
@@ -205,18 +264,9 @@ Put skill in the correct directory. Verify triggering. Follow Deployment & Sync 
 All skills now live in the **jz-skills git repo** as canonical source of truth:
 `https://github.com/Loveacup/jz-skills`
 
-### Repository Structure
+### Repository Structure (see jz-skills README for full tree)
 
-```
-jz-skills/
-├── shared/          ← Cross-platform skills (Hermes + CC + pi)
-├── hermes/          ← Hermes-specific (三省六部, trading, wiki)
-├── cc/              ← Claude Code specific
-├── pi/              ← pi specific
-└── deploy/
-    ├── sync-all.sh   ← Forward: repo → local agents
-    └── sync-back.sh  ← Reverse: local agents → repo
-```
+Skills organized by platform: `shared/` (cross-platform), `hermes/` (Hermes non-3S6M), `hermes-3S6M-profiles/common/` (3S6M all-dept), `hermes-3S6M-profiles/<dept>/` (dept-specific), `pi/` (Windows), `cc/` (Claude Code). Never create catch-all directories like `custom/` or `imported-claude/`.
 
 ### After ANY update to this SKILL.md:
 
