@@ -61,6 +61,7 @@ PAIRS=(
   "hermes/auto-diary|auto-diary"
   "hermes/bilibili-video-analyzer|bilibili-video-analyzer"
   "hermes/xhs-crawler|xhs-crawler"
+  "hermes/calendar-manager|calendar-manager"
 
   # === hermes-3S6M-profiles/common ===
   "hermes-3S6M-profiles/common/three-provinces-constitution|governance/three-provinces-constitution"
