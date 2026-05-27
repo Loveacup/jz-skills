@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-14-blue" alt="14 skills">
+  <img src="https://img.shields.io/badge/skills-19-blue" alt="19 skills">
   <img src="https://img.shields.io/badge/profiles-4%20三省六部-orange" alt="4 profile types">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
@@ -26,6 +26,7 @@
 - [Quick Start · 快速开始](#quick-start--快速开始)
 - [Sync Workflow · 同步流程](#sync-workflow--同步流程)
 - [三省六部 Profile Skills](#三省六部-profile-skills)
+- [Pi Skills · Windows 端技能](#pi-skills--windows-端技能)
 - [Skill Format · 技能格式](#skill-format--技能格式)
 - [Automation · 自动化](#automation--自动化)
 - [Contributing · 贡献](#contributing--贡献)
@@ -55,16 +56,22 @@ jz-skills/
 │   ├── protocol/                   礼部：MD→PDF/EPUB 文档渲染 (md-to-pdf)
 │   └── tester/                     刑部：代码审查工具集 (code-review-toolkit)
 │
+├── pi/                        ← Pi 专属技能 (Windows · 5 skills)
+│   ├── web-research-router/        Pi 版检索总控 (TypeScript extension)
+│   ├── pi-grill/                   主动歧义守护 v3.1 (compliance-reviewed)
+│   ├── skill-creator/              合规优先 Skill 创作 v6.0
+│   ├── pi-hermes-setup/            Pi ↔ Hermes 跨机器联动架构
+│   └── recover-hindsight-mcp/      Hindsight MCP 连接恢复
+│
 ├── cc/                        ← Claude Code 专属 (WIP)
-├── pi/                        ← pi 专属 (WIP)
 │
 └── deploy/
     ├── sync-all.sh                 部署：GitHub → 本地 agents
     └── sync-back.sh                回传：本地 agents → GitHub（含自动脱敏）
 ```
 
-**14 skills total** — 4 shared · 4 Hermes · 6 profile-specific  
-**共计 14 个技能** — 4 个跨平台通用 · 4 个 Hermes 专属 · 6 个三省六部 profile 专属
+**19 skills total** — 4 shared · 4 Hermes · 6 profile-specific · 5 pi  
+**共计 19 个技能** — 4 个跨平台通用 · 4 个 Hermes 专属 · 6 个三省六部 profile 专属 · 5 个 Pi 专属
 
 ---
 
@@ -160,6 +167,26 @@ The `profiles/` directory contains skills that are **specific to one 三省六�
 These deploy via `sync-all.sh` → `sync_profiles()` and sync back via `sync-back.sh` with profile-aware path resolution.
 
 部署走 `sync-all.sh` 的 `sync_profiles()` 函数，回传走 `sync-back.sh` 的 profile 感知路径解析。
+
+---
+
+## Pi Skills · Windows 端技能
+
+Pi (Windows) 维护 5 个专属技能，与 Hermes 共享 `shared/` 中的 4 个跨平台技能。Pi 技能严格遵循合规优先结构：Red Flags 反理性化表、决策树、验证清单。
+
+Pi (Windows) maintains 5 platform-specific skills on top of 4 shared cross-platform skills. All Pi skills follow compliance-first structure: Red Flags table, decision tree, verification checklist.
+
+| Skill · 技能 | Ver · 版本 | Purpose · 用途 |
+|:---|:---|:---|
+| **web-research-router** | v3.0-pi | Pi 版检索总控 — TypeScript SDK (`extension.ts`) 注册 `web_search`/`web_fetch`，路由 Exa/Tavily/Brave |
+| **pi-grill** | v3.1 | 主动歧义守护 — 自动检测模糊/矛盾/缺失，一次一问逐层澄清。含 `references/` 渐进披露 |
+| **skill-creator** | v6.0 | 合规优先 Skill 创作 — 9 步流程 + 6 维度评分 + 测试用例，确保 agent 真正遵循 |
+| **pi-hermes-setup** | v1.1 | Pi ↔ Hermes 联动架构 — SSH 隧道 + MCP 配置 + 故障诊断决策树 |
+| **recover-hindsight-mcp** | v1.1 | Hindsight MCP 恢复 — ECONNRESET 6 步修复 + SSH 隧道重建 + 配置同步 |
+
+> Pi skills are authored by Pi itself and pushed to the repo via `git`. They deploy to `~/.pi/skills/` via `sync-all.sh pi`.
+>
+> Pi 技能由 Pi 自行创作并 push 到 repo。通过 `sync-all.sh pi` 部署到 `~/.pi/skills/`。
 
 ---
 
