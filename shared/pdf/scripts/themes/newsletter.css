@@ -1,0 +1,26 @@
+/*
+[theme]
+name = newsletter
+description = Morning news mobile PDF: cream background, bronze gold accents, 430x932px viewport
+hljs_theme = atom-one-light
+*/
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
+               "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei",
+               sans-serif;
+  font-size: 15px; line-height: 1.8; color: #1b1a17;
+  background: #fffdf8; max-width: 430px; margin: 0 auto;
+}
+h1 { color: #1b1a17; font-size: 20px; border-bottom: 2px solid #b47a32;
+     font-family: Georgia, "Songti SC", serif; padding-bottom: 6px; }
+h2 { color: #b47a32; font-size: 17px; border-bottom: 1px solid #d4c5a9;
+     font-family: Georgia, "Songti SC", serif; }
+h3 { color: #1b1a17; font-size: 15px; }
+h4 { color: #5a5046; font-size: 14px; }
+strong { color: #b47a32; }
+th { background: #b47a32; color: #fffdf8; border-color: #b47a32; font-size: 12px; }
+a { color: #b47a32; }
+blockquote { border-left: 3px solid #b47a32; background: #faf6ef; color: #5a5046; }
+pre { background: #f5f0e8; color: #1b1a17; border: 1px solid #d4c5a9; }
+code { background: #f0ebe0; color: #b47a32; }

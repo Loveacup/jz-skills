@@ -8,7 +8,7 @@ platforms: [macos, linux]
 metadata:
   hermes:
     tags: [productivity, news, briefing, mobile-pdf, daily, searxng, verbatim-quote, anti-hallucination]
-    related_skills: [web-research-router, source-verification, md-to-pdf, skill-authoring]
+    related_skills: [web-research-router, source-verification, pdf, skill-authoring]
 ---
 
 # 早新闻简报 v4.0

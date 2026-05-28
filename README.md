@@ -201,7 +201,7 @@ Deployed only to matching profile · 仅部署到对应部门。
 | ⚖️ 刑部 | `tester` | `code-review-toolkit` `agent-security-audit` | 代码审查、测试、安全审计 · Code review & security |
 | 🔧 将作监 | `jiangzuojian` | `delivery-gate` `specialist-engineer` | 交付把关、专家评审 · Delivery gate & expert review |
 | 📡 尚书省 | `shangshu` | [`a2a-protocol`](https://github.com/Loveacup/hermes-a2a) | Agent 间互通协议、任务派发 · [A2A interop](https://github.com/Loveacup/hermes-a2a) |
-| 🎭 礼部 | `protocol` | `md-to-pdf` | 文档编制、PDF 渲染 · Document formatting |
+| 🎭 礼部 | `protocol` | `md-to-pdf.archived` → `shared/pdf` | 文档编制、PDF 渲染 · Document formatting（已吸收进 shared/pdf） |
 | 🔎 御史台 | `auditor` | `agent-audit-evaluation` | 独立审计、合规评估 · Audit & compliance |
 | 📖 史馆 | `archivist` | `agent-memory-manager` | 全程归档、记忆管理 · Archival & memory |
 | 💰 户部 | `budget` | `agent-cost-manager` | 数据搜索、成本管理 · Data & cost tracking |
@@ -225,31 +225,33 @@ Authored by Pi itself · Pi 自行创作。Deployed only to `~/.pi/skills/`.
 ## 🏯 三省六部 · 15 Profiles
 
 > 监国三省六部制 Agent 架构 — 用户授权，监国统筹；中书拟案，门下封驳，尚书派工；六部分职，御史监察，史馆留痕。
+>
+> 🛂 **Gateway 说明：** 表中 🛂 标志位 = 配置了对外 gateway（Telegram/iMessage/邮件）。仅 `regent` 一个。其余 14 profile 走 **内部调度，无对外通信**——由太子统一收发、A2A 转派。
 
-| 三省 | Profile | 职能 |
-|:---|:---|:---|
-| 📝 中书省 | `planner` | 拟制方案 |
-| 🚫 门下省 | `reviewer` | 封驳审核 |
-| 📡 尚书省 | `shangshu` | 派工调度 |
+| 三省 | Profile | 职能 | 通信 |
+|:---|:---|:---|:---|
+| 📝 中书省 | `planner` | 拟制方案 | 内部调度 |
+| 🚫 门下省 | `reviewer` | 封驳审核 | 内部调度 |
+| 📡 尚书省 | `shangshu` | 派工调度、[A2A interop](https://github.com/Loveacup/hermes-a2a) | 内部调度（A2A 协议层） |
 
-| 六部 | Profile | 职能 |
-|:---|:---|:---|
-| ⚔️ 兵部 | `engineer` | 代码实现、架构、重构 |
-| 🛠️ 工部 | `gongbu` | 基础设施、部署、监控 |
-| 💰 户部 | `budget` | 数据搜索、统计、报表 |
-| 🎭 礼部 | `protocol` | 文档编制、PDF 渲染 |
-| ⚖️ 刑部 | `tester` | 代码审查、测试、安全 |
-| 👥 吏部 | `registry` | Agent 管理、培训 |
+| 六部 | Profile | 职能 | 通信 |
+|:---|:---|:---|:---|
+| ⚔️ 兵部 | `engineer` | 代码实现、架构、重构 | 内部调度 |
+| 🛠️ 工部 | `gongbu` | 基础设施、部署、监控 | 内部调度 |
+| 💰 户部 | `budget` | 数据搜索、统计、报表 | 内部调度 |
+| 🎭 礼部 | `protocol` | 文档编制、PDF 渲染 | 内部调度 |
+| ⚖️ 刑部 | `tester` | 代码审查、测试、安全 | 内部调度 |
+| 👥 吏部 | `registry` | Agent 管理、培训 | 内部调度 |
 
-| 独立机构 | Profile | 职能 |
-|:---|:---|:---|
-| 👑 监国太子 | `regent` | 总揽仲裁 |
-| 🔎 御史台 | `auditor` | 独立审计 |
-| 📖 史馆 | `archivist` | 全程归档 |
-| 🔧 将作监 | `jiangzuojian` | 外聘工程专家 |
-| 🎓 翰林院 | `hanlinyuan` | 知识研究 |
+| 独立机构 | Profile | 职能 | 通信 |
+|:---|:---|:---|:---|
+| 👑 监国太子 | `regent` | 总揽仲裁、外部通信收口 | 🛂 **gateway**（Telegram + iMessage + 邮件 + ...） |
+| 🔎 御史台 | `auditor` | 独立审计 | 内部调度 |
+| 📖 史馆 | `archivist` | 全程归档 | 内部调度 |
+| 🔧 将作监 | `jiangzuojian` | 外聘工程专家 | 内部调度 |
+| 🎓 翰林院 | `hanlinyuan` | 知识研究 | 内部调度 |
 
-> v0.13 · 15/15 active · 六部 smoke test 全线闭环 · [A2A 架构 →](https://github.com/Loveacup/hermes-a2a)
+> v0.13 · 15/15 active · 1 gateway profile (regent) + 14 internal-dispatch profiles · 六部 smoke test 全线闭环 · [A2A 架构 →](https://github.com/Loveacup/hermes-a2a)
 
 ---
 
@@ -268,6 +270,24 @@ git pull && ./deploy/sync-all.sh hermes
 ```
 
 > 🧹 **Auto-sanitization:** `/Users/<name>/` → `~/`, emails → `<redacted>`, private IPs → `<redacted>`, API keys → `<redacted>`
+
+### 🛂 Gateway Restart · 网关重启提醒
+
+部署改动若涉及 `regent` 或 `default` 的 skill / MCP / 凭据，**必须重启 gateway**（否则 Telegram / iMessage 等通道仍走旧 agent context）：
+
+```bash
+# Regent (太子) — 外部通信收口
+hermes gateway restart -p regent
+
+# Default (小黄_主频道) — A2A 对端
+hermes gateway restart -p default
+
+# 重启期间 TG 服务中断 10-30 秒；重启后建议跑健康检查：
+curl -s --max-time 3 http://127.0.0.1:8939/health   # regent A2A
+curl -s --max-time 3 http://127.0.0.1:8945/health   # default A2A
+```
+
+> ⚠️ 其它 13 个 profile 是 internal-dispatch（无对外 gateway）—— 改它们的 skill 不需要 gateway restart，但若涉及 A2A 通信仍建议跑健康检查。
 
 ---
 

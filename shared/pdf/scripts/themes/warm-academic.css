@@ -1,0 +1,25 @@
+/*
+[theme]
+name = warm-academic
+description = Warm beige academic style: cream background, dark brown text, serif fonts
+hljs_theme = atom-one-light
+*/
+
+body {
+  font-family: "Palatino Linotype", "Book Antiqua", Palatino,
+               "Noto Serif SC", "Source Han Serif CN", "PingFang SC", serif;
+  font-size: 13px; line-height: 1.9; color: #3e2723;
+  background: #fefaf2;
+}
+h1 { color: #5d4037; font-size: 24px; border-bottom: 2px solid #8d6e63;
+     font-family: Georgia, "Songti SC", serif; }
+h2 { color: #6d4c41; font-size: 18px; border-bottom: 1px solid #bcaaa4;
+     font-family: Georgia, "Songti SC", serif; }
+h3 { color: #5d4037; font-size: 15px; }
+h4 { color: #795548; font-size: 13.5px; }
+strong { color: #4e342e; }
+th { background: #8d6e63; color: #fefaf2; border-color: #8d6e63; font-size: 10.5px; }
+a { color: #8d6e63; }
+blockquote { border-left: 3px solid #bcaaa4; background: #fbf5ec; font-style: italic; color: #6d4c41; }
+pre { background: #f8f0e3; color: #3e2723; border: 1px solid #d7ccc8; }
+code { background: #f3e8db; color: #8d6e63; }
