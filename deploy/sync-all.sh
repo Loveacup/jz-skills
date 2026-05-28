@@ -28,6 +28,8 @@ sync_hermes() {
   cp -r "$REPO_ROOT/hermes/arxiv"                           "$base/research/"
   cp -r "$REPO_ROOT/hermes/auto-diary"                      "$base/"
   cp -r "$REPO_ROOT/hermes/bilibili-video-analyzer"         "$base/"
+  # Clean dev artifacts before copy to avoid permission errors
+  rm -rf "$base/xhs-crawler/.venv" 2>/dev/null || true
   cp -r "$REPO_ROOT/hermes/xhs-crawler"                     "$base/"
   cp -r "$REPO_ROOT/hermes/calendar-manager"               "$base/"
   cp -r "$REPO_ROOT/hermes/de-slop"                        "$base/"

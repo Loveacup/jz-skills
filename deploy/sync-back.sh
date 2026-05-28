@@ -137,6 +137,10 @@ for pair in "${PAIRS[@]}"; do
   if [ "$DRY_RUN" = false ]; then
     rm -rf "$dst"
     cp -r "$src" "$dst"
+    # Clean dev artifacts that shouldn't be in the repo
+    find "$dst" -name '.venv' -maxdepth 3 -type d -exec rm -rf {} + 2>/dev/null || true
+    find "$dst" -name '__pycache__' -maxdepth 3 -type d -exec rm -rf {} + 2>/dev/null || true
+    find "$dst" -name '*.pyc' -maxdepth 3 -type f -delete 2>/dev/null || true
     [ "$SANITIZE" = true ] && sanitize_dir "$dst"
     CHANGED=$((CHANGED + 1))
   fi
