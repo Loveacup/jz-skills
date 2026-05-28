@@ -206,7 +206,7 @@ Deployed only to matching profile · 仅部署到对应部门。
 | 📖 史馆 | `archivist` | `agent-memory-manager` | 全程归档、记忆管理 · Archival & memory |
 | 💰 户部 | `budget` | `agent-cost-manager` | 数据搜索、成本管理 · Data & cost tracking |
 | 👥 吏部 | `registry` | `agent-registry` | Agent 注册、培训管理 · Registry & training |
-| 🎓 翰林院 | `hanlinyuan` | `deep-research-agent` | 深度研究、知识探索 · Deep research |
+| 🎓 翰林院 | `hanlinyuan` | `deep-research-agent.archived` → `web-research-router` | 深度研究、知识探索 · Deep research（已吸收进 web-research-router v3.2） |
 
 ### 🪟 Layer 4 — `pi/` · Windows 专属
 
