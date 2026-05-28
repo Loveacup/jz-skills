@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-44-blue" alt="44 skills">
+  <img src="https://img.shields.io/badge/skills-50-blue" alt="50 skills">
   <img src="https://img.shields.io/badge/profiles-15%20三省六部-orange" alt="15 profiles">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
@@ -38,9 +38,10 @@
 | 🌐 **Cross-platform** · 跨平台 | One skill, three agents — Hermes, Claude Code, and pi deploy from the same source |
 | 🏯 **15-profile governance** · 三省六部 | 监国三省六部制: task routing, escalation, handoff across 15 specialized profiles |
 | 🔄 **Bidirectional sync** · 双向同步 | `sync-back.sh` (local → GitHub, auto-sanitized) + `sync-all.sh` (GitHub → local) |
-| 📋 **44 compliance-reviewed skills** · 合规审计 | Every skill passes 7-dimension audit: progressive disclosure, anti-rationalization, positioning |
+| 📋 **50 compliance-reviewed skills** · 合规审计 | Every skill passes 7-dimension audit: progressive disclosure, anti-rationalization, positioning |
 | 🧹 **Auto-sanitization** · 自动脱敏 | Home paths → `~/`, emails → redacted, private IPs → redacted, API keys stripped before commit |
 | 🤖 **AI-authored** · AI 创作 | Skills created, audited, evolved by AI agents — following skill-authoring v3.0 |
+| 🔬 **Deep research** · 深度研究 | Multi-step research loop with verbatim quote extraction, anti-refusal, query decomposition — based on 5 OSS projects · 多步深度研究：逐字引用、反拒绝、查询分解 |
 
 ---
 
@@ -75,7 +76,7 @@ cd ~/code/jz-skills && ./deploy/sync-all.sh all
 
 | Layer · 层 | Directory | Skills | Scope · 范围 |
 |:---|:---|:---:|:---|
-| 🌐 1 | `shared/` | 6 | Cross-platform — deployed to all 3 agents · 三端同步 |
+| 🌐 1 | `shared/` | 12 | Cross-platform — deployed to all 3 agents · 三端同步 |
 | ⚙️ 2 | `hermes/` | 10 | Hermes platform — not 3S6M-specific · 平台通用 |
 | 🏯 3a | `hermes-3S6M-profiles/common/` | 2 | 3S6M-wide — deployed to all 15 profiles · 全部门 |
 | 🏷️ 3b | `hermes-3S6M-profiles/<dept>/` | 21 | Department-specific — deployed to one profile · 部门专属 |
@@ -97,6 +98,12 @@ Deployed to Hermes + Claude Code + Pi · 三端同步。
 | 📄 [`pdf`](shared/pdf/) | PDF manipulation: OCR, extract, edit, convert · PDF 处理 | |
 | 📝 [`strategic-insight-longform`](shared/strategic-insight-longform/) | Long-form strategy analysis with multi-agent pipeline · 战略洞察长文 | |
 | 🎙️ [`voice-to-markdown-workflow`](shared/voice-to-markdown-workflow/) | Speech/audio transcript → structured markdown · 语音转文稿 | |
+| 🎧 [`audio-transcriber`](shared/audio-transcriber/) | Noise-gated denoise + speaker diarization (pyannote 4.x) + Chinese ASR (Qwen3-MLX) · 音频转录、声纹分离、降噪 | |
+| ⚖️ [`china-legal-optimized`](shared/china-legal-optimized/) | 中国法务综合：合同审核 / 劳动 / 知产 / 公司 / 诉讼 / 个人 / 物业七大领域 · China legal review across 7 domains | |
+| 🔮 [`destiny-matrix`](shared/destiny-matrix/) | 性格本位多维命运解析：荣格八维 + 八字 + 紫微 + 占星 · Multi-modal personality-first destiny analysis | |
+| 📐 [`methodology-writer`](shared/methodology-writer/) | Turn lived experience into structured, evidence-backed methodology documents · 经验框架化、方法论成稿 | |
+| 🧷 [`obsidian-md-ac`](shared/obsidian-md-ac/) | Obsidian Flavored Markdown + Mermaid full reference (wikilinks, callouts, diagrams) · OFM 完整参考 | |
+| 🎴 [`xiaohongshu-cards`](shared/xiaohongshu-cards/) | Article → Notion-style 1080×1440 RED card images via Playwright + QA loop · 小红书图文卡片 | |
 
 ### ⚙️ Layer 2 — `hermes/` · 平台通用
 
@@ -104,7 +111,7 @@ Deployed to main Hermes + all 15 profiles. Not tied to 三省六部 governance.
 
 | Skill | Purpose · 用途 | Refs · 引用 |
 |:---|:---|:---|
-| 🔍 [`web-research-router`](hermes/web-research-router/) | Search routing: Exa / Tavily / Brave / arXiv / GitHub · 检索总控 | → `github` ← `grill-with-docs` `skill-authoring` |
+| 🔍 [`web-research-router`](hermes/web-research-router/) | Multi-engine search router (SearXNG 默认起手 + Exa / Tavily / Brave) + deep research with verbatim quote extraction · 检索总控：多引擎聚合 + 深度研究 + 反幻觉 · v3.2.0 · 25 refs | ← `skill-authoring` `grill-with-docs` → `github` |
 | 📈 [`tradingagents`](hermes/tradingagents/) | A-share / market analysis via TradingAgents · 交易分析 | |
 | 🧠 [`llm-wiki`](hermes/llm-wiki/) | LLM knowledge base builder (Karpathy's wiki) · LLM 知识库 | |
 | 📚 [`arxiv`](hermes/arxiv/) | Academic paper search and retrieval · 论文检索 | |
