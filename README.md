@@ -18,8 +18,66 @@
 
 ---
 
+## 🌲 Full Structure · 全结构视图
+
+```
+jz-skills/
+├── shared/                        # 🌐 跨平台通用 (Hermes + CC + pi) — 12 skills
+│   ├── github/                    # GitHub 全操作
+│   ├── grill-with-docs/           # 设计审查
+│   ├── skill-authoring/           # 合规创作
+│   ├── pdf/                       # PDF 处理
+│   ├── strategic-insight-longform/# 战略洞察长文
+│   ├── voice-to-markdown-workflow/# 语音转文稿
+│   ├── audio-transcriber/         # 音频转录 (pyannote + Qwen3-MLX)
+│   ├── china-legal-optimized/     # 中国法务七大领域
+│   ├── destiny-matrix/            # 命运矩阵 (荣格八维 + 八字 + 紫微)
+│   ├── methodology-writer/        # 方法论文创作
+│   ├── obsidian-md-ac/            # Obsidian Markdown 完整参考
+│   └── xiaohongshu-cards/         # 小红书图文卡片
+├── hermes/                        # ⚙️ Hermes 平台通用 — 10 skills
+│   ├── web-research-router/       # v3.2 · SearXNG + deep research + verbatim quote
+│   ├── tradingagents/             # 交易分析
+│   ├── llm-wiki/                  # LLM 知识库
+│   ├── arxiv/                     # 论文检索
+│   ├── auto-diary/                # 日记生成
+│   ├── bilibili-video-analyzer/   # B站视频分析
+│   ├── xhs-crawler/               # 小红书爬虫
+│   ├── calendar-manager/          # 智能日历
+│   ├── de-slop/                   # 中英双语去 AI 味
+│   └── claude-code/               # CC 编排
+├── hermes-3S6M-profiles/          # 🏯 三省六部体系
+│   ├── common/                    # 全部门通用 — 2 skills
+│   │   ├── three-provinces-constitution/  # 三省六部宪法 v3.0
+│   │   └── financial-research-agents/     # 金融研究 Kanban 调度
+│   └── <dept>/                    # 部门专属 — 21 skills
+│       ├── regent/ (5)            # 👑 监国太子 · 唯一有 gateway 的 3S6M profile
+│       │   └── morning-news-briefing/ v4.0 · SearXNG + verbatim + Sherman Kent
+│       ├── gongbu/ (5)            # 🛠️ 工部 · 内部调度
+│       ├── tester/ (2)            # ⚖️ 刑部 · 内部调度
+│       ├── jiangzuojian/ (2)      # 🔧 将作监 · 内部调度
+│       ├── archivist/ (1)         # 📖 史馆 · 内部调度
+│       ├── auditor/ (1)           # 🔎 御史台 · 内部调度
+│       ├── budget/ (1)            # 💰 户部 · 内部调度
+│       ├── hanlinyuan/ (1)        # 🎓 翰林院 · 内部调度
+│       ├── protocol/ (1)          # 🎭 礼部 · 内部调度
+│       ├── registry/ (1)          # 👥 吏部 · 内部调度
+│       └── shangshu/ (1)          # 📡 尚书省 · 内部调度
+└── pi/                            # 🪟 Pi (Windows) — 5 skills
+    ├── web-research-router/       # 检索总控 (TypeScript SDK)
+    ├── pi-grill/                  # 歧义守护
+    ├── skill-creator/             # 合规创作
+    ├── pi-hermes-setup/           # 联动架构
+    └── recover-hindsight-mcp/     # MCP 恢复
+```
+
+> 🛂 **Gateway 治理：** 三省六部 15 profile 中**只有 `regent`（监国太子）** 配置了对外 gateway（Telegram / iMessage / 邮件 等通道）。其余 14 个 profile 走 **内部调度，无对外通信**——由 regent 统一收发、按职能转派。`default`（小黄_主频道，非 3S6M）独立配 gateway，与 regent 互通走 A2A。
+
+---
+
 ## 📖 目录
 
+- [🌲 Full Structure · 全结构视图](#-full-structure--全结构视图)
 - [✨ Features · 特性](#-features--特性)
 - [🚀 Quick Start · 快速开始](#-quick-start--快速开始)
 - [📐 Architecture · 四层结构](#-architecture--四层结构)
@@ -42,6 +100,7 @@
 | 🧹 **Auto-sanitization** · 自动脱敏 | Home paths → `~/`, emails → redacted, private IPs → redacted, API keys stripped before commit |
 | 🤖 **AI-authored** · AI 创作 | Skills created, audited, evolved by AI agents — following skill-authoring v3.0 |
 | 🔬 **Deep research** · 深度研究 | Multi-step research loop with verbatim quote extraction, anti-refusal, query decomposition — based on 5 OSS projects · 多步深度研究：逐字引用、反拒绝、查询分解 |
+| 🛂 **Gateway governance** · 网关治理 | 15 profile 中**仅 `regent` 配 gateway**（Telegram/iMessage/邮件），其余 14 个内部调度无对外通信。external 通信收口于太子 + A2A 走 `default` · Only `regent` has external gateway; all other 14 profiles are internal-only, dispatched by regent |
 
 ---
 
@@ -137,7 +196,7 @@ Deployed only to matching profile · 仅部署到对应部门。
 
 | Department · 部门 | Profile | Skills | Role · 职责 |
 |:---|:---|:---|:---|
-| 👑 监国太子 | `regent` | `kanban-orchestrator` `kanban-worker` `kanban-gate` `6m-smoke-test` `morning-news-briefing` | 总揽仲裁、任务编排、六部巡检、晨报生成 · Oversight & orchestration |
+| 👑 监国太子 | `regent` | `kanban-orchestrator` `kanban-worker` `kanban-gate` `6m-smoke-test` `morning-news-briefing` **v4.0** | 总揽仲裁、任务编排、六部巡检、晨报生成 · Oversight & orchestration · 🛂 唯一 gateway |
 | 🛠️ 工部 | `gongbu` | `disk-cleanup` `infra-health-check` `infra-monitoring` `surge-gateway` `agent-observability` | 基础设施运维、部署监控、网关管理 · Infrastructure & monitoring |
 | ⚖️ 刑部 | `tester` | `code-review-toolkit` `agent-security-audit` | 代码审查、测试、安全审计 · Code review & security |
 | 🔧 将作监 | `jiangzuojian` | `delivery-gate` `specialist-engineer` | 交付把关、专家评审 · Delivery gate & expert review |
