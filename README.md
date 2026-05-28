@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-52-blue" alt="52 skills">
+  <img src="https://img.shields.io/badge/skills-53-blue" alt="53 skills">
   <img src="https://img.shields.io/badge/profiles-15%20三省六部-orange" alt="15 profiles">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
@@ -22,7 +22,7 @@
 
 ```
 jz-skills/
-├── shared/                        # 🌐 跨平台通用 (Hermes + CC + pi) — 12 skills
+├── shared/                        # 🌐 跨平台通用 (Hermes + CC + pi) — 13 skills
 │   ├── github/                    # GitHub 全操作
 │   ├── grill-with-docs/           # 设计审查
 │   ├── skill-authoring/           # 合规创作
@@ -34,7 +34,8 @@ jz-skills/
 │   ├── destiny-matrix/            # 命运矩阵 (荣格八维 + 八字 + 紫微)
 │   ├── methodology-writer/        # 方法论文创作
 │   ├── obsidian-md-ac/            # Obsidian Markdown 完整参考
-│   └── xiaohongshu-cards/         # 小红书图文卡片
+│   ├── xiaohongshu-cards/         # 小红书图文卡片
+│   └── supermemory-maintenance/   # Supermemory 集成维护
 ├── hermes/                        # ⚙️ Hermes 平台通用 — 12 skills
 │   ├── web-research-router/       # v3.7 · Exa+Brave 双主力 / SearXNG 降级 / Step 0 强制 / Output Contract [s<id>]
 │   ├── tradingagents/             # 交易分析
@@ -165,6 +166,7 @@ Deployed to Hermes + Claude Code + Pi · 三端同步。
 | 📐 [`methodology-writer`](shared/methodology-writer/) | Turn lived experience into structured, evidence-backed methodology documents · 经验框架化、方法论成稿 | |
 | 🧷 [`obsidian-md-ac`](shared/obsidian-md-ac/) | Obsidian Flavored Markdown + Mermaid full reference (wikilinks, callouts, diagrams) · OFM 完整参考 | |
 | 🎴 [`xiaohongshu-cards`](shared/xiaohongshu-cards/) | Article → Notion-style 1080×1440 RED card images via Playwright + QA loop · 小红书图文卡片 | |
+| 🧠 [`supermemory-maintenance`](shared/supermemory-maintenance/) | Configure, debug, and maintain the pi-supermemory extension and Supermemory API integration · Supermemory 集成维护 | |
 
 ### ⚙️ Layer 2 — `hermes/` · 平台通用
 
