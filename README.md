@@ -36,7 +36,7 @@ jz-skills/
 │   ├── obsidian-md-ac/            # Obsidian Markdown 完整参考
 │   └── xiaohongshu-cards/         # 小红书图文卡片
 ├── hermes/                        # ⚙️ Hermes 平台通用 — 11 skills
-│   ├── web-research-router/       # v3.2 · SearXNG + deep research + verbatim quote
+│   ├── web-research-router/       # v3.4 · SearXNG + deep research (facts.jsonl/CoV/补搜/颗粒度Gate)
 │   ├── tradingagents/             # 交易分析
 │   ├── llm-wiki/                  # LLM 知识库
 │   ├── arxiv/                     # 论文检索
@@ -171,7 +171,7 @@ Deployed to main Hermes + all 15 profiles. Not tied to 三省六部 governance.
 
 | Skill | Purpose · 用途 | Refs · 引用 |
 |:---|:---|:---|
-| 🔍 [`web-research-router`](hermes/web-research-router/) | Multi-engine search router (SearXNG 默认起手 + Exa / Tavily / Brave) + deep research with verbatim quote extraction · 检索总控：多引擎聚合 + 深度研究 + 反幻觉 · v3.2.0 · 25 refs | ← `skill-authoring` `grill-with-docs` → `github` |
+| 🔍 [`web-research-router`](hermes/web-research-router/) | Multi-engine search router (SearXNG 默认起手 + Exa / Tavily / Brave) + deep research with verbatim quote extraction · 检索总控：多引擎聚合 + 深度研究 + 反幻觉 · v3.4.0（facts.jsonl 解耦 / CoV / 跨语言补搜 / 颗粒度 Gate）· 26 refs | ← `skill-authoring` `grill-with-docs` → `github` |
 | 📈 [`tradingagents`](hermes/tradingagents/) | A-share / market analysis via TradingAgents · 交易分析 | |
 | 🧠 [`llm-wiki`](hermes/llm-wiki/) | LLM knowledge base builder (Karpathy's wiki) · LLM 知识库 | |
 | 📚 [`arxiv`](hermes/arxiv/) | Academic paper search and retrieval · 论文检索 | |
@@ -207,7 +207,7 @@ Deployed only to matching profile · 仅部署到对应部门。
 | 📖 史馆 | `archivist` | `agent-memory-manager` | 全程归档、记忆管理 · Archival & memory |
 | 💰 户部 | `budget` | `agent-cost-manager` | 数据搜索、成本管理 · Data & cost tracking |
 | 👥 吏部 | `registry` | `agent-registry` | Agent 注册、培训管理 · Registry & training |
-| 🎓 翰林院 | `hanlinyuan` | `deep-research-agent.archived` → `web-research-router` | 深度研究、知识探索 · Deep research（已吸收进 web-research-router v3.2） |
+| 🎓 翰林院 | `hanlinyuan` | `deep-research-agent.archived` → `web-research-router` | 深度研究、知识探索 · Deep research（已吸收进 web-research-router v3.4） |
 
 ### 🪟 Layer 4 — `pi/` · Windows 专属
 

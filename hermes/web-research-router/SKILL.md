@@ -1,7 +1,7 @@
 ---
 name: web-research-router
 description: "Searches the web, finds papers, explores GitHub source code, verifies facts, and runs multi-step deep-research loops using SearXNG（多引擎聚合，覆盖最广）/Exa/Tavily/Brave plus local knowledge (Hindsight/qmd/Obsidian/CodeGraph). Includes verbatim-quote extraction (anti-hallucination), query decomposition, and forced-answer fact-recall. Use when the user needs to 搜索, 检索, 查找, 调研, 核实, 深挖, 出报告, 找资料, 找项目, search, research, deep-research, find, look up, or verify information — even if they don't explicitly say 'search'. Routes GitHub source code tasks to github (references/code-explorer.md — 看看源码, 找实现, 搜用法). Do NOT use for reading local files, editing code, running terminal commands, or tasks not involving external or knowledge-base retrieval."
-version: 3.2.0
+version: 3.4.0
 author: Hermes Agent
 license: MIT
 platforms: [macos, linux, windows]
@@ -11,9 +11,11 @@ metadata:
     related_skills: [source-search, exa-research, source-reader, source-verification, content-source-workflow, qmd, obsidian, arxiv, native-mcp, github]
 ---
 
-# Web Research Router v3.2
+# Web Research Router v3.4
 
-**Progressive-disclosure search routing.** This file is ~130 lines. Detailed mode descriptions, query patterns, academic lane policy, and schema live in `references/` — loaded only when needed.
+**Progressive-disclosure search routing.** This file is ~150 lines. Detailed mode descriptions, query patterns, academic lane policy, and schema live in `references/` — loaded only when needed.
+
+> 🆕 **v3.4 (2026-05-28)**: 基于好伴AI深度研究案例 RCA，新增 3 条 deep loop Red Flag 与 4 条质量验证清单（事实解耦/Claim 溯源/补搜回路/口径确认）。详见 `references/deep-research-loop.md` 与 `references/deep-loop-verification-pattern.md`。
 
 > ⚙️ **Tuning:** `CROSS_CHECK_DEPTH=1` (fast, single-source) to `3` (thorough, triple-verify). Default: `2`.
 
@@ -33,6 +35,9 @@ Before calling ANY search tool, check this table. If any excuse below sounds fam
 | "我直接 Exa/Tavily 单引擎一次到位" | 单引擎容易遗漏（Bing 收录的 Brave 漏，反之亦然）。SearXNG 一次聚合 6+ 引擎，先用它扫一遍再决定是否精准深挖。 |
 | "我不会 deep research / 单轮就够了" | 议题维度 ≥3、需可引用报告、单轮 source map 覆盖 <70% → 升级 deep loop（`references/deep-research-loop.md`）。不升级 ≠ 答得对；只是把幻觉藏起来。 |
 | "fetch 完直接综合答案就行，省一步" | fetch + 综合答案放一次 LLM call → 幻觉高发。正确：fetch → extractor（verbatim quotes only） → 独立 call 综合。详见 `references/fetch-extract-pattern.md`。 |
+| "section 写完就行，facts.jsonl 太麻烦" ★ | **fetch-write 耦合是 deep loop 80% 偏差的根因。** 营销话术一旦被叙事化（"已有1亿用户、竞争压力巨大"），REFLECT 看到的是流畅叙事而非原子事实卡片，无法回头推翻。SECTION 阶段必须先产 `facts.jsonl`（指标/口径/来源/可信度/原始URL），write 读卡片不读原始页面。详见 `references/deep-research-loop.md` Step 2。 |
+| "REFLECT 过一遍就够了，不用再做 Claim 溯源" ★ | REFLECT 是同一 Agent 在相同上下文做自审 → 只能发现"段落间逻辑矛盾"，无法发现"整个上下文 based on 一个错误前提"。含"第一/最/突破/领先/超过/首家"或带规模数字的 claim **必须独立 search 溯源**，由独立 LLM call 在新上下文中验证。详见 `references/deep-loop-verification-pattern.md`。 |
+| "中文搜索词够了，议题是国内的" ★ | 跨语言盲区是**系统性**的——中文 query 几乎召不回英文公告（Anthropic Claude for Healthcare 案例）。MERGE 前必须有"盲区检视 → 反向假设（'国际玩家最近做了什么'）→ 跨语言补搜"回路。详见 `references/deep-research-loop.md` Step 4。 |
 
 **If you caught yourself thinking any of these → re-read the decision tree below and start over.**
 
@@ -121,8 +126,10 @@ Full Source Map Schema: `references/source-map-schema.md`
 | MCP tool names by profile | `references/tool-names.md` |
 | Deployment & Sync instructions | `references/deployment.md` |
 | **抓页面后如何抽 verbatim quote**（防幻觉最大杠杆）★ | `references/fetch-extract-pattern.md` |
-| **多轮 deep research loop SOP**（plan → section → reflect → merge） | `references/deep-research-loop.md` |
+| **多轮 deep research loop SOP v3.4**（plan → section(facts.jsonl) → CoV验证 → merge(盲区补搜) → 颗粒度Gate） | `references/deep-research-loop.md` |
+| **Deep loop 质量缺陷 + CoV 验证模式**（fetch-write耦合、REFLECT天花板、跨语言盲区 — 2026-05-28 案例RCA） | `references/deep-loop-verification-pattern.md` |
 | **broad 议题如何拆 sub-query**（TEMPORAL/NUMERICAL/NAMES/ENTITY/CONCEPTUAL 五类） | `references/query-decomposition.md` |
+| **产品/公司深度评估快速模式**（并行抓取→补刀→综合，比 formal deep loop 省 50%+ token） | `references/product-evaluation-pattern.md` |
 | **fact-recall 时 LLM 死活不答如何破**（8 hedge phrase + forced-answer prompt） | `references/anti-refusal-prompt.md` |
 
 ---
@@ -137,7 +144,7 @@ Full Source Map Schema: `references/source-map-schema.md`
 6. **GitHub `web_extract` trap.** `web_extract` blocks `github.com` / `raw.githubusercontent.com` as "internal network." Use `mcp_searxng_web_url_read`、`mcp_exa_web_fetch_exa`、或 `gh api` instead.
 7. **Cron job model pinning.** Always pin model explicitly in cron jobs — default model may be rate-limited.
 
-Full pitfalls (25 items, 含 v3.2 新增 deep-research 10 项): `references/common-pitfalls.md`
+Full pitfalls (33 items, 含 v3.4 新增 deep loop 质量 8 项): `references/common-pitfalls.md`
 
 ---
 
@@ -150,6 +157,13 @@ Full pitfalls (25 items, 含 v3.2 新增 deep-research 10 项): `references/comm
 - [ ] **Cross-check + budget?** 重要 claim 按 `CROSS_CHECK_DEPTH` 交叉；走 deep loop 时 `max_iter` / `token_budget` / `stop_reason` 都有值。
 - [ ] **Fetch discipline?** Fetched ≤3 high-signal URLs；GitHub URL 用 `mcp_searxng_web_url_read` / Exa Fetch / gh api（**不**用 `web_extract`）。
 - [ ] **Confirmed vs inference 分开?** 报告中事实与判断必须分栏，conflicts/gaps 单列。
+
+### Deep-loop 专属（如果用了 deep-research loop，以下 4 条必须勾过）★
+
+- [ ] **事实解耦？** deep loop 的 SECTION 阶段 fetch 后是否先产 `facts.jsonl`（字段：指标/口径/来源/可信度/原始URL）再 write_section？— 防止 fetch-write 耦合（80% 偏差根因）。
+- [ ] **Claim 溯源？** 含 `"第一/最/独家/突破/领先/超过/首家/首个"` 或带数字规模/benchmark/排名 的 claim，是否每条都做了独立 search 验证（新上下文、跨信源、跨语言）？— 防 REFLECT 自审天花板。
+- [ ] **补搜回路？** MERGE 前是否做了"盲区检视 → 反向假设（'国际玩家/跨语言信源遗漏什么？'）→ 跨语言补搜"？— 防跨地域/跨语种召回失败。
+- [ ] **口径确认？** 涉及数字（用户量/MAU/DAU/累计/GMV）是否区分了"累计 vs 月活 vs 日活 vs 截至某月"？涉及政策/排名是否标注了原始项目名/数量/信源等级？— 防颗粒度坍缩与营销口径误读。
 
 **Every box must honestly pass before returning results. If unchecked, go back.**
 
