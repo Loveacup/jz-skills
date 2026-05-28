@@ -137,7 +137,7 @@ cd ~/code/jz-skills && ./deploy/sync-all.sh all
 | Layer · 层 | Directory | Skills | Scope · 范围 |
 |:---|:---|:---:|:---|
 | 🌐 1 | `shared/` | 12 | Cross-platform — deployed to all 3 agents · 三端同步 |
-| ⚙️ 2 | `hermes/` | 10 | Hermes platform — not 3S6M-specific · 平台通用 |
+| ⚙️ 2 | `hermes/` | 11 | Hermes platform — not 3S6M-specific · 平台通用 |
 | 🏯 3a | `hermes-3S6M-profiles/common/` | 2 | 3S6M-wide — deployed to all 15 profiles · 全部门 |
 | 🏷️ 3b | `hermes-3S6M-profiles/<dept>/` | 21 | Department-specific — deployed to one profile · 部门专属 |
 | 🪟 4 | `pi/` | 5 | Pi (Windows) platform — authored by Pi itself · Pi 自创作 |
