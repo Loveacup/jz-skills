@@ -1,105 +1,147 @@
 ---
 name: web-research-router
-description: "Pi 专用的多引擎搜索路由。通过 web_search/web_fetch 工具路由到 Exa/Tavily/Brave，自动选引擎+交叉验证。当用户需要搜索、检索、查找、调研、核实、找资料时使用。不要用于读取本地文件、编辑代码、或不涉及外部信息检索的任务。"
-version: 3.0.0-pi
+description: "Searches the web, finds papers, explores GitHub source code, and verifies facts using SearXNG（多引擎聚合，覆盖最广）/Exa/Tavily/Brave plus local knowledge (Hindsight/qmd/Obsidian/CodeGraph). Use when the user needs to 搜索, 检索, 查找, 调研, 核实, 找资料, 找项目, search, research, find, look up, or verify information — even if they don't explicitly say 'search'. Routes GitHub source code tasks to github (references/code-explorer.md — 看看源码, 找实现, 搜用法). Do NOT use for reading local files, editing code, running terminal commands, or tasks not involving external or knowledge-base retrieval."
+version: 3.1.0
 author: Hermes Agent
 license: MIT
-platforms: [windows]
+platforms: [macos, linux, windows]
 metadata:
-  tags: [search, research, router, exa, tavily, brave, pi-extension]
+  hermes:
+    tags: [search, research, router, searxng, exa, tavily, brave, academic, papers, citations, sources, mcp]
+    related_skills: [source-search, exa-research, source-reader, source-verification, content-source-workflow, qmd, obsidian, arxiv, native-mcp, github]
 ---
 
-# web-research-router (Pi Edition)
+# Web Research Router v3.1
 
-Pi 的多引擎搜索路由 — 通过 TypeScript 扩展注册 `web_search` / `web_fetch` 两个 MCP 工具，底层路由到 Exa / Tavily / Brave。
+**Progressive-disclosure search routing.** This file is ~130 lines. Detailed mode descriptions, query patterns, academic lane policy, and schema live in `references/` — loaded only when needed.
 
----
-
-## 🚨 Red Flags: 搜索前必读
-
-| 借口 | 为什么不行 |
-|------|-----------|
-| "这查询很简单，直接 `web_search` 就行" | 必须指定 provider 参数路由。不指定=随机引擎=不可靠 |
-| "我已经知道答案了" | 训练数据有时效性。API 版本/价格/日期会变 |
-| "skill 已经加载了，够了" | 加载≠执行。看菜单≠吃了饭 |
-| "等会再交叉验证" | 延迟验证=永不验证。重要事实必须≥2引擎 |
+> ⚙️ **Tuning:** `CROSS_CHECK_DEPTH=1` (fast, single-source) to `3` (thorough, triple-verify). Default: `2`.
 
 ---
 
-## 🔀 决策树
+## 🚨 Red Flags: DO NOT SKIP THIS ROUTER
 
-### Step 1: 本地记忆优先
+Before calling ANY search tool, check this table. If any excuse below sounds familiar, **STOP — you are about to violate the decision tree.**
 
-```
-memory_search → session_search → Obsidian vault
-    ↓ 无结果？
-Step 2
-```
+| Excuse your brain will make | Why it's wrong |
+|------------------------------|----------------|
+| "This is a simple query, I'll just use `web_search`" | `web_search` is a generic fallback. The router picks the best engine per query type. Even "simple" factual queries should start with SearXNG 广扫 then Tavily/Brave 深核。 |
+| "I already know the answer" | Training data is stale. Current facts need current search. |
+| "I already loaded the skill, that's enough" | Loading ≠ following. Loading tells you WHAT to do; you still need to DO it. |
+| "The decision tree is too complicated for this" | It's 4 branches. Pick one. Takes 5 seconds. |
+| "I'll cross-check later" | Cross-checking after the fact is twice the work. Do it in the right order now. |
+| "我直接 Exa/Tavily 单引擎一次到位" | 单引擎容易遗漏（Bing 收录的 Brave 漏，反之亦然）。SearXNG 一次聚合 6+ 引擎，先用它扫一遍再决定是否精准深挖。 |
 
-### Step 2: 判断意图，选模式
-
-| 意图 | 模式 | 主引擎 | 交叉验证 |
-|------|------|--------|----------|
-| 找/有没有/搜一下 | discovery | Exa | Brave |
-| 核实/确认/真的吗 | grounding | Tavily | Brave |
-| 调研/对比/分析 | research | Exa | Brave + fetch |
-| 论文/文献/SOTA | academic | Exa | Brave |
-| 看源码/GitHub | GitHub | Exa → gh CLI | 见 github-code-explorer |
-
-### Step 3: 执行 — 必须指定 provider
-
-```python
-# ✅ 正确
-web_search(query="...", provider="exa")
-web_fetch(url="...", provider="exa")
-
-# ❌ 错误 — 不指定 provider
-web_search(query="...")
-```
-
-### Step 4: 输出 Source Map
-
-每次研究任务输出：Mode → Query → sources → Confirmed/Inferences/Conflicts
+**If you caught yourself thinking any of these → re-read the decision tree below and start over.**
 
 ---
 
-## Pi 工具速查
+## 🔀 Routing Decision Tree (ALWAYS RUN THIS FIRST)
 
-| 工具 | 参数 | 说明 |
-|------|------|------|
-| `web_search` | query, max_results(1-20), provider(exa/tavily/brave) | 多引擎搜索 |
-| `web_fetch` | url, provider(exa/tavily/brave), max_characters | 提取页面内容 |
+### Step 0: Local knowledge first
+Before ANY public search, check: Hindsight (cross-session) → session_search (this session) → qmd/Obsidian (knowledge base) → CodeGraph (local code). Only go public if local is exhausted or needs validation.
 
-> 扩展代码: [extension.ts](extension.ts) — Pi SDK 实现，注册工具+路由逻辑
+### Step 1: Is this a GitHub source code task?
+- `github.com` / `raw.githubusercontent.com` / `gist.github.com` URL → **⚠️ Skip `web_extract`** (it blocks GitHub as "internal network"). Load `github` (references/code-explorer.md) → L1 Exa/gh api → L2 gh search → L3 browser → L4 clone+CodeGraph.
+- "看看 X 项目源码" / "这个函数怎么实现" → load `github`.
+
+### Step 2: Pick the search mode and engine
+
+> 🌐 **默认从 SearXNG 起手：** SearXNG（`mcp_searxng_searxng_web_search`）一次调用聚合 6+ 引擎
+> （Bing / Brave / Qwant / Mwmbl / DuckDuckGo / Startpage + 学术 arXiv/SS/Crossref + 代码 GitHub/SO + 中文 Bilibili），
+> 覆盖面最广。先 SearXNG 扫一遍，再用 Exa 做语义精准、Tavily 做事实核验、Brave 做特定补强。
+
+| Task type | Mode | Primary engine | Cross-check |
+|-----------|------|---------------|-------------|
+| Background, landscape, "有没有相关项目" | `discovery` | SearXNG（广扫）→ Exa（语义精准） | Brave if narrow |
+| Dates, numbers, prices, claims, news | `grounding` | SearXNG（多引擎交叉）→ Tavily（深核） | Brave / 另一引擎 |
+| Substantive brief, decision memo, market scan | `research` | SearXNG（landscape）→ Exa → Tavily | If claim-dependent |
+| Papers, citations, SOTA, arXiv, DOI | `academic` | SearXNG（arXiv+SS+Crossref 一次） / arXiv 单刷 | See `references/academic-lane.md` |
+| Dead URL, moved source, missing material | `recovery` | SearXNG（6 引擎覆盖率最高）→ Brave `site:` → Exa | Report certainty |
+
+Detailed mode instructions: `references/research-modes.md`
+
+### Step 3: Cross-check only when warranted (respect `CROSS_CHECK_DEPTH`)
+Cross-check when: numbers, dates, prices, legal claims, attribution, SOTA claims, financial decisions, fast-changing news, suspicious claims. At depth 1, skip cross-check. At depth 2 (default), cross-check one source. At depth 3, triple-verify.
+
+### Step 4: Fetch discipline
+Search first, fetch second. Fetch 1–3 high-signal URLs only. Prefer primary/official sources.
 
 ---
 
-## 引擎选择速查
+## 🧭 Quick Reference: Which Engine When
 
-| 引擎 | 适用 | 不适用 |
-|------|------|--------|
-| Exa | 学术/技术/发现/找项目 | 实时新闻、中文社交 |
-| Tavily | 事实核实/新闻/实时 | 学术论文深度搜索 |
-| Brave | 通用/交叉验证/广度 | 深度学术语义搜索 |
+| Engine | Best for | Tool name |
+|--------|----------|-----------|
+| **SearXNG** | 多引擎聚合广扫（Bing+Brave+Qwant+Mwmbl+DDG+Startpage + arXiv+SS+Crossref + GitHub+SO + Bilibili），覆盖最广 | `mcp_searxng_searxng_web_search` |
+| **SearXNG URL Read** | 把任意 URL 抓成 markdown（含 GitHub 页面）| `mcp_searxng_web_url_read` |
+| **Exa** | Semantic discovery, company/product scans, high-signal sources | `mcp_exa_web_search_exa` |
+| **Tavily** | Current facts, extraction, site crawl, research | `mcp_tavily_tavily_search` |
+| **Brave** | Broad coverage, news, local queries, cross-checking | `mcp_brave_search_brave_web_search` |
+| **Exa Fetch** | Full page content (esp. GitHub raw URLs) | `mcp_exa_web_fetch_exa` |
+| **arXiv** | CS/AI/ML/math/physics preprints | `arxiv` skill |
+| **Semantic Scholar** | Citations, references, author profiles | MCP tools |
+| **gh CLI** | GitHub code search, API, issues | `terminal` → `gh search code` |
+
+**选型口诀：** SearXNG 扫广度（一次拿到 6+ 引擎结果）→ Exa 拣精度（语义匹配）→
+Tavily 核事实（最新动态、抽取）→ Brave 补特定（本地、新闻）→ gh/arxiv 走垂直深井。
+
+Full tool list: `references/tool-names.md`
 
 ---
 
-## 配置
+## 📋 Output Contract
 
-需要环境变量（在 `~/.pi/agent/.env` 或系统环境变量）：
+For Telegram, avoid tables. Use compact bullets:
 
-```
-EXA_API_KEY=...
-TAVILY_API_KEY=...
-BRAVE_SEARCH_API_KEY=...
-```
+- **结论:** one or two lines.
+- **模式:** `discovery` / `grounding` / `research` / `recovery` / `academic`.
+- **来源:** title/domain + why it matters + URL.
+- **已确认 / 推断 / 冲突缺口:** separate facts from judgment.
+
+Full Source Map Schema: `references/source-map-schema.md`
 
 ---
 
-## 验证清单
+## 📦 Progressive Disclosure Reference Map
 
-- [ ] 搜索前检查了本地记忆（memory_search）
-- [ ] 选对了模式和引擎
-- [ ] 重要事实 ≥2 引擎交叉验证
-- [ ] 输出了 Source Map
-- [ ] 所有事实有来源支撑（非训练数据）
+| When you need... | Read... |
+|-----------------|---------|
+| Detailed mode instructions (default paths, examples) | `references/research-modes.md` |
+| Query patterns for common tasks | `references/query-patterns.md` |
+| Academic lane policy (arXiv, Semantic Scholar, PubMed, etc.) | `references/academic-lane.md` |
+| Vertical domain → engine mapping (finance, security, health, etc.) | `references/vertical-domains.md` |
+| Full Source Map Schema JSON | `references/source-map-schema.md` |
+| MCP tool names by profile | `references/tool-names.md` |
+| Deployment & Sync instructions | `references/deployment.md` |
+
+---
+
+## ⚠️ Common Pitfalls (Top 6)
+
+1. **Search-engine maximalism.** 引擎多 ≠ 好。SearXNG 已聚合 6+ 引擎，一次广扫足够，无须叠 Exa/Tavily/Brave 并发。
+2. **单引擎依赖症。** 直接用 Exa 或 Tavily 单刷而跳过 SearXNG，容易漏掉某些引擎独家收录的页面。先 SearXNG 广扫，再决定深挖。
+3. **Skipping local truth.** Check Hindsight/qmd/CodeGraph before public web.
+4. **Conflating discovery with evidence.** Search results are candidates; fetched sources are evidence.
+5. **GitHub `web_extract` trap.** `web_extract` blocks `github.com` / `raw.githubusercontent.com` as "internal network." Use `mcp_searxng_web_url_read`、`mcp_exa_web_fetch_exa`、或 `gh api` instead.
+6. **Cron job model pinning.** Always pin model explicitly in cron jobs — default model may be rate-limited.
+
+Full pitfalls (15 items): `references/common-pitfalls.md`
+
+---
+
+## ✅ Verification Checklist (RUN BEFORE RETURNING RESULTS)
+
+- [ ] CHECK: Local knowledge first (Hindsight/session/qmd/CodeGraph)?
+- [ ] CHECK: Picked a research mode (discovery/grounding/research/academic/recovery)?
+- [ ] CHECK: Used the right primary engine for that mode?
+- [ ] CHECK: Cross-checked important claims at the right depth (CROSS_CHECK_DEPTH)?
+- [ ] CHECK: Fetched ≤3 high-signal URLs, not bulk-dump?
+- [ ] CHECK: Separated confirmed facts from inference?
+- [ ] CHECK: For GitHub URLs — skipped `web_extract`, used `mcp_searxng_web_url_read`/Exa Fetch/gh api instead?
+
+**Every box must honestly pass before returning results. If unchecked, go back.**
+
+---
+
+> 🔄 Deployment & Sync: `references/deployment.md`
