@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-53-blue" alt="53 skills">
+  <img src="https://img.shields.io/badge/skills-54-blue" alt="53 skills">
   <img src="https://img.shields.io/badge/profiles-15%20三省六部-orange" alt="15 profiles">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
@@ -66,12 +66,13 @@ jz-skills/
 │       ├── protocol/ (1)          # 🎭 礼部 · 内部调度
 │       ├── registry/ (1)          # 👥 吏部 · 内部调度
 │       └── shangshu/ (1)          # 📡 尚书省 · 内部调度
-└── pi/                            # 🪟 Pi (Windows) — 5 skills
+└── pi/                            # 🪟 Pi (Windows) — 6 skills
     ├── web-research-router/       # 检索总控 (TypeScript SDK)
     ├── pi-grill/                  # 歧义守护
     ├── skill-creator/             # 合规创作
     ├── pi-hermes-setup/           # 联动架构
-    └── recover-hindsight-mcp/     # MCP 恢复
+    ├── recover-hindsight-mcp/     # MCP 恢复
+    └── pi-supermemory/            # Supermemory 集成维护
 ```
 
 > 🛂 **Gateway 治理：** 三省六部 15 profile 中**只有 `regent`（监国太子）** 配置了对外 gateway（Telegram / iMessage / 邮件 等通道）。其余 14 个 profile 走 **内部调度，无对外通信**——由 regent 统一收发、按职能转派。`default`（小黄_主频道，非 3S6M）独立配 gateway，与 regent 互通走 A2A。
@@ -142,7 +143,7 @@ cd ~/code/jz-skills && ./deploy/sync-all.sh all
 | ⚙️ 2 | `hermes/` | 12 | Hermes platform — not 3S6M-specific · 平台通用 |
 | 🏯 3a | `hermes-3S6M-profiles/common/` | 2 | 3S6M-wide — deployed to all 15 profiles · 全部门 |
 | 🏷️ 3b | `hermes-3S6M-profiles/<dept>/` | 21 | Department-specific — deployed to one profile · 部门专属 |
-| 🪟 4 | `pi/` | 5 | Pi (Windows) platform — authored by Pi itself · Pi 自创作 |
+| 🪟 4 | `pi/` | 6 | Pi (Windows) platform — authored by Pi itself · Pi 自创作 |
 
 ---
 
@@ -224,6 +225,7 @@ Authored by Pi itself · Pi 自行创作。Deployed only to `~/.pi/skills/`.
 | ✍️ `skill-creator` | Compliance-first skill authoring v6.0 · 合规创作 |
 | 🔗 `pi-hermes-setup` | Pi ↔ Hermes cross-machine SSH + MCP · 联动架构 |
 | 🩹 `recover-hindsight-mcp` | Hindsight MCP recovery: ECONNRESET 6-step fix · MCP 恢复 |
+| 🧠 `pi-supermemory` | Configure, debug, and maintain the pi-supermemory extension on Windows · pi-supermemory 扩展维护 |
 
 ---
 
