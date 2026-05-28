@@ -21,7 +21,7 @@ sync_hermes() {
   cp -r "$REPO_ROOT/shared/github/"                   "$base/github/"
 
   # Hermes-specific skills
-  mkdir -p "$base/research" "$base/productivity" "$base/governance" "$base/autonomous-ai-agents"
+  mkdir -p "$base/research" "$base/productivity" "$base/governance" "$base/autonomous-ai-agents" "$base/devops"
   cp -r "$REPO_ROOT/hermes/web-research-router"             "$base/research/"
   cp -r "$REPO_ROOT/hermes/tradingagents"                   "$base/research/"
   cp -r "$REPO_ROOT/hermes/llm-wiki"                        "$base/research/"
@@ -32,6 +32,7 @@ sync_hermes() {
   cp -r "$REPO_ROOT/hermes/calendar-manager"               "$base/"
   cp -r "$REPO_ROOT/hermes/de-slop"                        "$base/"
   cp -r "$REPO_ROOT/hermes/claude-code"                    "$base/autonomous-ai-agents/"
+  cp -r "$REPO_ROOT/hermes-3S6M-profiles/gongbu/surge-gateway"  "$base/devops/"
 
   # Sync to all profiles
   echo "→ Syncing to profiles..."
@@ -66,6 +67,8 @@ sync_profiles() {
   for skill in kanban-orchestrator kanban-worker kanban-gate 6m-smoke-test morning-news-briefing; do
     [ -d "$REPO_ROOT/hermes-3S6M-profiles/regent/$skill" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/regent/$skill" "$pd/"
   done
+  # surge-gateway from gongbu (shared infra skill)
+  [ -d "$REPO_ROOT/hermes-3S6M-profiles/gongbu/surge-gateway" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/gongbu/surge-gateway" "$pd/"
 
   # gongbu (工部)
   pd=~/.hermes/profiles/gongbu/skills

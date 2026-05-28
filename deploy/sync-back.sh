@@ -69,6 +69,9 @@ PAIRS=(
   "hermes-3S6M-profiles/common/three-provinces-constitution|governance/three-provinces-constitution"
   "hermes-3S6M-profiles/common/financial-research-agents|research/financial-research-agents"
 
+  # === hermes-3S6M-profiles/gongbu (shared via default profile) ===
+  "hermes-3S6M-profiles/gongbu/surge-gateway|devops/surge-gateway"
+
   # === hermes-3S6M-profiles/regent ===
   "hermes-3S6M-profiles/regent/kanban-orchestrator|profiles/regent/skills/kanban-orchestrator"
   "hermes-3S6M-profiles/regent/kanban-worker|profiles/regent/skills/kanban-worker"
