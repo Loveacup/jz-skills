@@ -87,7 +87,7 @@ Trigger: User notices persistent "当日无日历事件" on days that had events
 |------|---------|
 | icalBuddy | Calendar queries (`brew install ical-buddy`) |
 | Open-Meteo API | Weather (free, no API key) |
-| `extract_hermes_conversations.py` | AI conversation logs |
+| `state.db` SQLite | Hermes session extraction (see `references/hermes-session-extraction.md`) |
 | `find` command | Vault change detection |
 
 Key improvements history: see `references/changelog.md`.
@@ -101,7 +101,7 @@ Key improvements history: see `references/changelog.md`.
 | Trusting icalBuddy silent empty output | Calendar events silently missing for weeks (see config drift below) |
 | Not checking `existing_content` before writing | Duplicate or conflicting diary entries |
 | Using relative dates without `-nrd` flag | Adjacent-day events bleed into wrong date |
-| **Using `Path("~/...")` without `.expanduser()`** | `~` expansion depends on `$HOME` env var; under regent profile, resolves to wrong home (2026-05-27 fix: use absolute `/Users/alexcai/...`) |
+| **Using `Path("~/...")` without `.expanduser()`** | `~` expansion depends on `$HOME` env var; under regent profile, resolves to wrong home (2026-05-27 fix: use absolute `~/...`) |
 | **Reading session JSON files instead of SQLite DB** | JSON session files deprecated May 2026; sessions now in `state.db` SQLite (2026-05-27 fix: `extract_hermes_conversations.py` v2.0 queries `state.db`)
 
 ## ⚠️ Config Drift (Silent Failure)

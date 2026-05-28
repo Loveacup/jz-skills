@@ -1,0 +1,343 @@
+---
+name: morning-news-briefing
+description: 每日早新闻简报工作流——多源并行检索、按板块汇编、标注来源。触发词：早新闻、新闻简报、今日要闻、morning news。严格走三省六部，太子不亲操。
+category: productivity
+---
+
+# 早新闻简报工作流
+
+## 触发条件
+
+用户说"早新闻""新闻简报""今日要闻""morning news""有什么新闻"等。
+
+## 身份角色
+
+监国太子：**只拟制、派工、督造、稽核、归档，绝不亲自执行搜索/提取/汇编**。
+
+## 工作流（三省六部）
+
+### 第零步：部门点将（仅繁务需要）
+若本次早新闻需要多部门/多 profile 协作，监国太子不得亲自盘点，应按父皇纠偏分流：
+- **通路 A（部门盘点）**：交 **尚书省/dispatcher** 盘点可用部门 agent 与适配建议
+- **通路 B（外部专家）**：若需非体系内专业人才/工具，交 **吏部/registry** 盘点外部专家库
+- **通路 C（跳过）**：若链路固定（如标准早新闻检索→汇编→分析），直接进入中书拟制
+
+简化情形：若任务显然固定为"中书/门下/六部检索/御史/汇编"链路，可跳过部门点将，直接进入中书拟制。
+
+### Step 0.5：plan-preview（planner 强制，手机 PDF 版必走）
+
+**适用范围**：
+| 任务类型 | planner 是否必须 | 理由 |
+|---------|---------------|------|
+| 早新闻文字版（常规链路） | ⚠️ 可选 | 若父皇无特殊要求，可走通路 C 跳过；但**手机 PDF 版必须 planner 先出 plan-preview** |
+| 早新闻手机 PDF 版 | ✅ 强制 | 视觉交付、多轮验收、风格连续性敏感，历史返工率高（4 轮） |
+
+**plan-preview 产出要求**：
+1. 写入 workspace 为 `plan_preview.md` 或 `prd.md`
+2. 必须包含：任务图（几卡链）、风格基准路径（引用 `references/pdf-layout-accepted-variants.md`）、内容完整性门清单（执行摘要/分析/今日总结/来源清单/署名）、验收哨兵清单、风险点与决策项
+3. plan-preview 完成后，监国太子在主频道发 ≤8 行摘要同步父皇
+4. **若 plan 含决策项**（如视觉风格取舍、板块增减、来源范围变更），必须先建 HITL decision card 等父皇定夺，不得自动派工
+5. 无争议项在摘要后 2min 自动窗口后进尚书派工
+
+**参考文件**：
+- `references/pdf-layout-accepted-variants.md`：plan-preview 必须引用本文件作为风格基准
+- `references/style-continuity-gate.md`：plan-preview 必须包含风格基准路径
+
+### 第一步：中书拟制
+中书省基于父皇旨意和（如有）尚书/dispatcher 的部门名册，确定搜索方向和来源清单。
+
+**板块划分**（常驻）：
+1. 🔥 头条/中东 — 伊朗、霍尔木兹、阿联酋
+2. 🇺🇸 美国 — 内政、经济、国会、科技
+3. 🇨🇳 中国 — 时政、经济、科技、外交、民生
+4. 🌍 国际 — 俄乌、亚太、非洲、拉美
+5. 📊 市场 — 油价、股市、汇市
+
+**来源清单**（必须并行覆盖，不可只选一两家）：
+
+中国媒体（必须 ≥15家）：
+- 新华社、中新网、人民日报/人民网、央视
+- 环球时报、财新、澎湃新闻、界面新闻
+- 证券时报、第一财经、21世纪经济报道、经济观察报
+- 北京商报、每日经济新闻、China Daily、联合报、中时
+
+美国主流（必须 ≥10家）：
+- NYT、WSJ、Washington Post、AP News
+- CNN、Axios、Politico、CNBC、ABC News
+- Bloomberg
+
+国际其他（≥8家）：
+- BBC、Al Jazeera、Reuters、CBC、France 24
+- NBC、The Times、The Independent
+- Times of India、Yonhap、RTHK
+
+### 第二步：门下封驳
+监国太子审核子 agent 返回结果：去重、验证 URL 可访问性、排除低质来源。
+
+### 第三步：尚书派工
+
+**繁务必须走 Kanban，不用 delegate_task。** delegate_task 不隔离 profile config，且任务随太子中断而取消。
+
+建 Kanban 链：中书拟制 → 门下封驳 → 三路并行检索（planner/hanlinyuan/jiangzuojian）→ 御史稽核 → 门下复核/汇编。每条卡 assignee 设为对应 profile，用 `--parent` 绑定依赖。
+
+**任务A**：搜索中国媒体（国内+财经+科技+外交+政策）→ assignee: **hanlinyuan** ⚠️ 不得用 planner（已验证 kimi-k2.6 迭代耗尽 90/90）
+**任务B**：搜索美国主流媒体 + 国际（中东/俄乌/其他）→ assignee: **hanlinyuan**  
+**任务C**：搜索市场/科技专业来源 → assignee: **jiangzuojian**
+
+每个任务 body 含完整约束（时效、来源数、URL 要求、handoff_schema 字段）。御史稽核卡以三路检索为 parents，汇编卡以御史稽核为 parent。
+
+## 检索代理选配原则（2026-05-19 实战验证）
+
+| Profile | 模型 | 适用 | 禁止 |
+|---------|------|------|------|
+| `planner` | kimi-k2.6 | 拟制方案/拆解任务 | ❌ web 搜索（必迭代耗尽 90/90） |
+| `hanlinyuan` | gemini-2.5-pro | 中英文 web 搜索、国际新闻 | — |
+| `jiangzuojian` | deepseek-v4-flash | 市场/科技搜索、精准修复 | — |
+
+每个检索任务 toolsets=["web"]，timeout=8m。
+
+**⚠️ 派工后必须部署 kanban-watchdog cron**：建完 Kanban 链后立即部署 watchdog（见 `kanban-orchestrator` § Step 5），每 1 分钟自动推送状态变更到父皇聊天。不等催问。blocked 后立即建返工链。
+
+### 第四步：六部汇总
+太子不得把三路检索 `done` 当作早新闻完成。三路检索完成后必须创建/推进最终 fan-in 汇编卡（editor/hanlinyuan/planner 中实际可用且适合的 profile），读取三路 workspace artifact，完成去重、合并、排序、缺口标注；随后创建御史/门下审校卡。只有最终汇编 + 审校通过后，才能称为“最终早新闻简报”。若只接收到检索产物，回禀须明确称为“三路检索原始结果”，并立即补建缺失的汇编/审校链。
+
+### 第五步：御史稽核
+- 验证每条新闻有 ≥2 个独立来源
+- 核对数据（如CPI/就业等官方数据需标注原始出处）
+- 排除过时消息（超过3天的旧闻降权或剔除）
+
+### 第六步：最终交付
+
+简报产出后，先在主频道以精简要点呈现（遵守主频道瘦身令）。若父皇要求完整版，**直接发送全文而非再摘要**——用 `send_message(target="telegram")` 将完整简报推送到聊天。
+
+**PDF/视觉版偏好（2026-05-21 实战固化）**：若父皇要求 PDF 或视觉版早新闻，默认采用“平衡版”，先读取 `references/pdf-report-layout-lessons.md` 与 `references/pdf-layout-accepted-variants.md`。
+
+平衡版默认要求：新闻条目**适当详细**，以 clean Markdown 完整正文为准，不压缩成标题流；保留并突出 `分析` 与 `今日总结`；版式美观但自然分页，避免 14 页式大空白，也避免 6 页式过度压缩。目标通常为 **8–10 页左右**（视正文长度浮动），正文阅读密度优先于单纯页数少。署名可写“制作者 Alex Cai，六部监制”。
+
+**手机版 PDF 默认要求：若父皇要求“手机 PDF 版 / 手机阅读版”，采用 `references/pdf-layout-accepted-variants.md` 中的 **Mobile Editorial PDF**：`430px × 932px` CSS 窄幅页、单栏、大字号、卡片式新闻、紧凑来源索引；同样保留分析、今日总结、来源清单与署名。可适当加入 emoji 强化手机阅读层次（板块标题、标签、总结表格行头），但须克制、服务结构，不得花哨、不得替代正文信息；交付前检查 emoji 不乱码、不错位。
+
+**风格连续性强制（2026-05-22 教训）**：手机版 PDF 不是“每次重新设计”。一旦父皇接受了某一版视觉风格（如浅色 newsletter/editorial 风），后续日期的手机版必须**复用该已接受模板/CSS**，不得自由发挥新配色/新排版。若工部在修复视觉缺陷时生成了一套不同风格（如深色金融终端风），即为风格漂移，必须退回重做。修复任务 body 必须明确引用昨日 accepted 基准文件路径。
+
+**手机版 PDF PendingConfirm 恢复**：若渲染卡已写出 PDF/HTML 和验证摘要，却以 `PendingConfirm: 等待 reviewer 确认 complete` 自阻塞，不要重跑整条早新闻链，也不要重渲染。先读卡片 comments/artifact 路径，独立验收 PDF：存在且非空、PyMuPDF 页数与首屏尺寸约 `323 × 697/699pt`、提取文本含 `分析/今日总结/来源清单/Alex Cai/六部监制`、`�` 为 0，并渲染首页与分析页抽检无大空白/重叠/乱码。验收通过后，监国可完成该 PDF 卡并交付。详见 `references/mobile-pdf-pending-confirm-recovery.md`。
+
+**手机版 PDF 视觉终审（必做）**：文件存在、页数正常、无 U+FFFD 只证明“可打开”，不证明“可读”。交付前必须要求工部/将作监输出 `.html/.pdf/首页PNG/分析页PNG/总结页PNG`，并由御史同时检查 HTML 结构与视觉截图：`.news-card` 等容器闭合无嵌套崩塌，正文对比度足够，首页无大面积装饰空白，分析页从顶部自然开始，市场行情用纵向卡片/列表而非宽表格，不得横向溢出。若父皇反馈“质量差”，优先按 `references/mobile-pdf-visual-qa-lessons.md` 建窄范围修复→视觉审计链，不要只用页数/文件大小辩解。
+
+**手机版 PDF 来源显示/去重门（2026-05-24 教训）**：来源问题不得只抽检 8 条或只看“83 来源存在”。交付前必须全量扫描最终 HTML/PDF 渲染结果并输出 `source_map.json` + `dedupe_report.json`：每条新闻卡内重复 source id=0、重复 URL=0、同媒体同 URL=0；来源清单 S01–SNN 每个编号视觉主行恰好一次，URL 可追溯但不得长串溢出或重复堆叠；若同一来源被多个新闻复用，必须标记“同 X.X”而非重复展示成新来源。任何来源重复/错位/ledger 视觉重复即使标为 MEDIUM，也不得 complete 交付，必须 block 或进入 vNext 修复。监国交付前必须读取终审 summary，若 summary 内含 `MEDIUM/HIGH/重复/dup/错位` 等风险词，不得发送 PDF，先返工。
+
+**手机版 PDF 版式迭代偏好（2026-05-24 教训）**：若父皇要求继续优化排版，必须“只改版式，不压缩内容”。页数目标服从内容完整性；不得为压页数删新闻、删分析、删今日总结、删来源、缩写正文或标题流化。来源显示必须可读：新闻卡底部优先 `📡 来源：S01 媒体名 · S02 媒体名`，不得只显示裸 S 编号、不得让长 URL 撑破版面；末尾 Source Ledger 保留完整编号、媒体名与 URL（URL 可隐藏为可点击链接）。今日总结/关键趋势等 Markdown 表格必须渲染为真实 HTML table 或移动端 table-card，不得露出 `|...|` pipe 原文。父皇允许适量 emoji 增强手机阅读层次，可用于板块标题、来源、链接、分析/总结结构提示，但要克制、正式、无乱码错位。
+
+**手机版 PDF 内容完整性门（2026-05-23 父皇纠错）**：手机版 PDF 不是只把新闻条目渲出来。交付前必须同时满足以下硬门槛，缺一即返工：
+1. 首页/开头必须有非空 `EXECUTIVE BRIEF / 执行摘要` 独立卡片，标题后紧接 3–5 条实质 bullet；不得只有封面统计、阅读导航和头条。
+2. 新闻之后必须保留完整 `🔍 分析`，包含所有分析条目的标题与“前提→推理→结论”正文；不得只保留分析标题或导航命中。
+3. `📌 今日总结` 必须是独立完整卡片/版块，标题后紧接完整总结正文；不得让标题与正文跨页分离，不得出现第二个空的 `CLOSING NOTE / 今日总结` 标题。
+4. 若 `今日总结` / summary 中含 Markdown pipe table，必须渲染成真正 HTML/PDF 表格，或窄屏 table-card（保留表头、行列关系、全部单元格）；不得在 PDF 中露出原始 `| ... |` 文本。手机窄幅下可转纵向卡片，但不能丢列、丢行、改写成短摘要。
+5. 御史不得只用全文 `text.find()` 判定存在；必须用 PyMuPDF 定位所在页并打印/检查同页文本：执行摘要页须含 `执行摘要` + 至少 3 条 bullet 关键词；总结页须同页含 `今日总结`、`核心矛盾`、`三条战线`、`没有一条有退出机制`（或当日总结等价核心句）；若有表格，还必须检查 summary PNG/HTML 中表格结构可见且无横向溢出。
+6. 视觉抽检必须包含首页 PNG、分析页 PNG、总结页 PNG；确认对应卡片非空、无大空白/重叠/乱码/横向溢出。
+7. 修复某一版式问题时，不得回归破坏此前已通过项目：执行摘要、分析、今日总结、来源清单、署名、风格连续性必须全量复验。
+8. 页数目标只约束排版密度，不得作为删减内容的理由；若正确显示表格或完整保留内容导致页数略增，优先保内容完整。
+
+**手机版 PDF 分析保留门（2026-05-23 教训）**：父皇要求“发我手机版 PDF”时，不能只拿门下 delivery Markdown 渲染；有些链路中 `delivery-morning-news-YYYYMMDD.md` 只含新闻正文和来源，完整 `分析/今日总结` 在独立 analysis card artifact（如 `morning-analysis-YYYYMMDD.md`）。渲染任务必须显式输入“最终新闻正文 + 分析 artifact”，并把完整分析逻辑链与今日总结放入 PDF。验收不得只查 `分析` 两字（可能出现在标题/元数据）；必须用 PyMuPDF 等抽取文本并命中强哨兵：`分析`、`今日总结`、`核心矛盾`、摘要中的独特短语（如 `三条战线`）、至少两个分析主题词（如 `美伊和谈`、`AI芯片`）、`Alex Cai`、`六部监制`。缺任一项即退回窄范围重渲染，不重跑全链。详见 `references/mobile-pdf-analysis-retention-lesson.md`。
+
+**手机版 PDF-first 请求（2026-05-24 固化）**：父皇若一开始就说“早新闻手机 PDF 版 / 手机 pdf 版”，不要先交文字再另起渲染；应把 PDF 设为最终交付物，仍完整走“检索 → fan-in → 分析总结 → 门下合并 → 工部渲染 → 御史终审”链。渲染前必须由门下合并“新闻正文 + analysis artifact”为 single mobile-source Markdown；终审通过后主频道只需发送 `MEDIA:<pdf_path>` 与一句验收证据（页数、手机尺寸、无乱码、内容门通过），不要再贴长篇新闻正文。详见 `references/mobile-pdf-first-workflow.md`。
+
+**风格连续性门（2026-05-22 实战教训）**：当用户说“和昨天的效果差很多，版式也不一样”，根因通常是工部在修复视觉缺陷时**未复用昨日已接受的模板/CSS**，而是重新生成了一套不同配色/排版的新风格。修复要点：
+1. 每次生成手机版 PDF 前，先定位昨日（或最近一次 accepted）的 mobile PDF/HTML 作为视觉基准。
+2. 修复/重制任务 body 中必须明确引用该基准文件路径，要求“复刻昨日浅色 newsletter/editorial 风格”，不得自由发挥新风格。
+3. 审计任务必须增加“风格连续性”维度：对比暗像素比、色板（米白/深灰/棕金 vs 深灰/黄绿）、newsletter 元素（胶囊标签/阅读导航/刊头）。
+4. 已接受的 mobile 风格基准：浅色米白背景 `#fffdf8`、深色正文 `#1b1a17`/`#202124`、棕金强调 `#b47a32`、胶囊统计标签、阅读导航、紧凑刊头。
+
+若父皇要求 PDF / 美化版 / 重新排版：默认交付“干净报告版”，不要把三路 worker 原始详版整段塞进 PDF；来源以紧凑 ledger 形式保留。分页采用自然流式排版，避免大面积空白和每章强制独占整页。
+
+**接收产物不是只看状态。** 当三路检索卡全部 `done` 时，太子/协调 run 必须读取各 workspace artifact，确认是否已经存在最终 fan-in、分析、御史稽核/门下复核卡。若只看到 `done` 但没有最终汇编/审校 artifact，必须补建 `final-fanin` → `final-audit` 链；不得把“三路原始检索结果”冒称为最终早新闻简报。
+
+`web_extract` 偶会拒绝 GitHub/特定域名。此时可改用 Exa `web_fetch_exa` 或 `web_search` 获取内容。`web_search` 对 README 等结构化文本提取效果优于 `web_extract`。
+
+### 第七步：史馆归档
+不用。此为瞬态简报，不入 long-term memory。
+
+## 输出格式
+
+```markdown
+## 📰 早新闻简报 | YYYY年M月D日 周X
+
+### 🔥 头条板块
+**标题**
+内容。引用关键数据。多来源标注。
+
+> 📡 来源1 · 来源2 · 来源3
+
+（其他板块类推）
+
+---
+
+> #### 📡 本简报覆盖 N+ 来源
+> 按分类列出所有媒体
+```
+
+每条新闻末尾必须标注来源，用 `> 📡` 格式。
+
+### 🔍 分析与总结板块（新闻列表之后）
+
+**全部派工给子 agent，太子不亲操分析/总结，只做把关。**
+
+**流程**：
+1. 汇总新闻简报后，将简报全文作为 context 发给分析子 agent
+2. 子 agent 产出「分析」+「总结」
+3. 太子审核：判断是否触及关键矛盾、是否遗漏重大关联、结论是否骑墙
+4. 不达标 → 退回重做；达标 → 通过发布
+
+**分析子 agent 任务定义**（delegate_task，toolsets=[]，纯推理）：
+基于简报既有信息——
+- 找跨板块新闻的因果/共振/对冲关系
+- 趋势判断（方向 + 拐点）
+- 影响评估（对市场/政策/格局）
+- 识别被市场忽视的并发风险
+
+**分析子 agent 任务定义**（同上 delegate_task 中一并完成总结）：
+- 写一句/一段今日核心矛盾——提炼多条新闻背后的统一张力
+- 不能写成"今天是充满挑战的一天"这种废话
+- 要有具体判断
+
+**质量要求**（太子审核标准，依 SOUL.md「反骑墙协议」执行）：
+- **逻辑链强制**：每一条 = 前提 → 推理 → 结论（新闻A → 意味着B → 可能引发C），不得只写"可能/也许/或将"。
+- **最尖锐版本优先**：若可下重断语，则下重断语；不做"一方面…另一方面…"的择中陈词。
+- **自评门槛**：若太子或父皇质疑某判断，子 agent 须先自评支撑强度（1–5）。≥4 重述并补证，≤3 方可让步并说明让步理由。
+- **禁连续让步**：同一案中，子 agent 两次让步之间必须夹一次"坚持"回合。
+- **让步率上限**：御史稽核时统计 `concession_rate = total_concessions / total_challenges`，**>30% 触发预警，退回重做**。
+- **总结一句话**：能让人记住今天最大矛盾是什么；写成"今天充满挑战"之类废话 → 退回。
+- **平铺即退**：若分析同一层次平铺、无纵向挖掘 → 退回。
+- **handoff 合规**：分析子 agent 产出须附 `concession_log`（参 `shared/handoff_schema.md` §一、§四）。
+
+输出格式：
+```markdown
+### 🔍 分析
+
+**一、[有判断的标题]**
+[逻辑链]
+
+**二、...**
+
+### 📌 今日总结
+
+> **[一句话核心矛盾]**
+```
+
+### 交接字段（必填，依 handoff_schema.md）
+
+每个 delegate_task 子 agent 的任务 prompt 中必须包含以下要求，并令 agent 在产出末尾显式输出：
+
+```yaml
+# 交接字段 — 子 agent 必填
+task_id: [自动生成]
+stage: [六部 | 分析]
+artifacts: [{path, type, summary}]
+integrity_signals:
+  sources_count: [数字]
+  cross_check_done: [true/false]
+boundary_violation: false
+concession_log:               # 仅分析类 agent 必填
+  total_challenges: [数字]
+  total_concessions: [数字]
+  consecutive_concessions: [必须 ≤1]
+state:                        # 必填，状态机记录
+  status: [pending | running | blocked | done | failed]
+  last_event: [触发本次状态变更的事件]
+  previous_status: [变更前状态]
+  checkpoint_data: [仅 timeout >5min 或 budget >high 任务必填，自定义格式]
+  resume_from: [恢复任务时指向原 task_id，否则 null]
+error_report:                 # 仅出错时必填，全文 ≤500 字
+  error_type: [timeout | api_error | parse_error | boundary_violation | other]
+  root_cause: [≤80 字]
+  suggested_fix: [≤60 字]
+```
+
+未填交接字段的产出 → 视为未完成，退回重做。
+错误时禁止 dump 完整 stack trace，必须压缩为 error_report 三字段。
+
+## 质量要求
+
+1. **来源 ≥50 家**（中西各半）
+2. **每条新闻 ≥2 个独立来源**
+3. **中国媒体 ≥15 家不同媒体**（不能只是新华社+中新网）
+4. **美国主流 ≥10 家**（必须含 NYT/WSJ/WaPo/AP）
+5. **数据精确**：官方数据（CPI/就业/GDP）必须标注原始出处（如BLS、国家统计局）
+6. **不要车轱辘话**：每条2-4句核心信息即可
+7. **每条标注时效**：如"（17日）""（18日）"
+
+## 反模式（禁止）
+
+## 反模式（禁止）
+
+- ❌ **太子亲自搜索/提取/汇编/分析/总结**（违反 SOUL.md「阶段边界·监国太子」）— 父皇第5次纠正
+- ❌ **用 delegate_task 代替 Kanban**（父皇纠正"没用 kanban 吗"）— 早新闻属繁务，必走 Kanban 链，不可图省事走轻通道
+- ❌ 中书自行执行搜索；门下擅自补来源；尚书代六部执行（均为 `boundary_violation`）
+- ❌ 子 agent 跨阶段越级直奏太子，不走尚书回禀
+- ❌ 御史代笔修改分析稿（御史只能退回，不能改写）
+- ❌ 只有中文来源 / 只有英文来源
+- ❌ 只搜新华社+BBC就交差
+- ❌ 长文粘贴，不做提炼
+- ❌ 遗漏重大新闻
+- ❌ 分析骑墙、连续让步、堆"一方面…另一方面…"（违反「反骑墙协议」）
+- ❌ 派工后不监控进度等父皇催问 — 必须部署 watchdog 自动巡检
+
+## 常见质检 FAIL（御史高频阻断项）
+
+1. **年份错误**：标注 2025 年而非当前年 → 整批无效，CRITICAL 阻断。
+2. **无 URL**：仅写来源名称而无可点击链接 → 不可验证，CRITICAL 阻断。
+3. **假 URL**：写"经搜索验证""据官方数据"等声明替代实际 URL → HIGH 阻断，须补实链。
+4. **单源**：某条仅有 1 个来源 → 补 ≥1 个。
+5. **超时**：CPI/就业等引用超过 48h 的旧数据 → 剔除或降权。
+6. **跨条目 URL 复用**：两条不同新闻共用同一 URL 充数 → 为其中之一替换独立来源。handoff 声明 no_duplicate 但实际复用 → 视为编造风险。
+7. **修复时引入旧年份 URL**：精准修复来源问题时，worker 可能把 2025 或更早页面当作 2026 当日新闻证据。复稽必须检查每个替换 URL 的页面年份/发布日期；若年份不符，退回只修该条，不得放行。
+8. **二手转载伪装独立源**：若页面正文标注“来源：新华社/新华网/央视”等，则该页面与原始来源不构成独立双源；媒体名也不得误标。复稽时要看页面来源署名，而不只看域名不同。
+9. **交付件漏分析**：final delivery/reviewer 可能只整理新闻正文和来源清单，遗漏下游分析 artifact。交付前必须确认最终正文含 `### 🔍 分析` 与 `### 📌 今日总结`；若 fan-in 正文与分析分属不同 workspace，门下交付卡必须合并二者后再 complete。
+
+### 返工策略 · 精准修复
+
+**final-fanin protocol_violation 恢复**：若三路检索已 done，但最终汇编卡因 `protocol_violation` / clean exit 未 complete 而 blocked，且 workspace 无最终 artifact，**不要重搜三路新闻，也不要等待旧卡自愈**。检查三路父任务 workspace 中的已成 artifact，创建新的 `repair-fanin → audit-repair → delivery-repair` 链；repair-fanin 优先派 `jiangzuojian`，body 明确列三份 artifact 绝对路径，并要求只读原料去重合并、不得新增搜索、必须写出 `final-morning-news-YYYYMMDD.md` 后 `kanban_complete`。详见 `references/final-fanin-protocol-recovery.md`。
+
+**直接文字交付**：若父皇明确要求“结果直接文字发给我”，audit approve 后可以由监国读取已批准 artifact 并**原样粘贴全文**；这是交付，不是重新汇编/分析。不得只报 path，也不得擅自改写内容。
+
+御史阻断后，**不要全量重搜 15-17 条**。反复全量重做会导致多轮迭代损耗（本次会话实战验证：4 轮才修完）。正确做法：
+
+1. **解析御史阻断清单**：精确定位问题条目编号与错误类型（如"#13↔#15 同源 URL""#7 仅 1 独立来源"）
+2. **创建精准修复任务**：只修被阻断的具体条目，body 中写明待修条目编号、当前问题、要求。不改其他条目。
+3. **复稽核只查修复项**：御史四稽/五稽时仅检查修复条目是否已解，不重审已通过内容。
+4. **用已验证可用的 agent**：将作监（jiangzuojian）已验证可在精准修复场景稳定输出。中文搜索用 hanlinyuan（不用 planner）。
+
+## 参考文件
+
+- `references/handoff-quickref.md` — 交接协议快捷参考（完整规范见 `shared/handoff_schema.md`）
+- `references/external-project-evaluation.md` — 外部项目取经与评估流程（本会话总结）
+- `references/mobile-pdf-pending-confirm-recovery.md` — 手机版 PDF 已产出但渲染卡 PendingConfirm 自阻塞时的验收与收口流程
+- `references/style-continuity-gate.md` — 手机版 PDF 风格连续性门：防止修复时风格漂移（浅色 newsletter → 深色终端）
+- `references/mobile-pdf-analysis-retention-lesson.md` — 手机版 PDF 分析保留教训：渲染需合并新闻正文+分析 artifact，并用强文本哨兵确认“分析/今日总结”完整存在
+- `references/mobile-pdf-table-emoji-lesson.md` — 手机版 PDF 总结表格渲染与克制 emoji 使用：表格不得露出 Markdown pipe，手机端可转 table-card，内容完整优先
+- `references/pdf-report-layout-lessons.md` — PDF 排版通用教训：密度、分页、分析 prominence
+- `references/pdf-layout-accepted-variants.md` — 已接受的 A4 平衡版 + Mobile newsletter 版 CSS 与验收标准
+- `references/final-fanin-protocol-recovery.md` — final-fanin protocol_violation 恢复流程
+- `shared/handoff_schema.md` — 三省六部形式化交接 Schema 全文
+- `shared/handoff_schema.md` — 三省六部形式化交接 Schema 全文
+
+## 三省六部流程显式展示
+
+执行本 Skill 时，太子必须以奏对五要素为对外仪式，内治九步暗行其下：
+
+```
+奏对：承旨 → 拟制 → 谕示 → 派工 → 回禀
+内治：监国接旨 → 【planner plan-preview】→ 门下封驳（审 plan）→ 尚书派工 → 六部施行 → 御史监察 → 门下复核 → 监国复命
+      （史馆归档：瞬态简报跳过）
+
+节点展示（太子主动奏报，不等催问）：
+【部门点将（可选）】→ 尚书/dispatcher 盘点可用部门 agent；吏部只管专家库
+【planner plan-preview】→ 出任务图 + 风格基准 + 内容门 + 风险 + 决策项；手机 PDF 版强制
+【门下封驳】→ 审 plan 合理性；plan-preview 未通过不得入尚书派工
+【尚书派工】→ Kanban create + dispatch（不用 delegate_task）
+【六部施行】→ planner/hanlinyuan/jiangzuojian 并行检索
+【御史监察】→ 验交接字段 + 越界 + 反骑墙 + 年份/URL/时效
+【门下复核】→ 汇编 + 分析 + 总结
+【监国复命】→ 呈父皇
+【阻塞处理】→ 任何卡 blocked 立即奏报 + 建返工链
+```
+
+**关键**：门下封驳审的是中书方案，在尚书派工之前——不可颠倒。门下复核审的是六部结果，在御史监察之后。门下两现，各司其职。

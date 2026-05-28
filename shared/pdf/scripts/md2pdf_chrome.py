@@ -323,7 +323,7 @@ def apply_directives(md_text, directives):
     return "\n".join(lines)
 
 
-def build_html(md_path, header_text, directives=None, theme="blue", page_size="A4"):
+def build_html(md_path, header_text, directives=None, theme="blue"):
     md_path = Path(md_path)
     with open(md_path, "r", encoding="utf-8") as f:
         md_text = f.read()
@@ -442,14 +442,6 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
   });
 </script>""".replace("__MERMAID_SRC__", mermaid_src)
 
-    # Convert page_size to CSS @page size value
-    if page_size == "A4":
-        size_val = "A4"
-    else:
-        # e.g. "430x932" → "430px 932px"
-        w, h = page_size.split("x")
-        size_val = f"{w}px {h}px"
-
     return f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -459,7 +451,7 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
   * {{ box-sizing: border-box; break-inside: auto; }}
 
   @page {{
-    size: {size_val};
+    size: A4;
     margin: 20mm 18mm 20mm 18mm;
   }}
 
@@ -772,17 +764,10 @@ def _localize_mermaid_src(html):
     return html
 
 
-def _render_playwright(html_path, pdf_path, page_size="A4"):
+def _render_playwright(html_path, pdf_path):
     """Render PDF using Playwright. Reliable for all documents including large Mermaid."""
     has_mermaid = 'class="mermaid"' in html_path.read_text(encoding="utf-8")
     wait_timeout = 60000 if has_mermaid else 10000
-
-    # Convert page_size to Playwright format
-    if page_size == "A4":
-        pw_format = "'A4'"
-    else:
-        w, h = page_size.split("x")
-        pw_format = f"{{ width: '{w}px', height: '{h}px' }}"
 
     script = f"""
 const {{ chromium }} = require('playwright');
@@ -798,7 +783,7 @@ const {{ chromium }} = require('playwright');
   await page.waitForTimeout(2000);
   await page.pdf({{
     path: '{pdf_path}',
-    format: {pw_format},
+    format: 'A4',
     printBackground: true,
     margin: {{ top: '15mm', bottom: '15mm', left: '15mm', right: '15mm' }},
     displayHeaderFooter: true,
@@ -829,12 +814,12 @@ const {{ chromium }} = require('playwright');
         raise RuntimeError("Playwright PDF generation failed")
 
 
-def md_to_pdf(md_path, pdf_path=None, header_text=None, directives=None, theme="blue", page_size="A4"):
+def md_to_pdf(md_path, pdf_path=None, header_text=None, directives=None, theme="blue"):
     md_path = Path(md_path)
     pdf_path = Path(pdf_path) if pdf_path else md_path.with_suffix(".pdf")
     header_text = header_text or md_path.stem
 
-    html = build_html(md_path, header_text, directives, theme=theme, page_size=page_size)
+    html = build_html(md_path, header_text, directives, theme=theme)
 
     # Localize Mermaid JS for file:// rendering
     if 'class="mermaid"' in html:
@@ -843,7 +828,7 @@ def md_to_pdf(md_path, pdf_path=None, header_text=None, directives=None, theme="
     html_path = Path("/tmp") / f"{md_path.stem}.html"
     html_path.write_text(html, encoding="utf-8")
 
-    _render_playwright(html_path, pdf_path, page_size=page_size)
+    _render_playwright(html_path, pdf_path)
 
     # Remove blank/near-empty pages
     removed = remove_blank_pages(pdf_path)
@@ -980,7 +965,6 @@ if __name__ == "__main__":
     directives = []
     positional = []
     theme = "blue"
-    page_size = "A4"
     i = 1
     while i < len(sys.argv):
         arg = sys.argv[i]
@@ -997,16 +981,13 @@ if __name__ == "__main__":
                 print(f"Unknown theme '{theme}'. Available: {', '.join(list_themes())}")
                 sys.exit(1)
             i += 2
-        elif arg == "--page-size" and i + 1 < len(sys.argv):
-            page_size = sys.argv[i + 1]
-            i += 2
         else:
             positional.append(sys.argv[i])
             i += 1
 
     if not positional:
         print(
-            "Usage: python md2pdf_chrome.py <md_file> [pdf_file] [header_text] [--theme blue|dark|academic|newsletter|minimalist|warm-academic] [--page-size A4|430x932] [--sm PATTERN] [--xs PATTERN] [--sm-after PATTERN] [--xs-after PATTERN]"
+            "Usage: python md2pdf_chrome.py <md_file> [pdf_file] [header_text] [--theme blue|dark|academic] [--sm PATTERN] [--xs PATTERN] [--sm-after PATTERN] [--xs-after PATTERN]"
         )
         sys.exit(1)
     md_to_pdf(
@@ -1015,5 +996,4 @@ if __name__ == "__main__":
         positional[2] if len(positional) > 2 else None,
         directives or None,
         theme=theme,
-        page_size=page_size,
     )

@@ -48,7 +48,7 @@ git remote set-url origin https://<username>:<token>@github.com/<owner>/<repo>.g
 **Step 3: Configure identity:**
 ```bash
 git config --global user.name "Their Name"
-git config --global user.email "their-email@example.com"
+git config --global user.email "<email redacted>"
 ```
 
 **Step 4: Verify:**
@@ -64,14 +64,14 @@ git config --global user.name && git config --global user.email
 ls -la ~/.ssh/id_*.pub 2>/dev/null || echo "No SSH keys found"
 
 # Generate new key
-ssh-keygen -t ed25519 -C "their-email@example.com" -f ~/.ssh/id_ed25519 -N ""
+ssh-keygen -t ed25519 -C "<email redacted>" -f ~/.ssh/id_ed25519 -N ""
 cat ~/.ssh/id_ed25519.pub  # Add to https://github.com/settings/keys
 
 # Test
-ssh -T git@github.com
+ssh -T <email redacted>
 
 # Auto-rewrite HTTPS → SSH
-git config --global url."git@github.com:".insteadOf "https://github.com/"
+git config --global url."<email redacted>:".insteadOf "https://github.com/"
 ```
 
 ---

@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-50-blue" alt="50 skills">
+  <img src="https://img.shields.io/badge/skills-51-blue" alt="51 skills">
   <img src="https://img.shields.io/badge/profiles-15%20三省六部-orange" alt="15 profiles">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
@@ -35,7 +35,7 @@ jz-skills/
 │   ├── methodology-writer/        # 方法论文创作
 │   ├── obsidian-md-ac/            # Obsidian Markdown 完整参考
 │   └── xiaohongshu-cards/         # 小红书图文卡片
-├── hermes/                        # ⚙️ Hermes 平台通用 — 10 skills
+├── hermes/                        # ⚙️ Hermes 平台通用 — 11 skills
 │   ├── web-research-router/       # v3.2 · SearXNG + deep research + verbatim quote
 │   ├── tradingagents/             # 交易分析
 │   ├── llm-wiki/                  # LLM 知识库
@@ -45,6 +45,7 @@ jz-skills/
 │   ├── xhs-crawler/               # 小红书爬虫
 │   ├── calendar-manager/          # 智能日历
 │   ├── de-slop/                   # 中英双语去 AI 味
+│   ├── reply-context-retrieval/   # TG 引用回溯
 │   └── claude-code/               # CC 编排
 ├── hermes-3S6M-profiles/          # 🏯 三省六部体系
 │   ├── common/                    # 全部门通用 — 2 skills

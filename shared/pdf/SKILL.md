@@ -1,6 +1,6 @@
 ---
 name: pdf
-description: Comprehensive PDF manipulation toolkit for extracting text and tables, creating new PDFs, merging/splitting documents, filling forms, and converting Markdown to styled PDF (A4 + mobile 430×932px) with CJK support. When Claude needs to fill in a PDF form or programmatically process, generate, or analyze PDF documents at scale.
+description: Comprehensive PDF manipulation toolkit for extracting text and tables, creating new PDFs, merging/splitting documents, and handling forms. When Claude needs to fill in a PDF form or programmatically process, generate, or analyze PDF documents at scale.
 license: Proprietary. LICENSE.txt has complete terms
 ---
 
@@ -8,14 +8,13 @@ license: Proprietary. LICENSE.txt has complete terms
 
 ## Overview
 
-This skill covers PDF processing operations: extract text/tables, merge/split, create new PDFs, fill forms, and convert Markdown to styled PDF with CJK support. Also supports mobile PDF (430×932px) for newsletter-style briefings.
+This skill covers PDF processing operations: extract text/tables, merge/split, create new PDFs, fill forms, and convert Markdown to styled PDF with CJK support.
 
 - **Markdown to PDF** (primary workflow): `scripts/md2pdf_chrome.py` — see below
 - **PDF operations** (merge, split, extract, create): see `references/pdf-operations.md`
 - **Fill PDF forms**: read `references/forms.md` and follow its instructions
 - **Advanced** (pypdfium2, pdf-lib, troubleshooting): see `references/advanced.md`
-- **Markdown to PDF internals** (pagination, font sizing, Mermaid, callouts, themes): see `references/md2pdf-details.md`
-- **Mobile PDF layout** (430×932px newsletter): see `references/mobile-layout.md`
+- **Markdown to PDF internals** (pagination, font sizing, Mermaid, callouts): see `references/md2pdf-details.md`
 
 ## Quick Start
 
@@ -47,7 +46,6 @@ python scripts/md2pdf_chrome.py report.md
 python scripts/md2pdf_chrome.py report.md ~/output/report.pdf "My Report Title"
 python scripts/md2pdf_chrome.py report.md output.pdf --sm "Phase 2" --sm "Phase 3"
 python scripts/md2pdf_chrome.py report.md output.pdf --theme academic --sm "开发路线图" --xs-after "变更历史"
-python scripts/md2pdf_chrome.py morning-news.md --page-size 430x932 --theme newsletter
 ```
 
 ### Claude Code Relay Workflow
@@ -127,8 +125,7 @@ For pagination rules, font sizing tables, Mermaid details, callout types, and CS
 
 | Task | Tool | Details |
 |------|------|---------|
-| **Markdown to PDF** | `scripts/md2pdf_chrome.py` | Playwright, CJK-safe, 7 themes |
-| **Markdown→Mobile PDF** | `scripts/md2pdf_chrome.py --page-size 430x932 --theme newsletter` | 430×932px newsletter |
+| **Markdown to PDF** | `scripts/md2pdf_chrome.py` | Playwright Chromium, CJK-safe |
 | Merge/Split/Rotate PDFs | pypdf | `references/pdf-operations.md` |
 | Extract text | pdfplumber | `references/pdf-operations.md` |
 | Extract tables | pdfplumber | `references/pdf-operations.md` |

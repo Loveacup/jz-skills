@@ -32,6 +32,7 @@ sync_hermes() {
   cp -r "$REPO_ROOT/hermes/calendar-manager"               "$base/"
   cp -r "$REPO_ROOT/hermes/de-slop"                        "$base/"
   cp -r "$REPO_ROOT/hermes/claude-code"                    "$base/autonomous-ai-agents/"
+  cp -r "$REPO_ROOT/hermes/reply-context-retrieval"        "$base/"
   cp -r "$REPO_ROOT/hermes-3S6M-profiles/gongbu/surge-gateway"  "$base/devops/"
 
   # Sync to all profiles
@@ -49,6 +50,7 @@ sync_hermes() {
     cp -r "$REPO_ROOT/hermes/calendar-manager"               "$pd/"
     cp -r "$REPO_ROOT/hermes/de-slop"                        "$pd/"
     cp -r "$REPO_ROOT/hermes/claude-code"                    "$pd/autonomous-ai-agents/"
+    cp -r "$REPO_ROOT/hermes/reply-context-retrieval"        "$pd/"
     cp -r "$REPO_ROOT/hermes-3S6M-profiles/common/three-provinces-constitution"  "$pd/governance/"
     cp -r "$REPO_ROOT/hermes-3S6M-profiles/common/financial-research-agents"     "$pd/research/"
   done

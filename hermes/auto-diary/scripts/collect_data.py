@@ -327,8 +327,8 @@ def sync_obsidian():
 
 def collect_diary_data(date_str: str) -> dict:
     """Collect all data for a single day."""
-    diary_path = Path("/Users/alexcai/Documents/Obsidian/AlexCai/50-Self/01_日记") / f"{date_str}.md"
-    vault_root = Path("/Users/alexcai/Documents/Obsidian/AlexCai")
+    diary_path = Path("~/Documents/Obsidian/AlexCai/50-Self/01_日记") / f"{date_str}.md"
+    vault_root = Path("~/Documents/Obsidian/AlexCai")
     
     return {
         "date": date_str,
