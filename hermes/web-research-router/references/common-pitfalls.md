@@ -2,9 +2,9 @@
 
 Full pitfalls list. Top 5 are in SKILL.md. Loaded on-demand.
 
-1. **Search-engine maximalism.** More engines are not better; they are only better when they reduce uncertainty。SearXNG 已聚合 6+ 引擎，一次广扫足够，不需要再叠 Exa+Tavily+Brave 三路并发。
-2. **单引擎依赖症（over-relying on a single engine）.** 直接用 Exa 或 Tavily 单刷会漏掉其他引擎独家收录的页面。SearXNG 同时跑 Bing/Brave/Qwant/Mwmbl/DDG/Startpage 等 6+ 通用引擎，一次拿到 100+ 候选源，先广扫再精挖比从一开始就走窄漏斗更可靠。
-3. **SearXNG 的 search vs URL read 混淆.** `mcp_searxng_searxng_web_search` 返回搜索结果（标题/URL/snippet 列表）；`mcp_searxng_web_url_read` 输入一个 URL、返回该页 markdown 全文。前者用于发现源，后者用于读取已知源——不要把它们当同一个工具。
+1. **Search-engine maximalism.** SearXNG 注册 245 个引擎 ≠ 245 个都能用。此环境实测仅 **bing**(10r)、**baidu**(9r)、**arxiv**(10r)、**wikipedia**(1r) 稳定返回；brave/duckduckgo/google/startpage 全 0。选 `engines=bing`（英）或 `engines=bing,baidu`（中），务必设 `language` 参数。**先单测每个引擎，确认可用再组合。** 详见 `references/searxng-engine-diagnostics.md`。
+2. **单引擎依赖 + 烂引擎组合。** `engines=bing,brave,google,duckduckgo` 中仅 bing 有结果 → 大量 0r 稀释信号。直接用 Exa 单刷也容易遗漏。正确做法：`web_search` 起手广扫 → Exa 精准补强 → SearXNG HTTP(bing+baidu) 做中文交叉。**⚠️ Qwant 引入 spam（lj.im 等垃圾域名），禁用。**
+3. **SearXNG MCP vs HTTP 混淆。** 当前环境 SearXNG **仅作为独立 HTTP 服务**运行（`127.0.0.1:32080`），`mcp_searxng_searxng_web_search` 和 `mcp_searxng_web_url_read` 均不存在。用 `curl` + `format=json` 调 HTTP API；URL 抓取用 `mcp_exa_web_fetch_exa`。**SearXNG 实例无 URL read 引擎**，不能抓页面内容。
 4. **Skipping local truth.** User notes, local repos, and past sessions can outrank the public web for user-specific questions.
 5. **Conflating discovery with evidence.** Search results suggest sources; fetched/read primary sources support claims.
 6. **Treating arXiv as peer review.** arXiv is a preprint server; label venue/review status separately.
@@ -16,7 +16,7 @@ Full pitfalls list. Top 5 are in SKILL.md. Loaded on-demand.
 12. **arXiv rate limiting.** arXiv's public API enforces ~1 req / 3 seconds. If rate-limited (HTTP 429), do NOT retry immediately — wait 5+ seconds, or fall back to Semantic Scholar for discovery.
 13. **Cron job model pinning.** When creating cron jobs that call the LLM, always pin the model explicitly — never rely on the default. The default model may be rate-limited, and a cron job will silently fail.
 14. **Web-research-router copies diverge.** The default profile skill is authoritative, but profile copies are independent. Verify ALL profiles after updates: search for `### Red Flags` or `v3.2` in each profile's copy.
-15. **GitHub URL blocked by `web_extract`.** `web_extract` blocks `github.com` / `raw.githubusercontent.com` / `gist.github.com` as "internal network." This is NOT a network block — it's a Hermes URL validator false positive. Bypass：`mcp_searxng_web_url_read`（SearXNG 抓页面，无内网误判）、`mcp_exa_web_fetch_exa`、或 `gh api` via `github` skill。
+15. **`web_extract` 全局拦截。** 在此 sandbox 环境中，`web_extract` 拦截**所有** HTTPS URL（包括 `github.com`、`obsidian.md`、甚至 `example.com`），统一返回 "private/internal network"。这不是 GitHub 特有问题——是环境网络策略。**唯一可用抓取方案**：`mcp_exa_web_fetch_exa`（含 GitHub 页面）。SearXNG HTTP 无 URL read 引擎，不能用。
 
 ## Deep-Research Pitfalls（v3.2.0 新增）
 
@@ -45,7 +45,12 @@ Full pitfalls list. Top 5 are in SKILL.md. Loaded on-demand.
 25. **Inline citation 写裸 URL 而非 `citation_id`。** ✅ `[s3]` / ❌ "据 https://example.com..."。
     URL 在 source map 里查；正文用 stable `citation_id`，否则 merge / 跨 session 引用全部断链。
 
-## Multi-engine Dedup / RRF
+## SearXNG Engine Diagnostics（2026-05-28 实测新增）
+
+26. **不测引擎就直接用多引擎组合。** SearXNG 注册 245 个引擎，但 brave/duckduckgo/google/startpage 在此环境全 0 结果。先逐引擎单测 `curl .../search?q=test&engines=<engine>` 确认可用，再用 `engines=bing,baidu` 组合。详见 `references/searxng-engine-diagnostics.md`。
+27. **忘设 `language` 参数。** 不设 `language=en` 或 `language=zh-CN` 时，SearXNG 返回跨语言噪音（日文词典、游戏结果）。每次 SearXNG HTTP 调用必须带 `&language=<code>`。
+28. **Qwant 引擎引入垃圾域名。** 实测 Qwant 返回 lj.im 等 spam 域名，污染结果集。禁用它。
+29. **MCP 配置是 per-profile 的。** 每个 profile 的 `config.yaml` 中 `mcp_servers` 段独立管理。当前 regent 仅有 codegraph + exa。default（小黄）无 config.yaml → 仅有内置工具。加 MCP server 只改目标 profile 的 config。
 
 When the same query is sent to more than one engine, normalize URLs and merge duplicates.
 
@@ -55,3 +60,23 @@ python ~/.hermes/skills/research/web-research-router/scripts/dedup_rrf.py result
 ```
 
 Accepted input: `{"exa": [...], "brave": [...]}`. Returns merged with `rrf_score`, `providers`, `source_ranks`, duplicate counts, and gap warnings.
+
+
+## v3.7 新增陷阱（2026-05-29 跨平台交叉验证）
+
+30. **Array-format 参数陷阱（fetch 类工具统一坑）。** `mcp_exa_web_fetch_exa` 与 `mcp_tavily_tavily_extract` **均要求 `urls` 字段为 JSON 数组**，传裸 string 会被工具层拒绝，且报错文案晦涩（"validation error" / "expected array"），极易被误判为"工具坏了"而切换其它路由浪费 budget。同类 fetch 工具（如未来接入的 Firecrawl/Jina Reader）多遵循同一约定，**默认按数组传参**。
+    - ✅ 正确：`mcp_exa_web_fetch_exa(urls=["https://example.com/page"])`
+    - ✅ 正确：`mcp_tavily_tavily_extract(urls=["https://example.com/a", "https://example.com/b"])`
+    - ❌ 错误：`mcp_exa_web_fetch_exa(urls="https://example.com/page")` → 直接失败
+    - ❌ 错误：`mcp_tavily_tavily_extract(url="https://example.com/page")` → 字段名也错
+    遇到 fetch 工具首调失败时，**先检查参数是否包成数组**，再考虑换工具。
+
+31. **SearXNG 实例跨平台系统性缺陷（换 client 无救）。** 2026-05-28 ~ 05-29 期间，regent（macOS）+ pi（Windows）两个独立 profile 同日实测：**Google 后端完全失效（0 结果或 502）/ Bing 严重降级（结果质量崩塌、相关性骤降）/ DuckDuckGo 持续 CAPTCHA 阻断**。**根因在 SearXNG 实例本身的上游后端**——不是 MCP 客户端、不是 profile 配置、不是网络抖动。换 `mcp_searxng_*` → 直 HTTP curl → 换另一台 MCP server 全部无改善，因为打的是同一个坏掉的实例。v3.7 路由表据此把 SearXNG 从"默认起手广扫"降级为"后备 + 抓取专用"，Exa/Brave/Tavily 上升为主力搜索。**修复路径**：要么修上游实例的 engine settings.yml（需运维介入），要么完全弃用其搜索能力。
+
+32. **SearXNG 仅作为 fetch 通道保留，绝不当搜索引擎主力。** v3.7 起 SearXNG 的唯一保留价值是 `mcp_searxng_web_url_read`（URL 抓取通道），它在沙箱 `web_extract` 全局拦截下仍可读取部分公网页面，作为 Exa fetch / Tavily Extract 的兜底。**绝不要**把 `mcp_searxng_searxng_web_search` 作为 primary discovery —— 见 #31 的系统性缺陷。2026-05 实测排序：**Tavily Extract（结构化提取、噪声最低）> Exa fetch（覆盖广、含 GitHub）> SearXNG web_url_read（兜底，30% 导航噪声 + 5000 字符截断）**。Extraction 任务默认走 Tavily，SearXNG 仅在前两者都失败时尝试。
+
+33. **跨平台双 profile 同症 = 路由表必须改（一票配置，两票系统）。** 当**两个独立 profile / 不同 OS** 同一时间窗口报同一个引擎缺陷时，按"systemic defect"处理，**立刻更新 routing table**，不要再花时间排查本地配置。判定规则：
+    - **单 profile 报问题** = 配置 / 网络 / API key 问题 → 先排查本地，不动路由表
+    - **两 profile + 不同 OS 报同问题** = 引擎 / 上游实例 / API provider 系统性缺陷 → 直接降级该引擎在路由表中的位置，附测试日期 + 两 profile 名作为证据
+    - **三 profile 以上 + 跨网络环境** = 全局降级 / 标记 deprecated
+    本次 v3.7 的 SearXNG 降级正是 regent(macOS) + pi(Windows) 同日交叉验证的产物，证据链写入 references/common-pitfalls.md #31 与 routing 章节，避免下次复盘时"为啥降的级"无据可查。
