@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-54-blue" alt="54 skills">
+  <img src="https://img.shields.io/badge/skills-55-blue" alt="55 skills">
   <img src="https://img.shields.io/badge/profiles-15%20三省六部-orange" alt="15 profiles">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
@@ -37,7 +37,7 @@ jz-skills/
 │   ├── obsidian-md-ac/            # Obsidian Markdown + Mermaid + JSON Canvas
 │   ├── supermemory-maintenance/      # Supermemory 通用参考 + 诊断 v6 · 4 refs
 │   ├── xiaohongshu-cards/         # 小红书图文卡片
-├── hermes/                        # ⚙️ Hermes 平台通用 — 11 skills
+├── hermes/                        # ⚙️ Hermes 平台通用 — 13 skills
 │   ├── web-research-router/       # v3.7 · Exa+Brave 双主力 / SearXNG 降级 / Step 0 强制 / Output Contract [s<id>]
 │   ├── tradingagents/             # 交易分析
 │   ├── llm-wiki/                  # LLM 知识库
@@ -46,6 +46,7 @@ jz-skills/
 │   ├── bilibili-video-analyzer/   # B站视频分析
 │   ├── xhs-crawler/               # 小红书爬虫
 │   ├── calendar-manager/          # 智能日历
+│   ├── cron-worker/               # 🕐 定时任务分离 profile + 三种心跳 + 变更检测
 │   ├── de-slop/                   # 中英双语去 AI 味
 │   ├── reply-context-retrieval/   # TG 引用回溯
 │   ├── claude-code/               # CC 编排
