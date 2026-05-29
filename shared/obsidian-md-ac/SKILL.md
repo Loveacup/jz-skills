@@ -1,18 +1,27 @@
 ---
 name: obsidian-md-ac
-description: "Obsidian Flavored Markdown 完整参考，涵盖 Obsidian 独有语法（wikilinks、embeds、callouts、frontmatter、properties、tags、LaTeX 数学公式、footnotes、comments），以及全面的 Mermaid 图表支持（flowchart 流程图、sequence 时序图、class 类图、ERD 数据库建模、C4 架构、architecture 基础设施、state 状态机、gantt 时间线、pie 饼图）。触发场景：创建或编辑 Obsidian .md 文件、笔记美化、diagram、visualize、model、architecture、database、schema、流程图、关系建模、图表绘制。"
+description: "Obsidian Flavored Markdown 完整参考，涵盖 Obsidian 独有语法（wikilinks、embeds、callouts、frontmatter、properties、tags、LaTeX 数学公式、footnotes、comments），全面的 Mermaid 图表支持（flowchart 流程图、sequence 时序图、class 类图、ERD 数据库建模、C4 架构、architecture 基础设施、state 状态机、gantt 时间线、pie 饼图），以及 JSON Canvas（.canvas 画布）可视化。触发场景：创建或编辑 Obsidian .md 文件、笔记美化、diagram、visualize、model、architecture、database、schema、流程图、关系建模、图表绘制、canvas、.canvas、画布。"
 version: 1.0.0
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos]
 metadata:
   hermes:
-    tags: [obsidian, markdown, mermaid, diagram, note-taking, visualization]
+    tags: [obsidian, markdown, mermaid, diagram, note-taking, visualization, canvas]
 ---
 
 # Obsidian Markdown AC
 
 > Obsidian 1.11.7+ · Mermaid v11 · 仅 dagre 布局
+
+## 🚨 Red Flags: DO NOT SKIP THIS SKILL
+
+| Excuse | Reality |
+|--------|---------|
+| "标准 Markdown 够了，不需要 Obsidian 语法" | Wikilinks/embeds/callouts 是 Obsidian 核心，忽略 = 笔记不可用 |
+| "Mermaid 语法记住了，不用加载 reference" | 具体图表类型语法易记错，必须按需加载 reference |
+| "我直接画就行，不用走决策树" | 用错图表类型返工成本高 |
+| "美化规则太啰嗦，跳过" | 用户没说明确"简洁"时默认全面美化，这是核心价值
 
 ## 默认行为：全面美化
 
@@ -125,14 +134,7 @@ flowchart LR
 
 ## Best Practices
 
-通用图表指导原则，适用于所有 Mermaid 图表类型：
-
-1. **Start Simple** — 从核心实体/组件开始，逐步增加细节
-2. **Use Meaningful Names** — 清晰的标签使图表自文档化，避免 "A", "B", "process1"
-3. **Comment Extensively** — 用 `%%` 注释说明复杂关系或设计决策
-4. **Keep Focused** — 一图一概念；复杂图拆分成多个小图，配描述性标题
-5. **Add Context** — 在图表上方添加标题和说明，解释目的和适用场景
-6. **Iterate** — 图表应随理解深化而迭代完善，定期审视并改进
+详见 `references/mermaid-advanced.md`。
 
 ---
 
@@ -248,13 +250,23 @@ stateDiagram-v2
 - **大图拆分**：拆成多个小图，配合描述性标题
 - **嵌入图表**：创建只含图表的笔记，然后用 `![[DiagramNote]]` 嵌入
 
+## JSON Canvas（.canvas 画布）
+
+创建 Obsidian Canvas 文件——节点（text/file/link/group）、边（箭头+标签）、分组、颜色。
+
+流程：创建 `{"nodes":[],"edges":[]}` → 生成 16 字符 hex ID → 添加节点（id/type/x/y/width/height）→ 添加边（fromNode/toNode）→ 验证（JSON 有效 + 边引用存在 + ID 唯一）。
+
+> 🪤 JSON 换行用 `\n`，不用字面 `\\n`。坐标可为负。
+
+完整 schema、节点类型、边属性、颜色预设、布局指南、验证清单：`references/json-canvas.md`
+
 ## 生态协作
 
 本 skill 属于**展示层**，在 Skill 生态中的位置：
 
-- **上游**：`voice-to-markdown-workflow`（产出转录文本）→ `humanizer-zh`（去 AI 腔）→ 本 skill（格式化为 Obsidian 笔记）
-- **平行**：`obsidian-bases`（结构化查询视图）、`json-canvas`（可视化画布）、`pdf`（导出）
-- **联动**：收到 voice-to-markdown 产出时，优先做结构美化和 Callout 标注；需要数据库视图时，配合 obsidian-bases
+- **上游**：`voice-to-markdown-workflow`（产出转录文本）→ 本 skill（格式化为 Obsidian 笔记）
+- **平行**：`obsidian`（vault 操作、Bases 结构化视图、CLI）、`pdf`（导出）
+- **联动**：收到 voice-to-markdown 产出时，优先做结构美化和 Callout 标注
 
 ---
 
@@ -274,3 +286,16 @@ Obsidian 在 CommonMark + GFM + LaTeX 基础上扩展了独有语法。
 - **Footnotes**：`[^1]`, `^[inline footnote]`
 - **Comments**：`%%hidden text%%`
 - **Highlight**：`==highlighted==`
+
+---
+
+## ✅ Verification Checklist (RUN BEFORE RETURNING RESULTS)
+
+- [ ] 决策树跑过？图表类型选对（flowchart / sequence / class / ERD / C4 / architecture / state / gantt / pie）？
+- [ ] 特定图表类型的 reference 加载了（不依赖训练数据）？
+- [ ] 全面美化执行了（除非用户明确说"简洁"）？含 emoji、结构、格式、内容美化
+- [ ] Mermaid 关键规则遵守：`\n`→`<br>`、注释用 `%%`、不用 ELK 布局？
+- [ ] Canvas 创建时：JSON 验证通过 + 所有边引用存在 + ID 唯一？
+- [ ] 用错图表类型时意识到并更正（如用 flowchart 画 ERD）？
+
+**Every box must honestly pass before returning results. If unchecked, go back.**
