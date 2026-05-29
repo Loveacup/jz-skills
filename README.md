@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-52-blue" alt="52 skills">
+  <img src="https://img.shields.io/badge/skills-53-blue" alt="53 skills">
   <img src="https://img.shields.io/badge/profiles-15%20三省六部-orange" alt="15 profiles">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
@@ -22,7 +22,7 @@
 
 ```
 jz-skills/
-├── shared/                        # 🌐 跨平台通用 (Hermes + CC + pi) — 12 skills
+├── shared/                        # 🌐 跨平台通用 (Hermes + CC + pi) — 13 skills
 │   ├── github/                    # GitHub 全操作
 │   ├── grill-with-docs/           # 设计审查
 │   ├── skill-authoring/           # 合规创作
@@ -34,6 +34,7 @@ jz-skills/
 │   ├── destiny-matrix/            # 命运矩阵 (荣格八维 + 八字 + 紫微)
 │   ├── methodology-writer/        # 方法论文创作
 │   ├── obsidian-md-ac/            # Obsidian Markdown 完整参考
+│   ├── supermemory-maintenance/      # Supermemory 通用参考 + 诊断 v6 · 4 refs
 │   ├── xiaohongshu-cards/         # 小红书图文卡片
 ├── hermes/                        # ⚙️ Hermes 平台通用 — 12 skills
 │   ├── web-research-router/       # v3.7 · Exa+Brave 双主力 / SearXNG 降级 / Step 0 强制 / Output Contract [s<id>]
@@ -137,7 +138,7 @@ cd ~/code/jz-skills && ./deploy/sync-all.sh all
 
 | Layer · 层 | Directory | Skills | Scope · 范围 |
 |:---|:---|:---:|:---|
-| 🌐 1 | `shared/` | 12 | Cross-platform — deployed to all 3 agents · 三端同步 |
+| 🌐 1 | `shared/` | 13 | Cross-platform — deployed to all 3 agents · 三端同步 |
 | ⚙️ 2 | `hermes/` | 12 | Hermes platform — not 3S6M-specific · 平台通用 |
 | 🏯 3a | `hermes-3S6M-profiles/common/` | 2 | 3S6M-wide — deployed to all 15 profiles · 全部门 |
 | 🏷️ 3b | `hermes-3S6M-profiles/<dept>/` | 21 | Department-specific — deployed to one profile · 部门专属 |
@@ -164,6 +165,7 @@ Deployed to Hermes + Claude Code + Pi · 三端同步。
 | 🔮 [`destiny-matrix`](shared/destiny-matrix/) | 性格本位多维命运解析：荣格八维 + 八字 + 紫微 + 占星 · Multi-modal personality-first destiny analysis | |
 | 📐 [`methodology-writer`](shared/methodology-writer/) | Turn lived experience into structured, evidence-backed methodology documents · 经验框架化、方法论成稿 | |
 | 🧷 [`obsidian-md-ac`](shared/obsidian-md-ac/) | Obsidian Flavored Markdown + Mermaid full reference (wikilinks, callouts, diagrams) · OFM 完整参考 | |
+| 🧠 [`supermemory-maintenance`](shared/supermemory-maintenance/) | Supermemory 通用参考 v6：架构、SDK、容器标签、管线、诊断铁律。含 4 refs（SDK 分歧诊断、迁移配方、json-schema、三测协议）· 跨平台（Hermes + CC + pi） | ← `hermes-agent` |
 | 🎴 [`xiaohongshu-cards`](shared/xiaohongshu-cards/) | Article → Notion-style 1080×1440 RED card images via Playwright + QA loop · 小红书图文卡片 | |
 
 ### ⚙️ Layer 2 — `hermes/` · 平台通用
@@ -182,7 +184,7 @@ Deployed to main Hermes + all 15 profiles. Not tied to 三省六部 governance.
 | 📅 [`calendar-manager`](hermes/calendar-manager/) | Smart calendar & reminders management for family · 智能日历管理 | |
 | ✂️ [`de-slop`](hermes/de-slop/) | Bilingual EN/ZH AI writing detector & humanizer · 中英双语去 AI 味 | |
 | 🤖 [`claude-code`](hermes/claude-code/) | Orchestrate Claude Code CLI: print mode, interactive tmux, agent team · CC 编排 | |
-| 🧠 [`supermemory-hermes`](hermes/supermemory-hermes/) | Supermemory setup, migration, cabinet architecture, cross-pool wrapper, cache layer · 记忆架构全手册 | ← `cross-profile-api-bridge` `hermes-agent` |
+| 🧠 [`supermemory-hermes`](hermes/supermemory-hermes/) | Supermemory setup, migration, cabinet architecture, cross-pool wrapper, cache layer · 记忆架构全手册（高层设计，日常运维参见 `supermemory-maintenance`）| ← `cross-profile-api-bridge` `hermes-agent` |
 
 ### 🏯 Layer 3a — `hermes-3S6M-profiles/common/` · 全部门通用
 
@@ -221,7 +223,7 @@ Authored by Pi itself · Pi 自行创作。Deployed only to `~/.pi/skills/`.
 | 🛡️ `pi-grill` | Proactive ambiguity guardian v3.1 · 歧义守护 |
 | ✍️ `skill-creator` | Compliance-first skill authoring v6.0 · 合规创作 |
 | 🔗 `pi-hermes-setup` | Pi ↔ Hermes cross-machine SSH + MCP · 联动架构 |
-| 🧠 `pi-supermemory` | Configure, debug, and maintain the pi-supermemory extension on Windows · pi-supermemory 扩展维护 |
+| 🧠 `pi-supermemory` | Configure, debug, and maintain the pi-supermemory extension on Windows · pi-supermemory 扩展维护（日常运维参见 `supermemory-maintenance`）|
 
 ---
 
