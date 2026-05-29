@@ -22,7 +22,7 @@
 
 ```
 jz-skills/
-├── shared/                        # 🌐 跨平台通用 (Hermes + CC + pi) — 13 skills
+├── shared/                        # 🌐 跨平台通用 (Hermes + CC + pi) — 14 skills
 │   ├── github/                    # GitHub 全操作
 │   ├── grill-with-docs/           # 设计审查
 │   ├── skill-authoring/           # 合规创作
@@ -33,10 +33,11 @@ jz-skills/
 │   ├── china-legal-optimized/     # 中国法务七大领域
 │   ├── destiny-matrix/            # 命运矩阵 (荣格八维 + 八字 + 紫微)
 │   ├── methodology-writer/        # 方法论文创作
-│   ├── obsidian-md-ac/            # Obsidian Markdown 完整参考
+│   ├── obsidian/                  # Obsidian vault ops + CLI + Bases + Defuddle
+│   ├── obsidian-md-ac/            # Obsidian Markdown + Mermaid + JSON Canvas
 │   ├── supermemory-maintenance/      # Supermemory 通用参考 + 诊断 v6 · 4 refs
 │   ├── xiaohongshu-cards/         # 小红书图文卡片
-├── hermes/                        # ⚙️ Hermes 平台通用 — 12 skills
+├── hermes/                        # ⚙️ Hermes 平台通用 — 11 skills
 │   ├── web-research-router/       # v3.7 · Exa+Brave 双主力 / SearXNG 降级 / Step 0 强制 / Output Contract [s<id>]
 │   ├── tradingagents/             # 交易分析
 │   ├── llm-wiki/                  # LLM 知识库
@@ -138,8 +139,8 @@ cd ~/code/jz-skills && ./deploy/sync-all.sh all
 
 | Layer · 层 | Directory | Skills | Scope · 范围 |
 |:---|:---|:---:|:---|
-| 🌐 1 | `shared/` | 13 | Cross-platform — deployed to all 3 agents · 三端同步 |
-| ⚙️ 2 | `hermes/` | 12 | Hermes platform — not 3S6M-specific · 平台通用 |
+| 🌐 1 | `shared/` | 14 | Cross-platform — deployed to all 3 agents · 三端同步 |
+| ⚙️ 2 | `hermes/` | 11 | Hermes platform — not 3S6M-specific · 平台通用 |
 | 🏯 3a | `hermes-3S6M-profiles/common/` | 2 | 3S6M-wide — deployed to all 15 profiles · 全部门 |
 | 🏷️ 3b | `hermes-3S6M-profiles/<dept>/` | 21 | Department-specific — deployed to one profile · 部门专属 |
 | 🪟 4 | `pi/` | 5 | Pi (Windows) platform — authored by Pi itself · Pi 自创作 |
@@ -164,7 +165,8 @@ Deployed to Hermes + Claude Code + Pi · 三端同步。
 | ⚖️ [`china-legal-optimized`](shared/china-legal-optimized/) | 中国法务综合：合同审核 / 劳动 / 知产 / 公司 / 诉讼 / 个人 / 物业七大领域 · China legal review across 7 domains | |
 | 🔮 [`destiny-matrix`](shared/destiny-matrix/) | 性格本位多维命运解析：荣格八维 + 八字 + 紫微 + 占星 · Multi-modal personality-first destiny analysis | |
 | 📐 [`methodology-writer`](shared/methodology-writer/) | Turn lived experience into structured, evidence-backed methodology documents · 经验框架化、方法论成稿 | |
-| 🧷 [`obsidian-md-ac`](shared/obsidian-md-ac/) | Obsidian Flavored Markdown + Mermaid full reference (wikilinks, callouts, diagrams) · OFM 完整参考 | |
+| 📓 [`obsidian`](shared/obsidian/) | Obsidian vault ops: read/search/create notes, CLI, plugin dev, Bases (`.base`), Defuddle web extraction · vault 全操作 | `references/obsidian-cli.md` `references/obsidian-bases.md` |
+| 🧷 [`obsidian-md-ac`](shared/obsidian-md-ac/) | Obsidian Flavored Markdown + Mermaid full reference + JSON Canvas (`.canvas`) · OFM 完整参考 + 画布 | `references/json-canvas.md` |
 | 🧠 [`supermemory-maintenance`](shared/supermemory-maintenance/) | Supermemory 通用参考 v6：架构、SDK、容器标签、管线、诊断铁律。含 4 refs（SDK 分歧诊断、迁移配方、json-schema、三测协议）· 跨平台（Hermes + CC + pi） | ← `hermes-agent` |
 | 🎴 [`xiaohongshu-cards`](shared/xiaohongshu-cards/) | Article → Notion-style 1080×1440 RED card images via Playwright + QA loop · 小红书图文卡片 | |
 
