@@ -28,12 +28,29 @@ Create a dedicated Hermes profile for scheduled/background tasks — isolated se
 
 ```
 User wants to set up cron/background task isolation?
+├── Haven't audited existing cron jobs yet → Step 0: Audit first
 ├── New cron-worker profile → Step 1: Create profile
 ├── Existing profile, want to migrate jobs → Step 3: Migrate cron jobs
 ├── Already have cron-worker, want to add trigger pattern → Step 4: Heartbeat patterns
 ├── Cron job failed silently, want observability → Step 5: Artifact logging
 └── Just exploring the concept → Read the Obsidian doc first
 ```
+
+## Step 0: Audit Existing Cron Jobs
+
+**Before creating a worker profile, audit what's already running.** List all jobs and classify each one:
+
+```bash
+hermes cron list
+```
+
+For each job, ask:
+- **Is it still needed?** → If no → `cronjob(action="remove", job_id="...")`
+- **Is it agent-mode or script-mode?** → Agent-mode = candidate for model downgrade
+- **Does it deliver to Telegram?** → May want to switch to `local` delivery
+- **Is it redundant?** (e.g., sync scripts superseded by Supermemory)
+
+> [!tip] 💡 本会话经验：从 4 个 cron job 开始，删掉 3 个（季度归档、memory sync、MCP 同步），只保留 1 个（每日日记），再设计 worker。先瘦身再建架构。
 
 ---
 
@@ -79,7 +96,58 @@ skills:
 
 `agent/skill_utils.py:241` — first-class feature. `os.walk(followlinks=True)` ensures symlinked skill dirs are followed. Cleaner than symlinking the entire skills/ directory — the curator won't accidentally touch externally-referenced skills, and cron-worker can still add its own.
 
-### 2d. Model Downgrade
+### 2d. Long-Term Memory — Auto-Match Main Agent
+
+Cron-worker must share long-term memory with the default profile. Hermes supports two providers — auto-detect which one is active and mirror it.
+
+**Detection:**
+
+```bash
+hermes config show | grep "memory.provider"
+```
+
+| Output | Provider | Action |
+|--------|----------|--------|
+| `provider: supermemory` | Supermemory | Copy config + ensure API key |
+| `provider: hindsight` | Hindsight | Copy config + use same `bank_id` |
+| `provider: ""` | None (built-in only) | Skip — built-in MEMORY.md already symlinked |
+
+#### If Supermemory
+
+```bash
+# Copy config (same container_tag = same pool)
+cp ~/.hermes/supermemory.json ~/.hermes/profiles/cron-worker/supermemory.json
+
+# Ensure API key (if cron-worker has independent .env)
+grep -q SUPERMEMORY_API_KEY ~/.hermes/profiles/cron-worker/.env 2>/dev/null || \
+  grep SUPERMEMORY_API_KEY ~/.hermes/.env >> ~/.hermes/profiles/cron-worker/.env
+```
+
+Verify `container_tag` is `"hermes"` in the copied JSON.
+
+#### If Hindsight
+
+```bash
+# Copy config
+cp ~/.hermes/hindsight/config.json ~/.hermes/profiles/cron-worker/hindsight/config.json
+
+# IMPORTANT: Change bank_id_template → bank_id to share the same bank
+# Edit ~/.hermes/profiles/cron-worker/hindsight/config.json:
+#   Remove "bank_id_template": "hermes-{profile}"
+#   Add    "bank_id": "hermes"
+```
+
+Without this edit, `bank_id_template` auto-generates `"hermes-cron-worker"` — a separate bank, defeating the purpose. Explicit `bank_id: "hermes"` forces the same bank as default.
+
+Then enable:
+
+```bash
+hermes --profile cron-worker config set memory.provider hindsight
+```
+
+**⚠️ Only one external provider is active at a time.** If you switch the main agent from Hindsight to Supermemory later, re-run this section for cron-worker.
+
+### 2e. Model Downgrade
 
 ```bash
 hermes --profile cron-worker config set model.default deepseek-v4-flash
@@ -158,7 +226,7 @@ cronjob(
 )
 ```
 
-The `script` runs first. Its stdout is injected into the prompt. Design the script to output nothing (empty stdout) when no change detected → agent loop never fires → zero LLM cost on idle ticks. See `references/change-detection-pattern.py` for a template.
+The `script` runs first. Its stdout is injected into the prompt. Design the script to output nothing (empty stdout) when no change detected → agent loop never fires → zero LLM cost on idle ticks. See `scripts/change-detection.py` for a template. For a concrete example (macOS disk health monitoring), see `references/macos-disk-audit.md`.
 
 ---
 
