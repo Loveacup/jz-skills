@@ -418,24 +418,26 @@ def diagnose(snap):
     Returns one human-readable sentence explaining the dominant system issue,
     or 'All clear' when everything is within normal ranges.
     Priority: CPU > Memory > Disk > Battery > Thermal > OK
+    None values = measurement failed → skipped, not treated as 0.
     """
-    cpu = snap.get("cpu_percent") or 0.0
+    cpu = snap.get("cpu_percent")
     mem = snap.get("memory_pressure", "low")
-    disk_free = snap.get("disk_free_gb") or 0.0
-    disk_total = snap.get("disk_total_gb") or 1.0
-    disk_pct = (disk_free / disk_total * 100) if disk_total > 0 else 100.0
+    disk_free = snap.get("disk_free_gb")
+    disk_total = snap.get("disk_total_gb")
     battery = snap.get("battery_health")
     thermal = snap.get("thermal_throttled", 0)
 
-    if cpu > 70:
+    if cpu is not None and cpu > 70:
         proc = snap.get("top_cpu_process") or "unknown"
         return f"{proc} high CPU ({cpu:.0f}%)"
     if mem in ("critical", "high"):
         proc = snap.get("top_mem_process") or "unknown"
         return f"Memory pressure {mem} — top: {proc}"
-    if disk_pct < 10:
-        return f"Disk low — {disk_free:.1f}GB free ({disk_pct:.0f}%)"
-    if battery and battery < 90:
+    if disk_free is not None and disk_total is not None and disk_total > 0:
+        disk_pct = disk_free / disk_total * 100
+        if disk_pct < 10:
+            return f"Disk low — {disk_free:.1f}GB free ({disk_pct:.0f}%)"
+    if battery is not None and battery < 90:
         return f"Battery degraded ({battery:.0f}% health)"
     if thermal:
         return "Thermal throttling active"
