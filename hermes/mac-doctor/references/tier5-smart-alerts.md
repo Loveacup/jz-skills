@@ -50,7 +50,7 @@ osascript -e 'display notification "Chrome CPU 持续 5min: 85%" with title "⚠
 
 ### 调度方式
 
-LaunchAgent (`/Users/alexcai/Library/LaunchAgents/com.hermes.inspection-collector.plist`) 每 10 分钟执行 `scripts/collector-daemon.py`。一键安装：`bash scripts/install-daemon.sh`。
+LaunchAgent (`~/Library/LaunchAgents/com.hermes.inspection-collector.plist`) 每 10 分钟执行 `scripts/collector-daemon.py`。一键安装：`bash scripts/install-daemon.sh`。
 
 ### 安静时段
 
