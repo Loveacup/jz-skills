@@ -189,7 +189,7 @@ Deployed to main Hermes + all 15 profiles. Not tied to 三省六部 governance.
 | ✂️ [`de-slop`](hermes/de-slop/) | Bilingual EN/ZH AI writing detector & humanizer · 中英双语去 AI 味 | |
 | 🤖 [`claude-code`](hermes/claude-code/) | Orchestrate Claude Code CLI: print mode, interactive tmux, agent team · CC 编排 | |
 | 🧠 [`supermemory-hermes`](hermes/supermemory-hermes/) | Supermemory setup, migration, cabinet architecture, cross-pool wrapper, cache layer · 记忆架构全手册（高层设计，日常运维参见 `supermemory-maintenance`）| ← `cross-profile-api-bridge` `hermes-agent` |
-| 🩺 [`mac-doctor`](hermes/mac-doctor/) | macOS 六级巡检体系：健康评分 / 安全审计 / 硬件诊断 / 网络检查 / 隐私扫描 / 历史追踪 / 智能告警 — 50+ 检查项，双层 Cron 调度 · macOS system health monitor with 6-tier inspection, cron scheduling, and Telegram reports | |
+| 🩺 [`mac-doctor`](hermes/mac-doctor/) | macOS 六级巡检体系 v2.2：健康评分+根因诊断 / 安全审计 (27项) / 硬件诊断 / 网络检查 / 隐私扫描 / 历史追踪 / 智能告警 (E1 窗口告警) — 50+ 检查项，19 文件/2134 行，双层 Cron 调度 (LLM + Silent Watchdog) · 已吸收 9 个开源项目 (mole/mactop P0 落地) · macOS system health monitor v2.2 with root-cause diagnosis, sustained CPU window alerts, cleanup safety gates | |
 
 ### 🏯 Layer 3a — `hermes-3S6M-profiles/common/` · 全部门通用
 
