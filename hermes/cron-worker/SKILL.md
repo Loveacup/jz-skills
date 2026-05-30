@@ -103,7 +103,7 @@ Cron-worker must share long-term memory with the default profile. Hermes support
 **Detection:**
 
 ```bash
-hermes config show | grep "memory.provider"
+hermes memory status | awk '/^  Provider:/ {print $2}'
 ```
 
 | Output | Provider | Action |
@@ -155,7 +155,7 @@ hermes --profile cron-worker config set model.default deepseek-v4-flash
 
 Routine cron tasks don't need reasoning. v4-flash is 60%+ cheaper than v4-pro. For script-mode jobs (no_agent=true), model is irrelevant — still worth setting for the one agent-mode job.
 
-### 2e. Verify
+### 2f. Verify
 
 ```bash
 hermes --profile cron-worker config show | grep -E "model|external"
@@ -192,11 +192,12 @@ Standard Hermes cron. Best for fixed-cadence tasks where work is identical each 
 
 ```python
 cronjob(
+    action="create",
     name="daily-digest",
     schedule="0 23 * * *",
     prompt="Generate today's diary...",
     profile="cron-worker",
-    model={"provider": "deepseek", "model": "deepseek-v4-flash"},
+    model={"model": "deepseek-v4-flash", "provider": "deepseek"},
 )
 ```
 
@@ -206,7 +207,7 @@ Use Hermes webhooks as the signal channel. External system POSTs → webhook end
 
 ```bash
 # Create webhook endpoint
-hermes webhook subscribe github-push --profile cron-worker
+hermes --profile cron-worker webhook subscribe github-push
 ```
 
 Then configure the external system (GitHub, CI, monitoring) to POST to the webhook URL.
@@ -217,16 +218,17 @@ Then configure the external system (GitHub, CI, monitoring) to POST to the webho
 
 ```python
 cronjob(
+    action="create",
     name="pipeline-monitor",
     schedule="*/15 * * * *",
-    script="monitor-hash.py",   # ← script computes hash first (no LLM cost)
-    prompt="State changed. Analyze and alert if needed:\n{SCRIPT_OUTPUT}",
+    script="monitor-hash.py",   # ← script runs first, output auto-prepended as "## Script Output"
+    prompt="State changed. Analyze and alert if needed.",
     profile="cron-worker",
-    no_agent=False,  # agent mode — but only fires when script detected change
+    model={"model": "deepseek-v4-flash", "provider": "deepseek"},
 )
 ```
 
-The `script` runs first. Its stdout is injected into the prompt. Design the script to output nothing (empty stdout) when no change detected → agent loop never fires → zero LLM cost on idle ticks. See `scripts/change-detection.py` for a template. For a concrete example (macOS disk health monitoring), see `references/macos-disk-audit.md`.
+The `script` runs first — its stdout is auto-prepended to the prompt as `## Script Output` by the scheduler. To skip the agent run when no change detected, the script's **last non-empty line** must be the JSON `{"wakeAgent": false}`. Any other output triggers the agent. See `scripts/change-detection.py` for a complete template with hash persistence.
 
 ---
 
@@ -261,7 +263,7 @@ Example output:
 | external_dirs path uses `~` but not expanded | `agent/skill_utils.py:305` calls `os.path.expanduser()` — `~` is safe. |
 | Cron job still runs on default after update | Verify with `hermes cron list` — check the `profile` column. |
 | No gateway for cron-worker means no Telegram delivery | Correct. Use `deliver="local"` + artifact log, or `deliver="origin"` (which routes through the default gateway's delivery). |
-| Change-detection script always outputs → LLM always fires | Script must output EMPTY stdout when no change. Use `sys.exit(0)` with no print. |
+| Change-detection script doesn't skip idle ticks | Script's last non-empty stdout line must be `{"wakeAgent": false}` JSON. Any other output wakes the agent. Empty stdout ALSO wakes the agent — do not rely on silence. |
 | Forgot to pin model on cron job | Always set `model` explicitly in `cronjob()` calls. Default model may be rate-limited or wrong tier. |
 | Hermes upgrade breaks symlinks | `hermes update` may refresh profile files. After any upgrade, re-run Step 2a-2b to re-apply SOUL.md + memory symlinks. |
 
