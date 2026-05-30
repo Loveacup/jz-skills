@@ -79,11 +79,55 @@ rm ~/Library/LaunchAgents/com.hermes.inspection-collector.plist
 
 | Job | 频率 | 说明 |
 |-----|------|------|
-| inspection-quick | 每 30 分钟 | Tier 1 快速巡检 + 健康分，推 Telegram |
-| inspection-deep | 每天 03:00 | Tier 2 全量审计（安全+硬件+网络），推 Telegram |
-| inspection-weekly | 每周一 09:00 | 周报汇总，引用 history.db 趋势数据 |
+| inspection-quick | 每 30 分钟 | **静默看门狗**（v2.2）— 问题才推送，0 tokens 💰 |
+| inspection-deep | 每天 03:00 | Tier 2 全量审计（安全+硬件+网络），LLM 推 Telegram |
+| inspection-weekly | 每周一 09:00 | 周报汇总，LLM 引用 history.db 趋势数据 |
 
-### 添加 Cron Job 示例
+### 静默看门狗模式 (v2.2) 🆕
+
+高频巡检（≤30min）推荐用 `no_agent + script` 替代 LLM agent，大幅节省 token：
+
+```
+Watchdog 脚本 → collector-daemon.py --json → 检查 alerts
+  ├── 无告警 → stdout 空 → 不发消息（静默）
+  └── 有告警 → 输出摘要 → 推送 Telegram
+```
+
+| 对比 | LLM Agent | Silent Watchdog |
+|------|:---:|:---:|
+| Token 消耗 | ~3000/次 | **0** |
+| 响应延迟 | 5-15s | <2s |
+| 静默支持 | ❌ 每次都输出 | ✅ 自动静默 |
+| 分析深度 | 可解读趋势 | 仅阈值判断 |
+
+脚本位置：`~/.hermes/profiles/cron-worker/scripts/mac-doctor-watchdog.py`
+
+#### 配置示例
+
+```bash
+# 通过 Hermes cronjob 工具配置:
+cronjob update:
+  job_id: <quick-job-id>
+  no_agent: true
+  script: "mac-doctor-watchdog.py"
+  skills: []  # 清空 skills，纯脚本模式
+```
+
+#### 原理
+
+`cronjob` 的 `no_agent=True` 模式：
+- **stdout 非空** → 内容作为消息体推送到 Telegram
+- **stdout 为空** → 完全静默，不消耗任何消息
+- **exit ≠ 0** → 发送错误通知
+
+Watchdog 脚本调用 `collector-daemon.py --json`，检查 `alerts` 数组：
+```python
+if not alerts and diagnosis == "All clear":
+    sys.exit(0)  # 静默
+# 否则 print 摘要 → 自动推送
+```
+
+### 添加 Cron Job 示例（LLM Agent 模式）
 
 ```
 # 通过小黄在 cron-worker session 中执行:
