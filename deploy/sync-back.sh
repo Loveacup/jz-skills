@@ -52,6 +52,7 @@ PAIRS=(
   "shared/strategic-insight-longform|productivity/strategic-insight-longform"
   "shared/voice-to-markdown-workflow|productivity/voice-to-markdown-workflow"
   "shared/github|github"
+  "shared/xhs-tech-writer|hermes/xhs-tech-writer"
 
   # === hermes ===
   "hermes/web-research-router|research/web-research-router"
