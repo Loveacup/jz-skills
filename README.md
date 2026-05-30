@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-55-blue" alt="55 skills">
+  <img src="https://img.shields.io/badge/skills-56-blue" alt="56 skills">
   <img src="https://img.shields.io/badge/profiles-15%20三省六部-orange" alt="15 profiles">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
@@ -37,7 +37,7 @@ jz-skills/
 │   ├── obsidian-md-ac/            # Obsidian Markdown + Mermaid + JSON Canvas
 │   ├── supermemory-maintenance/      # Supermemory 通用参考 + 诊断 v6 · 4 refs
 │   ├── xiaohongshu-cards/         # 小红书图文卡片
-├── hermes/                        # ⚙️ Hermes 平台通用 — 13 skills
+├── hermes/                        # ⚙️ Hermes 平台通用 — 14 skills
 │   ├── web-research-router/       # v3.7 · Exa+Brave 双主力 / SearXNG 降级 / Step 0 强制 / Output Contract [s<id>]
 │   ├── tradingagents/             # 交易分析
 │   ├── llm-wiki/                  # LLM 知识库
@@ -51,6 +51,7 @@ jz-skills/
 │   ├── reply-context-retrieval/   # TG 引用回溯
 │   ├── claude-code/               # CC 编排
 │   ├── supermemory-hermes/         # Cabinet Memory 全手册 v1.1
+│   ├── mac-doctor/                 # 🩺 macOS 六级巡检：评分/安全/硬件/网络/隐私/告警/历史追踪
 ├── hermes-3S6M-profiles/          # 🏯 三省六部体系
 │   ├── common/                    # 全部门通用 — 2 skills
 │   │   ├── three-provinces-constitution/  # 三省六部宪法 v3.0
@@ -141,7 +142,7 @@ cd ~/code/jz-skills && ./deploy/sync-all.sh all
 | Layer · 层 | Directory | Skills | Scope · 范围 |
 |:---|:---|:---:|:---|
 | 🌐 1 | `shared/` | 14 | Cross-platform — deployed to all 3 agents · 三端同步 |
-| ⚙️ 2 | `hermes/` | 11 | Hermes platform — not 3S6M-specific · 平台通用 |
+| ⚙️ 2 | `hermes/` | 14 | Hermes platform — not 3S6M-specific · 平台通用 |
 | 🏯 3a | `hermes-3S6M-profiles/common/` | 2 | 3S6M-wide — deployed to all 15 profiles · 全部门 |
 | 🏷️ 3b | `hermes-3S6M-profiles/<dept>/` | 21 | Department-specific — deployed to one profile · 部门专属 |
 | 🪟 4 | `pi/` | 5 | Pi (Windows) platform — authored by Pi itself · Pi 自创作 |
@@ -188,6 +189,7 @@ Deployed to main Hermes + all 15 profiles. Not tied to 三省六部 governance.
 | ✂️ [`de-slop`](hermes/de-slop/) | Bilingual EN/ZH AI writing detector & humanizer · 中英双语去 AI 味 | |
 | 🤖 [`claude-code`](hermes/claude-code/) | Orchestrate Claude Code CLI: print mode, interactive tmux, agent team · CC 编排 | |
 | 🧠 [`supermemory-hermes`](hermes/supermemory-hermes/) | Supermemory setup, migration, cabinet architecture, cross-pool wrapper, cache layer · 记忆架构全手册（高层设计，日常运维参见 `supermemory-maintenance`）| ← `cross-profile-api-bridge` `hermes-agent` |
+| 🩺 [`mac-doctor`](hermes/mac-doctor/) | macOS 六级巡检体系：健康评分 / 安全审计 / 硬件诊断 / 网络检查 / 隐私扫描 / 历史追踪 / 智能告警 — 50+ 检查项，双层 Cron 调度 · macOS system health monitor with 6-tier inspection, cron scheduling, and Telegram reports | |
 
 ### 🏯 Layer 3a — `hermes-3S6M-profiles/common/` · 全部门通用
 

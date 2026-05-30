@@ -66,6 +66,7 @@ PAIRS=(
   "hermes/claude-code|autonomous-ai-agents/claude-code"
   "hermes/reply-context-retrieval|reply-context-retrieval"
   "hermes/supermemory-hermes|governance/supermemory-hermes"
+  "hermes/mac-doctor|apple/mac-doctor"
 
   # === hermes-3S6M-profiles/common ===
   "hermes-3S6M-profiles/common/three-provinces-constitution|governance/three-provinces-constitution"

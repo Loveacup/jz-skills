@@ -1,0 +1,94 @@
+{
+  "_schema": "mac-doctor-config-v2",
+  "_comment": "标准化巡检配置。Layer 1 daemon 读取此文件。修改后 reload LaunchAgent 生效。",
+
+  "collection": {
+    "interval_seconds": 600,
+    "_comment": "快照采集间隔。默认 600 秒 (10 分钟)。范围: 60-3600",
+    "retention_days": 90,
+    "_comment": "数据保留天数。超期自动清理 + VACUUM",
+    "quiet_hours": {
+      "enabled": true,
+      "start": 23,
+      "end": 7,
+      "_comment": "安静时段。非致命告警不发送。格式: 0-23 小时。start=23, end=7 表示 23:00-07:00"
+    }
+  },
+
+  "alerts": {
+    "_comment": "阈值告警配置。达到阈值 → macOS 原生通知",
+    "cpu_threshold": 80,
+    "_cpu_comment": "CPU 使用率持续 > 此值触发 (单位: %)",
+    "memory_pressure_threshold": "high",
+    "_memory_comment": "可选: low | medium | high | critical",
+    "swap_threshold_gb": 4,
+    "_swap_comment": "Swap 使用量 > 此值触发 (单位: GB)",
+    "disk_threshold_percent": 10,
+    "_disk_comment": "磁盘剩余 < 此百分比触发",
+    "battery_health_threshold": 80,
+    "_battery_comment": "电池健康 < 此百分比触发 (单位: %)"
+  },
+
+  "anomaly": {
+    "enabled": true,
+    "baseline_days": 7,
+    "_baseline_comment": "异常检测基线天数。当前值偏离基线超过 N 个标准差 → 告警",
+    "sigma": 2.0,
+    "_sigma_comment": "触发阈值。2.0 = 95% 置信区间，2.5 = 99%"
+  },
+
+  "webhooks": {
+    "enabled": false,
+    "_comment": "投递告警到 Slack/Discord/ntfy.sh。POST JSON body: {title, message, severity, timestamp}",
+    "url": "",
+    "min_severity": "red",
+    "_severity_comment": "yellow = 所有告警；red = 仅严重告警（CPU/磁盘/内存 critical）",
+    "include_anomaly": false,
+    "_anomaly_comment": "true 则异常检测触发也走 webhook"
+  },
+
+  "profiles": {
+    "_comment": "巡检模式自动检测。手动覆盖: mac-doctor --profile <name>",
+    "auto_detect": true,
+    "mapping": {
+      "developer": {
+        "_comment": "检测到 Homebrew → 开发者模式",
+        "condition": "brew --version 2>/dev/null",
+        "checks": ["tier1", "tier2a", "tier2b", "tier2c", "tier2d", "tier3"]
+      },
+      "standard": {
+        "_comment": "无 Homebrew → 标准模式",
+        "condition": "! brew --version 2>/dev/null",
+        "checks": ["tier1", "tier2b", "tier2c", "tier3"]
+      },
+      "creative": {
+        "_comment": "创意工作者模式",
+        "checks": ["tier1", "tier2c", "tier3"]
+      }
+    }
+  },
+
+  "output": {
+    "format": "rich",
+    "_comment": "输出格式: rich (彩色终端) | plain (纯文本) | json (结构化)",
+    "json_schema_version": "2.0",
+    "_json_comment": "JSON 输出的 schema 版本，forward-compatible",
+    "fail_on_critical": false,
+    "_fail_comment": "true → 有 Critical 问题时 exit 2 (CI/CD 友好)"
+  },
+
+  "tiers": {
+    "_comment": "各层开关。不需要某层可关闭",
+    "tier0_health_score": true,
+    "tier1_quick": true,
+    "tier2a_dev": true,
+    "tier2b_security": true,
+    "tier2c_hardware": true,
+    "tier2d_network": true,
+    "tier3_cleanup": true,
+    "tier3_bloatware": true,
+    "tier3_privacy": true,
+    "tier4_history": true,
+    "tier5_alerts": true
+  }
+}

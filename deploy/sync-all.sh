@@ -21,7 +21,7 @@ sync_hermes() {
   cp -r "$REPO_ROOT/shared/github/"                   "$base/github/"
 
   # Hermes-specific skills
-  mkdir -p "$base/research" "$base/productivity" "$base/governance" "$base/autonomous-ai-agents" "$base/devops"
+  mkdir -p "$base/research" "$base/productivity" "$base/governance" "$base/autonomous-ai-agents" "$base/devops" "$base/apple"
   cp -r "$REPO_ROOT/hermes/web-research-router"             "$base/research/"
   cp -r "$REPO_ROOT/hermes/tradingagents"                   "$base/research/"
   cp -r "$REPO_ROOT/hermes/llm-wiki"                        "$base/research/"
@@ -35,13 +35,14 @@ sync_hermes() {
   cp -r "$REPO_ROOT/hermes/claude-code"                    "$base/autonomous-ai-agents/"
   cp -r "$REPO_ROOT/hermes/reply-context-retrieval"        "$base/"
   cp -r "$REPO_ROOT/hermes/supermemory-hermes"              "$base/governance/"
+  cp -r "$REPO_ROOT/hermes/mac-doctor"                     "$base/apple/"
   cp -r "$REPO_ROOT/hermes-3S6M-profiles/gongbu/surge-gateway"  "$base/devops/"
 
   # Sync to all profiles
   echo "→ Syncing to profiles..."
   for prof in $(ls -d ~/.hermes/profiles/*/ 2>/dev/null | xargs -n1 basename); do
     local pd=~/.hermes/profiles/$prof/skills
-    mkdir -p "$pd/research" "$pd/github" "$pd/governance" "$pd/productivity" "$pd/autonomous-ai-agents"
+    mkdir -p "$pd/research" "$pd/github" "$pd/governance" "$pd/productivity" "$pd/autonomous-ai-agents" "$pd/apple"
     cp -r "$REPO_ROOT/shared/grill-with-docs"        "$pd/governance/"
     cp -r "$REPO_ROOT/shared/skill-authoring"        "$pd/governance/"
     cp -r "$REPO_ROOT/shared/github/"                "$pd/github/"
@@ -55,6 +56,7 @@ sync_hermes() {
     cp -r "$REPO_ROOT/hermes/claude-code"                    "$pd/autonomous-ai-agents/"
     cp -r "$REPO_ROOT/hermes/reply-context-retrieval"        "$pd/"
     cp -r "$REPO_ROOT/hermes/supermemory-hermes"              "$pd/governance/"
+    cp -r "$REPO_ROOT/hermes/mac-doctor"                     "$pd/apple/"
     cp -r "$REPO_ROOT/hermes-3S6M-profiles/common/three-provinces-constitution"  "$pd/governance/"
     cp -r "$REPO_ROOT/hermes-3S6M-profiles/common/financial-research-agents"     "$pd/research/"
   done
