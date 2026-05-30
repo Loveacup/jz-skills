@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-56-blue" alt="56 skills">
+  <img src="https://img.shields.io/badge/skills-57-blue" alt="57 skills">
   <img src="https://img.shields.io/badge/profiles-15%20三省六部-orange" alt="15 profiles">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
@@ -69,12 +69,13 @@ jz-skills/
 │       ├── protocol/ (1)          # 🎭 礼部 · 内部调度
 │       ├── registry/ (1)          # 👥 吏部 · 内部调度
 │       └── shangshu/ (1)          # 📡 尚书省 · 内部调度
-└── pi/                            # 🪟 Pi (Windows) — 5 skills
-    ├── web-research-router/       # 检索总控 (TypeScript SDK)
-    ├── pi-grill/                  # 歧义守护
-    ├── skill-creator/             # 合规创作
-    ├── pi-hermes-setup/           # 联动架构
-    └── pi-supermemory/            # Supermemory 集成维护
+├── pi/                            # 🪟 Pi (Windows) — 6 skills
+│    ├── web-research-router/       # 检索总控 (TypeScript SDK)
+│    ├── pi-web-research/           # SearXNG+Exa+Tavily+Brave 多引擎深度研究 (TypeScript) v3.4
+│    ├── pi-grill/                  # 歧义守护
+│    ├── skill-creator/             # 合规创作
+│    ├── pi-hermes-setup/           # 联动架构
+│    └── pi-supermemory/            # Supermemory 集成维护
 ```
 
 > 🛂 **Gateway 治理：** 三省六部 15 profile 中**只有 `regent`（监国太子）** 配置了对外 gateway（Telegram / iMessage / 邮件 等通道）。其余 14 个 profile 走 **内部调度，无对外通信**——由 regent 统一收发、按职能转派。`default`（小黄_主频道，非 3S6M）独立配 gateway，与 regent 互通走 A2A。
@@ -102,7 +103,7 @@ jz-skills/
 | 🌐 **Cross-platform** · 跨平台 | One skill, three agents — Hermes, Claude Code, and pi deploy from the same source |
 | 🏯 **15-profile governance** · 三省六部 | 监国三省六部制: task routing, escalation, handoff across 15 specialized profiles |
 | 🔄 **Bidirectional sync** · 双向同步 | `sync-back.sh` (local → GitHub, auto-sanitized) + `sync-all.sh` (GitHub → local) |
-| 📋 **50 compliance-reviewed skills** · 合规审计 | Every skill passes 7-dimension audit: progressive disclosure, anti-rationalization, positioning |
+| 📋 **57 compliance-reviewed skills** · 合规审计 | Every skill passes 7-dimension audit: progressive disclosure, anti-rationalization, positioning |
 | 🧹 **Auto-sanitization** · 自动脱敏 | Home paths → `~/`, emails → redacted, private IPs → redacted, API keys stripped before commit |
 | 🤖 **AI-authored** · AI 创作 | Skills created, audited, evolved by AI agents — following skill-authoring v3.0 |
 | 🔬 **Deep research** · 深度研究 | Multi-step research loop with verbatim quote extraction, anti-refusal, query decomposition — based on 5 OSS projects · 多步深度研究：逐字引用、反拒绝、查询分解 |
@@ -145,7 +146,7 @@ cd ~/code/jz-skills && ./deploy/sync-all.sh all
 | ⚙️ 2 | `hermes/` | 14 | Hermes platform — not 3S6M-specific · 平台通用 |
 | 🏯 3a | `hermes-3S6M-profiles/common/` | 2 | 3S6M-wide — deployed to all 15 profiles · 全部门 |
 | 🏷️ 3b | `hermes-3S6M-profiles/<dept>/` | 21 | Department-specific — deployed to one profile · 部门专属 |
-| 🪟 4 | `pi/` | 5 | Pi (Windows) platform — authored by Pi itself · Pi 自创作 |
+| 🪟 4 | `pi/` | 6 | Pi (Windows) platform — authored by Pi itself · Pi 自创作 |
 
 ---
 
@@ -178,7 +179,7 @@ Deployed to main Hermes + all 15 profiles. Not tied to 三省六部 governance.
 
 | Skill | Purpose · 用途 | Refs · 引用 |
 |:---|:---|:---|
-| 🔍 [`web-research-router`](hermes/web-research-router/) | Multi-engine search router (Exa + Brave 双主力 / Tavily 深研 / web_search 广扫 / SearXNG 兜底) + deep research with verbatim quote extraction · 检索总控：多引擎聚合 + 深度研究 + 反幻觉 · v3.7.0（跨平台交叉验证 / Step 0 强制四步本地 / Output Contract `[s<id>]` 三分栏 / MCP Configuration & Deployment / SearXNG 降级）· 22 refs | ← `skill-authoring` `grill-with-docs` → `github` |
+| 🔍 [`web-research-router`](hermes/web-research-router/) | Multi-engine search router (Exa + Brave 双主力 / Tavily 深研 / web_search 广扫 / SearXNG 兜底) + deep research with verbatim quote extraction · 检索总控：多引擎聚合 + 深度研究 + 反幻觉 · v3.8.0（Claude Code WebSearch 后备引擎 / 跨平台交叉验证 / Step 0 强制四步本地 / Output Contract `[s<id>]` 三分栏 / MCP Configuration & Deployment / SearXNG 降级）· 22 refs | ← `skill-authoring` `grill-with-docs` → `github` |
 | 📈 [`tradingagents`](hermes/tradingagents/) | A-share / market analysis via TradingAgents · 交易分析 | |
 | 🧠 [`llm-wiki`](hermes/llm-wiki/) | LLM knowledge base builder (Karpathy's wiki) · LLM 知识库 | |
 | 📚 [`arxiv`](hermes/arxiv/) | Academic paper search and retrieval · 论文检索 | |
@@ -186,6 +187,8 @@ Deployed to main Hermes + all 15 profiles. Not tied to 三省六部 governance.
 | 📺 [`bilibili-video-analyzer`](hermes/bilibili-video-analyzer/) | Bilibili video deep analysis with subtitle/transcription · B站视频分析 | |
 | 📕 [`xhs-crawler`](hermes/xhs-crawler/) | Xiaohongshu (RED) content extraction via CDP · 小红书爬虫 | |
 | 📅 [`calendar-manager`](hermes/calendar-manager/) | Smart calendar & reminders management for family · 智能日历管理 | |
+| 🕐 [`cron-worker`](hermes/cron-worker/) | 定时任务分离 profile + 三种心跳 + 变更检测 · Cron job isolation + three heartbeat modes + change detection | |
+| ↩️ [`reply-context-retrieval`](hermes/reply-context-retrieval/) | Telegram 回复上下文回溯 · TG reply context retrieval | |
 | ✂️ [`de-slop`](hermes/de-slop/) | Bilingual EN/ZH AI writing detector & humanizer · 中英双语去 AI 味 | |
 | 🤖 [`claude-code`](hermes/claude-code/) | Orchestrate Claude Code CLI: print mode, interactive tmux, agent team · CC 编排 | |
 | 🧠 [`supermemory-hermes`](hermes/supermemory-hermes/) | Supermemory setup, migration, cabinet architecture, cross-pool wrapper, cache layer · 记忆架构全手册（高层设计，日常运维参见 `supermemory-maintenance`）| ← `cross-profile-api-bridge` `hermes-agent` |
@@ -225,6 +228,7 @@ Authored by Pi itself · Pi 自行创作。Deployed only to `~/.pi/skills/`.
 | Skill | Purpose · 用途 |
 |:---|:---|
 | 🔍 `web-research-router` | Pi-native search routing (TypeScript SDK) · 检索总控 |
+| 🔍 `pi-web-research` | Multi-engine deep research (SearXNG + Exa + Tavily + Brave) in TypeScript v3.4 · 多引擎深度研究 |
 | 🛡️ `pi-grill` | Proactive ambiguity guardian v3.1 · 歧义守护 |
 | ✍️ `skill-creator` | Compliance-first skill authoring v6.0 · 合规创作 |
 | 🔗 `pi-hermes-setup` | Pi ↔ Hermes cross-machine SSH + MCP · 联动架构 |
