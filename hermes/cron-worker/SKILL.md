@@ -148,13 +148,27 @@ hermes --profile cron-worker config set memory.provider hindsight
 
 **⚠️ Only one external provider is active at a time.** If you switch the main agent from Hindsight to Supermemory later, re-run this section for cron-worker.
 
-### 2e. Model Downgrade
+### 2e. Model Selection
 
-```bash
-hermes --profile cron-worker config set model.default deepseek-v4-flash
+> [!important] **MUST use `clarify()` here.** Ask the user which model to use for cron-worker. Do NOT assume v4-flash — the user may have specific cost/latency/quality preferences.
+
+**Clarify prompt template:**
+
+```
+question: "cron-worker 用什么模型？推荐 v4-flash（便宜 60%+，定时任务够用），也可以保持 v4-pro 或指定其他。"
+choices:
+  - "deepseek-v4-flash（推荐，便宜量足）"
+  - "deepseek-v4-pro（和主频道一样）"
+  - "其他模型（我指定）"
 ```
 
-Routine cron tasks don't need reasoning. v4-flash is 60%+ cheaper than v4-pro. For script-mode jobs (no_agent=true), model is irrelevant — still worth setting for the one agent-mode job.
+**After user picks:**
+
+```bash
+hermes --profile cron-worker config set model.default <chosen-model>
+```
+
+> [!tip] **Default recommendation:** `deepseek-v4-flash`. Routine cron tasks don't need reasoning — v4-flash is 60%+ cheaper than v4-pro. For script-mode jobs (`no_agent=true`), model is irrelevant, but still worth setting for agent-mode jobs.
 
 ### 2f. Verify
 
