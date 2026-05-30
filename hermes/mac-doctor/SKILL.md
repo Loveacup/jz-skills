@@ -6,7 +6,7 @@ description: |-
   系统评分, 健康检查, 磁盘空间, 内存压力, swap, 清理缓存, brew/npm/uv cache,
   CPU 大户, 安全检查, 电池健康, 网络配置审计, 历史趋势, 异常检测, 臃肿/隐私扫描。
   Do NOT use for: GUI 操作, 实时网络诊断 (ping/traceroute), 清理孤儿 App 数据。
-version: 2.1.0
+version: 2.2.0
 author: Hermes Agent
 platforms: [macos]
 metadata:
@@ -63,6 +63,13 @@ metadata:
 - 🔴 Critical（安全/系统）-15，其他 -10
 - 🟡 Warning（安全/系统）-4，其他 -3
 
+**评分输出格式 (v2.2)**:
+```
+Score: 72/100 (良好 🟡)
+Root cause: Chrome high CPU (85% avg over 5min)
+```
+根因诊断由 `diagnose()` 函数自动生成（优先级：CPU > Memory > Disk > Battery > Thermal）。详见 `references/health-scoring.md`。
+
 **评分带**: 95+卓越 / 85+很好 / 70+良好 / 55+一般 / <55差
 
 **Exit Code**: 0=健康(80+) / 1=降级(50-79) / 2=危险(<50)
@@ -89,7 +96,7 @@ memory_pressure
 vm_stat | awk '/Pages free/{printf "Free: %.0f MB\n", $3*16384/1048576}'
 ```
 
-Swap 关键指标：`sysctl vm.swapusage`。>2GB 说明内存偏紧。
+Swap 关键指标：`sysctl vm.swapusage`。>2GB 说明内存偏紧。>5GB 时**必须检查 gateway 存活**（swap 危机会触发 SIGTERM 杀进程），详见 `references/crash-diagnostic.md`。
 
 **Swap 文件时间线**（追踪增速，定位磁盘失血主因）：
 ```bash
@@ -212,6 +219,8 @@ tmutil listlocalsnapshots /
 - TCC 权限审计（辅助功能/屏幕录制/摄像头/麦克风）
 - 可疑进程检测
 
+磁盘大户清单 & 轻量扫描技巧见 `references/disk-space-patterns.md`（Claude vm_bundles / Chrome / IDE 残留 / Discord 等）。
+
 ### ⚠️ 跨 Profile 路径陷阱
 
 当 session 运行在非 default profile（如 cron-worker）下时，`~` 指向该 profile 的 home（如 `/Users/alexcai/.hermes/profiles/cron-worker/home/`），**不是用户真实的 home**。
@@ -243,6 +252,10 @@ diskutil info / | grep "Container Free Space"
 ```
 
 清理节奏 & 优先级见 `references/upkeep-phases.md`。
+
+### 清理安全闸 (v2.2)
+
+Tier 3 清理有三道安全闸，防止误删生产数据：**dry-run**（预估并确认）→ **whitelist**（自动跳过关键路径）→ **operation log**（审计记录）。详见 `references/tier3-cleanup-safety.md`。
 
 ---
 
@@ -307,7 +320,7 @@ launchctl list com.hermes.inspection-collector
 | dan-snelson/Mac-Health-Check | MDM合规检查 |
 | N4M3Z/check-mac | 48项安全检查 |
 
-全部详见 `references/community-skills-reference.md`。
+全部详见 `references/community-skills-reference.md`。第二轮搜索（2026-05）发现 tw93/mole 和 metaspartan/mactop，吸收方案共 13 项按 P0-P3 分级，详见 `references/github-search-round2.md` 和 `references/absorb-mole-mactop.md`。
 
 ---
 

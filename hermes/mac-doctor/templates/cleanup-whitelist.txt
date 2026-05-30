@@ -1,0 +1,13 @@
+# 清理白名单
+
+# 清理时自动跳过以下路径前缀（前缀匹配）
+# 每行一个绝对路径，# 开头为注释
+
+# --- 生产模型（不删）---
+/Users/alexcai/.cache/huggingface
+/Users/alexcai/.cache/qmd
+
+# --- 当前在用的 npx 缓存 ---
+# 获取当前 hash: ps aux | grep codegraph | grep -o '_npx/[a-f0-9]*' | head -1
+# 将对应的 _npx/<hash> 路径加到这里
+# /Users/alexcai/.npm/_npx/<当前hash>

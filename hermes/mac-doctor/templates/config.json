@@ -29,6 +29,21 @@
     "_battery_comment": "电池健康 < 此百分比触发 (单位: %)"
   },
 
+  "cpu_sustained": {
+    "_comment": "E1: 进程级持续 CPU 窗口告警（替代瞬时 CPU 阈值告警，消除 Spotlight/编译误报）",
+    "enabled": true,
+    "threshold": 80,
+    "_threshold_comment": "单进程 CPU% 超过此值开始计时 (单位: %)",
+    "window_minutes": 5,
+    "_window_comment": "持续超阈值几分钟后才触发告警。默认 5 分钟"
+  },
+
+  "cleanup_safety": {
+    "_comment": "D2: 清理安全闸。每次执行清理操作时写入 ~/Library/Logs/mac-doctor/operations.log",
+    "oplog_enabled": true,
+    "_oplog_comment": "false 或环境变量 MAC_DOCTOR_NO_OPLOG=1 可关闭日志"
+  },
+
   "anomaly": {
     "enabled": true,
     "baseline_days": 7,

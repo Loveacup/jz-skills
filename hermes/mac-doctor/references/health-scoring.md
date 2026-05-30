@@ -1,6 +1,24 @@
 # 健康评分
 
-> 来源：gfreedman/mac_audit + lu-zhengda/macos-toolkit/machealth
+> 来源：gfreedman/mac_audit + lu-zhengda/macos-toolkit/machealth + mole (A3 根因诊断 v2.2)
+
+## 输出格式 (v2.2)
+
+```
+Score: 72/100 (良好 🟡)
+Root cause: Chrome high CPU (85% avg over 5min)  ← A3 根因诊断
+```
+
+根因诊断由 `collector-daemon.py` 的 `diagnose()` 函数生成，优先级链：
+
+| 优先级 | 条件 | 输出示例 |
+|:---:|---|---|
+| 1 | CPU >70% | `{top_process} high CPU ({pct}%)` |
+| 2 | Memory critical/high | `Memory pressure {level} — top: {process}` |
+| 3 | 磁盘 <10% | `Disk low — {free}GB free ({pct}%)` |
+| 4 | 电池 <90% | `Battery degraded ({pct}% health)` |
+| 5 | 热节流 | `Thermal throttling active` |
+| — | 以上全无 | `All clear` |
 
 ## 扣分规则
 
