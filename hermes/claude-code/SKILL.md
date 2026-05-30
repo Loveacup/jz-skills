@@ -8,7 +8,7 @@ description: |
   让claude, agent team, claude review
   DO NOT use for: simple single-tool calls (Hermes does those directly), grammar fixes,
   non-coding creative writing (use appropriate creative skills)
-version: 3.2.0
+version: 3.3.0
 author: Hermes Agent + Teknium
 license: MIT
 ---
@@ -76,7 +76,7 @@ Delegate complex tasks to Claude Code via tmux interactive sessions + agent team
 6. **清理一次性 tmux 会话** — 用完就 `tmux kill-session`，避免泄漏。
 7. **每轮 agent team 后 `/clear`** — 避免 context 膨胀。
 8. **⚡ bypass permissions** — 启动后验证，通常默认已启用。
-9. **📡 无条件持续汇报进度** — 每 30-60s polling，沉默 >2min 不可接受。
+9. **📡 无条件持续汇报进度** — 每 30-60s polling，沉默 >2min 不可接受。**必须使用下方 Progress Reporting 段规定的 `📡 CC Agent Team [Xmin]` 模板格式**，自由发挥视为未汇报。
 10. **Worker 假死先查磁盘** — `ls -la` → 文件存在则 `send-keys "Agent N done."` → 不存在则手动接管。
 
 ## 🤝 Multi-Agent Coordination Protocol（多 Agent 协调）
@@ -135,6 +135,16 @@ done
 - 多轮任务间 → `/clear`（不清 session，保留 tmux）
 - 最终完成 → `tmux kill-session`
 
+### ⚠️ Session 劫持诊断
+
+当你发送任务后 CC 无响应，或 `capture-pane` 显示 `❯` 后面跟着**不是你发的命令**（如 `❯ cd /Users/alexcai/code/hermes-a2a && Read ...`），说明另一个 agent 正在竞争同一 CC session。此时：
+
+1. 发 `pwd` 测试 CC 是否处理你的输入
+2. 如果 `❯` 处出现其他 agent 的命令文本 → **不要继续发任务**
+3. `/clear` 清空后立即重发你的任务
+4. 若反复出现 → `killall claude` + 重建 tmux session
+5. 深度诊断 → `references/cc-session-isolation.md`
+
 ## 🚀 Prerequisites
 
 ```bash
@@ -152,6 +162,8 @@ CC v2.1+ 默认启用。启动后验证：`tmux capture-pane -t <s> -p -S -2 | g
 ### 📡 Progress Reporting（持续汇报进度）
 
 **tmux 模式下必须主动汇报，不要沉默等待。**
+
+> ⚠️ **这不是建议，是命令。** 每次 `capture-pane` 后必须按下方模板汇报。不要简化、不要自由发挥、不要合并多轮为一句话。如果你觉得「模板太复杂，用户不需要这么详细」— 用户要的就是这么详细。
 
 **汇报节奏：**
 - 发送任务后 15 秒 → 首次检查
@@ -192,7 +204,7 @@ tmux send-keys -t <s> 'Agent N is done. All files exist on disk. Continue.' Ente
 ```
 **若文件不存在或 size == 0** → Worker 真死 → `tmux kill-session` → 手动接管。**教训:** context file 加 `timeout 10min per worker`。
 
-**汇报模板：**
+**汇报模板（必须严格按此格式，不按模板 = 未完成汇报）：**
 ```
 📡 CC Agent Team [Xmin]
   ⚡ Leader: <当前操作>
@@ -257,6 +269,7 @@ Agent team ≠ 普通 Task subagent。用户要 team 时：
 | 14 | **Scrollback 污染** | 复用 session 前先 `pwd` 验证 |
 | 15 | **Print mode 长文档不稳定** | 改用 Python + Playwright（`references/python-playwright-pdf-fallback.md`） |
 | ★18 | **多 Agent Session 冲突** | 先跑占用检测（`§ Multi-Agent Coordination Protocol`） |
+| ★19 | **Session 被劫持：❯ 显示非本 agent 命令** | 发 `pwd` 测试→看到 `❯ cd /other/path && other task` → 另一个 agent 在竞争同一 CC。`/clear` + 重发任务。若反复出现 → kill CC daemon + 所有 tmux session 后重建。**不要继续往被劫持的 session 发任务**——命令会被覆盖。 |
 
 ## 📦 References
 
@@ -290,7 +303,7 @@ Agent team ≠ 普通 Task subagent。用户要 team 时：
 - [ ] **HOME override？** 是否带了 `HOME=/Users/alexcai`？
 - [ ] **Bypass permissions？** 标题栏是否 `⏵⏵ bypass permissions on`？
 - [ ] **PTY 对话框？** 是否处理了 Dialog 2（Down + Enter）？
-- [ ] **Progress：** 是否每 30-60s polling `capture-pane` 并汇报 `📡` 进度？
+- [ ] **Progress：** 是否每 30-60s polling `capture-pane`？每次汇报是否严格使用规定的 `📡 CC Agent Team [Xmin]` 模板格式（含 worker 树 + emoji 状态 + token 统计）？
 - [ ] **Agent team：** 是否用了 CC 原生 team 机制而非普通 Task subagent？
 - [ ] **Worker 监控：** 假死先 `ls` 查磁盘 → 文件存在则 `send-keys "Agent N done."`
 - [ ] **轮间清理：** 每轮 agent team 后是否 `/clear`？完成后是否 `tmux kill-session`？
