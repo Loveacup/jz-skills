@@ -110,6 +110,7 @@ Before calling ANY search tool, check this table. If any excuse below sounds fam
   - Primary: `Exa` + `Brave`（双主力并行）
   - Cross-check: `Tavily`（深度结构化 + `tavily_extract` 抽事实卡）
   - Fallback: `web_search` 广扫补盲区；SearXNG 不再参与
+  - 🆕 **补充源:** 主链路跑完后，对 §不稳定高质量源 做 pre-flight check → 可用则追加搜索（权威源互补覆盖）
 
 - **academic** — 论文 / 引用 / SOTA / arXiv / DOI
   - Primary: `Exa` + `arXiv` skill
@@ -213,7 +214,11 @@ which codex && codex login status 2>/dev/null || echo "UNAVAILABLE"
 **规则：**
 - ❌ pre-flight 失败 → 不调用，不报错，静默跳过
 - ⚠️ 调用成功但返回空 → 视为额度耗尽 / 限流，该 session 不再重试
-- ✅ 只在以下场景启用：主链路 5 引擎全部命中 <3 条 **且** 需要权威源交叉验证
+- ✅ 启用场景：
+  - **research 模式** — 主链路跑完后，pre-flight OK 则追加搜索，结果作为互补源合并
+  - **grounding 模式** — 主链路命中 <3 条 + 需要权威源交叉验证时
+  - **deep-research loop** — SECTION 阶段作为额外源参与 facts.jsonl 采集（见 `references/deep-research-loop.md`）
+  - **日常 discovery** — 不启用（成本/收益不划算）
 
 ### 引擎
 
