@@ -15,10 +15,29 @@ done
 # Electron 应用数 + 内存
 ps aux | grep -iE "Electron|Chromium\.framework" | awk '{sum+=$6; c++} END {printf "Electron: %d apps, %.0f MB\n", c, sum/1024}'
 
-# 重复浏览器
-browsers=("Google Chrome" "Safari" "Firefox" "Arc" "Brave" "Edge")
-running=0; for b in "${browsers[@]}"; do pgrep -i "$b" &>/dev/null && ((running++)); done
-[ $running -gt 1 ] && echo "🟡 $running browsers running"
+# 重复浏览器 ⚠️ 不能用 pgrep -i 模糊匹配
+# pgrep -i "Arc" 会匹配 searchpartyd/trialarchivingservice 等系统进程名含 "arc" 的
+# pgrep -i "Edge" 同理误匹配 dataedge/knowledge 等
+# 必须用 -x 精确匹配 + .app 路径验证
+browsers_apps=(
+  "Safari:/Safari.app"
+  "Google Chrome:/Google Chrome.app"
+  "Firefox:/Firefox.app"
+  "Arc:/Arc.app"
+  "Brave Browser:/Brave Browser.app"
+  "Microsoft Edge:/Microsoft Edge.app"
+)
+running=0
+for entry in "${browsers_apps[@]}"; do
+  name="${entry%%:*}" path="${entry##*:}"
+  # 用 pgrep -x 精确匹配进程名，再验证二进制路径含 .app
+  pid=$(pgrep -x "$name" 2>/dev/null | head -1)
+  [ -n "$pid" ] && ps -p "$pid" -o comm= 2>/dev/null | grep -qF "$path" && {
+    echo "  $name ✅"
+    ((running++))
+  }
+done
+[ $running -gt 1 ] && echo "🟡 $running 个浏览器同时运行" || echo "✅ 仅 $running 个"
 
 # 启动项
 echo "LaunchAgents:"; ls ~/Library/LaunchAgents/ 2>/dev/null

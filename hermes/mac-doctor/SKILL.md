@@ -6,7 +6,7 @@ description: |-
   系统评分, 健康检查, 磁盘空间, 内存压力, swap, 清理缓存, brew/npm/uv cache,
   CPU 大户, 安全检查, 电池健康, 网络配置审计, 历史趋势, 异常检测, 臃肿/隐私扫描。
   Do NOT use for: GUI 操作, 实时网络诊断 (ping/traceroute), 清理孤儿 App 数据。
-version: 2.0.0
+version: 2.1.0
 author: Hermes Agent
 platforms: [macos]
 metadata:
@@ -91,6 +91,13 @@ vm_stat | awk '/Pages free/{printf "Free: %.0f MB\n", $3*16384/1048576}'
 
 Swap 关键指标：`sysctl vm.swapusage`。>2GB 说明内存偏紧。
 
+**Swap 文件时间线**（追踪增速，定位磁盘失血主因）：
+```bash
+ls -lt /System/Volumes/VM/swapfile* 2>/dev/null | head -10
+echo "总数: $(ls /System/Volumes/VM/swapfile* 2>/dev/null | wc -l) 个 × 1GB"
+```
+每个 swapfile = 1GB。文件创建时间戳揭示 swap 膨胀速度——今天 10 个文件 = 10GB 被 swap 吃掉。
+
 ### 1c. 磁盘 ⚠️ 必须用 diskutil，不要用 df
 
 ```bash
@@ -127,6 +134,8 @@ ps -eo %cpu,%mem,comm -r 2>/dev/null | awk 'NR>1 {
 ---
 
 ## Tier 2a: Dev 审计
+
+> ⚠️ **路径警告**: 在非 default profile（如 cron-worker）下，`~` 指向 profile home 而非用户 home。所有 `~/Library/` / `~/.cache/` 必须替换为绝对路径（如 `/Users/alexcai/Library/Caches/`）。详见 Tier 3「清理陷阱 — 跨 Profile 路径陷阱」。
 
 ### Dev 缓存
 
@@ -185,7 +194,8 @@ tmutil listlocalsnapshots /
 
 | 项目 | 命令 | 安全? | 注意事项 |
 |------|------|:-----:|---------|
-| npm | `npm cache clean --force` | ✅ | 纯缓存 |
+| npm | `npm cache clean --force` | ✅ | 纯缓存。⚠️ cron profile 下 npm 指向 `~/.hermes/profiles/cron-worker/home/.npm` → 系统缓存在 `/Users/alexcai/.npm` |
+| npm _npx | 保留当前用版本，删其余 | 🟡 | `ps aux \| grep` 找到在用 codegraph hash → 删 `_npx/` 下其他所有目录。1.7G+ 典型回收 |
 | uv | `uv cache clean` → `--force` | ✅ | 先 `lsof ~/.cache/uv` |
 | brew | `brew cleanup` | ✅ | 通常 300-400MB |
 | Chrome | `rm -rf ~/Library/Caches/Google/Chrome/*` | ✅ | 运行中可能超时 |
@@ -202,14 +212,29 @@ tmutil listlocalsnapshots /
 - TCC 权限审计（辅助功能/屏幕录制/摄像头/麦克风）
 - 可疑进程检测
 
+### ⚠️ 跨 Profile 路径陷阱
+
+当 session 运行在非 default profile（如 cron-worker）下时，`~` 指向该 profile 的 home（如 `/Users/alexcai/.hermes/profiles/cron-worker/home/`），**不是用户真实的 home**。
+
+| 写法 | cron-worker 下解析为 | 正确写法 |
+|------|------|------|
+| `~/Library/Caches/` | `.../profiles/cron-worker/home/Library/Caches/` ❌ | `/Users/alexcai/Library/Caches/` |
+| `~/.cache/` | `.../profiles/cron-worker/home/.cache/` ❌ | `/Users/alexcai/.cache/` |
+| `~/Library/LaunchAgents/` | profile 的 agents ❌ | `/Users/alexcai/Library/LaunchAgents/` |
+
+**Tier 2a 的所有 `~` 路径在非 default profile 下都无效。** 遇到 `du` 结果异常小（如 56M 总缓存）时，第一时间怀疑路径错误。
+
 ### 清理陷阱
 
 | 陷阱 | 表现 | 解法 |
 |------|------|------|
+| **Swap >90% 时 `du` 超时** | `du -sh ~/Library/` 15s+ 不返回 | 系统 I/O 被 swap 打满，改用轻量命令：`ls -lt /System/Volumes/VM/swapfile*` 查 swap 增速、`diskutil info /` 查磁盘。深度目录扫描等高 swap 消退后再做。 |
+| **非 default profile 下 `~` 指向错误** | `~/Library/Caches/` 只显示 56M，实际用户缓存 1.4G | 全部改用绝对路径：`/Users/alexcai/Library/Caches/`、`/Users/alexcai/.cache/` |
 | `du ~/*/` 超时 | 15s+ 不返回 | 加 `-d 1` |
 | `uv cache clean` 卡住 | "Cache is currently in-use" | `lsof` → `--force` |
 | `brew upgrade` exit 1 | 以为是失败 | 看底部升级数 |
 | 磁盘误判 | df 显示 28% | 用 `diskutil info` |
+| **`npm cache clean --force` 无效** | 清理前后 `du -sh ~/.npm` 不变 | cron profile 下 `npm config get cache` 指向 profile home；系统缓存在 `/Users/alexcai/.npm`。对 `_npx/` 直接 `rm -rf /Users/alexcai/.npm/_npx/<旧hash>` |
 
 ### 清理后验证
 
