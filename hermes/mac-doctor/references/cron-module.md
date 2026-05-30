@@ -54,11 +54,11 @@ rm ~/Library/LaunchAgents/com.hermes.inspection-collector.plist
 - 修改 `~/.hermes/inspection/config.json` → `collection.interval_seconds`
 - 修改后需 reload LaunchAgent
 
-### 告警类型
+### 告警类型 (v2.2)
 
 | 触发条件 | 级别 | 安静时段 |
 |---------|:---:|:---:|
-| CPU >80% | 🔴 | 不受限 |
+| CPU 单进程持续 ≥5min 超阈值（E1 窗口告警） | 🔴 | 不受限 |
 | 内存 critical | 🔴 | 不受限 |
 | 磁盘 <10% | 🔴 | 不受限 |
 | Swap >4GB | 🟡 | 遵守 |
@@ -75,13 +75,14 @@ rm ~/Library/LaunchAgents/com.hermes.inspection-collector.plist
 
 通过 `cronjob` 工具在 cron-worker profile 中配置。详见 SKILL.md Tier 0-3 的决策树。
 
-### 建议调度
+### 当前配置（4 Jobs）
 
-| Job | 频率 | 说明 |
-|-----|------|------|
-| inspection-quick | 每 30 分钟 | **静默看门狗**（v2.2）— 问题才推送，0 tokens 💰 |
-| inspection-deep | 每天 03:00 | Tier 2 全量审计（安全+硬件+网络），LLM 推 Telegram |
-| inspection-weekly | 每周一 09:00 | 周报汇总，LLM 引用 history.db 趋势数据 |
+| Job ID | 频率 | 模式 | 说明 |
+|--------|:--:|:--:|------|
+| `mac-doctor-quick` | 30min | 🔇 Watchdog | 静默看门狗 — 问题才推送，0 tokens |
+| `check-skill-copies` | 1h | 🔇 Watchdog | cron-worker 本地副本扫描 — 残留才推送 |
+| `mac-doctor-deep` | 每日 03:00 | 🤖 LLM | Tier 2 全量审计（安全+硬件+网络） |
+| `mac-doctor-weekly` | 周一 09:00 | 🤖 LLM | 周报 + history.db 趋势分析 |
 
 ### 静默看门狗模式 (v2.2) 🆕
 
