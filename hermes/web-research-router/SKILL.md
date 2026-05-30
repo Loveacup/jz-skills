@@ -11,7 +11,9 @@ metadata:
     related_skills: [source-search, exa-research, source-reader, source-verification, content-source-workflow, qmd, obsidian, arxiv, native-mcp, github]
 ---
 
-# Web Research Router v3.7
+# Web Research Router v3.8
+
+> 🆕 **v3.8 (2026-05-30)**: 🆕 集成 Claude Code WebSearch 作为紧急后备引擎。本地 CLI wrapper（`scripts/claude-web-search.sh`），pi-web-providers custom provider 兼容合约（JSON stdin/stdout）。权威源优先（anthropic.com/github.blog 铁三角），但昂贵（~$0.30-0.66/query），仅在前 5 引擎全失效时启用。Codex 预留入口（需 OpenAI 认证）。
 
 > 🆕 **v3.7 (2026-05-29)**: 🔥 跨平台交叉验证后的路由大改。regent(macOS) + pi(Windows) 同日实测确认 **SearXNG 实例本身已损坏**（Google 失效 / Bing 降级 / DDG CAPTCHA，换 MCP 客户端无救）。SearXNG 从「默认起手」降级为「兜底 + 抓取专用」，Exa/Brave 升为双主力，Tavily 为深度调研专用。新增 MCP Configuration & Deployment 章节、Step 0 强制四步本地检查、Output Contract 强制 `[s<id>]` inline citation + 三分栏、common-pitfalls 新增 4 条（含 fetch 类工具 `urls:[...]` 数组参数陷阱）。
 
@@ -103,6 +105,7 @@ Before calling ANY search tool, check this table. If any excuse below sounds fam
   - Primary: `Exa` + `Brave`（双引擎并行，独立索引交叉）
   - Cross-check: `web_search`（通用兜底）
   - Fallback: `Tavily`（结构化抽取数字 / 口径）
+  - 🆕 **权威验证:** `scripts/claude-web-search.sh`（官方公告、anthropic.com 源，高价值核实场景）
 
 - **research** — 实质 brief / 决策备忘 / 市场扫描
   - Primary: `Exa` + `Brave`（双主力并行）
@@ -118,6 +121,7 @@ Before calling ANY search tool, check this table. If any excuse below sounds fam
   - Primary: `web_search` + `Brave`（双引擎广扫候选）
   - Cross-check: `Exa Fetch`（`mcp_exa_web_fetch_exa` 抓 cache / mirror）
   - Fallback: `mcp_searxng_web_url_read`（仅作抓取通道；**不**用 SearXNG 搜索）
+  - 🆕 **Deep fallback:** `scripts/claude-web-search.sh` — Claude Code 内置 WebSearch，本地 CLI 直接调用，权威源优先（anthropic.com/github.blog）。⚠️ 昂贵（~$0.30-0.66/query），只在 Exa/Brave/Tavily/SearXNG 全部失效 + 急需权威源时启用。
 
 > 🔁 **何时升级到 deep-research loop？** 议题维度 ≥ 3 / 需可引用结构化报告 / 单轮 source map 命中 <70% / 用户显式说"深挖" → 进入
 > `references/deep-research-loop.md` 的 plan → section research（含 `fetch-extract-pattern.md` extractor） → reflect → merge 循环。
@@ -194,9 +198,17 @@ Search first, fetch second. Fetch 1–3 high-signal URLs only. Prefer primary/of
   - best-for: GitHub 代码搜索
   - tool: `terminal` → `gh search code`
 
-### 选型口诀 (v3.7)
+- **Claude Code WebSearch** 🔶 权威验证专用
+  - status: 🆕 v3.8 集成，本地 CLI wrapper 测试通过（3/3）
+  - best-for: 权威源验证（anthropic.com/github.blog 铁三角）、官方公告确认、高价值 grounding
+  - tool: `terminal` → `echo '{"query":"..."}' | bash scripts/claude-web-search.sh`
+  - contract: JSON stdin/stdout（pi-web-providers custom provider 兼容）
+  - cost: ~$0.30–0.66/query（Opus 4.7 LLM + Haiku 4.5 search）
+  - ⚠️ 比 Exa/Brave 贵但比人工查证便宜。用于高价值 grounding、官方公告核实。
 
-> **Exa 精准 + Brave 交叉 → Tavily 深研 → web_search 广扫 → SearXNG 仅兜底 / 仅抓取。**
+### 选型口诀 (v3.8)
+
+> **Exa 精准 + Brave 交叉 → Tavily 深研 → web_search 广扫 → Claude Code 权威验证 → SearXNG 仅兜底 / 仅抓取。**
 >
 > 默认双主力 = Exa + Brave；研究类加 Tavily；SearXNG **不再**作为起手引擎。
 
@@ -361,6 +373,8 @@ hermes mcp test searxng --query "claude 4.7 release notes"
 | **产品/公司深度评估快速模式**（并行抓取→补刀→综合，比 formal deep loop 省 50%+ token） | `references/product-evaluation-pattern.md` |
 | **fact-recall 时 LLM 死活不答如何破**（8 hedge phrase + forced-answer prompt） | `references/anti-refusal-prompt.md` |
 | **🔬 5 引擎质量实测报告（2026-05-28）**（web_search/Exa/SearXNG/Brave/Tavily 全量对比） | `references/engine-quality-report-20260528.md` |
+| **🆕 Claude Code WebSearch wrapper**（JSON stdin/stdout，pi custom provider 兼容） | `scripts/claude-web-search.sh` |
+| **🧪 Claude Code WebSearch benchmark（2026-05-30）**（pi-web-providers 内置 provider，$0.66/query，权威性满分但成本不可持续） | `references/claude-code-websearch-benchmark.md` |
 
 ---
 
