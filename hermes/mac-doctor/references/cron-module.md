@@ -128,6 +128,8 @@ if not alerts and diagnosis == "All clear":
 # 否则 print 摘要 → 自动推送
 ```
 
+> ⚠️ **容错：** 脚本使用显式 `is not None` 判断而非 `dict.get(key, default)`。`get()` 只在 key 不存在时用 default，但 key 存在且 value 为 `null` 时返回 `None`，会导致 `NoneMB`/`NoneGB` 脏数据。
+
 ### 添加 Cron Job 示例（LLM Agent 模式）
 
 ```
