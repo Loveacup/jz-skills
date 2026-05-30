@@ -105,7 +105,6 @@ Before calling ANY search tool, check this table. If any excuse below sounds fam
   - Primary: `Exa` + `Brave`（双引擎并行，独立索引交叉）
   - Cross-check: `web_search`（通用兜底）
   - Fallback: `Tavily`（结构化抽取数字 / 口径）
-  - 🆕 **权威验证:** `scripts/claude-web-search.sh`（官方公告、anthropic.com 源，高价值核实场景）
 
 - **research** — 实质 brief / 决策备忘 / 市场扫描
   - Primary: `Exa` + `Brave`（双主力并行）
@@ -121,7 +120,6 @@ Before calling ANY search tool, check this table. If any excuse below sounds fam
   - Primary: `web_search` + `Brave`（双引擎广扫候选）
   - Cross-check: `Exa Fetch`（`mcp_exa_web_fetch_exa` 抓 cache / mirror）
   - Fallback: `mcp_searxng_web_url_read`（仅作抓取通道；**不**用 SearXNG 搜索）
-  - 🆕 **Deep fallback:** `scripts/claude-web-search.sh` — Claude Code 内置 WebSearch，本地 CLI 直接调用，权威源优先（anthropic.com/github.blog）。⚠️ 昂贵（~$0.30-0.66/query），只在 Exa/Brave/Tavily/SearXNG 全部失效 + 急需权威源时启用。
 
 > 🔁 **何时升级到 deep-research loop？** 议题维度 ≥ 3 / 需可引用结构化报告 / 单轮 source map 命中 <70% / 用户显式说"深挖" → 进入
 > `references/deep-research-loop.md` 的 plan → section research（含 `fetch-extract-pattern.md` extractor） → reflect → merge 循环。
@@ -198,17 +196,45 @@ Search first, fetch second. Fetch 1–3 high-signal URLs only. Prefer primary/of
   - best-for: GitHub 代码搜索
   - tool: `terminal` → `gh search code`
 
-- **Claude Code WebSearch** 🔶 权威验证专用
-  - status: 🆕 v3.8 集成，本地 CLI wrapper 测试通过（3/3）
-  - best-for: 权威源验证（anthropic.com/github.blog 铁三角）、官方公告确认、高价值 grounding
-  - tool: `terminal` → `echo '{"query":"..."}' | bash scripts/claude-web-search.sh`
+## 🔀 不稳定高质量源（Auxiliary Sources）
+
+> 🛑 **不在主链路。** 以下引擎不稳定（可能未安装/未认证/额度耗尽），**必须先做 pre-flight check 再调用**。仅作为主链路 Exa/Brave/Tavily/web_search/SearXNG 跑完后、需要额外权威验证时的加分项。
+
+### Pre-flight check（每次使用前强制执行）
+
+```bash
+# Claude Code — 检查 CLI 是否可用
+which claude && claude --version 2>/dev/null || echo "UNAVAILABLE"
+
+# Codex — 检查 CLI + 认证状态
+which codex && codex login status 2>/dev/null || echo "UNAVAILABLE"
+```
+
+**规则：**
+- ❌ pre-flight 失败 → 不调用，不报错，静默跳过
+- ⚠️ 调用成功但返回空 → 视为额度耗尽 / 限流，该 session 不再重试
+- ✅ 只在以下场景启用：主链路 5 引擎全部命中 <3 条 **且** 需要权威源交叉验证
+
+### 引擎
+
+- **Claude Code WebSearch** 🔶 不稳定高质量
+  - status: 🆕 v3.8，本地 CLI wrapper（`scripts/claude-web-search.sh`）
+  - pre-flight: `which claude && claude --version`
   - contract: JSON stdin/stdout（pi-web-providers custom provider 兼容）
-  - cost: ~$0.30–0.66/query（Opus 4.7 LLM + Haiku 4.5 search）
-  - ⚠️ 比 Exa/Brave 贵但比人工查证便宜。用于高价值 grounding、官方公告核实。
+  - best-for: 权威源验证（anthropic.com/github.blog）
+  - cost: ~$0.30–0.66/query
+  - ⚠️ 可能未安装 / 额度耗尽 / 限流。不接主链路。
+
+- **Codex WebSearch** 🔶 预留（未就绪）
+  - pre-flight: `which codex && codex login status`
+  - status: CLI 已安装 (v0.135.0)，需 `codex login` 认证
+  - ⚠️ 当前不可用，等待认证后激活
 
 ### 选型口诀 (v3.8)
 
-> **Exa 精准 + Brave 交叉 → Tavily 深研 → web_search 广扫 → Claude Code 权威验证 → SearXNG 仅兜底 / 仅抓取。**
+> **Exa 精准 + Brave 交叉 → Tavily 深研 → web_search 广扫 → SearXNG 仅兜底 / 仅抓取。**
+>
+> 🔶 不稳定高质量源（Claude Code / Codex）**不接主链路**——pre-flight check 可用时才作为额外权威验证，失败静默跳过。
 >
 > 默认双主力 = Exa + Brave；研究类加 Tavily；SearXNG **不再**作为起手引擎。
 
