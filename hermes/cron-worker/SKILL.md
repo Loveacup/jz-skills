@@ -33,6 +33,7 @@ User wants to set up cron/background task isolation?
 ├── Existing profile, want to migrate jobs → Step 3: Migrate cron jobs
 ├── Already have cron-worker, want to add trigger pattern → Step 4: Heartbeat patterns
 ├── Cron job failed silently, want observability → Step 5: Artifact logging
+├── Want to interact with cron-worker directly (DM the bot) → Step 2g: Optional gateway
 └── Just exploring the concept → Read the Obsidian doc first
 ```
 
@@ -162,6 +163,31 @@ hermes --profile cron-worker config show | grep -E "model|external"
 ls -la ~/.hermes/profiles/cron-worker/SOUL.md  # should show symlink
 ```
 
+### 2g. Gateway Decision — Choose Communication Channel
+
+> [!important] **MUST use `clarify()` here.** After completing Steps 2a–2f, ask the user whether to add a gateway. Do NOT assume — the resource impact is meaningful, and a wrong choice wastes either a bot token or the ability to DM.
+
+**Clarify prompt template:**
+
+```
+question: "给 cron-worker 加独立 gateway 吗？加了可以 DM bot 交互、webhook 触发；不加更轻量，cron job 走 scheduler 投递。"
+choices:
+  - "加 gateway，我去 @BotFather 创建新 bot"
+  - "加 gateway，我已有 token 直接配"
+  - "不加 gateway，cron-only 就够了"
+```
+
+**Full instructions → `references/gateway-decision.md`** — covers Path A (get token, write .env, install, verify, harmless errors, resource impact) and Path B (delivery mechanism, `deliver` target matrix, code examples, recommendation table).
+
+**Quick summary:**
+
+| Path | What you get | What you need |
+|------|-------------|---------------|
+| A: Add gateway | DM the bot, webhook triggers, direct Telegram interaction | Separate bot token, ~104MB RSS |
+| B: Skip gateway | Lighter, cron jobs deliver via scheduler (`deliver="origin"`) | Nothing extra |
+
+**Default recommendation:** start without gateway (Path B). Add anytime with `hermes --profile cron-worker gateway install`.
+
 ---
 
 ## Step 3: Migrate Existing Cron Jobs
@@ -178,7 +204,7 @@ Then verify:
 hermes cron list  # should show profile: cron-worker
 ```
 
-**⚠️ The default gateway's scheduler spawns the job under the specified profile.** No separate gateway needed for cron-worker — it runs as a transient process on each tick.
+**⚠️ Delivery mechanism:** The default gateway's cron scheduler handles delivery for ALL cron jobs, regardless of which profile they run under. `deliver="origin"` routes output through the scheduler back to your Telegram — cron-worker does NOT need its own gateway for cron job delivery. Cron jobs are transient processes that fire on each tick; the gateway only matters if you want to DM the bot interactively (see Step 2g).
 
 ---
 
@@ -262,7 +288,9 @@ Example output:
 | Symlink replaced by profile update | `hermes profile create` writes fresh files. Re-apply symlinks after any profile recreation. |
 | external_dirs path uses `~` but not expanded | `agent/skill_utils.py:305` calls `os.path.expanduser()` — `~` is safe. |
 | Cron job still runs on default after update | Verify with `hermes cron list` — check the `profile` column. |
-| No gateway for cron-worker means no Telegram delivery | Correct. Use `deliver="local"` + artifact log, or `deliver="origin"` (which routes through the default gateway's delivery). |
+| Gateway: when to add vs skip | Without gateway, cron jobs still deliver via scheduler (`deliver="origin"`). Add a gateway (Step 2g) only if you want to DM the bot interactively. Gateway requires a **separate Telegram bot token** — one gateway = one bot. Adds ~104MB RSS per gateway process. |
+| Gateway: api_server port 8460 conflict | Expected and harmless — default gateway already owns 8460. Telegram polling works without api_server. Ignore the error. |
+| Gateway: wrong bot token after profile clone | `hermes profile create --clone` copies default's TELEGRAM_BOT_TOKEN into cron-worker's .env. After cloning, always `grep -n TELEGRAM_BOT_TOKEN` and replace with the correct bot token. |
 | Change-detection script doesn't skip idle ticks | Script's last non-empty stdout line must be `{"wakeAgent": false}` JSON. Any other output wakes the agent. Empty stdout ALSO wakes the agent — do not rely on silence. |
 | Forgot to pin model on cron job | Always set `model` explicitly in `cronjob()` calls. Default model may be rate-limited or wrong tier. |
 | Hermes upgrade breaks symlinks | `hermes update` may refresh profile files. After any upgrade, re-run Step 2a-2b to re-apply SOUL.md + memory symlinks. |
@@ -276,7 +304,7 @@ Example output:
 - [ ] `grep external_dirs ~/.hermes/profiles/cron-worker/config.yaml` returns `~/.hermes/skills`
 - [ ] `hermes --profile cron-worker config show | grep model.default` shows `deepseek-v4-flash`
 - [ ] Migrated cron jobs show `profile: cron-worker` in `hermes cron list`
-- [ ] No gateway plist at `~/Library/LaunchAgents/ai.hermes.gateway-cron-worker.plist`
+- [ ] **Gateway:** Path A → `gateway status` shows connected + test DM. Path B → no plist + `deliver` set on jobs. (Details → `references/gateway-decision.md`)
 - [ ] Artifact log path exists and first entry written after a test run
 
 **Every box must honestly pass. If unchecked, go back.**
