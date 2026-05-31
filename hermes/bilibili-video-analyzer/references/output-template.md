@@ -5,6 +5,30 @@
 ## 文件名格式
 `视频解析_[核心关键词]_[作者名].md`
 
+## YAML Frontmatter（必填）
+
+> ⚠️ 每篇报告必须包含 YAML frontmatter，遵循 Obsidian CLAUDE.md 规范。类型字段固定为 `视频笔记`。
+
+```yaml
+---
+status: 常青
+type: 视频笔记
+priority: 正常
+aliases: [English title, 关键词1, 关键词2]
+tags: [ai/hermes, type/视频笔记, topic/技术]
+created: YYYY-MM-DD HH:MM
+modified: YYYY-MM-DD HH:MM
+---
+```
+
+| 字段 | 值 | 说明 |
+|:---|:---|:---|
+| `status` | 常青 | B站笔记一般视为常青（长期可查） |
+| `type` | 视频笔记 | 固定值，不按视频类型变化 |
+| `priority` | 正常 | 极少情况用"重要" |
+| `aliases` | 2-4个 | 1个英文标题 + 2-3个中文关键词 |
+| `tags` | 3-5个 | 主标签 `ai/hermes` 按视频主题调整；`type/视频笔记` 固定 |
+
 ---
 
 ## 0. 元信息 (Meta)

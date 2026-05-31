@@ -163,7 +163,7 @@ if not threshold_alerts and diagnosis == "All clear":
 
 | 路径 | 谁读 |
 |------|------|
-| `/Users/alexcai/.hermes/inspection/config.json` | LaunchAgent / 手动执行 / 非 cron 环境 |
+| `~/.hermes/inspection/config.json` | LaunchAgent / 手动执行 / 非 cron 环境 |
 | `~/.hermes/profiles/cron-worker/home/.hermes/inspection/config.json` | cron job 执行时 |
 
 不同步的后果：手动测试和 cron job 看到不同的阈值，行为不一致。

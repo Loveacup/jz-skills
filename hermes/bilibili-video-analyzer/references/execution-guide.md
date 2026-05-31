@@ -99,7 +99,34 @@ pip3 install mlx-whisper
 python3 scripts/audio_to_text.py BV12Q6TBwE2J "YOUR_SESSDATA"
 ```
 
+### ⚠️ ffmpeg 直接下载 B站音频 → 403 Forbidden
+
+B站音频 URL 含时效性签名，直接用 `ffmpeg -i "$AUDIO_URL"` 会报 403。**正确流程**：
+
+```bash
+# 1. 用 curl 下载（带 Referer + User-Agent）
+curl -L -o audio.m4s \
+  -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' \
+  -H 'Referer: https://www.bilibili.com/' \
+  "$AUDIO_URL"
+
+# 2. ffmpeg 对本地文件转码
+ffmpeg -i audio.m4s -vn -acodec pcm_s16le -ar 16000 -ac 1 audio.wav
+
+# 3. whisper-cli 转录
+whisper-cli -m "$MODEL_PATH" -f audio.wav -l zh -otxt
+```
+
+> **原理**：B站 CDN 的签名 URL 有时效，ffmpeg 打开连接时签名可能已过期。curl 在获取 URL 后立即下载，时机更短。Ref: 本轮 BV1zWRrBnE6s 实测验证。
+
 ### 实测参考
+
+**Hermes Profile 分身术视频**（BV1zWRrBnE6s，本轮实测）：
+- 时长：~18分36秒
+- 转录方案：curl 下载 `.m4s` → ffmpeg 转 `.wav` → whisper.cpp（VoiceInk 模型）
+- 处理时间：~84s（Apple M4 GPU）
+- 输出：13KB / 494 行
+- **关键坑**：ffmpeg 直接下载返回 403 → 必须先 curl 再本地转码
 
 **Agent Skills 蓝皮书视频**（BV1t467BFEPb）：
 - 时长：32分钟

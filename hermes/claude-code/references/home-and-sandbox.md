@@ -31,7 +31,7 @@ ls: No such file or directory  # ❌ 因为 HOME 不是 /Users/alexcai
 ### 根因
 
 Hermes 在运行时会设置 `HOME=~/.hermes/profiles/<profile>/home/`。
-而 `claude auth login` 将 OAuth token 写入 `~/.claude.json`，这个 `~` 解析到的是 `/Users/alexcai/`（真实 HOME），不是 profile HOME。
+而 `claude auth login` 将 OAuth token 写入 `~/.claude.json`，这个 `~` 解析到的是 `~/`（真实 HOME），不是 profile HOME。
 
 ### 修复方案
 
@@ -48,8 +48,8 @@ HOME=/Users/alexcai claude -p 'your prompt' --dangerously-skip-permissions
 # 可能使用 realpath() 或其他机制绕过了 symlink
 # 结论：优先使用方案 A（显式 HOME=），方案 B 仅作兜底尝试
 PROFILE_HOME=~/.hermes/profiles/regent/home
-ln -sf /Users/alexcai/.claude.json $PROFILE_HOME/.claude.json
-ln -sfn /Users/alexcai/.claude $PROFILE_HOME/.claude
+ln -sf ~/.claude.json $PROFILE_HOME/.claude.json
+ln -sfn ~/.claude $PROFILE_HOME/.claude
 ```
 
 **方案 C：环境变量注入（用于 cron / launchd）**
@@ -137,8 +137,8 @@ touch ~/Documents/.test_write 2>&1
 
 ```bash
 # 1. 符号链接 auth
-ln -sf /Users/alexcai/.claude.json ~/.hermes/profiles/regent/home/.claude.json
-ln -sf /Users/alexcai/.claude ~/.hermes/profiles/regent/home/.claude
+ln -sf ~/.claude.json ~/.hermes/profiles/regent/home/.claude.json
+ln -sf ~/.claude ~/.hermes/profiles/regent/home/.claude
 
 # 2. 确认 TCC 授权（一次性，需手动操作）
 # 系统设置 → 隐私与安全性 → 文件与文件夹 → 终端 → 开启「文档文件夹」

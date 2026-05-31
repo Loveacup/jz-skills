@@ -19,7 +19,7 @@ Interview the user relentlessly about every aspect of a plan until shared unders
 
 **Ask questions one at a time**, waiting for feedback on each before continuing.
 
-**Every question MUST use `clarify` with the `choices` parameter** (max 4 options + auto-appended "Other"). Never ask as open-ended text — the user should click an option, not type. Reserve open-ended `clarify` (no choices) only for free-text follow-ups where no reasonable preset options exist.
+**Every question MUST use `clarify` with the `choices` parameter** (max 4 options + auto-appended "Other"). Include one option marked with ⭐ as the recommended choice. Place choices **after** the explanation body — the user should read the context first, then see options. Never ask as open-ended text — the user should click an option, not type. Reserve open-ended `clarify` (no choices) only for free-text follow-ups where no reasonable preset options exist.
 
 If a question can be answered by exploring the codebase or existing documentation, do that instead of asking.
 
@@ -72,7 +72,7 @@ The "code" to verify against includes:
 | Profile configs | `~/.hermes/profiles/*/config.yaml` | Do profile roles match what the plan assumes? |
 | MCP config | `~/.hermes/config.yaml` `mcp_servers:` | Are referenced tools actually available? |
 | Cron jobs | `hermes cron list` | Does the plan conflict with existing schedules? |
-| Memory | `hindsight_recall` | Are there relevant past decisions? |
+| Memory | `supermemory_search` | Are there relevant past decisions? |
 
 ---
 
@@ -99,7 +99,7 @@ Before asking the user a question, exhaust all verifiable sources:
 
 - **Read code first:** "上次的方案"→ read .md or `git log` before asking
 - **Check configs:** Don't ask "what model does X use" — read `config.yaml`
-- **Search memory:** Check `hindsight_recall` for past decisions before re-litigating
+- **Search memory:** Check `supermemory_search` for past decisions before re-litigating
 - **Only ask when:** No code/doc/config/memory can answer it
 
 ### Phase 4: Capture & Summarize
@@ -122,6 +122,7 @@ Before asking the user a question, exhaust all verifiable sources:
 - NEVER continue to the next question until the current one is resolved (chosen, edited, or explicitly skipped)
 - NEVER exceed 3 consecutive questions on the same topic without checking: "上述理解对吗？可以继续了吗？"
 - NEVER ask a question that code/docs/config could answer — evidence-challenge first
+- NEVER mix explanation prose with a question on messaging platforms (Telegram/Discord/Slack). Explain FIRST, THEN immediately call `clarify` with choices — do not sandwich the question in a multi-paragraph intro. If the message is truncated mid-explanation, the user sees nothing useful. Pattern: context body → `clarify(question=..., choices=[...])` — one ⭐ recommended, choices come AFTER the body text.
 
 ---
 

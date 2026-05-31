@@ -64,6 +64,12 @@ Step 1 PLAN → Step 2 SECTION (fetch → facts.jsonl → write) → Step 3 CoV 
 
   **2.2 `search_web`** —— 用 SearXNG 广扫候选 → 每个候选走 **fetch-extract-pattern**（详见 `./fetch-extract-pattern.md`），抽取 verbatim quotes，section 内本地编号引用。
 
+  **2.2+ 🆕 不稳定高质量源补充（pre-flight 必检）** —— 主链路搜索完成后，对 §不稳定高质量源 做 pre-flight check：
+  - `which claude && claude --version` → 可用则 `scripts/claude-web-search.sh` 追加搜索，结果合并入候选池
+  - `which codex && codex login status` → 可用则同理（预留，需认证）
+  - **规则：** 失败静默跳过；返回空视为额度耗尽，该 section 内不再重试；结果与主链路结果统一走 2.3 extract_to_facts.jsonl
+  - **成本意识：** Claude Code ~$0.30-0.66/query，仅在 section 为 `research=True` 且 `search_iterations ≤ 1` 时启用（首轮用一次，后续轮次不重复）
+
   **2.3 `extract_to_facts.jsonl`** —— ★ **新增强制步骤**。把 2.2 抽出的 verbatim quotes 进一步原子化为事实卡片：
 
   ```jsonl
@@ -203,6 +209,7 @@ Step 1 PLAN → Step 2 SECTION (fetch → facts.jsonl → write) → Step 3 CoV 
 | `token_budget` | 30k | 60k | （硬上限）| 整轮 deep loop token 预算 |
 | `cov_max_claims_per_section` | 5 | 10 | （v3.4 新增）| Step 3 每 section 最多 CoV 验证的 claim 数 |
 | `blind_spot_search_count` | 3 | 6 | （v3.4 新增）| Step 4 反向假设补搜次数 |
+| `aux_source_max_calls` | 1 | 3 | （v3.8 新增）| 不稳定高质量源（Claude Code）每 session 最大调用次数。首轮 section 用 1 次，后续不再重复 |
 
 **衰减规则（gpt-researcher 启发）：** breadth 越深越窄。每深一层 section，`number_of_queries ÷ 2`、`max_search_depth - 1`。
 

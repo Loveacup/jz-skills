@@ -4,6 +4,37 @@
 
 ---
 
+## v3.5.0 (2026-05-31) — Effort Routing + Agent Team Enhancement
+
+### Added
+- **🧭 Smart Effort Routing** — signal-based decision tree replacing simple "策略建议"; default floor = `high`
+- **🧩 Agent Count & Splitting Principles** — "let CC decide count, break by concern not by file"
+- **🚦 Execution Mode Selection** — single CC vs Agent Team vs parallel multi-CC decision table
+- **⚙️ Effort Practical Config** — CLI flag mapping, `/effort` pitfalls, cost ratios (max≈3×high)
+
+### Changed
+- **Core Rule #2** enhanced — agent count self-determined, concern-based splitting
+- **`## 🧠 Model & Effort Level`** section restructured: startup → five levels → in-session switch → smart routing → practical config
+
+### Execution
+- 3 parallel agents drafting independent content blocks → Leader serialized integration to avoid file conflicts
+- Opus 4.8 max effort · 10m40s · ↓42.5k tokens
+
+---
+
+## v3.4.0 (2026-05-31) — Opus 4.8 + Model & Effort
+
+### Added
+- **`## 🧠 Model & Effort Level`** — Opus 4.8 support, five effort levels (`low`–`max`), `/effort` in-session switching
+- **`references/two-phase-review-polish.md`** — 两阶段审查→优化模式: Phase 1 agent team review → Phase 2 single CC polished output
+- **`references/taste-skill-mobile-prototype.md`** — CC + taste-skill 移动端原型图快速生成
+
+### Changed
+- Version bump 3.3.0 → 3.4.0
+- References table updated with two new patterns
+
+---
+
 ## v3.3.0 (2026-05-30) — Stability Optimization
 
 ### Added

@@ -103,36 +103,6 @@ Merge into `~/.hermes/notes/household-network-device-inventory.md`. Don't notify
 - **Device identification**: `references/device-inventory-triangulation.md`
 - **Full command catalog**: `references/cli-cheatsheet.md`
 
-### 6. UDP / video call / real-time traffic issues
-
-When a device behind the Surge gateway has stuttering video calls, game lag, or VoIP dropouts:
-
-1. **Check the UDP fallback setting** in the active profile:
-   ```bash
-   grep 'udp-policy-not-supported-behaviour' ~/Library/Application\ Support/Surge/Profiles/mine.conf
-   ```
-   - `reject` → UDP packets silently dropped when proxy doesn't support UDP. This is the **default in many Surge configs** and is a common root cause.
-   - `direct` → falls back to direct connection. **Recommended for household gateways.**
-
-2. **If `reject`, change to `direct`:**
-   ```bash
-   sed -i '' 's/udp-policy-not-supported-behaviour = reject/udp-policy-not-supported-behaviour = direct/' ~/Library/Application\ Support/Surge/Profiles/mine.conf
-   "$SURGE_CLI" reload
-   ```
-
-3. **Verify the target IP's routing:**
-   - If the destination IP matches `GEOIP,CN` → routes to `🎯 全球直连` (DIRECT), UDP is unaffected by the `reject` setting
-   - If the destination is foreign → may hit a proxy policy, and UDP gets rejected if node doesn't support it
-
-4. **Check Surge events log** for UDP-related errors:
-   ```bash
-   "$SURGE_CLI" dump event | python3 -c "import json,sys; [print(e['content']) for e in json.load(sys.stdin)['events'] if 'udp' in str(e).lower() or 'UDP' in str(e).lower()]"
-   ```
-
-5. **If UDP rejection is confirmed but not the root cause**, the issue is likely server-side throttling (WeChat, TikTok, etc. rate-limit UDP uploads).
-
-**Key insight:** Even if the current target routes to DIRECT, keep `direct` as the fallback — any future rule change that routes a UDP service through a proxy would silently break with `reject`.
-
 ## References
 
 | File | When to read |

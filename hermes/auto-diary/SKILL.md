@@ -2,18 +2,19 @@
 name: auto-diary
 description: |
   自动化日记生成和周报汇总。由 cron job 定时触发，采集天气(Open-Meteo)、日历事件(icalBuddy)、
-  AI 对话记录(Hermes sessions)、知识库变更(Obsidian vault)，生成 Obsidian 日记并通过 Telegram 通知。
+  AI 对话记录(Hermes state.db + Claude Code JSONL)、知识库变更(Obsidian vault)，
+  生成 Obsidian 日记并通过 Telegram 通知。
   每周一自动汇总上周日记生成周报。支持日历事件回填和日记清理。
 
   Use when: cron triggers daily diary (23:00) or weekly report (Mon 12:00), or user manually requests
   生成日记 / 生成周报 / 日记草稿 / weekly report / diary / 补日程 / 整理日记.
 
   DO NOT use for: general note-taking, non-diary content generation, one-off research.
-version: 2.0.0
+version: 3.0.0
 author: Hermes Agent (v2.0 compliance review)
 ---
 
-# Auto-Diary v2.0
+# Auto-Diary v3.0
 
 自动化日记生成和周报汇总。Cron 定时触发或手动调用。
 
@@ -26,6 +27,7 @@ author: Hermes Agent (v2.0 compliance review)
 | "I'll quote the user's exact words, it's more accurate" | 🔴 **Iron rule**: NEVER quote user's raw messages. Summarize. "讨论了视频分析" not "帮我看下这个 bilibili 视频". |
 | "Existing content is just a template, I'll overwrite it" | Check existing_content first. If user has written anything, merge — keep user content, fill gaps only. |
 | "icalBuddy returned empty, must be a bug" | icalBuddy silently returns empty on calendar name mismatch. Diagnose before assuming no events. |
+| "I'll just pick the top 2-3 topics, the rest are noise" | 🔴 **Exhaustive coverage** (v3.0): EVERY topic in `ai_logs.*.topics` must appear in the diary. List all first, cluster by category (📖知识输入/🔍技术调研/📝文档管线 etc.), then write. Cross-check raw session data if overview seems thin. Busy days (10+ streams) → at least 3-4总结项. |
 
 ## 🔀 Decision Tree
 
@@ -88,6 +90,7 @@ Trigger: User notices persistent "当日无日历事件" on days that had events
 | icalBuddy | Calendar queries (`brew install ical-buddy`) |
 | Open-Meteo API | Weather (free, no API key) |
 | `state.db` SQLite | Hermes session extraction (see `references/hermes-session-extraction.md`) |
+| `~/.claude/projects/*/uuid.jsonl` | Claude Code session extraction (see `references/cc-session-extraction.md`) |
 | `find` command | Vault change detection |
 
 Key improvements history: see `references/changelog.md`.
@@ -103,10 +106,15 @@ Key improvements history: see `references/changelog.md`.
 | Using relative dates without `-nrd` flag | Adjacent-day events bleed into wrong date |
 | **Using `Path("~/...")` without `.expanduser()`** | `~` expansion depends on `$HOME` env var; under regent profile, resolves to wrong home (2026-05-27 fix: use absolute `~/...`) |
 | **Reading session JSON files instead of SQLite DB** | JSON session files deprecated May 2026; sessions now in `state.db` SQLite (2026-05-27 fix: `extract_hermes_conversations.py` v2.0 queries `state.db`)
+| **CC `message` field type mismatch** | `message` can be `dict` or Python repr `str` — always use `_parse_cc_message()`. Content can be `list` or `str` — use `_extract_cc_text()`. See `references/cc-session-extraction.md`. |
 
 ## ⚠️ Config Drift (Silent Failure)
 
 icalBuddy `-ic "cal1,cal2"` on mismatched names returns empty **without error**. If diary shows persistent "当日无日历事件" but user confirms events exist → run `icalBuddy calendars` and compare with `collect_data.py`. Known migration: iCloud `<email redacted>` added "1" suffix to all calendars.
+
+## ⚠️ Known Limitations
+
+**CC session count inflation**: Observer (Claude-Mem) sessions are tallied in CC counts but produce no meaningful topics — their system prompts are filtered. This means CC `session_count` can overrepresent on days with heavy observer activity. Low priority; acceptable trade-off for now.
 
 ## Output Paths
 
@@ -120,16 +128,18 @@ icalBuddy `-ic "cal1,cal2"` on mismatched names returns empty **without error**.
 | Calendar empty | `icalBuddy eventsToday`; check Privacy & Security → Calendar permissions |
 | Diary not generated | `hermes cron list` → last_run_at; test `collect_data.py` manually |
 | AI logs empty/missing regent | Test: `python3 {baseDir}/scripts/extract_hermes_conversations.py $(date +%Y-%m-%d)` |
+| CC logs empty | Check `find ~/.claude/projects/ -name "*.jsonl" -newermt "YYYY-MM-DD"`; verify JSONL files exist for target date |
 | Weather fails | `curl -s "https://api.open-meteo.com/v1/forecast?latitude=30.27&longitude=120.16&current_weather=true"` |
 | dataless files on read | Trigger Obsidian sync first; fallback to qmd index |
 
 ## ✅ Verification Checklist
 
 - [ ] Target date confirmed and correct?
-- [ ] `collect_data.py` ran successfully (weather + AI logs + vault changes)?
+- [ ] `collect_data.py` ran successfully (weather + AI logs + CC logs + vault changes)?
 - [ ] Calendar queried with correct calendar names (`个人1,工作1,Naomi1,Zelda1`)?
 - [ ] If existing_content: user-written sections preserved, only gaps filled?
 - [ ] 🔴 NO raw user messages quoted — all AI topics summarized?
+- [ ] 🔴 All topics from `ai_logs.*.topics` covered? Busy days (10+ streams) cross-checked against raw sessions?
 - [ ] All 8 required sections present in the diary?
 - [ ] File written to correct Obsidian path?
 - [ ] User notified (cron: final response; manual: Telegram)?

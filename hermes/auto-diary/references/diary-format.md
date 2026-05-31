@@ -49,15 +49,16 @@
 
 ### 💻 Claude Code
 - **会话数**: N
+- **模型**: {model}
 - **主题**: 主要主题概要（概括性标签，非原文引用）
+- **覆盖项目**: {projects}
 
-### 🎯 OpenCode
-- **会话数**: N
-- **主题**: 主要主题概要（概括性标签，非原文引用）
+### 🎯 其他 AI 工具
+- 待扩展（OpenAI / Codex 等，可后续接入）
 ```
 - 基于 ai_logs JSON 数据生成
 - clawdbot 部分从 clawdbot_memory 提取重点
-- Claude Code 和 OpenCode 从会话列表统计
+- Claude Code 从 `~/.claude/projects/` JSONL 提取（含模型、项目信息）
 - ⚠️ 主题必须用概括性描述，严禁直接引用用户消息原文
 
 ### 4. 📚 知识库更新 (NEW)

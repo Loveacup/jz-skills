@@ -332,7 +332,7 @@ done
 
 ### ⚠️ Session 劫持诊断
 
-当你发送任务后 CC 无响应，或 `capture-pane` 显示 `❯` 后面跟着**不是你发的命令**（如 `❯ cd /Users/alexcai/code/hermes-a2a && Read ...`），说明另一个 agent 正在竞争同一 CC session。此时：
+当你发送任务后 CC 无响应，或 `capture-pane` 显示 `❯` 后面跟着**不是你发的命令**（如 `❯ cd ~/code/hermes-a2a && Read ...`），说明另一个 agent 正在竞争同一 CC session。此时：
 
 1. 发 `pwd` 测试 CC 是否处理你的输入
 2. 如果 `❯` 处出现其他 agent 的命令文本 → **不要继续发任务**
@@ -499,7 +499,7 @@ sleep 3 && tmux send-keys -t <s> Down && tmux send-keys -t <s> Enter
 | `references/teammate-mode-tmux-verified.md` | 🆕 `--teammate-mode tmux` 官方文档验证（2026-05-31）：code.claude.com/docs/en/agent-teams 确认 split-pane 模式，`teammateMode: "tmux"` 或 `--teammate-mode tmux` |
 | `Obsidian: CC tmux Agent Team 稳定性优化方案` | 稳定性全流程：session 生命周期、worker 诊断树、进度监控、异常恢复速查表 |
 | `references/progress-reporting-enhanced.md` | 🆕 增强进度模板：emoji 状态映射、worker 树、token 跟踪、4 场景模板 |
-| `references/CHANGELOG.md` | 🆕 版本历史：v3.1.0→v3.3.0 完整变更记录 |
+| `references/CHANGELOG.md` | 🆕 版本历史：v3.1.0→v3.5.0 完整变更记录 |
 | `references/de-slop-cc-integration.md` | 🆕 de-slop（AI 味去除）CC skill 集成：从 jz-skills 安装、调用签名、L4 质量门用法（2026-05-31） |
 | `references/taste-skill-mobile-prototype.md` | 🆕 CC + taste-skill 移动端原型图快速生成：Design Read → HTML/CSS → Playwright 截图（2026-05-31） |
 

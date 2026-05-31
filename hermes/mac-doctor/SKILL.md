@@ -142,7 +142,7 @@ ps -eo %cpu,%mem,comm -r 2>/dev/null | awk 'NR>1 {
 
 ## Tier 2a: Dev 审计
 
-> ⚠️ **路径警告**: 在非 default profile（如 cron-worker）下，`~` 指向 profile home 而非用户 home。所有 `~/Library/` / `~/.cache/` 必须替换为绝对路径（如 `/Users/alexcai/Library/Caches/`）。详见 Tier 3「清理陷阱 — 跨 Profile 路径陷阱」。
+> ⚠️ **路径警告**: 在非 default profile（如 cron-worker）下，`~` 指向 profile home 而非用户 home。所有 `~/Library/` / `~/.cache/` 必须替换为绝对路径（如 `~/Library/Caches/`）。详见 Tier 3「清理陷阱 — 跨 Profile 路径陷阱」。
 
 ### Dev 缓存
 
@@ -201,7 +201,7 @@ tmutil listlocalsnapshots /
 
 | 项目 | 命令 | 安全? | 注意事项 |
 |------|------|:-----:|---------|
-| npm | `npm cache clean --force` | ✅ | 纯缓存。⚠️ cron profile 下 npm 指向 `~/.hermes/profiles/cron-worker/home/.npm` → 系统缓存在 `/Users/alexcai/.npm` |
+| npm | `npm cache clean --force` | ✅ | 纯缓存。⚠️ cron profile 下 npm 指向 `~/.hermes/profiles/cron-worker/home/.npm` → 系统缓存在 `~/.npm` |
 | npm _npx | 保留当前用版本，删其余 | 🟡 | `ps aux \| grep` 找到在用 codegraph hash → 删 `_npx/` 下其他所有目录。1.7G+ 典型回收 |
 | uv | `uv cache clean` → `--force` | ✅ | 先 `lsof ~/.cache/uv` |
 | brew | `brew cleanup` | ✅ | 通常 300-400MB |
@@ -223,13 +223,13 @@ tmutil listlocalsnapshots /
 
 ### ⚠️ 跨 Profile 路径陷阱
 
-当 session 运行在非 default profile（如 cron-worker）下时，`~` 指向该 profile 的 home（如 `/Users/alexcai/.hermes/profiles/cron-worker/home/`），**不是用户真实的 home**。
+当 session 运行在非 default profile（如 cron-worker）下时，`~` 指向该 profile 的 home（如 `~/.hermes/profiles/cron-worker/home/`），**不是用户真实的 home**。
 
 | 写法 | cron-worker 下解析为 | 正确写法 |
 |------|------|------|
-| `~/Library/Caches/` | `.../profiles/cron-worker/home/Library/Caches/` ❌ | `/Users/alexcai/Library/Caches/` |
-| `~/.cache/` | `.../profiles/cron-worker/home/.cache/` ❌ | `/Users/alexcai/.cache/` |
-| `~/Library/LaunchAgents/` | profile 的 agents ❌ | `/Users/alexcai/Library/LaunchAgents/` |
+| `~/Library/Caches/` | `.../profiles/cron-worker/home/Library/Caches/` ❌ | `~/Library/Caches/` |
+| `~/.cache/` | `.../profiles/cron-worker/home/.cache/` ❌ | `~/.cache/` |
+| `~/Library/LaunchAgents/` | profile 的 agents ❌ | `~/Library/LaunchAgents/` |
 
 **Tier 2a 的所有 `~` 路径在非 default profile 下都无效。** 遇到 `du` 结果异常小（如 56M 总缓存）时，第一时间怀疑路径错误。
 
@@ -238,12 +238,15 @@ tmutil listlocalsnapshots /
 | 陷阱 | 表现 | 解法 |
 |------|------|------|
 | **Swap >90% 时 `du` 超时** | `du -sh ~/Library/` 15s+ 不返回 | 系统 I/O 被 swap 打满，改用轻量命令：`ls -lt /System/Volumes/VM/swapfile*` 查 swap 增速、`diskutil info /` 查磁盘。深度目录扫描等高 swap 消退后再做。 |
-| **非 default profile 下 `~` 指向错误** | `~/Library/Caches/` 只显示 56M，实际用户缓存 1.4G | 全部改用绝对路径：`/Users/alexcai/Library/Caches/`、`/Users/alexcai/.cache/` |
+| **非 default profile 下 `~` 指向错误** | `~/Library/Caches/` 只显示 56M，实际用户缓存 1.4G | 全部改用绝对路径：`~/Library/Caches/`、`~/.cache/` |
+| **Anomaly 误报：baseline 不成熟** | 新装 collector < 7 天，夜间基线被白天正常活动打破 → z > σ 但绝对值健康 | σ 提到 3.0。watchdog 区分 threshold/anomaly：纯异常 + diagnosis "All clear" → 静默 |
+| **跨 Profile config 不同步** | 手动改 `~/.hermes/inspection/config.json` 但 cron job 读的是 `.../profiles/cron-worker/home/.hermes/inspection/config.json` → 行为不一致 | 修改阈值时两份 config 同步改。详见 `references/cron-module.md` §跨 Profile 配置陷阱 |
 | `du ~/*/` 超时 | 15s+ 不返回 | 加 `-d 1` |
 | `uv cache clean` 卡住 | "Cache is currently in-use" | `lsof` → `--force` |
 | `brew upgrade` exit 1 | 以为是失败 | 看底部升级数 |
 | 磁盘误判 | df 显示 28% | 用 `diskutil info` |
-| **`npm cache clean --force` 无效** | 清理前后 `du -sh ~/.npm` 不变 | cron profile 下 `npm config get cache` 指向 profile home；系统缓存在 `/Users/alexcai/.npm`。对 `_npx/` 直接 `rm -rf /Users/alexcai/.npm/_npx/<旧hash>` |
+|| **`npm cache clean --force` 无效** | 清理前后 `du -sh ~/.npm` 不变 | cron profile 下 `npm config get cache` 指向 profile home；系统缓存在 `~/.npm`。对 `_npx/` 直接 `rm -rf ~/.npm/_npx/<旧hash>` |
+|| **macOS 沙盒 Container 删不动** | `rm -rf ~/Library/Containers/com.xxx.yyy` → `Operation not permitted` | macOS Container Manager 锁定沙盒目录。`sudo` 无终端不可用（cron/session），`xattr -rc` 无效，`osascript Finder delete` 弹 TCC 权限框超时。**解法：内容 <100KB 时忽略；否则在桌面端 Finder 手动拖废纸篓。** 卸载 App 优先用 App 自带的卸载器或 `AppCleaner` 等工具。 |
 
 ### 清理后验证
 

@@ -192,7 +192,8 @@ When the user says "把这个 skill 推到 GitHub" or "审查后入库" for an e
 8. **Update README badge**: increment skill count
 9. **Commit**: `feat: add <skill> (compliance-reviewed, slimmed from X→Y lines)`
 10. **Push**
-11. **Verify no stale references**: if this skill absorbed/deleted old skills, run `grep -rn "<old-skill-name>" ~/.hermes/skills/ --include="*.md" | grep -v "replaces:" | grep -v "consolidation-case-study"` to catch every remaining reference. Fix ALL before declaring done. Also check jz-skills repo: `grep -rn "<old-name>" ~/code/jz-skills/ --include="*.md"`.
+11. **Sync to all active Hermes profiles**: after push, immediately sync to regent and other profiles. `rsync -av --delete ~/.hermes/skills/<path>/ ~/.hermes/profiles/<prof>/skills/<path>/`. Don't wait for the user to remind you.
+12. **Verify no stale references**: grep for old names across all skills.: if this skill absorbed/deleted old skills, run `grep -rn "<old-skill-name>" ~/.hermes/skills/ --include="*.md" | grep -v "replaces:" | grep -v "consolidation-case-study"` to catch every remaining reference. Fix ALL before declaring done. Also check jz-skills repo: `grep -rn "<old-name>" ~/code/jz-skills/ --include="*.md"`.
 
 Case studies: `references/slimming-case-studies.md` — strategic-insight-longform (513→130), voice-to-markdown (349→133), xhs-crawler (813→124), auto-diary (324→139).
 
@@ -215,8 +216,9 @@ Case studies: `references/slimming-case-studies.md` — strategic-insight-longfo
 | Missing Red Flags table | ⚠️ MANDATORY. Without it, skill is dead on arrival |
 | Decision tree buried too deep | Must be in top 20% of body |
 | Batch-patching without re-check | ≥5 edits → re-read full file |
-| Writing for humans instead of agents | The agent is the reader; humans are reviewers |
-| No verification checklist | Agent has no self-check mechanism |
+| **Writing for humans instead of agents** | The agent is the reader; humans are reviewers |
+| **Single-skill category with vague name** | Don't create category dirs for one skill. See `references/category-naming-pitfall.md`. |
+| **No verification checklist** | Agent has no self-check mechanism |
 | **Adding skill category but not updating both sync scripts** | `sync-all.sh` deploys forward but `sync-back.sh` pairs missing → reverse sync silently broken. Always update BOTH. |
 | **Patched sync scripts without re-reading after each edit** | shell script `patch` operations can accidentally remove adjacent lines (e.g., merging two `cp -r` blocks removed `auto-diary` and `bilibili-video-analyzer`). After EVERY patch to a shell script: re-read the surrounding 10 lines to verify. |
 | **Moving skill between directories but only updating one of two locations in sync-all.sh** | `sync-all.sh` references hermes skills in TWO places: the main `sync_hermes()` section AND the per-profile loop. Both must be updated when a skill moves (e.g., to `hermes-3S6M-profiles/common/`). |
@@ -224,11 +226,14 @@ Case studies: `references/slimming-case-studies.md` — strategic-insight-longfo
 | **Applied compliance silently — didn't present the scorecard** | User can't verify the review was actually done. After modifying any skill, run the 7-dimension scorecard with line-position evidence (Red Flags at X%, decision tree at Y%, checklist at Z lines from bottom) and present it before declaring done. The scorecard IS the proof of review. |
 | **Self-reviewed instead of deployment-grounded (SkillEvolver 2026)** | Self-review misses silent-bypass, overfit, and execution-lapse failures. Always deploy to a FRESH agent (different model/context) and observe actual usage before finalizing. |
 | **Revised whole skill for one bug (EmbodiSkill 2026)** | Coarse whole-skill rewrites corrupt valid content. Only change skill content IMPLICATED by deployment evidence. |
+| **Descriptive labels don't enforce — 「汇报模板：」≠ 命令** | Section headers like 「模板：」「示例：」「参考格式：」 are read as reference material, not mandatory instructions. Agent rationalizes: "this is just an example." **Fix**: (1) rewrite label as imperative — 「必须严格按此格式，不按模板 = 未完成」; (2) add Execution Lapse pre-interception blockquote; (3) bind format requirement to the Core Rule. Case study: `references/template-vs-command.md`. |
 | **Confused Execution Lapse with Skill Defect (EmbodiSkill 2026)** | Agent ignoring valid skill ≠ skill is wrong. Classify failures before revising: if agent didn't follow a correct rule, preserve it and add emphasis instead of changing it. |
 | **Revised immediately after each failure (EmbodiSkill 2026)** | Immediate single-signal fixes cause oscillation. Accumulate B=3-5 reflections, consolidate, then revise. |
 | **`cp -r` trailing slash missing when skill name matches category directory** | `cp -r shared/<name> $base/<name>/` creates nested `<name>/<name>/` when `$base/<name>/` already exists (because `cp -r source dest_dir/` copies source *into* dest_dir). For skills whose name IS the category (e.g., `github` → `$pd/github/`), use trailing slash on source: `cp -r shared/<name>/ $base/<name>/` to copy CONTENTS without nesting. Affects both `sync_hermes()` and the per-profile loop. |
 | **sync-back.sh PAIR herm_path wrong when skill name = category name** | When the skill name matches the category directory name (e.g., `github` skill lives in `~/.hermes/skills/github/`), the PAIR should be `"shared/github|github"` — NOT `"shared/github|github/github"`. The herm_path is the local path relative to `~/.hermes/skills/`, so a skill that IS the github directory maps to just `github`. Contrast with a subcategory skill like `grill-with-docs` which maps to `governance/grill-with-docs`. Symptom: sync-back.sh dry-run says `source not found — skipped`. |
+| **Multi-profile skill name ambiguity — `skill_view()` fails with 'Ambiguous skill name'** | When a Hermes profile uses `external_dirs` to share skills from another profile, `skill_view(name)` finds TWO copies and refuses to guess. **Workaround**: (a) `read_file` with absolute path instead of `skill_view`; (b) for `skill_manage` passes, use `cross_profile=True`; (c) for bulk writes use `terminal` to bypass the guard. |
 | **Consolidated/deleted old skills without global grep for stale references** | After deleting absorbed skills, other skills' `related_skills`, `description`, decision trees, and reference files may still point to the OLD skill names. Run `grep -rn "<old-name>" ~/.hermes/skills/ --include="*.md" | grep -v "replaces:"` to find every remaining reference. Fix ALL of them before declaring done. Case study: `github-code-explorer` → `github` consolidation left 7 stale references across web-research-router, grill-with-docs, and skill-authoring. |
+| **Patch fuzzy-match destroyed file content — old_string didn't match precisely** | When `patch` can't find an exact match, fuzzy matching can replace a MUCH larger block than intended (e.g., 188-line file → 54-line file because the tool matched a near-but-wrong section and rewrote everything from there). **Symptoms**: file suddenly much shorter, unrelated content gone. **Recovery**: (1) `cp` from known-good source (jz-skills git repo, or another profile copy); (2) verify `wc -l` matches expected; (3) re-read fresh file from disk; (4) re-patch using exact strings copy-pasted from the fresh read. **Prevention**: after ANY `patch` to a reference file, `wc -l` and spot-check the first line to confirm the file wasn't replaced wholesale. Case study: mac-doctor cron-module.md corrupted during cross-profile patch (2026-05-31). |
 
 ---
 
@@ -243,7 +248,11 @@ Case studies: `references/slimming-case-studies.md` — strategic-insight-longfo
 | `references/skill-evolution-research.md` | SkillEvolver + EmbodiSkill papers (2026-05): deployment-driven skill evolution |
 | `references/consolidation-case-study.md` | Multi-skill consolidation pattern (8→1): shared state, decision tree, governance |
 | `references/cross-project-evaluation.md` | Decision tree for evaluating external projects before absorbing features (case studies: AnySearch, ECC, taste-skill) |
+| `references/cross-project-evaluation.md` | Decision tree for evaluating external projects before absorbing features (case studies: AnySearch, ECC, taste-skill) |
 | `references/absorption-analysis.md` | When to absorb external inspiration vs when NOT to (AnySearch case study) |
+| `references/dual-role-patterns.md` | Two-pass cached review pattern: Advocate→Challenger→Synthesize, inspired by oh-my-hermes ralplan. Use during Step 3 audit or Step 9 deployment audit |
+| `references/category-naming-pitfall.md` | Rule: don't create single-skill categories (note-taking/ case study) |
+| `references/template-vs-command.md` | 🆕 Case study: descriptive labels vs imperative commands for agent compliance (claude-code 2026-05) |
 
 ---
 

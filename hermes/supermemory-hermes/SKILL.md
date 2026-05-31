@@ -1,7 +1,7 @@
 ---
 name: supermemory-hermes
 description: "Set up, configure, and manage Supermemory as Hermes Agent's external memory provider. Covers SDK setup, API key config, provider switching, container_tag isolation for multi-profile deployments, metadata taxonomy, cross-pool wrapper usage, LRU cache layer, and the 三省六部 cabinet memory sharing model. Load when the user mentions Supermemory, memory setup, provider switching, cross-pool queries, or multi-profile memory architecture. Do NOT load for local `memory` tool operations (those are L1, independent of Supermemory)."
-version: 1.1.0
+version: 1.2.0
 author: Hermes Agent
 license: MIT
 platforms: [macos, linux]
@@ -36,8 +36,8 @@ User mentions Supermemory/memory/cabinet/cross-pool?
 │   └── → `references/phase-2-3-changelog.md`
 ├── Need SDK API reference?
 │   └── → §Key SDK Methods
-├── Hitting errors?
-│   └── → §Common Pitfalls (top 5) then `references/common-pitfalls.md`
+├── Hitting errors or need daily ops guide?
+│   └── → §Common Pitfalls (top 5) then `references/supermemory-six-rules.md`（2026-05-29 太子实测六条）
 └── Full architecture design?
     └── → Obsidian: `20-Areas/10_AI实践/三省六部_Hermes/10_制度/Supermemory三省六部记忆架构设计_v2.0.md`
 ```
@@ -51,12 +51,15 @@ User mentions Supermemory/memory/cabinet/cross-pool?
 | L1 | Local `memory` tool | Single session/profile | Built-in (always on) |
 | L2 | Semantic long-term memory | Cross-session/profile | **Supermemory** (Hindsight retired) |
 
-Two `container_tag` pools with physical isolation:
+Three+ `container_tag` pools with physical isolation. The known pools:
 
 ```
 hermes            → default (小黄) — private
 hermes-cabinet    → regent + 14 三省六部 — shared institutional
+sm_project_cli    → pi (Windows 7800x3d) — jz-skills project config
 ```
+
+Additional pools may exist. Check `container_tag` in `supermemory.json`, search Supermemory for unknown tags, or ask the user for the full pool inventory. Do NOT assert "only two pools" — this was wrong in v1.0.
 
 ---
 
@@ -103,6 +106,8 @@ Standalone script at `~/.hermes/scripts/supermemory_crosspool.py`. Three channel
 | X3 | archivist → hermes | read-only, no filter, 30/min | ON |
 | X4 | dispatcher → hermes | read-only, task_summary only, 4/min | ON |
 
+> ⚠️ **ACTIVATION GATE**: All channels are subject to `cross_pool_read` in `supermemory.json`. When set to `false` (current default), cross-pool queries are blocked regardless of channel config. The "ON" status above means channel is *configured*, not necessarily *active*. Check `supermemory.json → search_policy → cross_pool_read` to confirm.
+
 ```bash
 # Query with cross-pool
 ~/.hermes/hermes-agent/venv/bin/python3 \
@@ -114,6 +119,59 @@ Standalone script at `~/.hermes/scripts/supermemory_crosspool.py`. Three channel
 ```
 
 Audit log: `~/.hermes/logs/crosspool_audit.log`
+
+### 🔑 Cross-Pool Config Format (supermemory.json)
+
+The wrapper reads `search_policy` as a **dict** with `cross_pool_read` as an **array of channel objects**. Getting this wrong is the #1 cause of cross-pool failures.
+
+**Correct format:**
+
+```json
+{
+    "profiles": {
+        "default": {
+            "container_tag": "hermes",
+            "search_policy": {
+                "mode": "department",
+                "default_top_k": 8,
+                "cross_pool_read": [
+                    {
+                        "container_tag": "hermes-cabinet",
+                        "mode": "readonly",
+                        "max_top_k": 5,
+                        "filter": {"visibility": "cabinet-shared"},
+                        "rate_limit": {"per_minute": 6, "per_day": 500},
+                        "require_explicit_intent": true
+                    },
+                    {
+                        "container_tag": "sm_project_cli",
+                        "mode": "readonly",
+                        "max_top_k": 5,
+                        "filter": {},
+                        "rate_limit": {"per_minute": 10, "per_day": 500},
+                        "require_explicit_intent": false
+                    }
+                ]
+            }
+        }
+    }
+}
+```
+
+**🚨 FORMAT TRAPS:**
+- `search_policy` MUST be a dict — if it's a string (`"department"`), the script crashes with `AttributeError: 'str' object has no attribute 'get'`
+- `cross_pool_read` MUST be an array — not `true`/`false` boolean. Boolean values are silently treated as empty list (no channels).
+- `rate_limit` is a nested object with `per_minute` and `per_day` keys, not flat fields.
+- Each channel entry REQUIRES `container_tag` (string). All other fields have defaults.
+- `filter` restricts to specific metadata values (e.g. `{"visibility": "cabinet-shared"}`). Empty `{}` = no filter.
+- `require_explicit_intent: true` gates the channel on `CROSS_POOL_INTENT_KEYWORDS` (see script source). Set `false` for project-config pools that should always be searched.
+
+**Verification after config change:**
+```bash
+~/.hermes/hermes-agent/venv/bin/python3 \
+  ~/.hermes/scripts/supermemory_crosspool.py default --stats
+```
+Should show `cross_pool_channels: N` (not 0) and list target containers.
 
 ---
 
@@ -175,13 +233,15 @@ client.memories.forget(id="mem_xxx", container_tag="hermes")
 
 ---
 
-## Common Pitfalls (Top 5)
+## Common Pitfalls (Top 7)
 
 1. **SDK not installed** → `python3 -m pip install supermemory` in venv
 2. **Provider switch needs restart** → `hermes gateway restart`
 3. **Cross-pool OR queries don't exist** → make two calls + merge
 4. **API key has no pool permissions** → access control in wrapper, not key
 5. **A2A mode doesn't load MemoryProvider** → use API Server for memory ops
+6. **Assuming only two pools exist** → additional pools like `sm_project_cli` (pi) may be live. Discover with `client.search.memories(q="test", container_tag="<candidate>")` — if it returns without error, the pool exists even if empty.
+7. **`search_policy` is a string, not a dict** → the crosspool wrapper calls `.get('cross_pool_read')` on `search_policy`. If `search_policy` is `"department"` (string), it crashes. See §Cross-Pool Config Format for the correct dict structure.
 
 Full list: `references/common-pitfalls.md`
 
@@ -191,7 +251,7 @@ Full list: `references/common-pitfalls.md`
 
 | File | When to read |
 |------|-------------|
-| `references/supermemory-cabinet-design-v1.1.md` | Full architecture design document |
+| `references/supermemory-six-rules.md` | **Daily ops & quick diagnostics** — 太子 live-ops findings: tools vs SDK, pool isolation, supermemory.json trap, false negatives, Dynamic Dreaming failures, daily commands |
 | `references/hindsight-migration-guide.md` | Historical: Hindsight → Supermemory migration procedure |
 | `references/common-pitfalls.md` | Complete pitfalls list (16 items) |
 | `references/phase-2-3-changelog.md` | What changed in Phase 2/3 implementation |
