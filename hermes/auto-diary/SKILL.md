@@ -158,6 +158,13 @@ icalBuddy `-ic "cal1,cal2"` on mismatched names returns empty **without error**.
 - [ ] File written to correct Obsidian path?
 - [ ] User notified (cron: final response; manual: Telegram)?
 
+## ⏰ Cron 配置
+
+Cron job 配置存档于 `config/cron-job.json`，包含完整 prompt + schedule + model。每次更新 prompt 后应同步更新此文件。
+
+- Current: 每天 23:00, cron-worker profile, deepseek-v4-flash
+- Job ID: `1ca6e7d692fa`
+
 ---
 
 ## Deployment & Sync

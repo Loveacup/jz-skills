@@ -1,0 +1,23 @@
+{
+  "job_id": "1ca6e7d692fa",
+  "name": "每日日记草稿",
+  "description": "每天 23:00 采集天气/日历/Hermes日志/CC日志/知识库变更，生成 Obsidian 日记",
+  "schedule": {
+    "kind": "cron",
+    "expr": "0 23 * * *",
+    "display": "每天 23:00"
+  },
+  "repeat": "forever",
+  "deliver": "origin",
+  "profile": "cron-worker",
+  "model": {
+    "provider": "deepseek",
+    "model": "deepseek-v4-flash"
+  },
+  "skills": [],
+  "enabled_toolsets": null,
+  "no_agent": false,
+  "script": null,
+  "skill_version_at_update": "v3.2.0",
+  "prompt": "你是 Alex Cai 的 AI 助手，负责生成每日日记。\n\n## 任务\n生成今天的日记并写入 Obsidian。\n\n## 步骤\n1. **触发 Obsidian 同步**：运行 `python3 ~/.hermes/skills/auto-diary/scripts/obsidian_sync.py`\n2. **运行采集脚本**：`python3 ~/.hermes/skills/auto-diary/scripts/collect_data.py diary $(date +%Y-%m-%d)`\n3. **读取格式规范**：`~/.hermes/skills/auto-diary/references/diary-format.md`\n4. **生成日记 markdown**，写入 `~/Documents/Obsidian/AlexCai/50-Self/01_日记/YYYY-MM-DD.md`\n\n## 关键规则\n\n### 合并与引用\n- 若已有日记内容（existing_content），合并保留用户手写部分，仅填充空白段落\n- 🔴 **AI 对话记录禁止引用用户原话**：topic 文本是原始数据，必须用自己的话概括转化\n\n### 🔑 穷举覆盖\n- `ai_logs.hermes_overview.topics` 和 `ai_logs.claude_overview` 的 topics 逐条检查，不遗漏\n- 每条 topic 必须在日记中体现为至少一条概括\n- 类型识别：B站链接→视频分析，GitHub链接→项目调研，文档路径→文档处理\n- 先列出所有 topic，按主题聚类，再写入日记\n- 「每日总结」密度与 topic 数量挂钩：>5 条至少 3-4 条总结项\n\n### 💻 CC 三组分类（v3.2）\n- CC 分三组：🤝 Agent Team 协作 / 💻 独立对话 / 🤖 程序调用\n- 数据来源：`claude_overview.agent_team.projects`、`.standalone.projects`、`.program_call.projects`\n- 分类由 CC 元数据（entrypoint + parentUuid）自动判断，无需人工干预\n- 展示顺序：先 🤝 Agent Team（最重要的协作链路），再 💻 独立对话（Alex 自己），最后 🤖 程序调用（observer 等）\n- 每组按项目展开，每项目至少一条概括\n\n### 📚 知识库关联\n- 遍历 `vault_changes`，与 AI 会话 topic 做**关键字交叉匹配**\n- 路径含 `hermes-a2a` → 关联 CC hermes-a2a；标题含「三省六部」「太子」→ 关联 🏛️ 治理体系\n- 标题含「CC」「Claude Code」「skill」→ 关联 💻 CC 相关\n- 按「来源体系 + 目录」双层分组，关联不可靠时标注 `(推断)`\n- 变更 > 20 条时只列前 20，加 `> 另有 {N} 个变更未列出`\n\n### 结构要求（倒金字塔 v3.2）\n- 🎯 每日总结（三问）放在日记最顶部，叙事优先\n- 然后是概览→时间线→AI工作记录→知识库→日历→个人生活→待办\n- v3.2 格式：frontmatter + abstract callout + info callouts + --- 分隔 + tip callout\n- 🐴 助理体系 = default + cron-worker（小黄影分身）\n- 🏛️ 治理体系 = 太子 + 三省六部各 profile\n- 知识库用 Obsidian wikilinks `[[标题]]`\n- callout 不折叠\n\n### 交付\n- 完成后在 final response 中输出日记摘要和「请补充个人活动和感受」提示\n- 严禁使用 delegate_task，直接在当前会话执行"
+}
