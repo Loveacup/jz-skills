@@ -161,3 +161,29 @@ ls -lt ~/Documents/Obsidian/AlexCai/00-Inbox/ | head -5
 4. 用户说"方案都没定" = 立即停止任何文件修改，退回到讨论模式
 
 **本会话复现：** 2026-05-31。前一轮 CC 在 Alex 未审定决策点时就完成了 30 项 P0 修改 + git commit。用户要求删除仓库副本并从原始备份重新开始。
+
+## 24. CC 假空闲 — ❯ 可见但实际在深度思考 ★
+
+**症状：** `capture-pane` 底部显示 `❯`，看起来空闲可输入。但实际上方有 `✻ Sublimating…` / `✶ Zigzagging…` / `✽ Swooping…` / `✳ Billowing…` 等思考状态。此时 CC 正在处理上一个任务，**不是真的空闲**。
+
+**危害：** 另一个 agent 看到 `❯` 就发 `/clear` + 新任务 → **劫持正在执行的旧任务**。cron-worker 真实遭遇：
+> "🚨 CC 被劫持了！另一个 agent 往同一个 session 发了 /clear + 日记优化任务，把我刚才的实现指令覆盖了。"
+
+**正确的空闲检测（扩展 Pitfall #18）：**
+```bash
+# 不只是 grep '●'，还要 grep 思考状态
+tmux capture-pane -t "$s" -p -S -10 | grep -qE '✻|✶|✽|✳|Sublimating|Zigzagging|Billowing|Crunched|Wandering|Swooping|Cooking|Pouncing|Catapulting|Orbiting|Spinning'
+```
+
+**完整空闲条件 = 所有条件同时满足：**
+1. 底部显示 `❯`
+2. 无 `●` 工具调用
+3. 无 `✻/✶/✽/✳` 思考状态
+4. 无 `Waiting for N background agents`
+5. 无 `Skedaddling/Puzzling` 后台 shell
+
+**长期方案：** 默认不复用 session，每次调 CC 新建 `hermes-cc-{agent}-{ts}`。
+
+**本会话复现：** 2026-06-02。主 agent 的 CC 日记优化任务劫持了 cron-worker 的 watchdog 实现任务。cron-worker 被迫建独立 session 重新执行。
+
+**Obsidian 记录：** `00-Inbox/CC Session 劫持事件 — 假空闲陷阱_20260602.md`

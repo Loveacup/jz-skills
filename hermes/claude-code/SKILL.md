@@ -8,7 +8,7 @@ description: |
   让claude, agent team, claude review
   DO NOT use for: simple single-tool calls (Hermes does those directly), grammar fixes,
   non-coding creative writing (use appropriate creative skills)
-version: 3.5.0
+version: 3.5.1
 author: Hermes Agent + Teknium
 license: MIT
 ---
@@ -291,6 +291,11 @@ for s in $(tmux list-sessions -F '#{session_name}' 2>/dev/null); do
     echo "⚠️ BUSY: $s — $tool"
   fi
   
+  # 检测 ✻/✶/✽/✳ 思考状态（CC 深度思考中，不是空闲）
+  if echo "$pane" | grep -qE '✻|✶|✽|✳|Sublimating|Zigzagging|Billowing|Crunched|Wandering|Swooping|Cooking'; then
+    echo "🧠 THINKING: $s — CC 在深度思考旧任务，不可打扰"
+  fi
+  
   # 检测 ❯ 空闲（CC 等待输入）
   if echo "$pane" | tail -1 | grep -q '❯'; then
     echo "✅ IDLE: $s — CC 空闲，可复用"
@@ -473,6 +478,7 @@ sleep 3 && tmux send-keys -t <s> Down && tmux send-keys -t <s> Enter
 | ★21 | **Obsidian Vault Gate 循环：写入被反复拦截** | `Ctrl+C` → 显式放行指令（覆盖文件引用者/Glob/数据结构/用户指令 4 项）。**预防**：context file 预填 Gate 事实。详见 `references/common-pitfalls.md` #21。 |
 | ★22 | **Hermes cross-profile write guard 阻拦 context file** | context file 写到 `/tmp/`（中性位置），CC 从 `/tmp/` 读取后直接在目标 workdir 改文件——CC 的 Write 工具不受 Hermes profile guard 影响。 |
 | ★23 | **CC 在方案未审定时提前执行：修改文件+提交，但用户没批准** | 当用户说"处理决策点"/"看方案"时，**默认 = 讨论，不是执行**。只有用户明确说"可以做了"/"执行吧"后才动手。详见 `references/common-pitfalls.md` #23。 |
+| ★24 | **CC 假空闲 — 底部 ❯ 可见但 ✻ 思考中** | `capture-pane` 底部 `❯` 不等于 CC 空闲。上方可能正在深度思考旧任务（`✻ Sublimating…`）。占用检测必须同时 grep `✻|✶|✽|✳`。2026-06-02 主 agent 劫持了 cron-worker 任务。详见 `references/common-pitfalls.md` #24。 |
 | ★23 | **CC 自动恢复旧会话——不是干净启动** | 当 workdir 下有 `.claude/` 状态时，新 tmux session 的 `claude` 命令会**自动 resume 最近一次会话**，不会从零开始。看到熟悉的 task board 和历史记录说明是旧会话。**处置**：(1) 先检查是否已有成果——如果上轮已完成任务，直接收成果；(2) 如需干净启动，用 `claude --new-session` 或切到无 `.claude/` 的目录；(3) 不要假设每次 `tmux new-session + claude` 都是全新开始。2026-05-31 复现：启动 CC 执行 SIL v5.0 改造，结果恢复了之前已全部完成的 session。 |
 
 ## 📦 References
@@ -507,7 +513,7 @@ sleep 3 && tmux send-keys -t <s> Down && tmux send-keys -t <s> Enter
 
 ## ✅ Verification Checklist（稳定性优先）
 
-- [ ] **🛑 占用检测？** 调 CC 前是否扫描了所有 tmux session 的 `●`？有 BUSY 是否汇报了用户？
+- [ ] **🛑 占用检测？** 调 CC 前是否扫描了所有 tmux session 的 `●` **和 `✻`**？思考状态（`✻/✶/✽/✳`）的 session 也视为忙碌！
 - [ ] **Session 隔离？** 是否避免了 `--continue`？session 名用 `hermes-cc-{profile}-{ts}`？
 - [ ] **Workdir 隔离？** 多 agent 是否用了不同 workdir？
 - [ ] **HOME override？** 是否带了 `HOME=/Users/alexcai`？
