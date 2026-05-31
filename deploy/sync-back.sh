@@ -68,6 +68,7 @@ PAIRS=(
   "hermes/reply-context-retrieval|reply-context-retrieval"
   "hermes/supermemory-hermes|governance/supermemory-hermes"
   "hermes/mac-doctor|apple/mac-doctor"
+  "hermes/tts-manager|hermes/tts-manager"
 
   # === hermes-3S6M-profiles/common ===
   "hermes-3S6M-profiles/common/three-provinces-constitution|governance/three-provinces-constitution"

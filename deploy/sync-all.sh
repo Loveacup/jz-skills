@@ -22,7 +22,7 @@ sync_hermes() {
   cp -r "$REPO_ROOT/shared/xhs-tech-writer"    "$base/hermes/"
 
   # Hermes-specific skills
-  mkdir -p "$base/research" "$base/productivity" "$base/governance" "$base/autonomous-ai-agents" "$base/devops" "$base/apple"
+  mkdir -p "$base/research" "$base/productivity" "$base/governance" "$base/autonomous-ai-agents" "$base/devops" "$base/apple" "$base/hermes"
   cp -r "$REPO_ROOT/hermes/web-research-router"             "$base/research/"
   cp -r "$REPO_ROOT/hermes/tradingagents"                   "$base/research/"
   cp -r "$REPO_ROOT/hermes/llm-wiki"                        "$base/research/"
@@ -37,6 +37,7 @@ sync_hermes() {
   cp -r "$REPO_ROOT/hermes/reply-context-retrieval"        "$base/"
   cp -r "$REPO_ROOT/hermes/supermemory-hermes"              "$base/governance/"
   cp -r "$REPO_ROOT/hermes/mac-doctor"                     "$base/apple/"
+  cp -r "$REPO_ROOT/hermes/tts-manager"                    "$base/hermes/"
   cp -r "$REPO_ROOT/hermes-3S6M-profiles/gongbu/surge-gateway"  "$base/devops/"
 
   # Sync to all profiles

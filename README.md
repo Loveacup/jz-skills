@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-58-blue" alt="58 skills">
+  <img src="https://img.shields.io/badge/skills-59-blue" alt="59 skills">
   <img src="https://img.shields.io/badge/profiles-15%20三省六部-orange" alt="15 profiles">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
@@ -37,7 +37,7 @@ jz-skills/
 │   ├── obsidian-md-ac/            # Obsidian Markdown + Mermaid + JSON Canvas
 │   ├── supermemory-maintenance/      # Supermemory 通用参考 + 诊断 v6 · 4 refs
 │   ├── xiaohongshu-cards/         # 小红书图文卡片
-├── hermes/                        # ⚙️ Hermes 平台通用 — 14 skills
+├── hermes/                        # ⚙️ Hermes 平台通用 — 15 skills
 │   ├── web-research-router/       # v3.7 · Exa+Brave 双主力 / SearXNG 降级 / Step 0 强制 / Output Contract [s<id>]
 │   ├── tradingagents/             # 交易分析
 │   ├── llm-wiki/                  # LLM 知识库
@@ -52,6 +52,7 @@ jz-skills/
 │   ├── claude-code/               # CC 编排
 │   ├── supermemory-hermes/         # Cabinet Memory 全手册 v1.1
 │   ├── mac-doctor/                 # 🩺 macOS 六级巡检：评分/安全/硬件/网络/隐私/告警/历史追踪
+│   ├── tts-manager/                # TTS 聚合管理：provider registry / 音色测试 / 后备策略
 ├── hermes-3S6M-profiles/          # 🏯 三省六部体系
 │   ├── common/                    # 全部门通用 — 2 skills
 │   │   ├── three-provinces-constitution/  # 三省六部宪法 v3.0
@@ -103,7 +104,7 @@ jz-skills/
 | 🌐 **Cross-platform** · 跨平台 | One skill, three agents — Hermes, Claude Code, and pi deploy from the same source |
 | 🏯 **15-profile governance** · 三省六部 | 监国三省六部制: task routing, escalation, handoff across 15 specialized profiles |
 | 🔄 **Bidirectional sync** · 双向同步 | `sync-back.sh` (local → GitHub, auto-sanitized) + `sync-all.sh` (GitHub → local) |
-| 📋 **57 compliance-reviewed skills** · 合规审计 | Every skill passes 7-dimension audit: progressive disclosure, anti-rationalization, positioning |
+| 📋 **59 compliance-reviewed skills** · 合规审计 | Every skill passes 7-dimension audit: progressive disclosure, anti-rationalization, positioning |
 | 🧹 **Auto-sanitization** · 自动脱敏 | Home paths → `~/`, emails → redacted, private IPs → redacted, API keys stripped before commit |
 | 🤖 **AI-authored** · AI 创作 | Skills created, audited, evolved by AI agents — following skill-authoring v3.0 |
 | 🔬 **Deep research** · 深度研究 | Multi-step research loop with verbatim quote extraction, anti-refusal, query decomposition — based on 5 OSS projects · 多步深度研究：逐字引用、反拒绝、查询分解 |
