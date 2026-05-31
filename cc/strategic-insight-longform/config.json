@@ -1,0 +1,323 @@
+{
+  "version": "5.0.0",
+  "skill_name": "strategic-insight-longform",
+  "optimization_notes": "v5.0: CC 原生 + 四层质量门 + 双轴方法论。删除三模式，火力全开；删除自造 verb，统一 CC 原生 tool；新增 quality_gates / dual_axis / task_timeouts / neat_freak。",
+
+  "execution": {
+    "mode": "full_power",
+    "description": "v5.0 取消 Deep/Standard/Quick 三模式分支，统一火力全开：16 agent 全跑，L1-L4 四闸门全开，GoT + CoV + 双轴按 analysis_type 自动启用。",
+    "estimated_time": "12-20 分钟",
+    "estimated_output_tokens": "86-136k",
+    "cot_level": "full_with_metacognition"
+  },
+
+  "agents": {
+    "all_required": true,
+    "roster": [
+      "question-refiner",
+      "topic-preprocessor",
+      "knowledge-enricher",
+      "framework-builder",
+      "got-controller",
+      "spatial-researcher",
+      "temporal-researcher",
+      "domain-researcher",
+      "stakeholder-analyst",
+      "causal-analyst",
+      "source-manager",
+      "insight-synthesizer",
+      "longform-writer",
+      "output-finalizer",
+      "memory-curator",
+      "pattern-crystallizer"
+    ],
+    "question_refiner_trigger": {
+      "description": "topic < 8 字或意图模糊时触发；否则跳过",
+      "confidence_threshold": 0.8,
+      "max_questions": 5
+    }
+  },
+
+  "frameworks": {
+    "core": {
+      "std_cube": { "enabled": true, "ref": "references/std-cube-methodology.md" },
+      "dual_axis": {
+        "enabled": true,
+        "ref": "references/dual-axis-methodology.md",
+        "preferred_for_analysis_types": ["现象解构", "趋势研判", "企业战略"]
+      },
+      "5w2h": { "enabled": true, "usage": "问题拆解与框架构建" },
+      "pestle": { "enabled": true }
+    },
+    "supplementary": {
+      "library_ref": "references/framework-library.md",
+      "selection_count": { "min": 3, "max": 5 },
+      "selection_basis": "analysis_type_routing + memory_recommendations"
+    },
+    "analysis_type_routing": {
+      "战略级全息": { "axis_type": "std-cube", "musts": ["std_cube", "5w2h", "pestle"] },
+      "现象解构":   { "axis_type": "dual-axis", "musts": ["dual_axis", "5w2h", "causal_chain"] },
+      "趋势研判":   { "axis_type": "dual-axis", "musts": ["dual_axis", "s_curve", "tech_maturity"] },
+      "企业战略":   { "axis_type": "dual-axis", "musts": ["dual_axis", "porter_five_forces", "value_chain"] },
+      "政策分析":   { "axis_type": "std-cube", "musts": ["pestle", "stakeholder", "std_cube"] },
+      "行业研究":   { "axis_type": "std-cube", "musts": ["porter_five_forces", "std_cube", "value_chain"] }
+    },
+    "pre_enabled": {
+      "causal_chain": { "enabled": true, "levels": 5 },
+      "stakeholder": { "enabled": true },
+      "porter_five_forces": { "enabled": true },
+      "game_theory": { "enabled": true }
+    }
+  },
+
+  "quality_gates": {
+    "red_flags": {
+      "enabled": true,
+      "count": 8,
+      "ref": "references/quality-gates.md"
+    },
+    "l1_hard_rules": {
+      "enabled": true,
+      "blacklist_hits": 0,
+      "textbook_opening_hits": 0,
+      "consecutive_emdash_paragraphs": 0,
+      "yaml_completeness": 1.0,
+      "blacklist_ref": "references/anti-ai-blacklist.md",
+      "max_revision_rounds": 2
+    },
+    "l2_style": {
+      "enabled": true,
+      "section_length_variance_min": 0.40,
+      "short_sentence_ratio_max": 0.10,
+      "foreshadow_recovery_min": 0.70,
+      "embedded_in_writer": true,
+      "max_revision_rounds": 2
+    },
+    "l3_content": {
+      "enabled": true,
+      "argument_chain_coverage_min": 0.90,
+      "cov_citation_completeness_min": 0.95,
+      "cov_url_reachability_min": 0.85,
+      "cov_cross_verification_min": 0.70,
+      "hkr_resonance_min": 3.5,
+      "citation_density_per_400_words": 1.0,
+      "citation_density_tolerance": 0.30,
+      "max_revision_rounds": 1
+    },
+    "l4_human_voice": {
+      "enabled": true,
+      "ai_word_density_per_kwords_max": 0.3,
+      "emdash_density_per_800_chars_max": 1.0,
+      "triplet_pattern_count_max": 2,
+      "negation_parallel_count_max": 1,
+      "use_deslop_skill": true,
+      "deslop_skill_name": "de-slop",
+      "deslop_invoke_template": "检测并改写以下文本的AI味：{text}",
+      "max_revision_rounds": 1
+    },
+    "verdict_schema": {
+      "required_fields": ["gate", "pass", "score", "subscores", "blocking", "next_action"],
+      "wrapper": "<verdict>...</verdict>",
+      "parser": "regex_extract + json_loads",
+      "no_deadlock": true,
+      "on_max_revision_exceeded": "mark_low_confidence + score_penalty + warn"
+    },
+    "final_passing_score": 4.0,
+    "revision_loop": {
+      "enabled": true,
+      "max_rounds": 1,
+      "trigger": "score_below_4.0 OR has_critical_failure",
+      "mechanism": "SendMessage from output-finalizer to longform-writer"
+    }
+  },
+
+  "neat_freak": {
+    "enabled": true,
+    "max_inflation_ratio": 5.0,
+    "max_chapter_word_ratio": 0.35,
+    "principles": ["合并优于追加", "精确优于冗长", "指针不重复"],
+    "embedded_in_writer": true,
+    "embedded_in_finalizer": true
+  },
+
+  "task_timeouts": {
+    "default_seconds": 600,
+    "researcher_seconds": 900,
+    "source_manager_seconds": 1200,
+    "task_update_heartbeat_seconds": 90,
+    "retry_strategy": {
+      "researcher": { "max_retries": 1, "temperature_bump": 0.1, "on_fail": "placeholder_low_confidence" },
+      "stakeholder_or_causal": { "max_retries": 1, "on_fail": "placeholder_low_confidence" },
+      "writer": { "max_retries": 1, "on_fail": "abort_keep_intermediate" },
+      "finalizer": { "max_retries": 1, "on_fail": "abort_keep_intermediate" },
+      "memory_curator": { "max_retries": 0, "on_fail": "skip_silent" },
+      "pattern_crystallizer": { "max_retries": 0, "on_fail": "skip_silent" },
+      "got_controller": { "max_retries": 0, "on_fail": "skip_silent" }
+    },
+    "partial_quorum": {
+      "researchers_2a": { "min_success": 2, "of_total": 3, "annotate_missing_dimension": true }
+    }
+  },
+
+  "obsidian_formatting": {
+    "enabled": true,
+    "stage": "6.5",
+    "method": "skill_invocation",
+    "skill_name": "obsidian-md-ac",
+    "invoke_template": "美化文件 {final_file}：emoji 标题、==高亮==、Mermaid、callouts、YAML 合规、wikilinks 关系分析",
+    "features": [
+      "emoji_headings",
+      "highlights",
+      "mermaid_diagrams",
+      "callouts",
+      "yaml_compliance",
+      "link_relationship_analysis"
+    ]
+  },
+
+  "cot_settings": {
+    "default": {
+      "template": "6步完整思维链+元认知反思",
+      "sections": [
+        "观察 (Observation)",
+        "关联 (Association)",
+        "推理 (Reasoning)",
+        "假设 (Hypothesis)",
+        "验证 (Validation)",
+        "结论 (Conclusion)",
+        "元认知反思 (Metacognitive Reflection)"
+      ],
+      "output_mode": "embedded_in_article"
+    }
+  },
+
+  "search_iteration": {
+    "enabled": true,
+    "max_rounds": 3,
+    "signal_threshold": 0.6
+  },
+
+  "got_controller": {
+    "enabled": true,
+    "scoring": {
+      "dimensions": ["data_availability", "topic_relevance", "insight_potential", "differentiation_value"],
+      "max_scores": [3, 3, 2, 2],
+      "thresholds": {
+        "enhance": 8,
+        "standard": 6,
+        "reduce": 4,
+        "skip": 0
+      }
+    },
+    "strategies": ["balanced", "breadth_first", "depth_first"]
+  },
+
+  "cov_verification": {
+    "enabled": true,
+    "layers": {
+      "citation_completeness": {
+        "target_coverage": 1.0,
+        "red_flag_below": 0.60,
+        "ref": "L3 early trigger → Red Flag 4"
+      },
+      "source_reachability": {
+        "tool": "crawling_exa",
+        "target_reachability": 0.85,
+        "red_flag_above_dead_link_ratio": 0.40,
+        "ref": "L3 early trigger → Red Flag 5"
+      },
+      "cross_verification": {
+        "tool": "web_search_exa",
+        "max_claims": 10,
+        "min_independent_sources": 2,
+        "target_pass_rate": 0.70
+      }
+    },
+    "credibility_score_min": 7,
+    "verdict_schema_ref": "references/quality-gates.md"
+  },
+
+  "output_formats": {
+    "standard": {
+      "description": "单文件 Markdown，思维链内嵌，来源索引作为附录",
+      "file_pattern": "战略洞察-{refined_title}.md",
+      "auto_copy_to": "~/Obsidian/AlexCai/00-Inbox/",
+      "sections": [
+        "YAML frontmatter",
+        "全息摘要 (150-200 字)",
+        "主思维链",
+        "核心观点速览 (3-5 要点)",
+        "正文 (S-T-D 或 dual-axis 结构)",
+        "战略启示",
+        "横纵交汇洞察 (dual-axis 启用时)",
+        "附录 A-E",
+        "附录：来源索引"
+      ],
+      "word_count_range": [8000, 30000]
+    }
+  },
+
+  "memory": {
+    "enabled": true,
+    "directory_template": "${SKILL_DIR}/memory/",
+    "auto_update": true,
+    "max_sessions": 50,
+    "topic_confidence_decay_per_day": 0.01,
+    "schema_ref": "references/memory-schema.md"
+  },
+
+  "knowledge": {
+    "enabled": true,
+    "qmd_collection": "obsidian",
+    "vsearch_min_relevance": 0.5,
+    "web_search": true,
+    "exa": {
+      "enabled": true,
+      "preferred_over_websearch": true,
+      "tools": ["web_search_exa", "company_research_exa", "crawling_exa", "linkedin_search_exa"],
+      "fallback": "WebSearch"
+    }
+  },
+
+  "learning": {
+    "enabled": true,
+    "min_occurrences_to_crystallize": 3,
+    "min_confidence_auto_apply": 0.85,
+    "min_confidence_candidate": 0.70,
+    "confidence_decay_per_day": 0.01,
+    "max_patterns": 100,
+    "pattern_types": [
+      "framework_effectiveness",
+      "source_reliability",
+      "writing_optimization",
+      "analysis_depth",
+      "topic_association"
+    ]
+  },
+
+  "source_requirements": {
+    "min_independent_sources": 5,
+    "min_data_points_per_level": 3,
+    "min_cases_per_level": 1
+  },
+
+  "skill_invocations": {
+    "de_slop": {
+      "skill_name": "de-slop",
+      "invoke_template": "检测并改写以下文本的AI味：{text}",
+      "trigger": "L4 soft violation auto-invoked by output-finalizer"
+    },
+    "obsidian_md_ac": {
+      "skill_name": "obsidian-md-ac",
+      "invoke_template": "美化文件 {final_file}：emoji 标题、==高亮==、Mermaid、callouts、YAML 合规、wikilinks 关系分析",
+      "trigger": "Stage 6.5 by Leader after final-article approved"
+    }
+  },
+
+  "defaults": {
+    "cot_level": "full_with_metacognition",
+    "output_format": "standard",
+    "enable_progress_feedback": true,
+    "skill_dir_env_var": "SKILL_DIR"
+  }
+}

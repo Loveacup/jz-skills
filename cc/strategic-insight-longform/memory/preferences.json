@@ -1,0 +1,17 @@
+{
+  "version": "1.0",
+  "output_preferences": {
+    "default_mode": "standard",
+    "preferred_format": "obsidian_v3",
+    "wikilink_style": "short",
+    "language": "zh-CN"
+  },
+  "analysis_preferences": {
+    "preferred_depth": "deep",
+    "enable_counterfactual": true,
+    "enable_cross_matrix": true,
+    "min_sources": 3
+  },
+  "correction_history": [],
+  "custom_templates": {}
+}

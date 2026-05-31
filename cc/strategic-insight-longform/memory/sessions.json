@@ -1,0 +1,97 @@
+{
+    "version": "1.0",
+    "max_sessions": 50,
+    "sessions": [
+        {
+            "id": "session-2026-02-21-001",
+            "timestamp": "2026-02-21T16:10:00+08:00",
+            "topic": "探析'斩杀线'隐喻：美国社会阶层脆弱性的多维解构与中国网络叙事流变",
+            "topic_type": "phenomenon",
+            "mode": "deep",
+            "agents_used": [
+                "topic-preprocessor", "knowledge-enricher", "framework-builder",
+                "got-controller", "spatial-researcher", "temporal-researcher",
+                "domain-researcher", "stakeholder-analyst", "causal-analyst",
+                "insight-synthesizer", "longform-writer", "output-finalizer",
+                "memory-curator"
+            ],
+            "got_evaluation": {
+                "strategy": "breadth_first",
+                "scores": {
+                    "spatial": 8, "temporal": 8, "domain": 9,
+                    "stakeholder": 7, "causal": 8
+                },
+                "enhanced": ["domain"],
+                "standard": ["spatial", "temporal", "causal"],
+                "reduced": ["stakeholder"],
+                "skipped": []
+            },
+            "frameworks_used": ["std_cube", "5w2h", "pestle", "causal_chain", "stakeholder_analysis"],
+            "source_count": 44,
+            "user_provided_urls": 22,
+            "output_files": [
+                "/tmp/sil-workspace-killline/斩杀线-战略洞察.md",
+                "/tmp/sil-workspace-killline/斩杀线-来源索引.md"
+            ],
+            "output_size_kb": 45.2,
+            "quality_score": 8.5,
+            "quality_notes": "七层递进结构，60+来源整合，核心命题'游戏化存在焦虑管理系统'具有原创性，跨维度交叉矩阵和双重反事实分析增加了分析深度",
+            "key_insights": [
+                "斩杀线本质是游戏化的存在焦虑管理系统",
+                "ALICE指标是斩杀线概念的学术等价物",
+                "TMT恐惧管理理论解释了向下社会比较的心理机制",
+                "King/Pan/Roberts审查理论:允许批评但压制集体行动",
+                "从B站到官媒的三级传播工业链:UGC→二创搬运→官方收编",
+                "赢学叙事与厌女症的隐秘共谋"
+            ],
+            "input_source": "Gemini AI生成文本 + 用户补充22个URL",
+            "input_size_chars": 20000
+        },
+        {
+            "id": "session-2026-02-21-002",
+            "timestamp": "2026-02-21T17:30:00+08:00",
+            "topic": "斩杀线隐喻与美国阶层脆弱性",
+            "topic_type": "phenomenon",
+            "mode": "deep",
+            "agents_used": [
+                "topic-preprocessor", "knowledge-enricher", "framework-builder",
+                "got-controller", "spatial-researcher", "temporal-researcher",
+                "domain-researcher", "stakeholder-analyst", "causal-analyst",
+                "insight-synthesizer", "longform-writer", "output-finalizer",
+                "quality-reviewer", "revision-agent", "source-auditor",
+                "memory-curator"
+            ],
+            "got_evaluation": {
+                "strategy": "depth_first",
+                "scores": {
+                    "spatial": 7, "temporal": 8, "domain": 9,
+                    "stakeholder": 8, "causal": 8
+                },
+                "enhanced": ["domain", "temporal", "stakeholder"],
+                "standard": ["spatial", "causal"],
+                "reduced": [],
+                "skipped": []
+            },
+            "frameworks_used": ["std_cube", "causal_chain", "stakeholder_analysis", "pestle", "game_theory"],
+            "source_count": null,
+            "user_provided_urls": null,
+            "output_files": [
+                "/tmp/sil-killline-20260221/core-insights.md"
+            ],
+            "output_size_kb": null,
+            "quality_score": null,
+            "quality_notes": "depth_first策略深化session-001的breadth_first基础；核心命题升级为'三棱镜隐喻'；新增合法性置换链、概念脱控风险、数据透明度悖论等原创洞察；七章结构建议；双反事实分析",
+            "key_insights": [
+                "三棱镜隐喻：经济真相+心理防御+厌女豁免权的三层折射",
+                "合法性置换链：经济焦虑→心理恐惧→群体认同→政治立场→性别控制",
+                "概念脱控风险：牢A信誉崩塌后概念获得独立生命力",
+                "数据透明度悖论：开放社会越透明越易被武器化",
+                "MAGA与赢学共享深层结构：经济焦虑→身份政治→回避再分配",
+                "AI二次斩杀：自动化将堵塞ALICE群体最后的向上流动通道"
+            ],
+            "deepening_from": "session-2026-02-21-001",
+            "input_source": "session-001输出 + 深化研究",
+            "input_size_chars": null
+        }
+    ]
+}
