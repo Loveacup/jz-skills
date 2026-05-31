@@ -18,7 +18,8 @@ Implemented in Hermes Agent under:
   - `load_builtin_manifests()`
 - `agent/tts_voice_director/manifests/edge.yaml` — Edge baseline manifest.
 - `agent/tts_voice_director/manifests/qwen3_0_6b_local.yaml` — Qwen3-TTS 0.6B local fallback manifest.
-- `agent/tts_voice_director/planner.py` — deterministic content planner, `plan_text(...)`.
+- `agent/tts_voice_director/text_optimizer.py` — deterministic speakable-text optimizer, `optimize_for_tts(...)`, returning raw/spoken text plus transformation reason codes.
+- `agent/tts_voice_director/planner.py` — deterministic content planner, `plan_text(..., optimize=True)`.
 - `agent/tts_voice_director/router.py` — provider-extensible manifest-scored router, `route_voice(...)`.
 - `agent/tts_voice_director/adapters/edge.py` — Edge SSML compiler, `compile_edge_ssml(...)`.
 - `agent/tts_voice_director/memory.py` — JSONL memory writer and Supermemory payload helper.
@@ -28,6 +29,8 @@ Implemented in Hermes Agent under:
 
 ```text
 Text
+  -> optimize_for_tts
+  -> SpeakableText (spoken_text + transformation reason codes)
   -> plan_text
   -> TTSPlan
   -> route_voice(manifests)
@@ -39,6 +42,31 @@ Text
 ```
 
 The existing live synthesis dispatcher remains `tools/tts_tool.py::text_to_speech_tool(...)`. Voice Director is not wired into production synthesis by default.
+
+## Speakable-text optimization
+
+`plan_text(...)` now enables `optimize_for_tts(...)` by default and keeps `optimize=False` for backward compatibility and before/after comparisons. The optimizer is deterministic, provider-neutral, and never uses a network call or model.
+
+The no-fact-invention rule is strict: the optimizer may omit unsuitable artifacts from speech only when it records a reason code and keeps the raw input in `TTSPlan.original_text` plus `metadata.speakable_text.original_text_preview`. It must not add facts, warnings, provider claims, or paths that were not present in the source.
+
+Current transformation categories:
+
+- Markdown cleanup: emphasis, headings, bullets, inline code, links, and table summaries.
+- Dense artifacts: long JSON, code fences, stack traces, logs, and `MEDIA:` paths are summarized for speech with warnings when appropriate.
+- Technical pronunciation: tokens such as `TTSPlan`, `VoiceRoute`, `qwen3_0_6b_local`, versions, commit hashes, and camel-case names are made speakable.
+- Paths and filenames: full local paths are shortened to the filename in spoken text while raw text remains in metadata.
+- Symbols and numbers: arrows become “然后”, `%` becomes “百分之”, `RTF 4.7` becomes “实时因子四点七”, and slash alternatives become “或”.
+- Sentence shaping: very long Chinese or English sentences receive deterministic breath-break cleanup without rewriting meaning.
+
+Demo JSON exposes top-level `spoken_text` and `optimizer.transformations[].reason` so callers can compare raw versus spoken output.
+
+Verification on 2026-06-01:
+
+- `python -m pytest tests/agent/test_tts_voice_director_*.py -q -o 'addopts='` → `33 passed`
+- `python -m pytest tests/tools/test_tts_command_providers.py tests/tools/test_tts_plugin_dispatch.py tests/tools/test_tts_max_text_length.py -q -o 'addopts='` → `114 passed`
+- Demo dry-run with optimization rewrites `**完成**：TTSPlan -> VoiceRoute，输出 ~/.hermes/foo.ogg，版本 v0.2.1。` to a spoken form containing `完成：T T S 计划 然后 Voice Route，输出 foo 点 ogg，版本零点二点一。`
+- Demo dry-run with `--no-optimize` preserves the raw Markdown/path/token text in segments.
+- Default `tts.provider` remained `edge`.
 
 ## Provider-neutral schemas
 

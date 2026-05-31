@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-06-01 — v0.2.2 Speakable text optimizer MVP
+
+- Added deterministic `agent/tts_voice_director/text_optimizer.py` with `SpeakableText` and `optimize_for_tts(...)`.
+- `plan_text(..., optimize=True)` now plans spoken segments from optimized text while preserving raw `original_text`; `optimize=False` preserves previous behavior.
+- Demo JSON now exposes `spoken_text` and optimizer transformation reason codes, with `--no-optimize` for before/after dry runs.
+- Covered Markdown, links, paths, code/JSON/log dense blocks, technical tokens, versions, commit hashes, symbols, and long sentence shaping with regression tests.
+- Verification recorded: Voice Director tests `33 passed`; TTS command/provider dispatch/max-length tests `114 passed`; default `tts.provider` remains `edge`.
+
 ## 2026-06-01 — v0.2.1 Voice Director MVP sample set
 
 - Generated five Edge TTS review samples for Voice Director scenarios: formal_report, good_news, warning, comfort, and technical_explanation.
