@@ -240,19 +240,20 @@ def extract_cc_summary(date_str: str) -> list:
     """Extract Claude Code session summaries for a given date.
 
     Scans ~/.claude/projects/<project>/<uuid>.jsonl files.
-    Uses find -newermt for fast date pre-filtering, then validates
-    via in-file timestamp.
+    Classifies sessions using CC native metadata:
+      - "agent-team": has parentUuid OR subagents/ OR parent to another session
+      - "standalone": entrypoint=cli, no parent/child relationship
+      - "program-call": entrypoint starts with "sdk", no parent/child relationship
 
-    Returns list of dicts: {project, session_start, model, message_count,
-                            user_turns, topics, summary}
+    Returns list of dicts: {project, session_start, model, session_type,
+                            message_count, user_turns, topics, summary}
     """
     shanghai = ZoneInfo("Asia/Shanghai")
     target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
     cc_projects = Path.home() / ".claude" / "projects"
-    summaries = []
 
     if not cc_projects.exists():
-        return summaries
+        return []
 
     # Fast pre-filter: find JSONL files modified on target date
     try:
@@ -265,10 +266,10 @@ def extract_cc_summary(date_str: str) -> list:
         )
         candidate_files = [f for f in result.stdout.strip().split("\n") if f]
     except Exception:
-        return summaries
+        return []
 
     if not candidate_files:
-        return summaries
+        return []
 
     skip_prefixes = (
         "[System note:", "[Replying to:", "[IMPORTANT:",
@@ -283,13 +284,74 @@ def extract_cc_summary(date_str: str) -> list:
         "--- MODE SWITCH:", "[Request interrupted",
     )
 
-    # Patterns for classifying CC session type
-    hermes_called_patterns = (
-        "Read /tmp/", "context.md", "briefing",
-    )
-    agent_team_patterns = (
-        "你是 CC 审计", "你是 Lens", "You are patching",
-    )
+    # ── Phase 1: Collect metadata (entrypoint, uuid, parentUuid) ──
+    session_meta = {}  # filepath -> {entrypoint, uuid, parentUuid, is_subagent}
+
+    for filepath in candidate_files:
+        try:
+            entrypoint = None
+            msg_uuid = None
+            parent_uuid = None
+            is_subagent = "/subagents/" in filepath
+
+            with open(filepath, "r", encoding="utf-8") as f:
+                for line in f:
+                    try:
+                        entry = json.loads(line.strip())
+                    except json.JSONDecodeError:
+                        continue
+
+                    if entry.get("type") == "user":
+                        msg = _parse_cc_message(entry.get("message", ""))
+                        if not msg:
+                            continue
+                        text = _extract_cc_text(msg.get("content", ""))
+                        if not text or any(text.startswith(p) for p in skip_prefixes):
+                            continue
+                        entrypoint = entry.get("entrypoint", "unknown")
+                        msg_uuid = entry.get("uuid")
+                        parent_uuid = entry.get("parentUuid")  # None or uuid string
+                        break
+
+            if entrypoint and msg_uuid:
+                session_meta[filepath] = {
+                    "entrypoint": entrypoint,
+                    "uuid": msg_uuid,
+                    "parentUuid": parent_uuid,
+                    "is_subagent": is_subagent,
+                }
+        except Exception:
+            continue
+
+    # ── Phase 2: Build relationship graph ──
+    uuid_to_file = {meta["uuid"]: fp for fp, meta in session_meta.items()}
+
+    has_children = set()  # filepaths that are parents
+    has_parent = set()    # filepaths that are children
+
+    for fp, meta in session_meta.items():
+        # Subagents are always children of their parent session dir
+        if meta["is_subagent"]:
+            has_parent.add(fp)
+            # Walk up from subagent file to find the session directory
+            # Path: .../projects/{proj}/{session_uuid}/subagents/[workflows/wf_*/]agent-*.jsonl
+            # Parent: .../projects/{proj}/{session_uuid}.jsonl
+            p = Path(fp)
+            # Go up until we find a directory whose name + ".jsonl" exists in session_meta
+            for ancestor in p.parents:
+                parent_fp = str(ancestor) + ".jsonl"
+                if parent_fp in session_meta:
+                    has_children.add(parent_fp)
+                    break
+
+        # parentUuid links this session to another session's first message uuid
+        puid = meta["parentUuid"]
+        if puid and puid in uuid_to_file:
+            has_parent.add(fp)
+            has_children.add(uuid_to_file[puid])
+
+    # ── Phase 3: Classify and build summaries ──
+    summaries = []
 
     for filepath in candidate_files:
         try:
@@ -343,17 +405,16 @@ def extract_cc_summary(date_str: str) -> list:
             if session_local.date() != target_date:
                 continue
 
-            project_label = Path(cwd).name if cwd else Path(filepath).parent.name
+            project_label = Path(cwd).name if cwd else Path(filepath).parent.parent.name
 
-            # Classify session type
-            session_type = "standalone"
-            for ut in user_texts[:3]:
-                if any(p in ut for p in hermes_called_patterns):
-                    session_type = "hermes-called"
-                    break
-                if any(p in ut for p in agent_team_patterns):
-                    session_type = "agent-team"
-                    break
+            # Classify using CC metadata (entrypoint + relationship graph)
+            meta = session_meta.get(filepath, {})
+            if filepath in has_parent or filepath in has_children:
+                session_type = "agent-team"
+            elif meta.get("entrypoint", "").startswith("sdk"):
+                session_type = "program-call"
+            else:
+                session_type = "standalone"
 
             summaries.append({
                 "project": project_label,
@@ -405,15 +466,17 @@ def build_cc_overview(summaries: list) -> Optional[dict]:
             "projects": sorted_projects,
         }
 
-    # Group by session type (hermes-called + agent-team → 联动)
-    linked = [s for s in summaries if s.get("session_type") in ("hermes-called", "agent-team")]
+    # Three-type grouping based on CC metadata
+    agent_team = [s for s in summaries if s.get("session_type") == "agent-team"]
     standalone = [s for s in summaries if s.get("session_type") == "standalone"]
+    program_call = [s for s in summaries if s.get("session_type") == "program-call"]
 
     return {
         "label": "Claude Code",
         "total": group(summaries),
-        "linked": group(linked),
+        "agent_team": group(agent_team),
         "standalone": group(standalone),
+        "program_call": group(program_call),
     }
 
 
@@ -427,19 +490,18 @@ def format_cc_for_diary(summaries: list) -> str:
     lines = ["### 💻 Claude Code 工作概览"]
     lines.append(f"- 总会话: {total['session_count']} · 消息: {total['message_count']} · 轮次: {total['user_turns']}")
 
-    linked = overview.get("linked")
-    if linked:
-        lines.append(f"\n#### 🔗 联动 Hermes（{linked['session_count']} 会话）")
-        for proj, data in linked["projects"].items():
-            topics_str = "；".join(t[:60] for t in data["topics"])
-            lines.append(f"- **{proj}** ({data['sessions']}): {topics_str}")
-
-    standalone = overview.get("standalone")
-    if standalone:
-        lines.append(f"\n#### 🧑‍💻 独立会话（{standalone['session_count']} 会话）")
-        for proj, data in standalone["projects"].items():
-            topics_str = "；".join(t[:60] for t in data["topics"])
-            lines.append(f"- **{proj}** ({data['sessions']}): {topics_str}")
+    # Three type groups
+    for key, emoji_label in [
+        ("agent_team", "🤝 Agent Team 协作"),
+        ("program_call", "🤖 程序调用"),
+        ("standalone", "💻 独立对话"),
+    ]:
+        group = overview.get(key)
+        if group:
+            lines.append(f"\n#### {emoji_label}（{group['session_count']} 会话）")
+            for proj, data in group["projects"].items():
+                topics_str = "；".join(t[:60] for t in data["topics"])
+                lines.append(f"- **{proj}** ({data['sessions']}): {topics_str}")
 
     return "\n".join(lines)
 

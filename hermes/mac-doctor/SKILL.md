@@ -123,10 +123,12 @@ ps -eo pid,%cpu,%mem,comm -r | head -12
 
 # 归一化聚合（Chrome Helper×30 → Chrome×N；列：CPU% MEM% 进程数 名称）
 ps -eo %cpu,%mem,comm -r 2>/dev/null | awk 'NR>1 {
-  gsub(/ (Helper( \([A-Za-z]+\))?|Renderer|Web Content( \(Prewarmed\))?|Worker|\(GPU\)|\(Plugin\))$/,"",$0)
-  n=split($0,f,/[ \t]+/); k=f[n]; c[k]+=$1; m[k]+=$2; n_[k]++
-} END { for (k in c) printf "%6.1f %6.1f %3d  %s\n",c[k],m[k],n_[k],k }' | sort -rn | head -10
+  gsub(/ (Helper( \\([A-Za-z]+\\))?|Renderer|Web Content( \\(Prewarmed\\))?|Worker|\\(GPU\\)|\\(Plugin\\))$/,"",$0)
+  n=split($0,f,/[ \\t]+/); k=f[n]; c[k]+=$1; m[k]+=$2; n_[k]++
+} END { for (k in c) printf "%6.1f %6.1f %3d  %s\\n",c[k],m[k],n_[k],k }' | sort -rn | head -10
 ```
+
+**僵尸进程:** 如发现 `defunct` (Z 状态) 进程，参见 `references/zombie-process-cleanup.md` — 杀父进程让 launchd 回收。
 
 ### Tier 1 输出格式
 

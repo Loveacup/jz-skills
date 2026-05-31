@@ -1,8 +1,8 @@
 ---
 name: grill-with-docs
 description: "Grills a plan or design against the Hermes/三省六部 domain model — challenges against CONTEXT.md glossary, cross-references with code and configs, stress-tests with concrete scenarios, and updates documentation inline as decisions crystallise. Structured 4-phase flow: load domain → walk decision tree (one question at a time via clarify+choices) → evidence challenge (read code/docs before asking) → capture & summarize. Use when the user wants to stress-test a plan, review an edict, validate a design, or explicitly invokes 'grill me' / '拷打我' / 'challenge this' / '找漏洞'. DO NOT trigger on simple unambiguous instructions or pure execution tasks."
-version: 2.0.0
-author: Hermes Agent (v2.0 absorbs pi/pi-grill v3.1 structured phases)
+version: 2.1.0
+author: Hermes Agent (v2.1 adds source-code-only red flag + web-search-first evidence rule; v2.0 absorbs pi/pi-grill v3.1 structured phases)
 license: MIT
 platforms: [macos, linux]
 metadata:
@@ -19,7 +19,7 @@ Interview the user relentlessly about every aspect of a plan until shared unders
 
 **Ask questions one at a time**, waiting for feedback on each before continuing.
 
-**Every question MUST use `clarify` with the `choices` parameter** (max 4 options + auto-appended "Other"). Include one option marked with ⭐ as the recommended choice. Place choices **after** the explanation body — the user should read the context first, then see options. Never ask as open-ended text — the user should click an option, not type. Reserve open-ended `clarify` (no choices) only for free-text follow-ups where no reasonable preset options exist.
+**Every question MUST use `clarify` with the `choices` parameter**: max 4 options, mark ONE as recommended (bold or ✓). Place choices AFTER the question body — never before. User clicks, never types. Reserve open-ended `clarify` (no choices) only for free-text follow-ups where no reasonable preset options exist.
 
 If a question can be answered by exploring the codebase or existing documentation, do that instead of asking.
 
@@ -38,6 +38,10 @@ This skill is worthless if you rationalize around its constraints. Read this bef
 | "I'll update CONTEXT.md later" | Capture terms as they crystallize. Batched updates get forgotten. Update inline immediately. |
 | "The user is busy, I shouldn't interrupt" | One question = 30 seconds. Wrong implementation = hours of rework. Grill early, not late. |
 | "I'll pad my response with polite filler to sound helpful" | 🚫 **Anti-Slop.** If the response reads like generic AI output ("all things considered", "it's worth noting that"), restart. Every claim must cite a specific file, line number, config key, or doc section. No hedging without evidence. |
+| "I'll list all the ambiguities at once for efficiency" | Batch questions → user only answers the last one. One at a time. |
+| "I already know how X works / I can explain from memory" | 🚫 **Search-first iron rule.** Training data is stale. Before making ANY factual claim about system behavior (e.g. "TTS won't speak reasoning", "config key means Y"), you MUST load `web-research-router` → search web + read source code → cite evidence (file:line). This is the #1 most common grill violation. 2026-05-29 TTS case: claimed model stops reasoning → code showed `reasoning_effort` unchanged, only `display.platforms.telegram.show_reasoning` toggled. |
+| "I'll list all the ambiguities at once for efficiency" | Batch questions → user only answers the last one. One at a time. |
+| "I already know how this works, no need to check the source" | 🚫 **Fatal.** Any claim about how Hermes or a tool works MUST be verified against source code, configs, or web search. The user trusts these claims as facts. Wrong claims → hours of confusion + erosion of trust. 用 `web-research-router` 搜 + `search_files` 查源码 + `read_file` 看行号，三项做完才能开口。 |
 | "I'll list all the ambiguities at once for efficiency" | Batch questions → user only answers the last one. One at a time. |
 
 **If you caught yourself thinking any of these → re-read the Never Do list and restart the current question.**
@@ -72,7 +76,8 @@ The "code" to verify against includes:
 | Profile configs | `~/.hermes/profiles/*/config.yaml` | Do profile roles match what the plan assumes? |
 | MCP config | `~/.hermes/config.yaml` `mcp_servers:` | Are referenced tools actually available? |
 | Cron jobs | `hermes cron list` | Does the plan conflict with existing schedules? |
-| Memory | `supermemory_search` | Are there relevant past decisions? |
+| Memory | `hindsight_recall` | Are there relevant past decisions? |
+| **Plugin system** | `references/hermes-plugin-capabilities.md` | Verified Hermes plugin APIs, hooks, and limitations |
 
 ---
 
@@ -96,11 +101,14 @@ One question at a time, resolving each branch:
 ### Phase 3: Evidence Challenge
 
 Before asking the user a question, exhaust all verifiable sources:
+Before asking the user a question, exhaust all verifiable sources:
 
+- **Search web + docs first:** "TTS 怎么处理 reasoning?" → search Hermes docs via `web-research-router`, THEN verify with source code. Code alone misses end-to-end interactions between gateway/stream/TTS layers.
 - **Read code first:** "上次的方案"→ read .md or `git log` before asking
 - **Check configs:** Don't ask "what model does X use" — read `config.yaml`
-- **Search memory:** Check `supermemory_search` for past decisions before re-litigating
-- **Only ask when:** No code/doc/config/memory can answer it
+- **Search memory:** Check `hindsight_recall` for past decisions before re-litigating
+- **Never assert system internals without source trace:** When explaining how something works (TTS pipeline, model behavior, tool interaction), trace through actual source code — cite file paths and line numbers. Rule: 先 `search_files` + `web-research-router` 搜 → 再 `read_file` 读源码 → 最后开口。This session's case study: misattributed TTS behavior (claimed model stopped generating reasoning; actually only display-level filter). See `references/tts-reasoning-case-study.md`.
+- **Only ask when:** No code/doc/config/memory/web-search can answer it
 
 ### Phase 4: Capture & Summarize
 
@@ -122,15 +130,16 @@ Before asking the user a question, exhaust all verifiable sources:
 - NEVER continue to the next question until the current one is resolved (chosen, edited, or explicitly skipped)
 - NEVER exceed 3 consecutive questions on the same topic without checking: "上述理解对吗？可以继续了吗？"
 - NEVER ask a question that code/docs/config could answer — evidence-challenge first
-- NEVER mix explanation prose with a question on messaging platforms (Telegram/Discord/Slack). Explain FIRST, THEN immediately call `clarify` with choices — do not sandwich the question in a multi-paragraph intro. If the message is truncated mid-explanation, the user sees nothing useful. Pattern: context body → `clarify(question=..., choices=[...])` — one ⭐ recommended, choices come AFTER the body text.
+- NEVER state a technical fact about how Hermes works without citing source code, config, or docs — this applies in ALL conversations, not just grill sessions. See also: `references/reasoning-tts-interaction.md` for an example of getting this wrong and the verified truth.
 
 ---
 
 ## ✅ Verification Checklist (RUN BEFORE ENDING EACH QUESTION)
 
 - [ ] CHECK: Asked only ONE question this turn?
-- [ ] CHECK: Used `clarify` with `choices` (max 4 options)?
+- [ ] CHECK: Used `clarify` with `choices` (max 4 options, one recommended), options placed after body text?
 - [ ] CHECK: Checked code/config/docs before asking (Phase 3: evidence challenge)?
+- [ ] CHECK: For technical claims — searched web via `web-research-router` + read source files, cited `file:line`?
 - [ ] CHECK: Captured any resolved term in CONTEXT.md immediately?
 - [ ] CHECK: Did NOT accept "I'll figure that out later" without noting it?
 
