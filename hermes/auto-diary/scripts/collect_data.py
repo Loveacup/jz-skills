@@ -283,6 +283,14 @@ def extract_cc_summary(date_str: str) -> list:
         "--- MODE SWITCH:", "[Request interrupted",
     )
 
+    # Patterns for classifying CC session type
+    hermes_called_patterns = (
+        "Read /tmp/", "context.md", "briefing",
+    )
+    agent_team_patterns = (
+        "你是 CC 审计", "你是 Lens", "You are patching",
+    )
+
     for filepath in candidate_files:
         try:
             user_texts = []
@@ -337,10 +345,21 @@ def extract_cc_summary(date_str: str) -> list:
 
             project_label = Path(cwd).name if cwd else Path(filepath).parent.name
 
+            # Classify session type
+            session_type = "standalone"
+            for ut in user_texts[:3]:
+                if any(p in ut for p in hermes_called_patterns):
+                    session_type = "hermes-called"
+                    break
+                if any(p in ut for p in agent_team_patterns):
+                    session_type = "agent-team"
+                    break
+
             summaries.append({
                 "project": project_label,
                 "session_start": session_local.strftime("%H:%M"),
                 "model": model,
+                "session_type": session_type,
                 "message_count": len(user_texts) + assistant_count,
                 "user_turns": len(user_texts),
                 "topics": [t for t in user_texts[:3] if t],
@@ -357,38 +376,70 @@ def extract_cc_summary(date_str: str) -> list:
 
 
 def build_cc_overview(summaries: list) -> Optional[dict]:
-    """Aggregate CC session summaries into a compact diary overview."""
+    """Aggregate CC session summaries grouped by type and project."""
     if not summaries:
         return None
 
-    projects = sorted(set(s["project"] for s in summaries))
-    all_topics = []
-    for s in summaries:
-        all_topics.extend(s["topics"])
+    def group(items: list) -> Optional[dict]:
+        if not items:
+            return None
+        projects = {}
+        for s in items:
+            p = s["project"]
+            if p not in projects:
+                projects[p] = {"sessions": 0, "topics": []}
+            projects[p]["sessions"] += 1
+            projects[p]["topics"].extend(s["topics"])
+
+        sorted_projects = {
+            p: {
+                "sessions": d["sessions"],
+                "topics": list(dict.fromkeys(d["topics"]))[:3],
+            }
+            for p, d in sorted(projects.items(), key=lambda x: -x[1]["sessions"])
+        }
+        return {
+            "session_count": len(items),
+            "message_count": sum(s["message_count"] for s in items),
+            "user_turns": sum(s["user_turns"] for s in items),
+            "projects": sorted_projects,
+        }
+
+    # Group by session type (hermes-called + agent-team → 联动)
+    linked = [s for s in summaries if s.get("session_type") in ("hermes-called", "agent-team")]
+    standalone = [s for s in summaries if s.get("session_type") == "standalone"]
 
     return {
         "label": "Claude Code",
-        "projects": projects,
-        "session_count": len(summaries),
-        "message_count": sum(s["message_count"] for s in summaries),
-        "user_turns": sum(s["user_turns"] for s in summaries),
-        "topics": list(dict.fromkeys(all_topics))[:8],
+        "total": group(summaries),
+        "linked": group(linked),
+        "standalone": group(standalone),
     }
 
 
 def format_cc_for_diary(summaries: list) -> str:
-    """Format CC session summaries as a compact diary section."""
+    """Format CC session summaries grouped by type and project."""
     overview = build_cc_overview(summaries)
-    if not overview:
+    if not overview or not overview.get("total"):
         return ""
 
+    total = overview["total"]
     lines = ["### 💻 Claude Code 工作概览"]
-    lines.append(f"- 会话数: {overview['session_count']}")
-    lines.append(f"- 消息数: {overview['message_count']}")
-    lines.append(f"- 用户轮次: {overview['user_turns']}")
-    lines.append(f"- 覆盖项目: {', '.join(overview['projects'][:5])}")
-    if overview["topics"]:
-        lines.append("- 主题: " + "；".join(overview["topics"][:8]))
+    lines.append(f"- 总会话: {total['session_count']} · 消息: {total['message_count']} · 轮次: {total['user_turns']}")
+
+    linked = overview.get("linked")
+    if linked:
+        lines.append(f"\n#### 🔗 联动 Hermes（{linked['session_count']} 会话）")
+        for proj, data in linked["projects"].items():
+            topics_str = "；".join(t[:60] for t in data["topics"])
+            lines.append(f"- **{proj}** ({data['sessions']}): {topics_str}")
+
+    standalone = overview.get("standalone")
+    if standalone:
+        lines.append(f"\n#### 🧑‍💻 独立会话（{standalone['session_count']} 会话）")
+        for proj, data in standalone["projects"].items():
+            topics_str = "；".join(t[:60] for t in data["topics"])
+            lines.append(f"- **{proj}** ({data['sessions']}): {topics_str}")
 
     return "\n".join(lines)
 

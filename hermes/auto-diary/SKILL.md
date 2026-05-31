@@ -10,11 +10,11 @@ description: |
   生成日记 / 生成周报 / 日记草稿 / weekly report / diary / 补日程 / 整理日记.
 
   DO NOT use for: general note-taking, non-diary content generation, one-off research.
-version: 3.0.0
+version: 3.1.0
 author: Hermes Agent (v2.0 compliance review)
 ---
 
-# Auto-Diary v3.0
+# Auto-Diary v3.1
 
 自动化日记生成和周报汇总。Cron 定时触发或手动调用。
 
@@ -29,7 +29,9 @@ author: Hermes Agent (v2.0 compliance review)
 | "icalBuddy returned empty, must be a bug" | icalBuddy silently returns empty on calendar name mismatch. Diagnose before assuming no events. |
 | "I'll just pick the top 2-3 topics, the rest are noise" | 🔴 **Exhaustive coverage** (v3.0): EVERY topic in `ai_logs.*.topics` must appear in the diary. List all first, cluster by category (📖知识输入/🔍技术调研/📝文档管线 etc.), then write. Cross-check raw session data if overview seems thin. Busy days (10+ streams) → at least 3-4总结项. |
 | "🦞 is Claude Code, I'll use that emoji" | 🔴 **🦞 = OpenClaw, NOT Claude Code**. CC has no fixed emoji; diary uses 💻 for CC. Hermes = 🐴. Mixing these up frustrated user. |
-| "cron-worker is 三省六部, I'll group it there" | 🔴 **Two-system split**: 助理体系 = default + cron-worker (小黄影分身). 治理体系 = regent + gongbu + shangshu + ... (太子+三省六部). `extract_hermes_conversations.py` handles this; the overview key is `"assistant"`, not `"default"`. |
+| "Callouts look cleaner folded, I'll use `> [!info]-`" | 🔴 **No folding callouts** (v3.0): user rejected `-` suffix. All callouts MUST be expanded — `> [!abstract]`, `> [!info]`, `> [!tip]`, `> [!note]`. Never use `> [!xxx]-`. |
+| "CC sessions are all the same, I'll list them flat" | 🔴 **CC two-type split** (v3.1): 联动 Hermes (hermes-called + agent-team) vs 独立会话. Group by type THEN by project, per-project topics. Data in `claude_overview.linked` and `.standalone`. |
+| "Knowledge base changes are independent" | 🔴 **KB ↔ AI linking** (v3.1): Every vault change was produced by an AI session. Cross-reference `vault_changes` paths/titles with session topics. Group by source system (🐴/🏛️/💻). Unreliable matches → mark `(推断)`. |
 
 ## 🔀 Decision Tree
 
@@ -106,7 +108,7 @@ Key improvements history: see `references/changelog.md`.
 | Trusting icalBuddy silent empty output | Calendar events silently missing for weeks (see config drift below) |
 | Not checking `existing_content` before writing | Duplicate or conflicting diary entries |
 | Using relative dates without `-nrd` flag | Adjacent-day events bleed into wrong date |
-| **Using `Path("~/...")` without `.expanduser()`** | `~` expansion depends on `$HOME` env var; under regent profile, resolves to wrong home (2026-05-27 fix: use absolute `~/...`) |
+| **Using `Path("~/...")` without `.expanduser()` or `Path.home()`** | `Path("~/Documents/...")` does NOT expand `~` — `find` / `open()` silently fail (0 vault changes). Fix: `Path.home() / "Documents/..."`. Same applies to `str(Path("~/..."))` passed to shell commands. |
 | **Reading session JSON files instead of SQLite DB** | JSON session files deprecated May 2026; sessions now in `state.db` SQLite (2026-05-27 fix: `extract_hermes_conversations.py` v2.0 queries `state.db`)
 | **CC `message` field type mismatch** | `message` can be `dict` or Python repr `str` — always use `_parse_cc_message()`. Content can be `list` or `str` — use `_extract_cc_text()`. See `references/cc-session-extraction.md`. |
 | **Using wrong emoji for CC (🦞)** | 🦞 = OpenClaw. CC uses 💻 in diary. Hermes = 🐴. See Red Flags. |
@@ -119,6 +121,12 @@ icalBuddy `-ic "cal1,cal2"` on mismatched names returns empty **without error**.
 ## ⚠️ Known Limitations
 
 **CC session count inflation**: Observer (Claude-Mem) sessions are tallied in CC counts but produce no meaningful topics — their system prompts are filtered. This means CC `session_count` can overrepresent on days with heavy observer activity. Low priority; acceptable trade-off for now.
+
+**CC 内容展现偏薄** (v3.1 TODO): CC 段落目前只罗列 top-level 主题，没有 per-project 展开。待做：强制每个 CC 项目至少一条概括，和 Hermes 穷举覆盖同等粒度。
+
+**CC 会话未分类** (v3.1 TODO): CC 有两种模式——🔗 联动 Hermes（Hermes 通过 tmux 调用）和 🧑‍💻 独立会话（用户直接打开）。日记中应分开显示。待做：在 `extract_cc_summary()` 中基于首条用户消息模式分类。
+
+**知识库 ↔ AI 会话未关联** (v3.1 TODO): 知识库变更（vault_changes）目前独立展示，未标注是由哪个 AI 会话推动的。待做：在日记写作阶段做语义匹配，标注每个 vault 文件的来源会话。
 
 ## Output Paths
 
@@ -145,7 +153,9 @@ icalBuddy `-ic "cal1,cal2"` on mismatched names returns empty **without error**.
 - [ ] 🔴 NO raw user messages quoted — all AI topics summarized?
 - [ ] 🔴 All topics from `ai_logs.*.topics` covered? Busy days (10+ streams) cross-checked against raw sessions?
 - [ ] 🔴 Emoji correct? 🐴=助理体系 · 🏛️=治理体系 · 💻=CC · 🦞 NEVER appears?
-- [ ] v3.0 format: frontmatter present? Abstract callout? Info callouts per AI section? `---` dividers? Tip callout footer?
+- [ ] v3.1 format: frontmatter / abstract callout / info callouts / --- dividers / tip callout / no folding?
+- [ ] CC split into 🔗 联动 and 🧑 独立? Per-project topics shown?
+- [ ] 📚 知识库按来源体系分组（🐴/🏛️/💻）? 关联标注正确? 不可靠匹配标 `(推断)`?
 - [ ] All 8 required sections present in the diary?
 - [ ] File written to correct Obsidian path?
 - [ ] User notified (cron: final response; manual: Telegram)?
