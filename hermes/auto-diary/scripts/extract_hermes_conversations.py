@@ -189,12 +189,12 @@ def build_profile_overview(summaries: list) -> dict:
             "total_sessions": 0,
             "total_messages": 0,
             "total_user_turns": 0,
-            "default": None,
+            "assistant": None,
             "governance": None,
         }
 
-    default_sessions = [s for s in summaries if s.get("profile") == "default"]
-    profile_sessions = [s for s in summaries if s.get("profile") != "default"]
+    assistant_sessions = [s for s in summaries if s.get("profile") in ("default", "cron-worker")]
+    governance_sessions = [s for s in summaries if s.get("profile") not in ("default", "cron-worker")]
 
     def pack(items: list, label: str) -> Optional[dict]:
         if not items:
@@ -213,8 +213,8 @@ def build_profile_overview(summaries: list) -> dict:
         "total_sessions": len(summaries),
         "total_messages": sum(s.get("message_count", 0) for s in summaries),
         "total_user_turns": sum(s.get("user_turns", 0) for s in summaries),
-        "default": pack(default_sessions, "Hermes / default"),
-        "governance": pack(profile_sessions, "太子 / 三省六部工作概览"),
+        "assistant": pack(assistant_sessions, "🐴 助理体系（小黄 + cron-worker）"),
+        "governance": pack(governance_sessions, "🏛️ 治理体系（太子 + 三省六部）"),
     }
 
 
@@ -229,16 +229,16 @@ def format_for_diary(summaries: list) -> str:
     lines.append(f"- 总消息数: {overview['total_messages']}")
     lines.append(f"- 用户轮次: {overview['total_user_turns']}")
 
-    default = overview.get("default")
+    default = overview.get("assistant")
     if default:
-        lines.append("\n#### Hermes / default")
+        lines.append("\n#### 🐴 助理体系（小黄 + cron-worker）")
         lines.append(f"- 会话数: {default['session_count']}")
         if default["topics"]:
             lines.append("- 主题: " + "；".join(default["topics"][:5]))
 
     governance = overview.get("governance")
     if governance:
-        lines.append("\n#### 太子 / 三省六部工作概览")
+        lines.append("\n#### 🏛️ 治理体系（太子 + 三省六部）")
         lines.append(f"- 覆盖 profiles: {', '.join(governance['profiles'])}")
         lines.append(f"- 会话数: {governance['session_count']}")
         lines.append(f"- 消息数: {governance['message_count']}")

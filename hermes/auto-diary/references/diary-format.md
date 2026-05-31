@@ -40,8 +40,8 @@
 ```markdown
 ## 🤖 AI助手工作记录
 
-### 🐤 小黄 (Clawdbot)
-**今日重点**: {从clawdbot_memory中提取}
+### 🐴 Hermes / 助理体系
+**今日重点**: {从采集数据中提取}
 
 **核心成果**:
 - ✅ 成果1
@@ -57,7 +57,7 @@
 - 待扩展（OpenAI / Codex 等，可后续接入）
 ```
 - 基于 ai_logs JSON 数据生成
-- clawdbot 部分从 clawdbot_memory 提取重点
+- Hermes 助理体系（小黄 + cron-worker）和治理体系（太子 + 三省六部）从 ai_logs JSON 分类提取
 - Claude Code 从 `~/.claude/projects/` JSONL 提取（含模型、项目信息）
 - ⚠️ 主题必须用概括性描述，严禁直接引用用户消息原文
 
