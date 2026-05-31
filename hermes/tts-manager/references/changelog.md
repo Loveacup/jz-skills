@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-06-01 — v0.2.0 Voice Director MVP
+
+- Implemented provider-neutral TTS Voice Director MVP under `agent/tts_voice_director/`.
+- Added schema models for `TTSPlan`, `ProviderManifest`, `VoiceRoute`, and `RoutingMemoryEvent`.
+- Added built-in manifests for `edge` and `qwen3_0_6b_local`; Edge remains first-class realtime/default route while Qwen 0.6B stays fallback-only due to no instruction control and known start-artifact risk.
+- Added deterministic content planner, manifest-scored extensible router, Edge SSML compiler, structured JSONL memory event writer, and Supermemory payload helper.
+- Added safe dry-run demo: `scripts/tts_voice_director_demo.py`; it does not call live synthesis by default and does not change `tts.provider`.
+- Updated `voice-director-architecture.md` with module paths, manifest/adapter contract, and memory event shape.
+
 ## 2026-06-01 — v0.1.0 Base Skill
 
 - Created `tts-manager` as the base Hermes TTS aggregation skill.
