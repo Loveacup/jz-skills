@@ -474,9 +474,14 @@ def scan_vault_changes(vault_root: Path, date_str: str) -> list:
             if not filepath:
                 continue
             
-            # Skip diary files
-            if "/01_日记/" in filepath or "/000_日记/" in filepath:
+            # Skip diary files, system directories, event bridge
+            skip_dirs = ("/01_日记/", "/000_日记/", "/88_event-bridge/", "/99-System/")
+            if any(d in filepath for d in skip_dirs):
                 continue
+
+            # Cap total changes to avoid flooding diary
+            if len(changes) >= 100:
+                break
             
             # Get relative path
             try:
@@ -520,8 +525,8 @@ def sync_obsidian():
 
 def collect_diary_data(date_str: str) -> dict:
     """Collect all data for a single day."""
-    diary_path = Path("~/Documents/Obsidian/AlexCai/50-Self/01_日记") / f"{date_str}.md"
-    vault_root = Path("~/Documents/Obsidian/AlexCai")
+    diary_path = Path.home() / "Documents/Obsidian/AlexCai/50-Self/01_日记" / f"{date_str}.md"
+    vault_root = Path.home() / "Documents/Obsidian/AlexCai"
     
     return {
         "date": date_str,

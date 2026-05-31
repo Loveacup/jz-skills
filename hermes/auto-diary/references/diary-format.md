@@ -12,7 +12,7 @@ tags: [type/日记, status/闪念, src/对话]
 
 # YYYY-MM-DD 星期X
 
-> [!abstract]- 📋 今日速览
+> [!abstract] 📋 今日速览
 > - 🌤️ {天气}
 > - 📅 {N} 个日历事件
 > - 🐴 Hermes {N} 会话 · 💻 CC {N} 会话
@@ -59,7 +59,7 @@ tags: [type/日记, status/闪念, src/对话]
 
 ### 🐴 助理体系（小黄 + cron-worker）
 
-> [!info]- 📊 数据概览
+> [!info] 📊 数据概览
 > - 会话: {N} · 消息: {N} · 用户轮次: {N}
 
 **今日重点**: {概括主题}
@@ -76,7 +76,7 @@ tags: [type/日记, status/闪念, src/对话]
 
 ### 🏛️ 治理体系（太子 + 三省六部）
 
-> [!info]- 📊 数据概览
+> [!info] 📊 数据概览
 > - sessions: {N} · msg: {N} · turns: {N}
 > - 覆盖 profiles: {列表}
 
@@ -84,7 +84,7 @@ tags: [type/日记, status/闪念, src/对话]
 
 ### 💻 Claude Code
 
-> [!info]- 📊 数据概览
+> [!info] 📊 数据概览
 > - sessions: {N} · msg: {N} · turns: {N}
 > - 覆盖项目: {列表}
 

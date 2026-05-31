@@ -28,6 +28,8 @@ author: Hermes Agent (v2.0 compliance review)
 | "Existing content is just a template, I'll overwrite it" | Check existing_content first. If user has written anything, merge — keep user content, fill gaps only. |
 | "icalBuddy returned empty, must be a bug" | icalBuddy silently returns empty on calendar name mismatch. Diagnose before assuming no events. |
 | "I'll just pick the top 2-3 topics, the rest are noise" | 🔴 **Exhaustive coverage** (v3.0): EVERY topic in `ai_logs.*.topics` must appear in the diary. List all first, cluster by category (📖知识输入/🔍技术调研/📝文档管线 etc.), then write. Cross-check raw session data if overview seems thin. Busy days (10+ streams) → at least 3-4总结项. |
+| "🦞 is Claude Code, I'll use that emoji" | 🔴 **🦞 = OpenClaw, NOT Claude Code**. CC has no fixed emoji; diary uses 💻 for CC. Hermes = 🐴. Mixing these up frustrated user. |
+| "cron-worker is 三省六部, I'll group it there" | 🔴 **Two-system split**: 助理体系 = default + cron-worker (小黄影分身). 治理体系 = regent + gongbu + shangshu + ... (太子+三省六部). `extract_hermes_conversations.py` handles this; the overview key is `"assistant"`, not `"default"`. |
 
 ## 🔀 Decision Tree
 
@@ -107,6 +109,8 @@ Key improvements history: see `references/changelog.md`.
 | **Using `Path("~/...")` without `.expanduser()`** | `~` expansion depends on `$HOME` env var; under regent profile, resolves to wrong home (2026-05-27 fix: use absolute `~/...`) |
 | **Reading session JSON files instead of SQLite DB** | JSON session files deprecated May 2026; sessions now in `state.db` SQLite (2026-05-27 fix: `extract_hermes_conversations.py` v2.0 queries `state.db`)
 | **CC `message` field type mismatch** | `message` can be `dict` or Python repr `str` — always use `_parse_cc_message()`. Content can be `list` or `str` — use `_extract_cc_text()`. See `references/cc-session-extraction.md`. |
+| **Using wrong emoji for CC (🦞)** | 🦞 = OpenClaw. CC uses 💻 in diary. Hermes = 🐴. See Red Flags. |
+| **Grouping cron-worker into 治理体系** | cron-worker is 小黄影分身 → 助理体系. Only extract_hermes_conversations.py handles the split correctly (key `"assistant"`, not `"default"`). |
 
 ## ⚠️ Config Drift (Silent Failure)
 
@@ -140,6 +144,8 @@ icalBuddy `-ic "cal1,cal2"` on mismatched names returns empty **without error**.
 - [ ] If existing_content: user-written sections preserved, only gaps filled?
 - [ ] 🔴 NO raw user messages quoted — all AI topics summarized?
 - [ ] 🔴 All topics from `ai_logs.*.topics` covered? Busy days (10+ streams) cross-checked against raw sessions?
+- [ ] 🔴 Emoji correct? 🐴=助理体系 · 🏛️=治理体系 · 💻=CC · 🦞 NEVER appears?
+- [ ] v3.0 format: frontmatter present? Abstract callout? Info callouts per AI section? `---` dividers? Tip callout footer?
 - [ ] All 8 required sections present in the diary?
 - [ ] File written to correct Obsidian path?
 - [ ] User notified (cron: final response; manual: Telegram)?
