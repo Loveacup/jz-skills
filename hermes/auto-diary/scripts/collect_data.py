@@ -382,7 +382,7 @@ def format_cc_for_diary(summaries: list) -> str:
     if not overview:
         return ""
 
-    lines = ["### 🦞 Claude Code 工作概览"]
+    lines = ["### 💻 Claude Code 工作概览"]
     lines.append(f"- 会话数: {overview['session_count']}")
     lines.append(f"- 消息数: {overview['message_count']}")
     lines.append(f"- 用户轮次: {overview['user_turns']}")
