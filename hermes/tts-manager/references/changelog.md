@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-06-01 — v0.2.1 Voice Director MVP sample set
+
+- Generated five Edge TTS review samples for Voice Director scenarios: formal_report, good_news, warning, comfort, and technical_explanation.
+- Recorded exact text, sanitized output paths, and durations in `voice-testing-protocol.md`.
+
 ## 2026-06-01 — v0.2.0 Voice Director MVP
 
 - Implemented provider-neutral TTS Voice Director MVP under `agent/tts_voice_director/`.
