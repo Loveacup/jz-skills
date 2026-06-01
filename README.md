@@ -63,7 +63,7 @@ jz-skills/
 │   ├── auto-diary/                # v3.5 · 日/周/月/年金字塔聚合
 │   ├── mac-doctor/                # v2.2 · macOS 六级巡检
 │   ├── cron-worker/               # v1.3 · 定时任务 + 四种心跳
-│   ├── claude-code/               # v3.5 · CC 编排 (3 种模式)
+│   ├── claude-code/               # v4.0 · CC 编排+双向拷问+自治团队
 │   ├── tts-manager/               # TTS 聚合管理
 │   ├── tech-support-email/        # v1.1 · 技术支持邮件
 │   ├── supermemory-hermes/        # Hermes Supermemory 配置
@@ -152,18 +152,18 @@ Six-tier macOS system health monitoring with root-cause diagnosis and dual cron 
 
 ---
 
-### 🤖 claude-code · CC 编排 v3.5
+### 🤖 claude-code · CC 编排 v4.0
 
-> **9 commits** — 5 versions (v3.0→v3.5.1) · Hermes-to-Claude Code orchestration bridge
+> **10 commits** — 6 versions (v3.0→v4.0.0) · 29 reference files · Hermes↔CC 双向拷问 + 自治团队编排
 
-Orchestrate Claude Code CLI from Hermes with three execution modes. Iterated through stability and coordination improvements across five releases.
-从 Hermes 编排 Claude Code，三种执行模式。历经五个版本迭代稳定性和协调能力。
+Hermes-to-Claude Code orchestration bridge with bidirectional grilling protocol and autonomous agent team coordination. v4.0 marks a structural upgrade: discussion-driven collaboration replaces one-shot delegation.
+从 Hermes 编排 Claude Code，v4.0 结构性升级：双向讨论协议取代单向委派。
 
-- **3 modes · 三种模式:** Print (one-shot) → Interactive tmux → Agent team (multi-agent coordination) / 单次打印→交互终端→多 agent 协作
-- **v3.1 ~ v3.3:** HOME override + sandbox pitfalls + stability optimization (slim 402→296 lines) / 环境隔离+稳定性优化
-- **v3.5.0:** Smart effort routing + agent team workflow enhancement / 智能路由+agent team 增强
-- **v3.5.1:** Pitfall #24 — false-idle detection (CC appears stuck but is thinking) / 假空闲检测
-- **Progress reporting · 进度汇报:** Mandated template — 15s first check → 30-60s polling → emoji status / 强制汇报模板
+- **Discussion protocol · 讨论协议:** Hermes↔CC 双向拷问 — grill pattern（逐问/带推荐答案/先查事实）+ 多轮辩证 + 共识终止条件 + 讨论简报模板。吸收 `mattpocock/skills` grill-me + Du et al. 2023 multiagent debate
+- **Session architecture · 会话架构:** 默认每次新建独立 session `hermes-cc-{agent}-{ts}`（废除共享 longterm），跨会话上下文走 `/tmp/cc-context-{task}.md`
+- **v3.5.x — Stability fixes · 稳定性修复:** Smart effort routing（5 级，signal-based）+ Pitfall #24 假空闲检测 + #25 会话劫持 + #26 权限表单不可靠 + #27 自动恢复旧会话
+- **v4.0.0 — Debt cleanup · 清债:** Pitfall 编号重排（#18–#27 连续无重复）、3 个 detail 补全、2 个坏链修复、6 个孤儿 reference 收编、共享 longterm 策略矛盾消除
+- **Progress reporting · 进度汇报:** 强制 15s 首检 → 30-60s 轮询 → emoji 状态模板；沉默 >2min = 异常
 
 → [`hermes/claude-code/`](hermes/claude-code/)
 
@@ -244,7 +244,7 @@ General reference for Supermemory — long-term memory infrastructure shared acr
 | 📔 [`auto-diary`](hermes/auto-diary/) | Daily→yearly diary — [§active](#-auto-diary--自动化日记-v35) |
 | 🩺 [`mac-doctor`](hermes/mac-doctor/) | macOS 6-tier health — [§active](#-mac-doctor--macos-巡检-v22) |
 | 🕐 [`cron-worker`](hermes/cron-worker/) | Cron profile + pool watchdog — [§active](#-cron-worker--定时任务-agent-v13) |
-| 🤖 [`claude-code`](hermes/claude-code/) | CC orchestration — [§active](#-claude-code--cc-编排-v35) |
+| 🤖 [`claude-code`](hermes/claude-code/) | CC orchestration v4.0 — discussion protocol + agent team — [§active](#-claude-code--cc-编排-v40) |
 | 🧠 [`supermemory-hermes`](hermes/supermemory-hermes/) | Hermes Supermemory setup + multi-profile |
 | 🎤 [`tts-manager`](hermes/tts-manager/) | TTS provider registry + voice testing |
 | 📧 [`tech-support-email`](hermes/tech-support-email/) | Investigation-first vendor emails v1.1 |
