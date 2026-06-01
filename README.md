@@ -63,7 +63,7 @@ jz-skills/
 │   ├── auto-diary/                # v3.5 · 日/周/月/年金字塔聚合
 │   ├── mac-doctor/                # v2.2 · macOS 六级巡检
 │   ├── cron-worker/               # v1.3 · 定时任务 + 四种心跳
-│   ├── claude-code/               # v4.0 · CC 编排+双向拷问+自治团队
+│   ├── claude-code/               # v4.1 · CC 编排+双向拷问+自治团队
 │   ├── tts-manager/               # TTS 聚合管理
 │   ├── tech-support-email/        # v1.1 · 技术支持邮件
 │   ├── supermemory-hermes/        # Hermes Supermemory 配置
@@ -102,9 +102,24 @@ Skills ranked by total commit count across the full repository history — refle
 > **Criteria · 入选标准:** ≥5 commits + ≥2 major versions + real functional evolution per version. Not hand-picked — data-driven. [Full rules ↓](#active-skill-criteria--高频标准)
 > 入选硬指标：≥5 提交 + ≥2 大版本 + 每版实质能力增量。不靠主观，靠数据说话。
 
+### ✍️ skill-authoring · 合规创作 v3.0
+
+> **16 commits** — the most iterated skill in the repo · 仓库中迭代最多的技能
+
+11-step compliance-first skill authoring workflow with 7-dimension scoring. Absorbed SkillEvolver + EmbodiSkill (2026-05) for deployment-driven skill evolution.
+11 步合规创作工作流 + 七维评分。吸收 SkillEvolver + EmbodiSkill 实现部署驱动的技能进化。
+
+- **11-step flow · 11 步流程:** Capture → Grill → Progressive disclosure → Anti-rationalization → Rule positioning → Checklist → 7-dim scoring → Test cases → Deployment-grounded audit → Failure classification → Revision / 捕获→审查→渐进披露→反合理化→规则定位→清单→七维评分→测试→部署审计→故障分类→修订
+- **7-dim scoring · 七维评分:** Progressive disclosure, anti-rationalization, rule positioning, checklist coverage, test coverage, deployment fit, failure resilience / 渐进披露、反合理化、规则定位、清单覆盖、测试覆盖、部署适配、故障韧性
+- **v3.0:** Dual-role review pattern (Advocate→Challenger→Synthesize), deployment-grounded audit / 双角色审查+部署根基审计
+
+→ [`shared/skill-authoring/`](shared/skill-authoring/)
+
+---
+
 ### 📔 auto-diary · 自动化日记 v3.5
 
-> **12 commits** — the most iterated skill in the repo · 仓库中迭代最多的技能
+> **14 commits** — evolved through six major versions (v2.0 → v3.5) · 历经六个大版本迭代
 
 Automated daily diary + weekly/monthly/yearly report generation from cron. Evolved through six major versions (v2.0 → v3.5) with progressive structural refinement.
 从 cron 触发的日记生成到金字塔聚合的年报体系，历经 v2.0→v3.5 六个大版本。
@@ -121,7 +136,7 @@ Automated daily diary + weekly/monthly/yearly report generation from cron. Evolv
 
 ### 🔍 web-research-router · 检索总控 v3.8
 
-> **12 commits** — 5 major versions (v3.1→v3.8), 22 reference files · 22 个引用文件
+> **14 commits** — 5 major versions (v3.1→v3.8), 22 reference files · 22 个引用文件
 
 Multi-engine search router with deep research loop. The most architecturally complex skill in the repo, evolved through five versions each adding a distinct capability layer.
 五引擎搜索路由 + 深度研究循环。仓库中架构最复杂的技能，五个版本各叠加一层能力。
@@ -133,6 +148,24 @@ Multi-engine search router with deep research loop. The most architecturally com
 - **v3.8 — Auxiliary grounding · 辅助验证:** Claude Code WebSearch as unstable auxiliary source (pre-flight check gated) / CC 引擎作为辅助验证
 
 → [`hermes/web-research-router/`](hermes/web-research-router/)
+
+---
+
+### 🤖 claude-code · CC 编排 v4.1
+
+> **12 commits** — 7 versions (v3.0→v4.1.0) · 29 reference files · Hermes↔CC 双向拷问 + 自治团队编排
+
+Hermes-to-Claude Code orchestration bridge with bidirectional grilling protocol and autonomous agent team coordination. v4.1 adds constitutional red lines + Gate Stamp discipline — a correctness layer before execution.
+从 Hermes 编排 Claude Code，v4.1 新增红线宪法 + Gate Stamp 执行前签章。
+
+- **v4.1.0 — Constitutional red lines · 红线宪法:** 2 条铁律红线（📡 capture↔report 1:1 成对 + 讨论协议=不执行）+ 4 项 Gate Stamp（方案审定/effort/占用检测/session 时间戳）+ effort 路由下沉到 references/；红线上限→立即标记+补做禁下轮改
+- **Discussion protocol · 讨论协议:** Hermes↔CC 双向拷问 — grill pattern（逐问/带推荐答案/先查事实）+ 多轮辩证 + 共识终止条件 + 讨论简报模板。吸收 `mattpocock/skills` grill-me + Du et al. 2023 multiagent debate
+- **Session architecture · 会话架构:** 默认每次新建独立 session `hermes-cc-{agent}-{ts}`（废除共享 longterm），跨会话上下文走 `/tmp/cc-context-{task}.md`
+- **v3.5.x — Stability fixes · 稳定性修复:** Smart effort routing（5 级，signal-based）+ Pitfall #24 假空闲检测 + #25 会话劫持 + #26 权限表单不可靠 + #27 自动恢复旧会话
+- **v4.0.0 — Debt cleanup · 清债:** Pitfall 编号重排（#18–#27 连续无重复）、3 个 detail 补全、2 个坏链修复、6 个孤儿 reference 收编、共享 longterm 策略矛盾消除
+- **Progress reporting · 进度汇报:** 强制 15s 首检 → 30-60s 轮询 → emoji 状态模板；沉默 >2min = 异常
+
+→ [`hermes/claude-code/`](hermes/claude-code/)
 
 ---
 
@@ -152,26 +185,9 @@ Six-tier macOS system health monitoring with root-cause diagnosis and dual cron 
 
 ---
 
-### 🤖 claude-code · CC 编排 v4.0
-
-> **10 commits** — 6 versions (v3.0→v4.0.0) · 29 reference files · Hermes↔CC 双向拷问 + 自治团队编排
-
-Hermes-to-Claude Code orchestration bridge with bidirectional grilling protocol and autonomous agent team coordination. v4.0 marks a structural upgrade: discussion-driven collaboration replaces one-shot delegation.
-从 Hermes 编排 Claude Code，v4.0 结构性升级：双向讨论协议取代单向委派。
-
-- **Discussion protocol · 讨论协议:** Hermes↔CC 双向拷问 — grill pattern（逐问/带推荐答案/先查事实）+ 多轮辩证 + 共识终止条件 + 讨论简报模板。吸收 `mattpocock/skills` grill-me + Du et al. 2023 multiagent debate
-- **Session architecture · 会话架构:** 默认每次新建独立 session `hermes-cc-{agent}-{ts}`（废除共享 longterm），跨会话上下文走 `/tmp/cc-context-{task}.md`
-- **v3.5.x — Stability fixes · 稳定性修复:** Smart effort routing（5 级，signal-based）+ Pitfall #24 假空闲检测 + #25 会话劫持 + #26 权限表单不可靠 + #27 自动恢复旧会话
-- **v4.0.0 — Debt cleanup · 清债:** Pitfall 编号重排（#18–#27 连续无重复）、3 个 detail 补全、2 个坏链修复、6 个孤儿 reference 收编、共享 longterm 策略矛盾消除
-- **Progress reporting · 进度汇报:** 强制 15s 首检 → 30-60s 轮询 → emoji 状态模板；沉默 >2min = 异常
-
-→ [`hermes/claude-code/`](hermes/claude-code/)
-
----
-
 ### 🕐 cron-worker · 定时任务 Agent v1.3
 
-> **7 commits** — architectural foundation for all scheduled agent workloads · 定时任务基础设施
+> **6 commits** — architectural foundation for all scheduled agent workloads · 定时任务基础设施
 
 Dedicated cron-worker profile with four heartbeat patterns and cross-profile skill pool integrity watchdog. Defines the architecture for separating background tasks from interactive sessions.
 专用定时任务 profile 架构 + 四种心跳模式 + 技能池完整性看门狗。
@@ -185,24 +201,9 @@ Dedicated cron-worker profile with four heartbeat patterns and cross-profile ski
 
 ---
 
-### ✍️ skill-authoring · 合规创作 v3.0
-
-> **6 commits** — the skill that creates all other skills · 创造所有其他技能的元技能
-
-11-step compliance-first skill authoring workflow with 7-dimension scoring. Absorbed SkillEvolver + EmbodiSkill (2026-05) for deployment-driven skill evolution.
-11 步合规创作工作流 + 七维评分。吸收 SkillEvolver + EmbodiSkill 实现部署驱动的技能进化。
-
-- **11-step flow · 11 步流程:** Capture → Grill → Progressive disclosure → Anti-rationalization → Rule positioning → Checklist → 7-dim scoring → Test cases → Deployment-grounded audit → Failure classification → Revision / 捕获→审查→渐进披露→反合理化→规则定位→清单→七维评分→测试→部署审计→故障分类→修订
-- **7-dim scoring · 七维评分:** Progressive disclosure, anti-rationalization, rule positioning, checklist coverage, test coverage, deployment fit, failure resilience / 渐进披露、反合理化、规则定位、清单覆盖、测试覆盖、部署适配、故障韧性
-- **v3.0:** Dual-role review pattern (Advocate→Challenger→Synthesize), deployment-grounded audit / 双角色审查+部署根基审计
-
-→ [`shared/skill-authoring/`](shared/skill-authoring/)
-
----
-
 ### 🧠 supermemory-maintenance · 记忆参考 v6
 
-> **5 commits** — cross-platform memory infrastructure reference · 跨平台记忆基础设施参考
+> **6 commits** — cross-platform memory infrastructure reference · 跨平台记忆基础设施参考
 
 General reference for Supermemory — long-term memory infrastructure shared across Hermes, Claude Code, and pi. Architecture, SDK usage, container tags, processing pipeline, and diagnostic protocols. Platform-specific execution delegated to `supermemory-hermes` and `pi-supermemory`.
 跨 Hermes/CC/pi 三端的 Supermemory 长期记忆参考。架构、SDK 使用、容器标签、管线、诊断协议。
@@ -244,7 +245,7 @@ General reference for Supermemory — long-term memory infrastructure shared acr
 | 📔 [`auto-diary`](hermes/auto-diary/) | Daily→yearly diary — [§active](#-auto-diary--自动化日记-v35) |
 | 🩺 [`mac-doctor`](hermes/mac-doctor/) | macOS 6-tier health — [§active](#-mac-doctor--macos-巡检-v22) |
 | 🕐 [`cron-worker`](hermes/cron-worker/) | Cron profile + pool watchdog — [§active](#-cron-worker--定时任务-agent-v13) |
-| 🤖 [`claude-code`](hermes/claude-code/) | CC orchestration v4.0 — discussion protocol + agent team — [§active](#-claude-code--cc-编排-v40) |
+| 🤖 [`claude-code`](hermes/claude-code/) | CC orchestration v4.1 — discussion protocol + agent team — [§active](#-claude-code--cc-编排-v41) |
 | 🧠 [`supermemory-hermes`](hermes/supermemory-hermes/) | Hermes Supermemory setup + multi-profile |
 | 🎤 [`tts-manager`](hermes/tts-manager/) | TTS provider registry + voice testing |
 | 📧 [`tech-support-email`](hermes/tech-support-email/) | Investigation-first vendor emails v1.1 |
