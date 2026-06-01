@@ -8,7 +8,7 @@ description: |
   让claude, agent team, claude review
   DO NOT use for: simple single-tool calls (Hermes does those directly), grammar fixes,
   non-coding creative writing (use appropriate creative skills)
-version: 3.5.1
+version: 4.0.0
 author: Hermes Agent + Teknium
 license: MIT
 ---
@@ -31,17 +31,17 @@ Delegate complex tasks to Claude Code via tmux interactive sessions + agent team
 ## 🔀 Decision Tree（稳定性优先 — 仅 tmux + agent team）
 
 ```
-调 CC 之前 → 🛑 先跑占用检测（扫描所有 tmux session 的 ●）
+调 CC 之前 → 🛑 先跑占用检测（扫描所有 tmux session 的 ● 工具调用 + ✻ 思考态）
          │
-         ├── 有 BUSY session → 汇报用户，等确认
+         ├── 有 BUSY / THINKING session → 汇报用户，等确认（不抢占，❯ ≠ 空闲见 #24）
          │
-         └── 无 BUSY / 用户确认新建
+         └── 全部空闲 / 用户确认新建
               │
               ├── ⭐ Agent Team（默认，绝大部份场景）
               │   └── tmux 交互模式
-              │       ├── 新任务 → 新建 session `hermes-cc-{profile}-{ts}`
-              │       ├── 复用上下文 → `claude --resume <id> --fork-session`
-              │       └── 长会话 → `hermes-claude-longterm`（仅当扫描确认空闲时）
+              │       ├── 默认 → 每次新建独立 session `hermes-cc-{agent}-{ts}`（不复用）
+              │       └── 需复用上下文 → 写 `/tmp/cc-context-{task}.md` 传递，新 session 读取
+              │           （⚠️ 不再复用共享 `hermes-claude-longterm` — 见 § 废除共享 Longterm）
               │
               ├── 单文件小修（仅当用户明确说"简单"）
               │   └── Hermes 自己做，不调 CC
@@ -113,6 +113,54 @@ Delegate complex tasks to Claude Code via tmux interactive sessions + agent team
 | Leader 协调成本 | 高（缝合多处碎片） | 低（合并完整领域成果） |
 
 > 拆分后别忘记 worker 纪律：context 文件必须含 `timeout 10min per worker`，假死先 `ls -la` 查磁盘再 `send-keys "Agent N done."`——详见 `## ⚡ Core Rules` #10 与「Worker 假死恢复协议」。
+
+## 🔥 讨论协议（Discussion Protocol — Hermes↔CC 双向拷问）
+
+> **何时用：** 任务方案不明确、涉及架构决策、或用户说"看方案 / 处理决策点 / 讨论一下"时。**默认进入讨论，不是执行**（Pitfall #23）。方案审定后才动手。
+
+复杂任务执行前，Hermes 与 CC 先进入一轮或多轮**双向拷问**，把模糊需求逼成精确规格，再开 agent team。本协议吸收自 Matt Pocock 的 grill pattern（[`mattpocock/skills`](https://github.com/mattpocock/skills) 的 `/grill-me` + `/grill-with-docs`）与多智能体辩证/投票研究。
+
+### grill 核心机制（来源：github.com/mattpocock/skills）
+
+grill 本质：动手前让一方扮演"严苛审查员"，**逐个分支**盘问对方计划，直到达成共同理解（"No-one knows exactly what they want."）。三条可直接落地：
+
+| 机制 | 做法 | 出处 |
+|------|------|------|
+| **逐问（one-at-a-time）** | 一次只问一个问题，等回答后再问下一个——让每个答案影响后续方向，避免假设爆炸式传播 | grill-me |
+| **带推荐答案提问** | 提问方附上"我倾向 X，理由 Y"，被问方有锚点可确认/反驳，而非凭空作答 | grill-me + grill-with-docs |
+| **先查事实再接受主张** | 任何"现状应该如何"的陈述，先核查代码/文档/配置/git log 再接受——能从 artifact 回答的不靠猜 | grill-with-docs |
+
+> 💡 **Hermes 已部署 `grill-with-docs` skill**（`~/.hermes/skills/governance/grill-with-docs`，已适配三省六部 domain model）。需要正式 grill 一个方案时可直接调用它；本节是其在 Hermes↔CC 编排场景下的精简协议。
+
+### Hermes↔CC 双向拷问规则
+
+1. **开场即讨论**，除非需求明确到不需要讨论。
+2. 任何不明确的环节 → 发起一轮或多轮拷问；**双向**——Hermes 可拷问 CC，CC 也可拷问 Hermes，非单向受审。
+3. **关于"现状"的陈述必须带可验证 artifact**（文件路径、命令输出、git log）。呼应 grill-with-docs 的 cross-reference，也呼应「需求 doc 常是设计终态，先核实真实运行状态」。
+4. **多轮辩证 + 立场更新**：每轮拷问后被问方须显式声明"立场是否更新、为何"，不允许沉默接受（源自 Du et al. 2023 multiagent debate 的 debate-then-revise）。
+5. **终止条件**：双方对所有未决分支达成显式一致 → 进入执行；若 ≤3 轮仍有分歧 → 标记未决、写入 assumption log、带条件推进，**不带隐性分歧进实现**（源自 self-consistency 的 consensus-as-exit）。
+6. 提问走**纯文本**，不要 AskUserQuestion 表单——tmux 下表单导航不可靠（Pitfall #26）。
+
+### Agent Team 对齐原则（执行前的闸门）
+
+- **方案未审定 = 讨论，不是执行。** 用户说"处理决策点 / 看方案 / 优化方案"时默认是讨论；只有明确说"可以做了 / 执行吧 / 拉 CC 改"才动手（Pitfall #23）。
+- 开 agent team 前，方案范围须经用户**逐条审定**——不能把"讨论决策点"误解为"执行清单"。
+- 涉及 skill / 已有文件修改时，先确认用户是否有备份。
+
+### 讨论简报模板（每轮拷问结束发给用户）
+
+≤5 bullet，让用户随时能接管决策：
+
+```
+📋 讨论简报 R{n}
+  · 讨论了什么
+  · 决定了什么
+  · 分歧 / 未决
+  · 我的拷问（需用户回答的问题，每问带推荐答案）
+  · 下一步（执行前必须等审定）
+```
+
+> **设计依据：** 逐问 / 辩证 / 共识终止三原则分别对应 grill-me、Du et al. 2023《Multiagent Debate》(arXiv:2305.14325)、Wang et al. 2023《Self-Consistency》(arXiv:2203.11171)；裁决角色参考 ChatEval (arXiv:2308.07201) 与 LLM-as-Judge (arXiv:2306.05685)。
 
 ## 📡 Post-Send Protocol（发送任务后 — 强制执行）
 
@@ -248,22 +296,24 @@ HOME=/Users/alexcai claude --model claude-opus-4-8 --effort max
 
 ## ⚡ Core Rules（Hermes Agent 执行规则）
 
-0. **🛑 发任务前必须扫描 CC 占用状态（新增）** — 不同 agent 不知道彼此是否在用 CC。**每次调 CC 前，必须先扫描所有 tmux session 是否已有活跃的 CC 工具调用**：
+0. **🛑 发任务前必须扫描 CC 占用状态** — 不同 agent 不知道彼此是否在用 CC。**每次调 CC 前，必须先扫描所有 tmux session 的活跃状态**（`●` 工具调用 **+** `✻` 思考态——`❯` 不等于空闲，见 Pitfall #24）：
 
    ```bash
-   # 扫描所有 tmux session，检查是否有活跃的 ● 工具调用（表示 CC 正在工作）
+   # 完整占用检测：● 工具调用 + ✻ 思考态都算忙（单一权威逻辑，与 § Multi-Agent 一致）
    for s in $(tmux list-sessions -F '#{session_name}' 2>/dev/null); do
-     if tmux capture-pane -t "$s" -p -S -8 2>/dev/null | grep -q '●'; then
-       echo "⚠️ BUSY: $s — 其他 agent 正在使用 CC"
+     pane=$(tmux capture-pane -t "$s" -p -S -10 2>/dev/null)
+     if echo "$pane" | grep -qE '●|✻|✶|✽|✳|Sublimating|Zigzagging|Billowing|Crunched|Wandering|Swooping|Cooking'; then
+       echo "⚠️ BUSY/THINKING: $s — 其他 agent 正在使用 CC，不可打扰"
      fi
    done
    ```
 
-   - 有 `●` → **必须汇报用户**："CC 正被 session `<name>` 占用（`●` 活跃工具调用），等待或新建独立 session？"
-   - 无 `●` + 看到 `❯` → 空闲，可安全使用
+   - 有 `●` 或 `✻` → **必须汇报用户**："CC 正被 session `<name>` 占用，等待还是新建独立 session？"
+   - 真正空闲 = `❯` + 无 `●` + 无 `✻/✶/✽/✳` + 无 `Waiting for N background agents`（完整矩阵见 `§ 🤝 Multi-Agent Coordination Protocol`）
    - ⚠️ **不要自作主张开新 session 绕过去**——用户可能不知道两个 CC 在同时跑，消耗翻倍
+   - ✅ **但默认本就该新建独立 session**（`hermes-cc-{agent}-{ts}`）；占用检测是安全网，不是复用许可
 
-1. **默认 tmux 新 session + 独立 workdir** — 每次调 CC 用独立 session 名 `hermes-cc-{profile}-{ts}`。**不用 `--continue`**。同一 workdir 下 CC 会自动恢复最近 session → **每个 agent 独立 workdir**。
+1. **默认每次新建独立 session，不复用** — 每次调 CC 用独立 session 名 `hermes-cc-{agent}-{ts}`（**不复用**共享 `hermes-claude-longterm`）。**不用 `--continue`**（同一 workdir 下 CC 会自动 resume 最近 session → 串台）。需跨会话传上下文 → 写 `/tmp/cc-context-{task}.md`，新 session 读取。→ **每个 agent 独立 session + 独立 workdir**。
 2. **复杂任务必须 agent team** — 多文件/多步骤/根因分析/实现+测试/架构判断 → 让 CC 自己 spawn subagent。**Agent 数量由 CC 按复杂度自定，context 文件只描述任务（要做什么 / 覆盖哪些关注点），不规定 team 规模，不硬编码 worker 个数。** 按关注点拆，不按文件拆 → 详见 `### 🧩 Agent 数量与拆分原则`。
 3. **Always set `workdir`** — 让 CC 聚焦正确项目目录。
 4. **Always 带 `HOME=/Users/alexcai`** — 避免 Hermes profile HOME override 导致认证失败。
@@ -307,16 +357,16 @@ done
 
 | 扫描结果 | 决策 | 操作 |
 |---------|------|------|
-| 无 tmux CC session | 直接新建 | `tmux new-session -d -s hermes-cc-{profile}-{ts} ...` |
-| 有空闲 CC（`❯`，无 `●`） | 可复用 | 用 `/clear` 清空旧 context → 发新任务 |
-| 有忙碌 CC（`●`） | **先汇报用户** | "CC 正被 `{session}` 占用，{工具名}。等待还是新建独立 session？" |
-| 有忙碌 CC + 用户确认新建 | 新建隔离 session | 独立 session 名 + **独立 workdir** |
+| 无 tmux CC session | 直接新建 | `tmux new-session -d -s hermes-cc-{agent}-{ts} ...` |
+| 有空闲 CC（`❯` + 无 `●` + 无 `✻`） | **仍默认新建** | 不复用旧 session（避免 scrollback 污染 + 被劫持风险）；仅当明确延续同一任务才复用 |
+| 有忙碌/思考 CC（`●` 或 `✻`） | **先汇报用户** | "CC 正被 `{session}` 占用。等待还是新建独立 session？" |
+| 用户确认新建 | 新建隔离 session | 独立 session 名 `hermes-cc-{agent}-{ts}` + **独立 workdir** |
 
 ### 汇报模板
 
 ```
 ⚠️ CC 占用检测
-  BUSY: hermes-claude-longterm — ● Reading src/auth.py
+  BUSY: hermes-cc-cron-1717... — ● Reading src/auth.py
   → 等待完成（预计 X 分钟）还是新建独立 session？
 ```
 
@@ -329,11 +379,13 @@ done
 | kanban worker | `hermes-cc-kanban-{ts}` | 看板 |
 | 手动/临时 | `hermes-cc-{task}-{ts}` | 用完即杀 |
 
+> ⚠️ **不再使用共享 `hermes-claude-longterm`。** 每个 agent / 每个任务用独立 `hermes-cc-{agent}-{ts}`，用完即杀。需跨会话传上下文 → 写 `/tmp/cc-context-{task}.md`，新 session 读取。共享 longterm 是 2026-06-01/06-02 多次劫持事件的根因（#24/#25）。
+
 ### 清理纪律
 
-- 每次任务完成 → `/clear` + `tmux kill-session`
-- 多轮任务间 → `/clear`（不清 session，保留 tmux）
-- 最终完成 → `tmux kill-session`
+- 每次任务完成 → `tmux kill-session`（默认用完即杀，不留共享会话）
+- 同一任务多轮间 → `/clear`（清 context，保留**当前** session）
+- ⚠️ 不同任务 → **新建独立 session**，不在旧 session 里 `/clear` 复用（避免劫持，见 #25）
 
 ### ⚠️ Session 劫持诊断
 
@@ -372,8 +424,8 @@ CC v2.1+ 默认启用。启动后验证：`tmux capture-pane -t <s> -p -S -2 | g
 
 **检查方法：**
 ```bash
-# 取最后 60 行，看 CC 在做什么
-tmux capture-pane -t hermes-claude-longterm -p -S -60
+# 取最后 60 行，看 CC 在做什么（用本任务的 session 名，不是共享 longterm）
+tmux capture-pane -t hermes-cc-{agent}-{ts} -p -S -60
 ```
 
 > 💡 **Agent Team 磁盘验证（推荐）**：tmux task board 只显示 worker 运行时间，无法判断实际文件产出。用 `find <workdir> -newer /tmp/cc-marker -type f` 每 30s 扫一次磁盘，可以绕过 UI 盲区精确追踪进度。详见 `references/agent-team-disk-verification.md`。
@@ -479,7 +531,9 @@ sleep 3 && tmux send-keys -t <s> Down && tmux send-keys -t <s> Enter
 | ★22 | **Hermes cross-profile write guard 阻拦 context file** | context file 写到 `/tmp/`（中性位置），CC 从 `/tmp/` 读取后直接在目标 workdir 改文件——CC 的 Write 工具不受 Hermes profile guard 影响。 |
 | ★23 | **CC 在方案未审定时提前执行：修改文件+提交，但用户没批准** | 当用户说"处理决策点"/"看方案"时，**默认 = 讨论，不是执行**。只有用户明确说"可以做了"/"执行吧"后才动手。详见 `references/common-pitfalls.md` #23。 |
 | ★24 | **CC 假空闲 — 底部 ❯ 可见但 ✻ 思考中** | `capture-pane` 底部 `❯` 不等于 CC 空闲。上方可能正在深度思考旧任务（`✻ Sublimating…`）。占用检测必须同时 grep `✻|✶|✽|✳`。2026-06-02 主 agent 劫持了 cron-worker 任务。详见 `references/common-pitfalls.md` #24。 |
-| ★23 | **CC 自动恢复旧会话——不是干净启动** | 当 workdir 下有 `.claude/` 状态时，新 tmux session 的 `claude` 命令会**自动 resume 最近一次会话**，不会从零开始。看到熟悉的 task board 和历史记录说明是旧会话。**处置**：(1) 先检查是否已有成果——如果上轮已完成任务，直接收成果；(2) 如需干净启动，用 `claude --new-session` 或切到无 `.claude/` 的目录；(3) 不要假设每次 `tmux new-session + claude` 都是全新开始。2026-05-31 复现：启动 CC 执行 SIL v5.0 改造，结果恢复了之前已全部完成的 session。 |
+| ★25 | **Session 被另一 agent 的 /clear 劫持：当前任务被完全覆写** | 复用共享 session 时，另一个 agent 发 `/clear` + 新任务会完全覆盖你正在执行的任务。**修复**：独立任务用专用 session 名（`hermes-cc-{task}`），发任务前 `capture-pane -S -20` 验证末尾是 `❯` 且无新任务文本，被劫持立即重建独立 session。详见 `references/common-pitfalls.md` #25。 |
+| ★26 | **CC 权限表单（复选框/单选框）tmux send-keys 无法可靠导航** | Tab/Enter/Arrow 序列在 CC 权限表单下不可靠（不响应或跳错位置）。**修复**：按 `Escape` 取消表单 → CC 显示 "User declined to answer questions" → 立即发**纯文本决策消息**（如 "选 1+2+3"），CC 会照此执行。不要反复 send-keys 导航表单。详见 `references/common-pitfalls.md` #26。 |
+| ★27 | **CC 自动恢复旧会话——不是干净启动** | workdir 下有 `.claude/` 状态时，新 tmux session 的 `claude` 会**自动 resume 最近一次会话**，不从零开始。看到熟悉的 task board 说明是旧会话。**处置**：先检查是否已有成果（上轮完成就直接收）；需干净启动用 `claude --new-session` 或切到无 `.claude/` 的目录；不要假设每次 `tmux new-session + claude` 都是全新开始。详见 `references/common-pitfalls.md` #27。 |
 
 ## 📦 References
 
@@ -508,13 +562,18 @@ sleep 3 && tmux send-keys -t <s> Down && tmux send-keys -t <s> Enter
 | `references/CHANGELOG.md` | 🆕 版本历史：v3.1.0→v3.5.0 完整变更记录 |
 | `references/de-slop-cc-integration.md` | 🆕 de-slop（AI 味去除）CC skill 集成：从 jz-skills 安装、调用签名、L4 质量门用法（2026-05-31） |
 | `references/taste-skill-mobile-prototype.md` | 🆕 CC + taste-skill 移动端原型图快速生成：Design Read → HTML/CSS → Playwright 截图（2026-05-31） |
+| `references/home-and-sandbox.md` | HOME override 认证 + macOS TCC 沙盒完整方案：symlink auth、`/tmp` fallback、权限授权 |
+| `references/cc-agent-team-document-audit.md` | CC agent team 文档审计模式 |
+| `references/hermes-research-to-cc-strategic-insight.md` | Hermes 研究 → CC 战略洞察长文的交接模式 |
+| `references/claude-octopus-upstream.md` | Claude Octopus 上游项目参考 |
+| `references/literary-rewrite-pattern.md` | 文学化重写模式 |
 
 ---
 
 ## ✅ Verification Checklist（稳定性优先）
 
 - [ ] **🛑 占用检测？** 调 CC 前是否扫描了所有 tmux session 的 `●` **和 `✻`**？思考状态（`✻/✶/✽/✳`）的 session 也视为忙碌！
-- [ ] **Session 隔离？** 是否避免了 `--continue`？session 名用 `hermes-cc-{profile}-{ts}`？
+- [ ] **Session 隔离？** 是否避免了 `--continue` **和共享 `hermes-claude-longterm`**？每个任务新建独立 `hermes-cc-{agent}-{ts}`？
 - [ ] **Workdir 隔离？** 多 agent 是否用了不同 workdir？
 - [ ] **HOME override？** 是否带了 `HOME=/Users/alexcai`？
 - [ ] **Bypass permissions？** 标题栏是否 `⏵⏵ bypass permissions on`？

@@ -16,10 +16,12 @@ Hermes profile 将 `HOME` 重定向到 `~/.hermes/profiles/<name>/home/`。CC �
 
 **修复：** 始终 `HOME=/Users/alexcai claude ...`
 
-**永久方案：** symlink auth 文件到 profile home：
+> ⚠️ **此处必须用字面绝对路径，不能用 `~` 或 `$HOME`。** profile 已把 `$HOME` 重定向，`~`/`$HOME` 会展开成被 override 的错误路径，修复失效。**sync 脚本对 `$HOME → ~/` 的脱敏必须豁免本段** —— 否则会把功能性命令改坏。
+
+**永久方案：** 在真实 shell（HOME 正常）下 symlink auth 文件到 profile home：
 ```bash
-ln -sf ~/.claude.json $PROFILE_HOME/.claude.json
-ln -sf ~/.claude $PROFILE_HOME/.claude
+ln -sf /Users/alexcai/.claude.json "$PROFILE_HOME/.claude.json"
+ln -sf /Users/alexcai/.claude "$PROFILE_HOME/.claude"
 ```
 
 ## 3. Worker 假死（文件在磁盘）
@@ -88,13 +90,11 @@ Hermes 脱敏 `***` 可能删相邻字符。用字符串拼接不用 f-string：
 
 ## 16. CC Agent Team Schema Unknown
 
-Workers 不知道持久化 schema → 新字段被静默丢弃。Leader wiring 后验证：Python subprocess curl → POST → sleep → GET → 检查 artifact。
-
-详见 `references/post-deploy-verification-pattern.md`。
+> 见 #9（内容相同，已合并）。新字段写入 `artifact` dict，部署后用 Python subprocess curl 验证。详见 `references/post-deploy-verification-pattern.md`。
 
 ## 17. Background Shell Stall (Full)
 
-CC 显示 `Skedaddling…` + token >3min 不变 + 后台 shell `(ctrl+b ctrl+b to run in background)` → stall。**诊断：** 连续两轮 polling (~90s) token 无变化。**恢复：** 发 redirect 指令 → 30s 无响应 → 父 agent 手动执行。此模式 2026-05-28 复现。
+> 见 #11（内容相同，已合并）。Skedaddling/Puzzling + token >3min 不变 → 发 redirect 指令 → 30s 无响应 → 手动接管。
 
 ## 18. 多 Agent Session 冲突 ★
 
@@ -187,3 +187,76 @@ tmux capture-pane -t "$s" -p -S -10 | grep -qE '✻|✶|✽|✳|Sublimating|Zigz
 **本会话复现：** 2026-06-02。主 agent 的 CC 日记优化任务劫持了 cron-worker 的 watchdog 实现任务。cron-worker 被迫建独立 session 重新执行。
 
 **Obsidian 记录：** `00-Inbox/CC Session 劫持事件 — 假空闲陷阱_20260602.md`
+
+## 25. Session 被另一 agent 的 /clear 劫持 ★
+
+**症状：** 复用共享 session（如 `hermes-claude-longterm`）时，scrollback 中看到 `/clear` 后紧跟完全不同的任务指令。自己发出的任务指令已被覆盖，CC 正在执行另一个 agent 的任务。
+
+**根因：** 共享 tmux session 被多个 Hermes agent 竞争写入。一个 agent 的 `/clear` + 新任务会把当前正在执行的旧任务指令全部清除，CC 进入新任务上下文。叠加 Pitfall #24（假空闲）：发 `/clear` 的 agent 可能误判 `❯` 为空闲。
+
+**恢复：**
+1. 发现被劫持立即停止等待，`capture-pane -S -50` 确认 scrollback 中的 `/clear` 时间点
+2. 重建独立 session：`tmux new-session -d -s hermes-cc-{task}-$(date +%s)`
+3. 在新 session 重发原始任务指令（带完整 context file 路径）
+4. 收到结果后 `tmux kill-session -t hermes-cc-{task}-...`
+
+**预防：**
+1. 独立非交互任务始终用专用 session 名 `hermes-cc-{task-slug}`，不依赖共享 `longterm`
+2. 每次发任务前 `capture-pane -S -20` 验证 scrollback 末尾是 `❯` 且无新任务文本
+3. context file 发送前，在其中写明 session 名称和任务发起者，便于审计
+
+**与 #24 的关系：** 本 pitfall 是 #24（假空闲）的下游后果——劫持方误读空闲状态后发 `/clear` 导致覆盖。两者合看可完整复现攻击链。
+
+**2026-06-01 复现：** kanban worker 在 `longterm` session 发日记优化任务，覆写了 `skill-integrity-watchdog` 实现指令。cron-worker 被迫建独立 session 重新执行。
+
+---
+
+## 26. CC 权限表单（复选框/单选框）无法通过 tmux send-keys 可靠导航 ★
+
+**症状：** CC 显示权限确认表单（☐ 复选框列表或单选列表），用 `tmux send-keys Tab`/`Enter`/`Down`/`Up` 尝试导航，选项不响应或跳错位置，反复失败。
+
+**根因：** CC 权限表单 UI 使用 terminal raw mode，Tab/Enter/Arrow 键序列在 tmux send-keys 下行为不可靠——可能被 tmux 拦截、映射错误，或 CC 读取到时序不对。本质是 pseudo-TTY 事件与 tmux key injection 的兼容问题。
+
+**恢复（已验证，一次通过）：**
+```bash
+# 步骤 1：发 Escape 取消表单
+tmux send-keys -t "$s" Escape
+# → CC 显示 "User declined to answer questions"（正常，不是错误）
+# 步骤 2：立即发纯文本决策消息
+tmux send-keys -t "$s" "选 1+2+3：通用化 + 拷 watchdog + 删旧脚本" Enter
+# → CC 读取文本消息，照此执行，不再弹表单
+```
+
+**不要做：** 反复尝试 send-keys Tab/Enter/Down 导航表单——每次尝试消耗一轮，5+ 轮后 CC 可能进入错误状态。
+
+**预防：**
+- 在 context file 或任务指令中提前说明所有决策选项，CC 直接执行无需弹表单
+- 遇到表单第一次失败即切换 Escape + 文本方案，不要重试 key injection
+
+**2026-06-01 复现：** 两个权限表单 Tab/Enter/Down 均失败，Esc + 文本一次通过。
+
+---
+
+## 27. CC 自动恢复旧会话——不是干净启动 ★
+
+**症状：** `tmux new-session` 后在 workdir 执行 `claude`，看到熟悉的 task board 和历史内容——这不是新 session，是 CC 自动 resume 了最近一次会话。
+
+**根因：** `~/.claude/projects/<hash>/` 下存有上次会话的 `.jsonl` 文件。CC 启动时默认 resume 最近一次会话（`--continue` 行为），不从零开始。workdir 相同则 project hash 相同，必然恢复。
+
+**诊断：**
+```bash
+# 查看当前 workdir 对应的 claude project 目录
+ls -lt ~/.claude/projects/ | head -5
+# 有多个 .jsonl 文件 → CC 会 resume 最新的那个
+```
+
+**处置策略：**
+1. **先检查旧会话成果**：若上轮已完成目标任务，直接收取结果，不需要重新执行
+2. **需要干净启动**：`claude --new-session`（强制新 UUID）或切换到无 `.claude/` 的目录启动
+3. **不要假设**：每次 `tmux new-session` + `claude` 都是全新 context——实际恢复概率很高
+
+**预防：**
+- 专用任务 session 结束后用 `tmux kill-session` 清理，避免遗留状态
+- 如需重复执行同一任务（如 CI / cron），统一用 `claude --new-session` 启动，明确隔离
+
+**2026-05-31 复现：** 启动 CC 执行 SIL v5.0 改造，结果恢复了之前已全部完成的 session，误以为需要重新执行。确认旧会话已完成后直接收取结果节省了一轮 CC 调用。

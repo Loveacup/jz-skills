@@ -4,6 +4,52 @@
 
 ---
 
+## v4.0.0 (2026-06-02) — Discussion Protocol + Debt Cleanup + Architecture
+
+### Added
+- **🔥 讨论协议章节（Discussion Protocol）** — Hermes↔CC 双向拷问：grill pattern（逐问 / 带推荐答案 / 先查事实）+ 多轮辩证立场更新 + 共识终止条件 + 讨论简报模板。吸收自 `mattpocock/skills` 的 grill-me/grill-with-docs 与 Du et al. 2023 multiagent debate、Wang et al. 2023 self-consistency
+- **References 收编** — home-and-sandbox / cc-agent-team-document-audit / hermes-research-to-cc-strategic-insight / claude-octopus-upstream / literary-rewrite-pattern 5 个孤儿纳入 References 表
+
+### Changed
+- **🏗️ 废除共享 longterm session** — Decision Tree、Session 命名表、Core Rule #1、决策矩阵全面改为「默认每次新建独立 `hermes-cc-{agent}-{ts}`，不复用」；跨会话上下文走 `/tmp/cc-context-{task}.md`。占用检测保留作安全网
+- **占用检测统一** — Rule #0 与 Multi-Agent 段统一为含 `✻/✶/✽/✳` 思考态的单一权威逻辑
+- **Pitfall 编号重排** — 消除重复的两个 ★23（「自动恢复旧会话」重编为 #27），#18–#27 连续无重复
+
+### Fixed
+- **Pitfall #2 HOME 回归** — 修正 `HOME=~`→`HOME=/Users/alexcai`（字面绝对路径，profile override 下 `~` 会失效），并标注 sync 脱敏豁免
+- **2 个坏链接** — 新建 `post-deploy-verification-pattern.md` + `cc-agent-team-parallel-implementation.md`
+- **teammate-mode 去重** — 删除孤儿 `teammate-mode-verified.md`（`tmux-verified` 子集）
+
+### Execution
+- CC agent team：2 个 background subagent（搜索 grill+论文 / references 清债，sonnet）+ leader 串行改 SKILL.md（opus）。按关注点拆，SKILL.md 单文件由 leader 独占避免写冲突
+
+---
+
+## v3.5.2 (2026-06-01) — Session Hijack + Permission Form Pitfalls
+
+### Added
+- **Pitfall #25** — Session 被另一 agent 的 /clear 劫持：共享 session 竞争写入导致任务覆盖，修复方案：专用 session 名 `hermes-cc-{task}`
+- **Pitfall #26** — CC 权限表单 tmux 不可靠：复选框/单选框 Tab/Enter/Down 失效，解法：Escape + 纯文本决策消息
+- **Pitfall #27** — CC 自动恢复旧会话：workdir 有 `.claude/` 时 `claude` 默认 resume，需 `--new-session` 干净启动
+- **`references/post-deploy-verification-pattern.md`** — 新建：部署后 Python subprocess curl 验证模式（POST→sleep→GET→检查 artifact 字段）+ token 脱敏陷阱 + artifact dict 写入规范
+- **`references/cc-agent-team-parallel-implementation.md`** — 新建：并行实施模式 Leader-wiring 策略、context 文件模板、schema 验证集成
+
+### Changed
+- **Pitfall #16** — 压缩为交叉引用「见 #9」，消除与 #9 的重复
+- **Pitfall #17** — 压缩为交叉引用「见 #11」，消除与 #11 的重复
+
+---
+
+## v3.5.1 (2026-06-01) — Fake-Idle Detection Enhancement
+
+### Added
+- **Pitfall #24** — CC 假空闲：`❯` 可见但深度思考中（`✻/✶/✽/✳` 思考态）；与 #25 组成完整劫持攻击链
+
+### Changed
+- **Pitfall #18** 占用检测增强 — 除 `●` 工具调用检测外，新增 `✻/✶/✽/✳/Sublimating/Zigzagging/Billowing/…` 思考态检测；完整空闲条件扩展为 5 项同时满足
+
+---
+
 ## v3.5.0 (2026-05-31) — Effort Routing + Agent Team Enhancement
 
 ### Added
