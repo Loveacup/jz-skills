@@ -4,6 +4,28 @@
 
 ---
 
+## v4.1.0 (2026-06-01) — Instruction-Following Enforcement: 红线宪法 + Gate Stamp
+
+> 聚焦「指令遵循」的一轮优化。根因：旧 skill 规则全但约束力弱——MUST 通货膨胀 + 软 checklist + salience 与违规频率倒挂，agent 能合理化跳过 📡 汇报与讨论协议。经 3-lens 审查（规则强制力 / 可检测性 / 简洁vs完整）+ 4 轮 Hermes↔CC 讨论收口。
+
+### Added
+- **🔴 不可协商红线（Non-Negotiable）置顶区** — 仅 **2 条**红线（① 📡 汇报、② 讨论协议「优化 = 讨论非执行」）。分级声明消解 MUST 通货膨胀（红线 = 违反即停+用户介入，其余皆 best practice）。每条配**反合理化微表**（per-rule「借口→为什么错」），封死「空闲不用报 / 模板太繁 / 用户说优化=让我改」
+- **🚦 执行前 Gate Stamp** — 开 team / 改文件前必打印硬门签章（方案审定 / effort / session 隔离 / 占用检测），任一 ✗ 即阻断执行。借鉴 china-legal-optimized output-gate「五项硬检查，任一不过即 block」，软 checklist → 硬门
+- **Core Rule #11 违规自修正协议** — 发现违规立即 (1) 显式标记「⚠️ 刚违反红线 X」(2) 当轮补做 (3) 禁止「下轮改」口头了事
+- **`references/effort-routing.md`** 新建 — 接收主体下沉的 effort 完整体系（五级表 / 三档路由表 / 自检决策树 / 实战配置 / 成本换算 / `/effort` 切换陷阱）
+
+### Changed
+- **📡 汇报硬绑定** — 「持续汇报」抽象要求改为机械配对「`capture-pane` 与 📡 **1:1 成对**，缺一即违规」；模板头加 `[距上次 Xs]`，>120s 自标 `⏰超时`；Rule #9 标注为红线① 执行细则
+- **effort 路由下沉** — `## Model & Effort` 从 ~110 行精简到 ~14 行（地板 high + 一句话路由 + 启动即定档），详细体系移至 `references/effort-routing.md`
+- **占用检测去重** — Rule #0 删重复 bash 脚本，唯一权威保留在 `§ Multi-Agent Coordination Protocol`
+- **Verification Checklist** — 重定位为「事后总检」，删与 Gate Stamp 重复的前置项（占用检测 / session 隔离 / workdir），加事前硬门指引；Progress 项升级为红线①
+
+### Design
+- **红线 vs Gate Stamp 零重叠分流**：红线管「agent 主动跳过的行为铁律」（📡 / 讨论），Gate Stamp 管「技术陷阱误判的前置状态」（session / 占用 / effort）。占用检测不进红线（已 4 处强化 + 本质是假空闲被骗而非主动跳过）
+- **净行数**：effort 下沉（−96）+ 占用去重（−8）+ 红线/Gate/微表/自修正新增（+40）= **净 −64**，主体 588 → 524（实测）
+
+---
+
 ## v4.0.0 (2026-06-02) — Discussion Protocol + Debt Cleanup + Architecture
 
 ### Added

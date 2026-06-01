@@ -20,8 +20,8 @@ Hermes profile 将 `HOME` 重定向到 `~/.hermes/profiles/<name>/home/`。CC �
 
 **永久方案：** 在真实 shell（HOME 正常）下 symlink auth 文件到 profile home：
 ```bash
-ln -sf /Users/alexcai/.claude.json "$PROFILE_HOME/.claude.json"
-ln -sf /Users/alexcai/.claude "$PROFILE_HOME/.claude"
+ln -sf ~/.claude.json "$PROFILE_HOME/.claude.json"
+ln -sf ~/.claude "$PROFILE_HOME/.claude"
 ```
 
 ## 3. Worker 假死（文件在磁盘）

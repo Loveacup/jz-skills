@@ -8,14 +8,55 @@ description: |
   让claude, agent team, claude review
   DO NOT use for: simple single-tool calls (Hermes does those directly), grammar fixes,
   non-coding creative writing (use appropriate creative skills)
-version: 4.0.0
-author: Hermes Agent + Teknium
+version: 4.1.0
+author: Hermes Agent + Teknium (v4.1.0 adds 红线宪法 + 执行前 Gate Stamp + 反合理化微表 + 违规自修正 + effort 路由下沉)
 license: MIT
 ---
 
 # Claude Code — Hermes Orchestration（稳定性优先）
 
 Delegate complex tasks to Claude Code via tmux interactive sessions + agent team. Print mode is secondary.
+
+## 🔴 不可协商红线（Non-Negotiable）
+
+> **分级声明：** 本 skill 只有 **2 条红线**。**红线 = 违反即停 + 用户介入**；其余全部是**规范（best practice）**——可按情境判断取舍。别让"必须"通货膨胀：真正不可破的就这两条，其余的"必须 / MUST"都是强建议，不是红线。
+
+### 🔴 红线① — 📡 汇报：每次 `capture-pane` 必须紧跟一个 📡 汇报块
+
+发任务后从第 15 秒起持续汇报，沉默 >2min = 用户不知 CC 死活，可能误判卡死而中断（2026-05-31 真实违规）。capture 与 📡 **1:1 成对**——执行了 capture 却不汇报 = 违反红线①。
+
+| 你会找的借口 | 为什么是错的 |
+|-------------|-------------|
+| "CC 在思考 / 空闲，没什么可报" | 用户要的就是"看到 CC 还活着"——空闲也得报"❯ 空闲，等待中" |
+| "模板太繁，简化成一行" | 简化 = 未汇报（Rule#9）。用户要的就是这么详细 |
+| "攒几轮一起报" | 合并 = 沉默期变长 = 违反。capture 与 📡 必须 1:1 |
+
+### 🔴 红线② — 讨论协议：用户说"看方案 / 优化 / 处理决策点" = 讨论，不是执行
+
+只有用户明确说"执行吧 / 可以做了 / 拉 CC 改"才动手（Pitfall #23）。方案必须经用户**逐条审定**后才能开 team / 改文件。
+
+| 你会找的借口 | 为什么是错的 |
+|-------------|-------------|
+| "用户说优化方案 = 让我去改" | "优化方案"是要你**提方案**，不是改文件。默认讨论 |
+| "方案差不多了，先动手再说" | 未经逐条审定 = 禁止执行。2026-05-31 真实违规：未审定就改 30 项 + commit |
+| "改完再让用户看" | 反了。审定在前、执行在后，不可倒置 |
+
+> 违反任一红线 → 见 `## ⚡ Core Rules` #11「违规自修正协议」：立即标记 + 当轮补做，**禁止"下轮改"口头了事**。
+
+## 🚦 执行前 Gate Stamp（开 team / 改文件前必须打印）
+
+> **软 checklist → 硬门。** 开 agent team 或让 CC 改任何文件**之前**，必须打印下方签章并逐项核对。**任一项 ✗ → 立即阻断执行 + 报用户**，不得跳过、不得"先做着"。借鉴 china-legal-optimized output-gate「五项硬检查，任一不过即 block」。
+
+```
+🚦 执行前 Gate Stamp
+  方案审定 ✓  用户已说"执行吧 / 可以做了"？（红线②）
+  effort   ✓  已按任务信号选档？（地板 high，见 § Model & Effort）
+  session  ✓  独立名 hermes-cc-{agent}-{ts}？禁 --continue？
+  占用检测 ✓  已扫描所有 tmux session，无 ●/✻ 冲突？（脚本见 § Multi-Agent）
+  ── 四项全 ✓ → 开 team / 发任务；任一 ✗ → 停，报用户后再继续
+```
+
+> 占用检测完整扫描脚本是唯一权威，放在 `§ 🤝 Multi-Agent Coordination Protocol`；此处只做执行前一次性勾选确认（不重复脚本）。
 
 ## 🚨 Red Flags: DO NOT SKIP THIS SKILL
 
@@ -178,138 +219,34 @@ sleep 15 → 首次 polling → 立即向用户汇报 📡 状态
      ├── 看到 ● 工具调用 → 汇报\"CC 正在 [工具名]：[描述]\"
      ├── 看到 ❯ 空闲 → 检查是否完成
      ├── 看到 worker 列表 → 汇报 worker 树（状态 emoji + 耗时 + token）
-     └── 沉默 >2min → ⚠️ 向用户声明\"CC 无响应 2min，继续等待中\"
+     └── 沉默 >2min → ⚠️ 向用户声明\"CC 无响应 2min，继续等待中\"。若同时 ❯ 处有新文本未执行 → 补发 Enter 触发
+  └── CC 在决策点提问但 Hermes 无法代答 → 🛑 立即转发问题给用户，附讨论简报。不要猜测或静默等待——CC 在等你的回答
 ```
 
 **违反此协议 = 用户不知道 CC 死活，可能误判卡死而中断。2026-05-31 真实违规教训。**
 
+**🔗 机械配对规则（红线① 的可执行形式）：** 每一次 `capture-pane` **必须**紧跟一个 📡 块，二者 1:1 成对——执行了 capture 却没 📡 = 违反红线①。每个 📡 块头标注 `[距上次 Xs]`，>120s 自标 `⏰超时` 并解释原因。这不是"有事才报"，是"capture 即报"。
+
 ## 🧠 Model & Effort Level（Opus 4.8 + 思维链）
 
-> **v2.1.158 起可用。** Opus 4.8 默认 effort = `high`，支持五级思维链。
+> **🔒 默认地板 = `high`。** 除非用户明确说 "fast / cheap / quick / 快一点 / 省钱"，**永远不要低于 `high`**。没信号 → 从 `high` 起步，按任务复杂度往上抬，**绝不擅自往下降**——简单也得 `high`。
 
-### 启动时指定
+**一句话路由：** 没信号 → `high`；碰到「多文件 / 审查 / 设计 / 原型」→ `xhigh`；碰到「深度架构 / 多 lens / 根因调试 / 全栈 / 安全审计 / 写 skill」→ `max`。拿不准往上抬一档——返工远比多想几秒贵。
 
-```bash
-claude --model claude-opus-4-8 --effort max   # 完整模型名 + 最强推理
-claude --model opus --effort xhigh             # 别名 + 高推理
-claude --effort low                            # 轻量任务，省钱
-```
-
-### 五级 effort
-
-| Level | CLI flag | 说明 |
-|-------|----------|------|
-| `low` | `--effort low` | 最少思考，适合简单翻译/格式转换 |
-| `medium` | `--effort medium` | 中等 |
-| `high` | `--effort high` | **Opus 4.8 默认** |
-| `xhigh` | `--effort xhigh` | 更深推理，仅次 max（Opus 4.8/4.7 专属） |
-| `max` | `--effort max` | 最强推理，Cogitated 时间最长 🧠 |
-
-### 会话内切换：`/effort`
-
-```
-/effort xhigh
-```
-
-> ⚠️ 弹出确认对话框（默认是 "No, go back" → **选 1**）。切换会清除当前 cache，history 全部重读——长会话中慎用。确认后状态栏显示 `◉ xhigh`。
-
-### 🧭 智能 Effort 路由（按任务信号选档）
-
-> **🔒 默认地板 = `high`。** 除非用户明确说 "fast / cheap / quick / 快一点 / 省钱"，**永远不要低于 `high`**。没有信号 = 从 `high` 起步，按任务复杂度往上抬，**绝不往下降**。地板就是地板，不要因为"这任务看起来简单"就自作主张降到 `medium`——简单也得 `high`，除非用户开口要快。
-
-调 CC 前先选档，不要默认全用 `high` 凑合：`high` 是地板不是天花板。多文件、审查、设计、根因——这些信号一出现，**必须**往上抬到 `xhigh` 或 `max`。该抬不抬 = 推理深度不够 = 返工。
-
-#### 三档路由表
-
-| 任务信号 | 推荐 effort | 为什么 |
-|---------|------------|--------|
-| 简单重构、rename、提取函数 | `high` | 地板档，单点改动不需要更深推理 |
-| 单文件编辑、局部 bugfix | `high` | 改动面小，`high` 足够覆盖 |
-| 直白内容生成（翻译润色后的成文、模板填充） | `high` | 无架构判断，地板即可 |
-| 基础研究（查一个 API、读一个模块） | `high` | 检索型任务，深思无增益 |
-| 多文件架构改动、跨模块重构 | `xhigh` | 改动有连锁影响，需推演依赖关系 |
-| agent team 审查、code review | `xhigh` | 要找出非显性问题，浅推理会漏 |
-| 设计决策（选型、API 设计、方案权衡） | `xhigh` | 需要对比多方案 trade-off |
-| 复杂内容创作、taste-skill 原型图 | `xhigh` | Design Read 质量随 effort 明显提升 |
-| 深度架构分析、全栈功能实现 | `max` | 跨层推理 + 大量隐性约束 |
-| 多 lens 并行审查（3+ lens） | `max` | 每个 lens 都要深推，汇总更要 |
-| 根因调试、疑难 bug 定位 | `max` | 症状到根因链长，浅推理只能治标 |
-| 安全审计、skill 撰写/重写 | `max` | 高风险 + 高抽象，错一处全盘塌 |
-
-> 💡 **`xhigh` / `max` 仅 Opus 4.8/4.7 专属。** 别名机型上不可用——选 `max` 前确认 `--model` 是 Opus 4.8/4.7。
-
-#### 自检决策树（顺着走到一个明确档位）
-
-```
-选 effort 前 → ❓ 用户是否说了 "fast / cheap / quick / 快一点 / 省钱"？
-            │
-            ├── ✅ 是 → 可降到地板以下
-            │        ├── 纯格式转换 / 一次性翻译 → `--effort medium`
-            │        └── 用户说"越快越好" / 烟雾测试 → `--effort low`
-            │        （⚠️ 仅此一种情况允许低于 high）
-            │
-            └── ❌ 否 → 🔒 从 `high` 起步，按信号往上抬：
-                     │
-                     ├── ❓ 涉及多文件 / 架构改动 / 任何审查 / 设计决策 / 原型图？
-                     │   ├── 否 → 停在 `high`  ✅（单文件、直白生成、基础研究）
-                     │   └── 是 → 抬到 `xhigh`，再问下一层 ↓
-                     │
-                     └── ❓ 是「深度」级别？（深度架构分析 / 多 lens 并行 / 根因调试 / 全栈功能 / 安全审计 / 写 skill）
-                         ├── 否 → 停在 `xhigh`  ✅
-                         └── 是 → 抬到 `max`  ✅（最强推理，认了这个成本）
-```
-
-**一句话规则：** 没信号 → `high`；碰到「多文件/审查/设计/原型」→ `xhigh`；碰到「深度/多 lens/根因/全栈/安全/写 skill」→ `max`。**只有用户喊"快"才允许往地板下走。** 拿不准时往上抬一档，不要往下省——返工的成本远高于多想几秒的成本。
-
-### ⚙️ 实战配置（Effort in Practice）
-
-智能 Effort 路由决定档位后，**首选在启动 CC 时就用 `--effort` 落地**——比会话内切换省事、省钱、省 cache。
-
-**场景 → 启动 flag：**
-
-| 场景 | 路由判断 | 启动 flag |
-|------|---------|----------|
-| 单文件小修，用户没说"快" | 地板档 | `--effort high` |
-| Agent team code review | 多 lens 并行需深推理 | `--effort xhigh` |
-| 安全审计 / skill 重写 | 高风险、根因级 | `--effort max` |
+**启动即定档**（比会话内 `/effort` 切换省 cache）：
 
 ```bash
-# 在目标 workdir 下启动 tmux session，按路由结果定档
-# 单文件小修（用户未要求"快"）→ high
-HOME=/Users/alexcai claude --model claude-opus-4-8 --effort high
-
-# agent team code review → xhigh
-HOME=/Users/alexcai claude --model claude-opus-4-8 --effort xhigh --teammate-mode tmux
-
-# 安全审计 / skill 重写 → max
-HOME=/Users/alexcai claude --model claude-opus-4-8 --effort max
+HOME=/Users/alexcai claude --model claude-opus-4-8 --effort high   # 地板；xhigh / max 按上面路由往上抬
 ```
 
-> 💡 启动命令照常带 `HOME=/Users/alexcai` + `--model`，并在目标 workdir 下启动 session，effort 只是多一个 flag。
-
-**会话内临时改档**用 `/effort <level>`，见上方 `### 会话内切换：/effort` 子节。
-
-> ⚠️ **关键陷阱：切档会清空当前 prompt cache，整个 history 被重读——又慢又烧钱。** 所以**不要在会话中途随意切档**，除非任务性质真的变了（例如从研究阶段进入深度调试阶段）。**能在启动时就定对档位，永远比中途切强。**
-
-> 💰 **成本提示：** `max` ≈ 2× `xhigh`，`xhigh` ≈ 1.5× `high` → 换算下来 **`max` ≈ 3× `high`**。"按需路由"不是抠门，是避免给简单任务付深度推理的钱。
-> **结论：** 能用 `high` 解决的别开 `max`；但该上 `max` 的任务（安全审计、根因调试）省这点钱会得不偿失——**返工比深度推理贵得多。**
+> 📦 **完整 effort 体系** → `references/effort-routing.md`：五级表、智能路由三档表、自检决策树、实战配置、成本换算（`max` ≈ 3× `high`）、`/effort` 会话内切换陷阱。⚠️ `xhigh` / `max` 仅 Opus 4.8/4.7 专属，别名机型不可用。
 
 ## ⚡ Core Rules（Hermes Agent 执行规则）
 
-0. **🛑 发任务前必须扫描 CC 占用状态** — 不同 agent 不知道彼此是否在用 CC。**每次调 CC 前，必须先扫描所有 tmux session 的活跃状态**（`●` 工具调用 **+** `✻` 思考态——`❯` 不等于空闲，见 Pitfall #24）：
-
-   ```bash
-   # 完整占用检测：● 工具调用 + ✻ 思考态都算忙（单一权威逻辑，与 § Multi-Agent 一致）
-   for s in $(tmux list-sessions -F '#{session_name}' 2>/dev/null); do
-     pane=$(tmux capture-pane -t "$s" -p -S -10 2>/dev/null)
-     if echo "$pane" | grep -qE '●|✻|✶|✽|✳|Sublimating|Zigzagging|Billowing|Crunched|Wandering|Swooping|Cooking'; then
-       echo "⚠️ BUSY/THINKING: $s — 其他 agent 正在使用 CC，不可打扰"
-     fi
-   done
-   ```
+0. **🛑 发任务前必须扫描 CC 占用状态（🚦 Gate Stamp「占用检测」项的执行细则）** — 不同 agent 不知道彼此是否在用 CC。**每次调 CC 前，必须扫描所有 tmux session 的活跃状态**（`●` 工具调用 **+** `✻` 思考态——`❯` 不等于空闲，见 Pitfall #24）。**完整扫描脚本是唯一权威，见 `§ 🤝 Multi-Agent Coordination Protocol`（不再重复）。**
 
    - 有 `●` 或 `✻` → **必须汇报用户**："CC 正被 session `<name>` 占用，等待还是新建独立 session？"
-   - 真正空闲 = `❯` + 无 `●` + 无 `✻/✶/✽/✳` + 无 `Waiting for N background agents`（完整矩阵见 `§ 🤝 Multi-Agent Coordination Protocol`）
+   - 真正空闲 = `❯` + 无 `●` + 无 `✻/✶/✽/✳` + 无 `Waiting for N background agents`
    - ⚠️ **不要自作主张开新 session 绕过去**——用户可能不知道两个 CC 在同时跑，消耗翻倍
    - ✅ **但默认本就该新建独立 session**（`hermes-cc-{agent}-{ts}`）；占用检测是安全网，不是复用许可
 
@@ -321,8 +258,9 @@ HOME=/Users/alexcai claude --model claude-opus-4-8 --effort max
 6. **清理一次性 tmux 会话** — 用完就 `tmux kill-session`，避免泄漏。
 7. **每轮 agent team 后 `/clear`** — 避免 context 膨胀。
 8. **⚡ bypass permissions** — 启动后验证，通常默认已启用。
-9. **📡 无条件持续汇报进度** — 每 30-60s polling，沉默 >2min 不可接受。**必须使用下方 Progress Reporting 段规定的 `📡 CC Agent Team [Xmin]` 模板格式**，自由发挥视为未汇报。
+9. **📡 无条件持续汇报进度（🔴 红线① 执行细则）** — 每 30-60s polling，沉默 >2min 不可接受。**必须使用下方 Progress Reporting 段规定的 `📡 CC Agent Team [Xmin · 距上次 Xs]` 模板格式**，自由发挥 / 简化 / 合并多轮 = 违反红线①（见顶部 `## 🔴 不可协商红线`）。
 10. **Worker 假死先查磁盘** — `ls -la` → 文件存在则 `send-keys "Agent N done."` → 不存在则手动接管。
+11. **🔴 违规自修正协议** — 一旦发现自己违反红线① 或 ②：**立即** (1) 显式标记「⚠️ 我刚违反红线 X」；(2) **当轮补做**——漏报就立刻补一个完整 📡 块，越权执行就停手退回讨论；(3) **禁止**用"下轮改正 / 抱歉以后注意"口头了事。说了不改 = 二次违规。直击"违反后只说下轮改但不改"的症状。
 
 ## 🤝 Multi-Agent Coordination Protocol（多 Agent 协调）
 
@@ -383,9 +321,10 @@ done
 
 ### 清理纪律
 
-- 每次任务完成 → `tmux kill-session`（默认用完即杀，不留共享会话）
+- **🛑 阶段性结束前不杀 session** — CC/tmux 会话保留到用户确认整个阶段结束。即使单个任务完成，等用户说"可以了 / 结束 / 推吧"再 `tmux kill-session`。提前杀 = 用户可能需要复用上下文但你已销毁（2026-06-02 用户偏好）。
 - 同一任务多轮间 → `/clear`（清 context，保留**当前** session）
 - ⚠️ 不同任务 → **新建独立 session**，不在旧 session 里 `/clear` 复用（避免劫持，见 #25）
+- 阶段结束 → `tmux kill-session`（用户确认后清理）
 
 ### ⚠️ Session 劫持诊断
 
@@ -460,7 +399,7 @@ tmux send-keys -t <s> 'Agent N is done. All files exist on disk. Continue.' Ente
 
 **汇报模板（必须严格按此格式，不按模板 = 未完成汇报）：**
 ```
-📡 CC Agent Team [Xmin]
+📡 CC Agent Team [Xmin · 距上次 Xs]
   ⚡ Leader: <当前操作>
   ├─ ✅ Worker A: <描述> (Xs, X.Xk tokens)
   ├─ 🔵 Worker B: <描述> (running)
@@ -468,7 +407,7 @@ tmux send-keys -t <s> 'Agent N is done. All files exist on disk. Continue.' Ente
   📊 Token: X.Xk · 🛡️ Gate: N 次
 ```
 
-> 完整模板（单任务/异常/等待/限流）→ `references/progress-reporting-enhanced.md`。状态 emoji：⚡运行 💤空闲 ✅完成 🔵进行中 🟡假死 🔴真死 🛡️Gate ❌错误 🐚卡死 ⏳限流
+> 完整模板（单任务/异常/等待/限流）→ `references/progress-reporting-enhanced.md`。状态 emoji：⚡运行 💤空闲 ✅完成 🔵进行中 🟡假死 🔴真死 🛡️Gate ❌错误 🐚卡死 ⏳限流 ⏰超时未报(>120s)
 
 **结束信号：** 当 `capture-pane` 最后一行是 `❯` 且上方不再有 `●` 工具调用时，CC 已完成当前任务。汇报最终结果并询问用户是否继续。
 
@@ -540,6 +479,7 @@ sleep 3 && tmux send-keys -t <s> Down && tmux send-keys -t <s> Enter
 | 文件 | 何时读取 |
 |------|---------|
 | `references/cli-reference.md` | 需要完整 CLI flags（7 张表） |
+| `references/effort-routing.md` | 🆕 Effort 完整体系：五级表 / 智能路由三档表 / 自检决策树 / 实战配置 / 成本换算 / `/effort` 切换陷阱（v4.1.0 从主体下沉） |
 | `references/print-mode.md` | Print 模式深度：JSON/流式/管道/Schema/Session/Bare |
 | `references/interactive-reference.md` | Slash Commands + 键盘快捷键 |
 | `references/configuration.md` | Settings/CLAUDE.md/Subagents/Hooks/MCP/环境变量/同步 |
@@ -570,16 +510,15 @@ sleep 3 && tmux send-keys -t <s> Down && tmux send-keys -t <s> Enter
 
 ---
 
-## ✅ Verification Checklist（稳定性优先）
+## ✅ Verification Checklist（事后总检 · 稳定性优先）
 
-- [ ] **🛑 占用检测？** 调 CC 前是否扫描了所有 tmux session 的 `●` **和 `✻`**？思考状态（`✻/✶/✽/✳`）的 session 也视为忙碌！
-- [ ] **Session 隔离？** 是否避免了 `--continue` **和共享 `hermes-claude-longterm`**？每个任务新建独立 `hermes-cc-{agent}-{ts}`？
-- [ ] **Workdir 隔离？** 多 agent 是否用了不同 workdir？
+> 🚦 **事前硬门看 `## 🚦 执行前 Gate Stamp`**（方案审定 / effort / session 隔离 / 占用检测——开 team 前已逐项勾选阻断）。本清单是**事后**总检，不重复 Gate Stamp 的前置项。
+
 - [ ] **HOME override？** 是否带了 `HOME=/Users/alexcai`？
 - [ ] **Bypass permissions？** 标题栏是否 `⏵⏵ bypass permissions on`？
 - [ ] **PTY 对话框？** 是否处理了 Dialog 2（Down + Enter）？
-- [ ] **Progress：** 是否每 30-60s polling `capture-pane`？每次汇报是否严格使用规定的 `📡 CC Agent Team [Xmin]` 模板格式（含 worker 树 + emoji 状态 + token 统计）？
+- [ ] **🔴 Progress（红线①）？** 每次 `capture-pane` 是否都紧跟一个 📡 块（1:1 成对）？是否严格用 `📡 CC Agent Team [Xmin · 距上次 Xs]` 模板（worker 树 + emoji 状态 + token）？沉默 >2min 是否自标 `⏰超时`？
 - [ ] **Agent team：** 是否用了 CC 原生 team 机制而非普通 Task subagent？
 - [ ] **Worker 监控：** 假死先 `ls` 查磁盘 → 文件存在则 `send-keys "Agent N done."`
 - [ ] **轮间清理：** 每轮 agent team 后是否 `/clear`？完成后是否 `tmux kill-session`？
-- [ ] **Session 干净度：** 启动 CC 前是否检查了 workdir 是否有 `.claude/` 残留？如果任务可能已由之前的 session 完成，是否先验证再决定是否重新执行？
+- [ ] **Session 干净度：** 启动 CC 前是否检查了 workdir 是否有 `.claude/` 残留？任务可能已由之前 session 完成时，是否先验证再决定是否重新执行？
