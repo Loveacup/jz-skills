@@ -1,13 +1,17 @@
 ---
 name: tech-support-email
 description: "Use when drafting a technical support email to a SaaS/API vendor about a service outage, data loss, or bug. Covers the full workflow: deep-dive investigation → config audit against official docs → multi-angle testing → evidence gathering → tone-calibrated bilingual (CN/EN) email drafting. Triggers on: 写技术支持邮件, 给XX发邮件, support email, 报bug给, 联系技术支持, vendor outage email, draft support ticket. DO NOT use for internal team emails, customer success outreach, or non-technical correspondence."
-version: 1.0.0
+version: 1.1.0
 author: Hermes Agent + Alex
 license: MIT
 metadata:
   hermes:
-    tags: [support, email, vendor-communication, debugging, bilingual, governance]
+    tags: [support, email, vendor-communication, debugging, bilingual, governance, evidence-pipeline]
     related_skills: [web-research-router, grill-with-docs, surge-gateway]
+    upstream_inspirations:
+      - "support-to-repro-pack (mshs01156) — structured evidence pipeline: facts → timeline → report"
+      - "debug-runbook (UnCooe) — evidence-based decision engine with confidence scoring"
+      - "customer-support (priyanshu9888) — tiered communication with vendor-type tone matrix"
 ---
 
 # Tech Support Email — Investigation-First Vendor Communication
@@ -123,6 +127,46 @@ The goal: find evidence that is **independently verifiable** by the vendor's own
 - Agent log timestamps with latency degradation curve
 - API test results from multiple timepoints
 
+**Bronze-standard evidence:**
+- User observations and screenshots
+- Symptom descriptions without measurements
+- Single-region test results
+
+---
+
+## Step 4b: Evidence Sufficiency Gate ⚠️ DO NOT SKIP
+
+Before moving to draft, run this gate. If any rule fires ❌, go back and gather more evidence.
+
+| Rule | Check | Gate |
+|------|-------|------|
+| **Multi-region** | Tested from ≥2 distinct geographic regions? | ✅ ≥2 / ❌ <2 |
+| **Multi-endpoint** | Tested ≥3 different API endpoints (including `/health`)? | ✅ ≥3 / ❌ <3 |
+| **Header capture** | Captured full response headers (not just status code)? | ✅ Yes / ❌ No |
+| **Config audit** | Cross-referenced ≥1 official doc page against local config? | ✅ Yes / ❌ No |
+| **Timeline** | Have ≥5 timepoints with latency/size data from actual logs? | ✅ Yes / ❌ No |
+| **Degradation pattern** | Can describe a clear healthy → degraded → dead curve? | ✅ Yes / ❌ No |
+| **Differential** | Tested at least one thing that WORKS (e.g. main site vs API)? | ✅ Yes / ❌ No |
+
+**All 7 gates must pass before drafting.** A weak email with insufficient evidence wastes everyone's time — the vendor will ask for exactly what these gates check.
+
+---
+
+## Step 4c: Vendor Tier Tone Matrix
+
+Different vendors need different tones. The same evidence presented differently gets different response speeds.
+
+| Vendor Type | Tone | Example Opening | Urgency Signal | Evidence Style |
+|-------------|------|-----------------|----------------|----------------|
+| **SaaS Startup** (< 20 people) | Casual, collaborative | "Hope you're doing well! Ran into something weird..." | "when you get a chance" | Share as debugging clues |
+| **API/Platform Vendor** (Stripe, CF, Vercel) | Technical, evidence-forward | "Writing about an issue with the API — gathered some diagnostics" | "this has been a bit challenging for my workflow" | Lead with config audit + headers |
+| **Enterprise Vendor** (AWS, Azure, GCP) | Formal, SLA-referenced | "I'm experiencing a service disruption affecting [resource]" | Reference case/ ticket number if exists | Structured, with account ID + affected resources |
+| **Open Source Maintainer** | Appreciative, PR-ready | "Love the project! Hit an issue and dug into it..." | None — appreciation only | Include repro steps + potential fix hints |
+
+**Anti-pattern**: Using enterprise tone with a startup ("per our SLA...") → sounds entitled. Using casual tone with enterprise ("hey folks!") → gets ignored.
+
+When unsure, default to **API/Platform Vendor** tone — it's the safest middle ground.
+
 ---
 
 ## Step 5: Draft the Email
@@ -170,7 +214,9 @@ If writing in both English and Chinese, ensure:
 - [ ] Did I gather actual log evidence (not summaries)?
 - [ ] Did I audit config against official docs?
 - [ ] Did I test from multiple endpoints/regions?
+- [ ] Did all 7 Evidence Sufficiency Gates pass?
 - [ ] Is hard evidence included (headers, multi-edge results)?
+- [ ] Did I select the correct Vendor Tier tone from the matrix?
 - [ ] Is the tone soft and collaborative?
 - [ ] Did I delete backup questions and demands?
 - [ ] Are both language versions consistent?
