@@ -99,6 +99,9 @@ jz-skills/
 Skills ranked by total commit count across the full repository history — reflecting sustained, multi-version iteration rather than recent burst activity.
 按全仓库历史的提交总数排名——反映的是经历多个版本、持续迭代的技能，而非仅近期活跃。
 
+> **Criteria · 入选标准:** ≥5 commits + ≥2 major versions + real functional evolution per version. Not hand-picked — data-driven. [Full rules ↓](#active-skill-criteria--高频标准)
+> 入选硬指标：≥5 提交 + ≥2 大版本 + 每版实质能力增量。不靠主观，靠数据说话。
+
 ### 📔 auto-diary · 自动化日记 v3.5
 
 > **12 commits** — the most iterated skill in the repo · 仓库中迭代最多的技能
@@ -292,18 +295,27 @@ cd ~/code/jz-skills && ./deploy/sync-all.sh hermes   # → ~/.hermes/skills/
 ./deploy/sync-all.sh pi        # → ~/.pi/skills/
 ```
 
+> ⚠️ **Before creating or modifying skills, read [CLAUDE.md](CLAUDE.md) —** it defines naming, YAML frontmatter, commit standards, and cross-platform rules. All skills must pass [skill-authoring v3.0](shared/skill-authoring/) compliance.
+> 创作或修改 skill 前，先读 [CLAUDE.md](CLAUDE.md) 了解命名、YAML、提交规范和跨平台规则。所有 skill 必须通过 [skill-authoring v3.0](shared/skill-authoring/) 合规审查。
+
 ---
 
 ## 🔄 Sync · 同步
 
-```bash
-# 📤 Push: local → GitHub (auto-sanitized · 自动脱敏)
-./deploy/sync-back.sh --dry-run   # preview · 预览
-./deploy/sync-back.sh             # apply
+**Always dry-run first · 始终先预览：**
 
-# 📥 Pull: GitHub → local
+```bash
+# 📤 Push: Hermes → repo (required before commit · 提交前必做)
+./deploy/sync-back.sh --dry-run   # ① Preview changes / 预览变更
+./deploy/sync-back.sh             # ② Apply + auto-sanitize / 执行+脱敏
+git diff && git commit -m '...' && git push
+
+# 📥 Pull: repo → Hermes/CC/pi
 git pull && ./deploy/sync-all.sh <platform>
 ```
+
+`sync-back.sh` auto-sanitizes before commit: `$HOME` → `~/`, emails → redacted, private IPs → redacted, API keys → redacted. **Never commit without running sync-back first** — live Hermes changes won't be reflected.
+`sync-back.sh` 提交前自动脱敏：路径/邮箱/内网IP/API密钥 → 替换。**不跑 sync-back 就提交 = 丢失 Hermes 端实时修改。**
 
 🛂 **Gateway restart** when skills change for `regent` or `default`:
 
@@ -311,6 +323,34 @@ git pull && ./deploy/sync-all.sh <platform>
 hermes gateway restart -p regent
 hermes gateway restart -p default
 ```
+
+---
+
+## 📏 Governance · 治理规则
+
+> **Full rules → [CLAUDE.md](CLAUDE.md)** · 完整规则见 CLAUDE.md
+
+| Rule · 规则 | Requirement · 要求 |
+|:---|:---|
+| 📦 **Naming** | `lowercase-hyphens` only. No `_`, no CamelCase. |
+| 📋 **YAML frontmatter** | Every SKILL.md must have `name` + `description` + `version` + `author` + `license`. |
+| ✍️ **Compliance** | All skills must pass [skill-authoring v3.0](shared/skill-authoring/) (11-step, 7-dim). |
+| 🌐 **Cross-platform** | `shared/` skills: no hardcoded paths, no platform-specific tools. |
+| 💬 **Commits** | Bilingual: `type(scope): EN description / 中文描述`. |
+| 🔄 **Sync** | Always `sync-back.sh --dry-run` before commit. Never skip sanitize. |
+| 🗄️ **Archive** | Deprecate with `_archived-{name}/`, never delete. |
+| 🔥 **Active** | Ranked by full-history commit count — sustained iteration over burst. Active means 5+ commits across 2+ versions. |
+
+### 🔥 Active Skill Criteria · 高频标准
+
+Skills in the **Active Skills** section are not hand-picked — they earn their place:
+
+- **≥5 commits** across the full repository history
+- **≥2 major versions** (sustained iteration, not one-and-done)
+- **Real functional evolution** — each version adds a distinct capability, not just typo fixes
+
+A skill with 12 typo commits doesn't qualify. A skill with 4 commits across 4 major rewrites does — but won't appear because the 5-commit floor isn't met. The floor keeps the section focused on genuinely high-iteration skills.
+高频技能不靠拍脑袋选——用数据说话：全历史 ≥5 提交 + ≥2 大版本 + 每次迭代有实质能力增量。
 
 ---
 
