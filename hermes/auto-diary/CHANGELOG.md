@@ -1,7 +1,7 @@
 # Auto-Diary Changelog
 
 ## v3.5.0 (2026-06-01)
-- 🆕 **周/月/年报聚合金字塔**：建 3 个线上 cron——周报(周一 09:00, `4f5b5607912d`, 周←日)、月报(1 号 09:30, `9c4f2a1b8e3d`, 月←日避开 ISO 周跨月)、年报(1/1 10:00, `2e7d9f6a4c1b`, 年←月)。补齐此前"周报无 cron"的空白。
+- 🆕 **周/月/年报聚合金字塔**：建 3 个线上 cron(均在 cron-worker profile scheduler)——周报(周一 09:00, `4f5b5607912d`, 周←日)、月报(1 号 09:30, `59a992daaa55`, 月←日避开 ISO 周跨月)、年报(1/1 10:00, `b6659cd1c94c`, 年←月)。补齐此前"周报无 cron"的空白。⚠️ 注意：周/月/年报在 cron-worker profile，`hermes cron list` 默认根视角看不到，需 `--profile cron-worker`。
 - 🆕 **format spec**：新增 `references/monthly-format.md`、`references/yearly-format.md`（对齐 diary/weekly 倒金字塔风格，遵循库 CLAUDE.md 不写 class）。
 - 🆕 **`verify_report.py`**：周/月/年报结构校验脚本，按文件名自动判类型，宽松设计避免误伤。负向测试通过；现有 8 篇老周报如实抓出早期格式瑕疵（2/8 PASS，新格式 W08/W21/W22 PASS）。
 - 🆕 **目录**：新建 `50-Self/06_月报/`、`07_年报/`（与 02_周报 平级，遵循编号规范）。

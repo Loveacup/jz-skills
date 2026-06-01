@@ -18,13 +18,16 @@ author: Hermes Agent — v3.5 周/月/年报 cron + 聚合金字塔 + verify_rep
 
 自动化日记生成 + 周/月/年报聚合。Cron 定时触发或手动调用。
 
-> ⚠️ **真实调度状态**（2026-06-01 核实，勿凭文档假设）：4 个 auto-diary cron 在跑。改调度前先 `hermes cron list` 核实。
-> | job_id | 任务 | schedule | 聚合源 |
-> |--------|------|----------|--------|
-> | `1ca6e7d692fa` | 每日日记草稿 | `0 23 * * *` | 采集脚本 |
-> | `4f5b5607912d` | 每周周报 | `0 9 * * 1`（周一 09:00） | 上周 7 篇日记 |
-> | `9c4f2a1b8e3d` | 每月月报 | `30 9 1 * *`（1 号 09:30） | 当月日记 |
-> | `2e7d9f6a4c1b` | 每年年报 | `0 10 1 1 *`（1/1 10:00） | 去年 12 篇月报 |
+> ⚠️ **真实调度状态**（2026-06-01 核实，勿凭文档假设）：4 个 auto-diary cron 在跑。
+> 🔴 **两套 scheduler**：日记在**根** scheduler；周/月/年报在 **cron-worker profile** scheduler。
+> 查根用 `hermes cron list`；查周月年报**必须** `hermes cron list --profile cron-worker`（否则看不到）。
+>
+> | job_id | 任务 | schedule | scheduler | 聚合源 |
+> |--------|------|----------|-----------|--------|
+> | `1ca6e7d692fa` | 每日日记草稿 | `0 23 * * *` | 根 | 采集脚本 |
+> | `4f5b5607912d` | 每周周报 | `0 9 * * 1`（周一 09:00） | cron-worker | 上周 7 篇日记 |
+> | `59a992daaa55` | 每月月报 | `30 9 1 * *`（1 号 09:30） | cron-worker | 当月日记 |
+> | `b6659cd1c94c` | 每年年报 | `0 10 1 1 *`（1/1 10:00） | cron-worker | 去年 12 篇月报 |
 >
 > **聚合金字塔**：日←采集 · 周←日 · 月←日（避开 ISO 周跨月）· 年←月。每个 cron 内置校验闭环。
 > 详见 `config/reports-cron.json`（周/月/年报存档）和知识库 `[[日记系统-三机架构与路线图]]`。
@@ -75,7 +78,7 @@ See `references/diary-format.md` for weather codes, calendar table format, and s
 
 ## Workflow B: Weekly Report
 
-> cron `4f5b5607912d` 每周一 09:00 自动跑。也可手动(`生成周报`)。
+> cron `4f5b5607912d`(cron-worker profile)每周一 09:00 自动跑。也可手动(`生成周报`)。
 > 🔴 `collect_data.py weekly` **未实现**(返回 not implemented)——直接 Read 日记,不依赖采集脚本。
 
 1. 算上周 ISO 周范围: `python3 -c "import datetime as d; t=d.date.today(); mon=t-d.timedelta(days=t.weekday()+7); sun=mon+d.timedelta(days=6); iso=mon.isocalendar(); print(f'{mon} {sun} {iso[0]}-W{iso[1]:02d}')"`
@@ -87,7 +90,7 @@ See `references/diary-format.md` for weather codes, calendar table format, and s
 
 ## Workflow E: Monthly Report
 
-> cron `9c4f2a1b8e3d` 每月 1 号 09:30 自动跑。聚合源:**当月日记**(月←日,避开 ISO 周跨月)。
+> cron `59a992daaa55`(cron-worker profile)每月 1 号 09:30 自动跑。聚合源:**当月日记**(月←日,避开 ISO 周跨月)。
 
 1. 算上月: `python3 -c "import datetime as d; t=d.date.today(); print((t.replace(day=1)-d.timedelta(days=1)).strftime('%Y-%m'))"`
 2. Read 该月所有日记(根目录 + `归档/YYYY-MM/`),🔴 直接读日记不依赖采集脚本
@@ -97,7 +100,7 @@ See `references/diary-format.md` for weather codes, calendar table format, and s
 
 ## Workflow F: Yearly Report
 
-> cron `2e7d9f6a4c1b` 每年 1/1 10:00 自动跑。聚合源:**去年 12 篇月报**(年←月,非直读 365 篇日记)。
+> cron `b6659cd1c94c`(cron-worker profile)每年 1/1 10:00 自动跑。聚合源:**去年 12 篇月报**(年←月,非直读 365 篇日记)。
 
 1. 算去年: `python3 -c "import datetime as d; print(d.date.today().year-1)"`
 2. Read 该年所有月报(`06_月报/YYYY-*月报.md`);月报缺失则降级读该月日记并标注
