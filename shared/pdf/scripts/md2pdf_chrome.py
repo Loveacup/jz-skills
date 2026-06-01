@@ -327,7 +327,7 @@ def _page_margin(page_size):
     """Return CSS @page margin. Tighter margins for mobile (430px page)."""
     if page_size == "A4":
         return "20mm 18mm 20mm 18mm"
-    return "12mm 10mm 12mm 10mm"
+    return "8mm 8mm 8mm 8mm"
 
 
 def build_html(md_path, header_text, directives=None, theme="blue", page_size="A4"):
@@ -728,6 +728,64 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
       }} else if (cols >= 5) {{
         table.style.fontSize = '10px';
         table.style.lineHeight = '1.5';
+      }}
+
+      // Long inline-code tokens (URLs, paths) may break anywhere so they don't
+      // demand a huge column; short identifiers (e.g. `wechatsogou`) stay whole
+      // so their column reserves enough width and isn't starved to 1 char.
+      table.querySelectorAll('td code, th code').forEach(function(c) {{
+        var len = (c.textContent || '').trim().length;
+        c.style.overflowWrap = len > 18 ? 'anywhere' : 'normal';
+      }});
+
+      // Overflow-aware shrink: a table whose intrinsic width exceeds the page
+      // renders WIDER than its container (table-layout:auto can't go below
+      // min-content). Compare against the PARENT width, not table.clientWidth
+      // (which equals the table's own overflowing width). Shrink font to fit.
+      var avail = table.parentElement ? table.parentElement.clientWidth
+                                       : table.clientWidth;
+      var guard = 0;
+      while (table.offsetWidth > avail + 1 && guard < 12) {{
+        var fs = parseFloat(getComputedStyle(table).fontSize);
+        if (fs <= 8) break;
+        table.style.fontSize = (fs - 0.5) + 'px';
+        table.style.lineHeight = '1.4';
+        guard++;
+      }}
+      // Last resort: if it STILL overflows at the min font, let every cell
+      // break anywhere so content is never clipped off the page edge.
+      if (table.offsetWidth > avail + 1) {{
+        table.querySelectorAll('td, th').forEach(function(c) {{
+          c.style.overflowWrap = 'anywhere';
+        }});
+      }}
+    }});
+
+    // 1b. Code-block fit-to-width — preserve alignment instead of mangling it.
+    // Long pre-formatted lines (ASCII trees, aligned columns) get destroyed by
+    // wrapping on a 430px page. Switch each <pre> to white-space:pre (no wrap)
+    // and shrink the font just enough for the widest line to fit. Only fall
+    // back to wrapping when even the minimum font can't fit.
+    document.querySelectorAll('pre').forEach(function(pre) {{
+      pre.style.whiteSpace = 'pre';
+      pre.style.overflowWrap = 'normal';
+      var cs = getComputedStyle(pre);
+      var base = parseFloat(cs.fontSize) || 12;
+      var padL = parseFloat(cs.paddingLeft) || 0;
+      var padR = parseFloat(cs.paddingRight) || 0;
+      var avail = pre.clientWidth - padL - padR;
+      var natural = pre.scrollWidth - padL - padR;
+      if (avail <= 0 || natural <= 0 || natural <= avail) return;  // already fits
+      var MIN = 7;
+      var scaled = base * avail / natural;
+      if (scaled >= MIN) {{
+        pre.style.fontSize = (Math.floor(scaled * 10) / 10) + 'px';
+        pre.style.lineHeight = '1.45';
+      }} else {{
+        pre.style.fontSize = MIN + 'px';
+        pre.style.lineHeight = '1.4';
+        pre.style.whiteSpace = 'pre-wrap';
+        pre.style.overflowWrap = 'anywhere';
       }}
     }});
 

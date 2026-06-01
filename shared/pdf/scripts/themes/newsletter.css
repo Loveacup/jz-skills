@@ -10,8 +10,8 @@ body {
                "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei",
                sans-serif;
   font-size: 16px; line-height: 1.8; color: #1b1a17;
-  background: #fffdf8; max-width: 430px; margin: 0 auto;
-  padding: 0 4px;
+  background: #fffdf8;
+  padding: 0 6px;
   -webkit-text-size-adjust: 100%;
 }
 
@@ -51,7 +51,7 @@ hr { border: none; border-top: 1px solid #d4c5a9; margin: 16px 0; }
 table {
   border-collapse: collapse; width: 100%;
   margin: 10px 0; font-size: 13px; line-height: 1.6;
-  page-break-inside: auto;
+  page-break-inside: auto; table-layout: auto;
 }
 th {
   background: #b47a32; color: #fffdf8; font-weight: 600;
@@ -62,6 +62,13 @@ td {
   padding: 6px 8px; border: 1px solid #d4c5a9;
   vertical-align: top;
 }
+/* CJK wraps per-character (word-break:normal); English words stay intact and
+   break only when a word can't fit its allotted column width (overflow-wrap:
+   break-word — unlike `anywhere`, this keeps the longest word as the column's
+   min-content so a label column isn't starved to 1 char wide). The table JS
+   then (a) lets long code tokens like URLs break anywhere, (b) shrinks the font
+   if the table still overflows, (c) breaks anywhere only as a last resort. */
+th, td { word-break: normal; overflow-wrap: break-word; }
 tr:nth-child(even) td { background: #faf6ef; }
 tr { page-break-inside: avoid; }
 
@@ -70,17 +77,31 @@ li { margin: 3px 0; }
 li ul, li ol { font-size: 15px; margin: 2px 0; }
 
 code {
-  font-family: "SF Mono", "Fira Code", "Menlo", monospace;
+  font-family: "SF Mono", "Fira Code", "Menlo", "PingFang SC",
+               "Noto Sans SC", "Microsoft YaHei", monospace;
   background: #f0ebe0; color: #b47a32;
   padding: 1px 4px; border-radius: 3px; font-size: 13px;
 }
 pre {
   background: #f5f0e8; color: #1b1a17;
   border: 1px solid #d4c5a9; border-radius: 6px;
-  padding: 12px; margin: 10px 0;
-  font-size: 12px; line-height: 1.6; overflow-x: auto;
+  padding: 10px; margin: 10px 0;
+  font-size: 12px; line-height: 1.6;
+  /* Default to wrapping; the fit-to-width JS upgrades alignment-sensitive
+     blocks (ASCII trees, aligned columns) to white-space:pre + shrunk font. */
+  white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 2;
+  font-family: "SF Mono", "Fira Code", "Menlo", "PingFang SC",
+               "Noto Sans SC", "Microsoft YaHei", monospace;
+  max-width: 100%;
 }
-pre code { background: transparent; color: inherit; padding: 0; }
+/* color:#1b1a17 with !important defeats the base template's dark-theme
+   `pre code.hljs { color:#ecf0f1 !important }`, which would otherwise render
+   un-highlighted code (e.g. ```text blocks) as near-white on cream = invisible.
+   font-size:inherit lets the JS font-shrink on <pre> actually scale the code. */
+pre code, pre code.hljs {
+  background: transparent !important; color: #1b1a17 !important;
+  padding: 0; font-size: inherit;
+}
 
 .callout { font-size: 13px; padding: 8px 12px; margin: 8px 0; border-radius: 6px; border-left: 3px solid #b47a32; background: #faf6ef; }
 .callout p { margin: 3px 0; }
