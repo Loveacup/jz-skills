@@ -1,0 +1,33 @@
+{
+  "_comment": "周/月/年报三个 cron job 的存档(prompt + schedule)。用 hermes cron create 建立后,把返回的 job_id 回填到各 job 的 job_id 字段。日记 cron 见 cron-job.json。",
+  "skill_version_at_update": "v3.5.0",
+  "jobs": [
+    {
+      "job_id": "4f5b5607912d",
+      "name": "每周周报",
+      "schedule": {"kind": "cron", "expr": "0 9 * * 1", "display": "每周一 09:00"},
+      "deliver": "origin",
+      "profile": "cron-worker",
+      "aggregates_from": "上周 7 篇日记(周←日)",
+      "prompt": "你是 Alex Cai 的 AI 助手，负责生成上周周报。\n\n## 步骤\n1. **算上周日期范围(ISO 周)**：运行\n   `python3 -c \"import datetime as d; t=d.date.today(); mon=t-d.timedelta(days=t.weekday()+7); sun=mon+d.timedelta(days=6); iso=mon.isocalendar(); print(f'{mon} {sun} {iso[0]}-W{iso[1]:02d}')\"`\n   得到 起始日 结束日 ISO周号(如 `2026-05-25 2026-05-31 2026-W22`)。\n2. **读取这 7 天日记**：`~/Documents/Obsidian/AlexCai/50-Self/01_日记/YYYY-MM-DD.md`。当月日记在该目录根；若已归档则在 `归档/YYYY-MM/YYYY-MM-DD.md`，两处都找。逐篇 `Read`。🔴 不要用 `collect_data.py weekly`(未实现)。\n3. **读格式规范**：`~/.hermes/skills/auto-diary/references/weekly-format.md`，逐段对照(禁止凭记忆)。\n4. **合并安全**：先 `Read` 目标周报 `~/Documents/Obsidian/AlexCai/50-Self/02_周报/{ISO周号}周报.md`。若已存在且有用户手写内容 → 合并保留，只填空缺，严禁覆盖。\n5. **生成周报**，按 weekly-format.md 的 5 维分析(逐日处理/跨日关联/行动项收集/洞察提炼/双链闭合)，写入 `02_周报/{ISO周号}周报.md`。\n6. **🔴 校验闭环**：`python3 ~/.hermes/skills/auto-diary/scripts/verify_report.py ~/Documents/Obsidian/AlexCai/50-Self/02_周报/{ISO周号}周报.md`。退出码非 0 → 对照 weekly-format.md 修正后重新校验，直到 PASS 才交付。\n7. final response 输出周报摘要。\n\n## 关键规则\n- 🔴 禁止引用用户原话；AI 主题用自己的话概括\n- 🔴 聚合成主题，不要每日流水账\n- 日记链接用 wikilink；归档日记用归档路径 `[[50-Self/01_日记/归档/YYYY-MM/YYYY-MM-DD|YYYY-MM-DD]]`\n- 某天日记不存在 → 跳过该天，不报错\n- 严禁 delegate_task，当前会话直接执行"
+    },
+    {
+      "job_id": "9c4f2a1b8e3d",
+      "name": "每月月报",
+      "schedule": {"kind": "cron", "expr": "30 9 1 * *", "display": "每月 1 号 09:30"},
+      "deliver": "origin",
+      "profile": "cron-worker",
+      "aggregates_from": "上月全部日记(月←日)",
+      "prompt": "你是 Alex Cai 的 AI 助手，负责生成上个月的月报。\n\n## 步骤\n1. **算上个月**：运行\n   `python3 -c \"import datetime as d; t=d.date.today(); last=t.replace(day=1)-d.timedelta(days=1); print(last.strftime('%Y-%m'))\"`\n   得到目标月份(如 `2026-05`)。\n2. **读取该月所有日记**：`~/Documents/Obsidian/AlexCai/50-Self/01_日记/{YYYY-MM}-*.md`，月初跑时多数已归档到 `归档/{YYYY-MM}/`。两处都扫(可用 `ls ~/Documents/Obsidian/AlexCai/50-Self/01_日记/{YYYY-MM}-*.md ~/Documents/Obsidian/AlexCai/50-Self/01_日记/归档/{YYYY-MM}/*.md`)。逐篇 `Read`。🔴 直接读日记，不依赖 `collect_data.py weekly`(未实现)。也可参考该月已生成的周报作骨架，但事实以日记为准。\n3. **读格式规范**：`~/.hermes/skills/auto-diary/references/monthly-format.md`，逐段对照。\n4. **合并安全**：先 `Read` 目标月报 `~/Documents/Obsidian/AlexCai/50-Self/06_月报/{YYYY-MM}月报.md`。若已存在且有用户手写内容 → 合并保留，只填空缺。\n5. **生成月报**，写入 `06_月报/{YYYY-MM}月报.md`。从每日「🎯 每日总结」三问中提炼跨日主线，按月度脉络(按周)组织，不要日流水账。\n6. **🔴 校验闭环**：`python3 ~/.hermes/skills/auto-diary/scripts/verify_report.py ~/Documents/Obsidian/AlexCai/50-Self/06_月报/{YYYY-MM}月报.md`。FAIL → 对照 monthly-format.md 修正后重校，直到 PASS。\n7. final response 输出月报摘要。\n\n## 关键规则\n- 🔴 禁引用用户原话；聚合成主线不流水账\n- 月度脉络表链接对应周报 `[[YYYY-Www周报]]`，周报不存在标 `(无周报)`\n- 行动项滚存：收集当月未完成 `- [ ]`，去重，标来源日期\n- 严禁 delegate_task，当前会话直接执行"
+    },
+    {
+      "job_id": "2e7d9f6a4c1b",
+      "name": "每年年报",
+      "schedule": {"kind": "cron", "expr": "0 10 1 1 *", "display": "每年 1 月 1 号 10:00"},
+      "deliver": "origin",
+      "profile": "cron-worker",
+      "aggregates_from": "去年 12 篇月报(年←月)",
+      "prompt": "你是 Alex Cai 的 AI 助手，负责生成上一年的年报。\n\n## 步骤\n1. **算去年年份**：运行 `python3 -c \"import datetime as d; print(d.date.today().year-1)\"`，得到目标年(如 `2025`)。\n2. **读取该年所有月报**：`~/Documents/Obsidian/AlexCai/50-Self/06_月报/{YYYY}-*月报.md`，逐篇 `Read`。某月月报缺失 → 降级读该月日记(`01_日记/归档/{YYYY}-MM/`)补充，并在年度脉络表标注 `(无月报，据日记)`。🔴 年报聚合自月报(年←月)，不直接读全年 365 篇日记。\n3. **读格式规范**：`~/.hermes/skills/auto-diary/references/yearly-format.md`，逐段对照。\n4. **合并安全**：先 `Read` 目标年报 `~/Documents/Obsidian/AlexCai/50-Self/07_年报/{YYYY}年报.md`。若已存在且有用户手写内容 → 合并保留，只填空缺。\n5. **生成年报**，写入 `07_年报/{YYYY}年报.md`。从 12 篇月报的「本月主线」提炼贯穿全年的大主题，年报是\"主线的主线\"，不复述月度细节。\n6. **🔴 校验闭环**：`python3 ~/.hermes/skills/auto-diary/scripts/verify_report.py ~/Documents/Obsidian/AlexCai/50-Self/07_年报/{YYYY}年报.md`。FAIL → 对照 yearly-format.md 修正后重校，直到 PASS。\n7. final response 输出年报摘要。\n\n## 关键规则\n- 🔴 禁引用用户原话；年度视角提炼，不复述月度细节\n- 年度脉络表 12 行链接对应月报 `[[YYYY-MM月报]]`，缺失标 `(无月报，据日记)`\n- 严禁 delegate_task，当前会话直接执行"
+    }
+  ]
+}

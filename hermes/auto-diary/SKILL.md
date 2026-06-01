@@ -10,17 +10,24 @@ description: |
   生成日记 / 生成周报 / 日记草稿 / weekly report / diary / 补日程 / 整理日记.
 
   DO NOT use for: general note-taking, non-diary content generation, one-off research.
-version: 3.4.0
-author: Hermes Agent — v3.4 真实校验闭环 + 修正 section 计数/幽灵周报 cron/合并安全
+version: 3.5.0
+author: Hermes Agent — v3.5 周/月/年报 cron + 聚合金字塔 + verify_report.py
 ---
 
-# Auto-Diary v3.4
+# Auto-Diary v3.5
 
-自动化日记生成和周报汇总。Cron 定时触发或手动调用。
+自动化日记生成 + 周/月/年报聚合。Cron 定时触发或手动调用。
 
-> ⚠️ **真实调度状态**（2026-06-01 核实，勿凭文档假设）：
-> 仅【每日日记草稿 23:00】这一个 cron 任务在跑（job `1ca6e7d692fa`）。
-> **周报/月报/年报均无 cron，全部手动触发。** 改调度前先 `hermes cron list` 核实。
+> ⚠️ **真实调度状态**（2026-06-01 核实，勿凭文档假设）：4 个 auto-diary cron 在跑。改调度前先 `hermes cron list` 核实。
+> | job_id | 任务 | schedule | 聚合源 |
+> |--------|------|----------|--------|
+> | `1ca6e7d692fa` | 每日日记草稿 | `0 23 * * *` | 采集脚本 |
+> | `4f5b5607912d` | 每周周报 | `0 9 * * 1`（周一 09:00） | 上周 7 篇日记 |
+> | `9c4f2a1b8e3d` | 每月月报 | `30 9 1 * *`（1 号 09:30） | 当月日记 |
+> | `2e7d9f6a4c1b` | 每年年报 | `0 10 1 1 *`（1/1 10:00） | 去年 12 篇月报 |
+>
+> **聚合金字塔**：日←采集 · 周←日 · 月←日（避开 ISO 周跨月）· 年←月。每个 cron 内置校验闭环。
+> 详见 `config/reports-cron.json`（周/月/年报存档）和知识库 `[[日记系统-三机架构与路线图]]`。
 
 ## 🚨 Red Flags: Don't Skip the Diary Rules
 
@@ -43,8 +50,10 @@ author: Hermes Agent — v3.4 真实校验闭环 + 修正 section 计数/幽灵�
 
 ```
 Trigger received (cron or manual)?
-├── Manual "生成日记" / cron daily → Workflow A: Daily Diary
-├── Manual "生成周报" / cron weekly → Workflow B: Weekly Report
+├── Manual "生成日记" / cron daily (23:00) → Workflow A: Daily Diary
+├── Manual "生成周报" / cron weekly (Mon 09:00) → Workflow B: Weekly Report
+├── Manual "生成月报" / cron monthly (1号 09:30) → Workflow E: Monthly Report
+├── Manual "生成年报" / cron yearly (1/1 10:00) → Workflow F: Yearly Report
 ├── Manual "补日程" / "日历事件没记" → Workflow C: Calendar Backfill
 ├── Manual "整理日记" / "清理日记" → Workflow D: Diary Cleanup
 └── Ambiguous → Ask user which workflow
@@ -66,13 +75,35 @@ See `references/diary-format.md` for weather codes, calendar table format, and s
 
 ## Workflow B: Weekly Report
 
-> ⚠️ 周报**无自动 cron**,仅手动触发(`生成周报` / `weekly report`)。如需自动化,先建 cron 任务。
+> cron `4f5b5607912d` 每周一 09:00 自动跑。也可手动(`生成周报`)。
+> 🔴 `collect_data.py weekly` **未实现**(返回 not implemented)——直接 Read 日记,不依赖采集脚本。
 
-1. Calculate Mon-Sun of last week
-2. Run: `python3 {baseDir}/scripts/collect_data.py weekly START END`
+1. 算上周 ISO 周范围: `python3 -c "import datetime as d; t=d.date.today(); mon=t-d.timedelta(days=t.weekday()+7); sun=mon+d.timedelta(days=6); iso=mon.isocalendar(); print(f'{mon} {sun} {iso[0]}-W{iso[1]:02d}')"`
+2. Read 这 7 天日记(`01_日记/YYYY-MM-DD.md`,已归档的在 `归档/YYYY-MM/`)
 3. Read: `{baseDir}/references/weekly-format.md`
-4. Process diaries across 5 analysis dimensions
-5. Write: `02_周报/YYYY-Www周报.md` (ISO week, e.g. `2026-W21周报.md`)
+4. 合并安全:先 Read 目标周报,保留用户手写内容
+5. 按 5 维分析生成,写 `02_周报/YYYY-Www周报.md`(ISO week,如 `2026-W22周报.md`)
+6. 🔴 校验闭环: `python3 {baseDir}/scripts/verify_report.py <文件>` → FAIL 重写到 PASS
+
+## Workflow E: Monthly Report
+
+> cron `9c4f2a1b8e3d` 每月 1 号 09:30 自动跑。聚合源:**当月日记**(月←日,避开 ISO 周跨月)。
+
+1. 算上月: `python3 -c "import datetime as d; t=d.date.today(); print((t.replace(day=1)-d.timedelta(days=1)).strftime('%Y-%m'))"`
+2. Read 该月所有日记(根目录 + `归档/YYYY-MM/`),🔴 直接读日记不依赖采集脚本
+3. Read: `{baseDir}/references/monthly-format.md`
+4. 合并安全 → 生成 `06_月报/YYYY-MM月报.md`(从每日三问提炼跨日主线,不流水账)
+5. 🔴 `verify_report.py <文件>` → PASS 才交付
+
+## Workflow F: Yearly Report
+
+> cron `2e7d9f6a4c1b` 每年 1/1 10:00 自动跑。聚合源:**去年 12 篇月报**(年←月,非直读 365 篇日记)。
+
+1. 算去年: `python3 -c "import datetime as d; print(d.date.today().year-1)"`
+2. Read 该年所有月报(`06_月报/YYYY-*月报.md`);月报缺失则降级读该月日记并标注
+3. Read: `{baseDir}/references/yearly-format.md`
+4. 合并安全 → 生成 `07_年报/YYYY年报.md`(主线的主线,不复述月度细节)
+5. 🔴 `verify_report.py <文件>` → PASS 才交付
 
 ## Workflow C: Calendar Backfill
 
@@ -143,6 +174,8 @@ icalBuddy `-ic "cal1,cal2"` on mismatched names returns empty **without error**.
 
 - Diary: `~/Documents/Obsidian/AlexCai/50-Self/01_日记/YYYY-MM-DD.md`
 - Weekly: `~/Documents/Obsidian/AlexCai/50-Self/02_周报/YYYY-Www周报.md`
+- Monthly: `~/Documents/Obsidian/AlexCai/50-Self/06_月报/YYYY-MM月报.md`
+- Yearly: `~/Documents/Obsidian/AlexCai/50-Self/07_年报/YYYY年报.md`
 
 ## Troubleshooting
 

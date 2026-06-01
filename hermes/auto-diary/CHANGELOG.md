@@ -1,5 +1,15 @@
 # Auto-Diary Changelog
 
+## v3.5.0 (2026-06-01)
+- 🆕 **周/月/年报聚合金字塔**：建 3 个线上 cron——周报(周一 09:00, `4f5b5607912d`, 周←日)、月报(1 号 09:30, `9c4f2a1b8e3d`, 月←日避开 ISO 周跨月)、年报(1/1 10:00, `2e7d9f6a4c1b`, 年←月)。补齐此前"周报无 cron"的空白。
+- 🆕 **format spec**：新增 `references/monthly-format.md`、`references/yearly-format.md`（对齐 diary/weekly 倒金字塔风格，遵循库 CLAUDE.md 不写 class）。
+- 🆕 **`verify_report.py`**：周/月/年报结构校验脚本，按文件名自动判类型，宽松设计避免误伤。负向测试通过；现有 8 篇老周报如实抓出早期格式瑕疵（2/8 PASS，新格式 W08/W21/W22 PASS）。
+- 🆕 **目录**：新建 `50-Self/06_月报/`、`07_年报/`（与 02_周报 平级，遵循编号规范）。
+- 🆕 **cron 存档**：`config/reports-cron.json`（3 个 job 的 prompt + schedule + 真实 job_id）。
+- ✅ **端到端冒烟测试**：实跑 W22 周报（5/25-5/31，读 7 篇日记→按 spec 生成→verify PASS），整条闭环验证通过。
+- 📄 **设计文档**：重写 `[[日记系统-三机架构与路线图]]`（取代过时的 Auto-Diary-Local-设计方案，后者已加 aliases 重定向防断链），含 hub-and-spoke 单写者三机架构 + P0/P1/P2/P3 路线图。
+- 🔴 关键约束固化：所有聚合 cron 直接 Read 日记/月报（`collect_data.py weekly` 未实现），写前先 Read 目标文件保合并安全，写后跑 verify_report 闭环。
+
 ## v3.4.0 (2026-06-01)
 - 🔴 **质量事故复盘**：5 月全月日记批量重写翻车（缺 callout、三问缩写、CC 未分组、底部拍扁）。根因不是"凭记忆"，是**无机器校验闭环**。
 - ✅ **重写 `verify_diary_compliance.py` v2.0**：修复"传单文件即 NotADirectoryError"崩溃；从"标题存在性扫描"升级为深度结构校验——新增三问三条齐全、CC 三组拆分、各体系 info callout、底部 `---` 分隔、abstract 速览四要素、禁折叠 callout 共 6 项。3 篇达标日记(05-29/30/31)回归全 PASS、不误报。
