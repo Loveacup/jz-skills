@@ -38,6 +38,7 @@ sync_hermes() {
   cp -r "$REPO_ROOT/hermes/supermemory-hermes"              "$base/governance/"
   cp -r "$REPO_ROOT/hermes/mac-doctor"                     "$base/apple/"
   cp -r "$REPO_ROOT/hermes/tts-manager"                    "$base/hermes/"
+  cp -r "$REPO_ROOT/hermes/tech-support-email"             "$base/hermes/"
   cp -r "$REPO_ROOT/hermes-3S6M-profiles/gongbu/surge-gateway"  "$base/devops/"
 
   # Sync to all profiles
@@ -60,6 +61,8 @@ sync_hermes() {
     cp -r "$REPO_ROOT/hermes/reply-context-retrieval"        "$pd/"
     cp -r "$REPO_ROOT/hermes/supermemory-hermes"              "$pd/governance/"
     cp -r "$REPO_ROOT/hermes/mac-doctor"                     "$pd/apple/"
+    cp -r "$REPO_ROOT/hermes/tts-manager"                    "$pd/hermes/"
+    cp -r "$REPO_ROOT/hermes/tech-support-email"             "$pd/hermes/"
     cp -r "$REPO_ROOT/hermes-3S6M-profiles/common/three-provinces-constitution"  "$pd/governance/"
     cp -r "$REPO_ROOT/hermes-3S6M-profiles/common/financial-research-agents"     "$pd/research/"
   done
