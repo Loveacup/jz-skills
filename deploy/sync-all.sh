@@ -24,6 +24,7 @@ sync_hermes() {
   # Hermes-specific skills
   mkdir -p "$base/research" "$base/productivity" "$base/governance" "$base/autonomous-ai-agents" "$base/devops" "$base/apple" "$base/hermes"
   cp -r "$REPO_ROOT/hermes/web-research-router"             "$base/research/"
+  cp -r "$REPO_ROOT/hermes/source-verification"            "$base/research/"
   cp -r "$REPO_ROOT/hermes/tradingagents"                   "$base/research/"
   cp -r "$REPO_ROOT/hermes/llm-wiki"                        "$base/research/"
   cp -r "$REPO_ROOT/hermes/arxiv"                           "$base/research/"
@@ -39,6 +40,7 @@ sync_hermes() {
   cp -r "$REPO_ROOT/hermes/mac-doctor"                     "$base/apple/"
   cp -r "$REPO_ROOT/hermes/tts-manager"                    "$base/hermes/"
   cp -r "$REPO_ROOT/hermes/tech-support-email"             "$base/hermes/"
+  cp -r "$REPO_ROOT/hermes/news-assembly"                  "$base/productivity/"
   cp -r "$REPO_ROOT/hermes-3S6M-profiles/gongbu/surge-gateway"  "$base/devops/"
 
   # Sync to all profiles
@@ -51,6 +53,7 @@ sync_hermes() {
     cp -r "$REPO_ROOT/shared/github/"                "$pd/github/"
     cp -r "$REPO_ROOT/shared/xhs-tech-writer"        "$pd/hermes/"
     cp -r "$REPO_ROOT/hermes/web-research-router"             "$pd/research/"
+    cp -r "$REPO_ROOT/hermes/source-verification"            "$pd/research/"
     cp -r "$REPO_ROOT/hermes/tradingagents"                   "$pd/research/"
     cp -r "$REPO_ROOT/hermes/llm-wiki"                        "$pd/research/"
     cp -r "$REPO_ROOT/hermes/arxiv"                           "$pd/research/"
@@ -63,6 +66,7 @@ sync_hermes() {
     cp -r "$REPO_ROOT/hermes/mac-doctor"                     "$pd/apple/"
     cp -r "$REPO_ROOT/hermes/tts-manager"                    "$pd/hermes/"
     cp -r "$REPO_ROOT/hermes/tech-support-email"             "$pd/hermes/"
+    cp -r "$REPO_ROOT/hermes/news-assembly"                  "$pd/productivity/"
     cp -r "$REPO_ROOT/hermes-3S6M-profiles/common/three-provinces-constitution"  "$pd/governance/"
     cp -r "$REPO_ROOT/hermes-3S6M-profiles/common/financial-research-agents"     "$pd/research/"
   done

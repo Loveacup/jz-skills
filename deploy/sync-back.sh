@@ -56,6 +56,7 @@ PAIRS=(
 
   # === hermes ===
   "hermes/web-research-router|research/web-research-router"
+  "hermes/source-verification|research/source-verification"
   "hermes/tradingagents|research/tradingagents"
   "hermes/llm-wiki|research/llm-wiki"
   "hermes/arxiv|research/arxiv"
@@ -70,6 +71,7 @@ PAIRS=(
   "hermes/mac-doctor|apple/mac-doctor"
   "hermes/tts-manager|hermes/tts-manager"
   "hermes/tech-support-email|hermes/tech-support-email"
+  "hermes/news-assembly|productivity/news-assembly"
 
   # === hermes-3S6M-profiles/common ===
   "hermes-3S6M-profiles/common/three-provinces-constitution|governance/three-provinces-constitution"
