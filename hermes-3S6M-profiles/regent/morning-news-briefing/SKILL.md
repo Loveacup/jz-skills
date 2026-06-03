@@ -388,3 +388,34 @@ grep -rE '(gho_|sk-[0-9a-zA-Z]{20,}|192\.168|172\.(1[6-9]|2[0-9]|3[0-1])\.)' \
 # 5. Git sync
 git add . && git commit -m "v4.0.X: update" && git push
 ```
+
+### Cron Job Configuration
+
+Cron 只需要引用 skill，不需要内联 prompt。用 `hermes cron create` 或直接写 `jobs.json`：
+
+```json
+{
+  "name": "早新闻简报",
+  "skill": "productivity/morning-news-briefing",
+  "skills": [
+    "productivity/morning-news-briefing",
+    "web-research-router",
+    "research/source-verification",
+    "creative/de-slop",
+    "hermes/tts-manager",
+    "productivity/news-assembly"
+  ],
+  "schedule": "0 8 * * *",
+  "profile": "cron-worker",
+  "model": "deepseek-v4-pro",
+  "provider": "deepseek",
+  "deliver": "origin",
+  "prompt": "你是早新闻生产 Agent。严格按 morning-news-briefing SKILL.md 的 Mode A (Cron) 流程执行。\n\n执行顺序：\nStep 0: 创建 workspace ~/.hermes/workspaces/morning-news-{date}/\nStep 1: 四路并行搜索（parallel tool calls）→ 直接汇编\nStep 2: 汇编 → morning-news-{date}.md\nStep 3: 来源校验\nStep 4: 渲染双版 PDF（mobile 430×932 + A4）\nStep 5: 7 sentinels 审计\nStep 6: TTS 语音版\nStep 7: 交付（MEDIA: PDFs + audio）"
+}
+```
+
+**关键规则**：
+- `skill` + `skills` 字段让 cron 启动时自动注入 SKILL.md 到 system prompt，agent 无需自己调 `skill_view`
+- `prompt` 仅作任务触发，具体流程由 SKILL.md 的 Mode A 章节定义
+- `profile: "cron-worker"` 确保在 cron-worker profile 下运行，使用其 skill 索引
+- 不要用 `delegate_task`（cron 无 dispatcher），用 parallel tool calls 做搜索并发
