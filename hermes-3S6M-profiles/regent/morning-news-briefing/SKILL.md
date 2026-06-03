@@ -345,7 +345,7 @@ PLATFORM_MAP = {
 | **静默跳过 TTS** | v4.0 TTS 是 pipeline 步骤，不可达时标注但不得省略 |
 | **盲 `git commit -am`** | .env/缓存/API 原始响应一并推上 GitHub |
 | **反骑墙 grep 未跑** | "一方面/另一方面/可能/或许" 任一命中 = 骑墙分析 |
-| **Cron 中用 delegate_task 期望 Kanban** | Cron 无 gateway dispatcher，Kanban swarm 不可用。用 parallel tool calls（同轮次批量发起搜索调用）替代。避免 shell background 的 workspace 路径偏移和 execute_code 路径问题 |
+| **Cron 中用 delegate_task 做搜索并行** | delegate_task 在 cron 下同步串行，非真并行。搜索阶段用 parallel tool calls（同轮次批量发起 MCP 调用）更高效。汇编/渲染等重推理阶段 delegate_task 仍可用 |
 | **Cron 搜索用 shell background 而非 parallel tool calls** | shell background 写入的 JSON 文件可能因 cron-worker 的 execute_code 路径偏移落在错误的 workspace（`~/.hermes/profiles/cron-worker/home/...`），导致后续 assembly 读不到。parallel tool calls 直接在主 Agent 上下文处理结果，无此问题。2026-06-04 验证：12 查询单轮次并行 → 直接汇编，零路径问题 |
 | **cp 到 skills 顶层** | 索引器只扫描分类子目录。顶层裸目录 = skill 永不加载。必须放 `skills/productivity/` 下 |
 | **反骑墙 grep 写了但没跑** | SKILL.md 规定 `grep 可能/或许/似乎 → REJECT`，但 agent 在汇编阶段不会主动跑 grep。必须在 Step 2 汇编完成后用 `execute_code` 或 `terminal` 机械执行 grep，命中任一即阻断渲染，不是 checklist 里的可选项 |
@@ -418,4 +418,5 @@ Cron 只需要引用 skill，不需要内联 prompt。用 `hermes cron create` �
 - `skill` + `skills` 字段让 cron 启动时自动注入 SKILL.md 到 system prompt，agent 无需自己调 `skill_view`
 - `prompt` 仅作任务触发，具体流程由 SKILL.md 的 Mode A 章节定义
 - `profile: "cron-worker"` 确保在 cron-worker profile 下运行，使用其 skill 索引
-- 不要用 `delegate_task`（cron 无 dispatcher），用 parallel tool calls 做搜索并发
+- 不要用 `delegate_task` 做搜索并行（cron 下为同步串行，非真并行），搜索用 parallel tool calls 更高效
+- `delegate_task` 在汇编/渲染/审计等重推理阶段仍可用，按需使用
