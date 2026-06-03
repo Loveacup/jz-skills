@@ -70,19 +70,34 @@ Trigger: cron scheduler (daily 08:00)
 
 ### Mode B: Interactive / Kanban Swarm (manual trigger)
 
+**状态：✅ 已验证（2026-06-04）** — 并行搜索 + 验证通过，publisher gateway 需修端口配置。
+
 When triggered interactively (not cron), use Kanban v0.15 Swarm for full multi-agent pipeline:
 
 ```bash
-# v0.15 实测语法（非概念示例）
+# 实测语法 — 2026-06-04 验证
 hermes kanban swarm \
-  --goal "生成 {date} 早新闻简报：四路搜索 → 汇编 → 渲染 → TTS → 交付" \
-  --worker lane-zh:中文搜索 \
-  --worker lane-en:英文搜索 \
-  --worker lane-mixed:市场数据 \
-  --worker lane-tech:科技新闻 \
+  --worker "lane-zh:中文搜索:productivity/morning-news-briefing,web-research-router" \
+  --worker "lane-en:英文搜索:productivity/morning-news-briefing,web-research-router" \
+  --worker "lane-mixed:市场数据:productivity/morning-news-briefing,web-research-router" \
+  --worker "lane-tech:科技新闻:productivity/morning-news-briefing,web-research-router" \
   --verifier auditor \
-  --synthesizer publisher
+  --synthesizer publisher \
+  "生成 {date} 早新闻简报：四路并行搜索 → 汇编 → 深度分析 → 渲染 PDF → TTS → 交付"
 ```
+
+**实测结果（2026-06-04）**：
+
+| Worker | 产出 | 状态 |
+|--------|------|:--:|
+| lane-zh (flash) | 20 条中文新闻 | ✅ |
+| lane-en (flash) | 18 条英文新闻 6 板块 | ✅ |
+| lane-mixed (flash) | 8 板块市场数据 | ✅ |
+| lane-tech (flash) | 10 条科技新闻 | ✅ |
+| auditor (pro) | PASS — 仅 1 处轻微不一致 | ✅ |
+| publisher (pro) | 合成+渲染+TTS | ⚠️ 54 次崩溃 |
+
+**Publisher 崩溃根因**：`platforms.api_server.extra.port` 需为每个 profile 分配独立端口（当前默认为 8460，与 default 冲突）。修复后 publisher 应正常完成合成。
 
 ⚠️ **注意**：
 - `--worker` 格式是 `PROFILE:TITLE[:SKILL,SKILL]`，每个并行 worker 一个独立 flag
