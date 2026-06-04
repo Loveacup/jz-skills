@@ -6,6 +6,19 @@
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
+copy_skill_dir() {
+  local src="$1"
+  local dst="$2"
+  local target="$dst/$(basename "$src")"
+  if [ -d "$src" ]; then
+    mkdir -p "$dst"
+    rm -rf "$target"
+    cp -r "$src" "$dst/"
+  else
+    echo "  ⚠️  skip missing: ${src#$REPO_ROOT/}"
+  fi
+}
+
 # === Hermes ===
 sync_hermes() {
   local base=~/.hermes/skills
@@ -13,58 +26,59 @@ sync_hermes() {
 
   # Shared (cross-platform) skills
   mkdir -p "$base/governance" "$base/productivity"
-  cp -r "$REPO_ROOT/shared/grill-with-docs"        "$base/governance/"
-  cp -r "$REPO_ROOT/shared/skill-authoring"        "$base/governance/"
-  cp -r "$REPO_ROOT/shared/pdf"                    "$base/productivity/"
-  cp -r "$REPO_ROOT/shared/strategic-insight-longform"  "$base/productivity/"
-  cp -r "$REPO_ROOT/shared/voice-to-markdown-workflow"  "$base/productivity/"
-  cp -r "$REPO_ROOT/shared/github/"                   "$base/github/"
-  cp -r "$REPO_ROOT/shared/xhs-tech-writer"    "$base/hermes/"
+  copy_skill_dir "$REPO_ROOT/shared/grill-with-docs"        "$base/governance"
+  copy_skill_dir "$REPO_ROOT/shared/skill-authoring"        "$base/governance"
+  copy_skill_dir "$REPO_ROOT/shared/pdf"                    "$base/productivity"
+  copy_skill_dir "$REPO_ROOT/shared/strategic-insight-longform"  "$base/productivity"
+  copy_skill_dir "$REPO_ROOT/shared/voice-to-markdown-workflow"  "$base/productivity"
+  copy_skill_dir "$REPO_ROOT/shared/github"                   "$base/github"
+  copy_skill_dir "$REPO_ROOT/shared/xhs-tech-writer"    "$base/hermes"
 
   # Hermes-specific skills
   mkdir -p "$base/research" "$base/productivity" "$base/governance" "$base/autonomous-ai-agents" "$base/devops" "$base/apple" "$base/hermes"
-  cp -r "$REPO_ROOT/hermes/web-research-router"             "$base/research/"
-  cp -r "$REPO_ROOT/hermes/source-verification"            "$base/research/"
-  cp -r "$REPO_ROOT/hermes/tradingagents"                   "$base/research/"
+  copy_skill_dir "$REPO_ROOT/hermes/web-research-router"             "$base/research"
+  copy_skill_dir "$REPO_ROOT/hermes/source-verification"            "$base/research"
+  copy_skill_dir "$REPO_ROOT/hermes/tradingagents"                   "$base/research"
 
-  cp -r "$REPO_ROOT/hermes/arxiv"                           "$base/research/"
-  cp -r "$REPO_ROOT/hermes/auto-diary"                      "$base/"
-  cp -r "$REPO_ROOT/hermes/bilibili-video-analyzer"         "$base/"
-  cp -r "$REPO_ROOT/hermes/xhs-crawler"                     "$base/"
-  cp -r "$REPO_ROOT/hermes/calendar-manager"               "$base/"
-  cp -r "$REPO_ROOT/hermes/cron-worker"                    "$base/"
-  cp -r "$REPO_ROOT/hermes/de-slop"                        "$base/"
-  cp -r "$REPO_ROOT/hermes/claude-code"                    "$base/autonomous-ai-agents/"
-  cp -r "$REPO_ROOT/hermes/supermemory-hermes"              "$base/governance/"
-  cp -r "$REPO_ROOT/hermes/mac-doctor"                     "$base/apple/"
-  cp -r "$REPO_ROOT/hermes/tts-manager"                    "$base/hermes/"
-  cp -r "$REPO_ROOT/hermes/tech-support-email"             "$base/hermes/"
-  cp -r "$REPO_ROOT/hermes/news-assembly"                  "$base/productivity/"
-  cp -r "$REPO_ROOT/hermes/morning-news-briefing"           "$base/productivity/"
+  copy_skill_dir "$REPO_ROOT/hermes/arxiv"                           "$base/research"
+  copy_skill_dir "$REPO_ROOT/hermes/auto-diary"                      "$base"
+  copy_skill_dir "$REPO_ROOT/hermes/bilibili-video-analyzer"         "$base"
+  copy_skill_dir "$REPO_ROOT/hermes/xhs-crawler"                     "$base"
+  copy_skill_dir "$REPO_ROOT/hermes/calendar-manager"               "$base"
+  copy_skill_dir "$REPO_ROOT/hermes/cron-worker"                    "$base"
+  copy_skill_dir "$REPO_ROOT/hermes/de-slop"                        "$base"
+  copy_skill_dir "$REPO_ROOT/hermes/claude-code"                    "$base/autonomous-ai-agents"
+  copy_skill_dir "$REPO_ROOT/hermes/supermemory-hermes"              "$base/governance"
+  copy_skill_dir "$REPO_ROOT/hermes/memory-hub"                      "$base/governance"   # Phase 1 记忆-日志回路（全局；暂不进 per-profile 循环，start narrow）
+  copy_skill_dir "$REPO_ROOT/hermes/mac-doctor"                     "$base/apple"
+  copy_skill_dir "$REPO_ROOT/hermes/tts-manager"                    "$base/hermes"
+  copy_skill_dir "$REPO_ROOT/hermes/tech-support-email"             "$base/hermes"
+  copy_skill_dir "$REPO_ROOT/hermes/news-assembly"                  "$base/productivity"
+  copy_skill_dir "$REPO_ROOT/hermes/morning-news-briefing"           "$base/productivity"
 
   # Sync to all profiles
   echo "→ Syncing to profiles..."
   for prof in $(ls -d ~/.hermes/profiles/*/ 2>/dev/null | xargs -n1 basename); do
     local pd=~/.hermes/profiles/$prof/skills
     mkdir -p "$pd/research" "$pd/github" "$pd/governance" "$pd/productivity" "$pd/autonomous-ai-agents" "$pd/apple" "$pd/hermes"
-    cp -r "$REPO_ROOT/shared/grill-with-docs"        "$pd/governance/"
-    cp -r "$REPO_ROOT/shared/skill-authoring"        "$pd/governance/"
-    cp -r "$REPO_ROOT/shared/github/"                "$pd/github/"
-    cp -r "$REPO_ROOT/shared/xhs-tech-writer"        "$pd/hermes/"
-    cp -r "$REPO_ROOT/hermes/web-research-router"             "$pd/research/"
-    cp -r "$REPO_ROOT/hermes/source-verification"            "$pd/research/"
-    cp -r "$REPO_ROOT/hermes/tradingagents"                   "$pd/research/"
-    cp -r "$REPO_ROOT/hermes/arxiv"                           "$pd/research/"
-    cp -r "$REPO_ROOT/hermes/calendar-manager"               "$pd/"
-    cp -r "$REPO_ROOT/hermes/cron-worker"                    "$pd/"
-    cp -r "$REPO_ROOT/hermes/de-slop"                        "$pd/"
-    cp -r "$REPO_ROOT/hermes/claude-code"                    "$pd/autonomous-ai-agents/"
-    cp -r "$REPO_ROOT/hermes/supermemory-hermes"              "$pd/governance/"
-    cp -r "$REPO_ROOT/hermes/mac-doctor"                     "$pd/apple/"
-    cp -r "$REPO_ROOT/hermes/tts-manager"                    "$pd/hermes/"
-    cp -r "$REPO_ROOT/hermes/tech-support-email"             "$pd/hermes/"
-    cp -r "$REPO_ROOT/hermes/news-assembly"                  "$pd/productivity/"
-    cp -r "$REPO_ROOT/hermes/morning-news-briefing"           "$pd/productivity/"
+    copy_skill_dir "$REPO_ROOT/shared/grill-with-docs"        "$pd/governance"
+    copy_skill_dir "$REPO_ROOT/shared/skill-authoring"        "$pd/governance"
+    copy_skill_dir "$REPO_ROOT/shared/github"                "$pd/github"
+    copy_skill_dir "$REPO_ROOT/shared/xhs-tech-writer"        "$pd/hermes"
+    copy_skill_dir "$REPO_ROOT/hermes/web-research-router"             "$pd/research"
+    copy_skill_dir "$REPO_ROOT/hermes/source-verification"            "$pd/research"
+    copy_skill_dir "$REPO_ROOT/hermes/tradingagents"                   "$pd/research"
+    copy_skill_dir "$REPO_ROOT/hermes/arxiv"                           "$pd/research"
+    copy_skill_dir "$REPO_ROOT/hermes/calendar-manager"               "$pd"
+    copy_skill_dir "$REPO_ROOT/hermes/cron-worker"                    "$pd"
+    copy_skill_dir "$REPO_ROOT/hermes/de-slop"                        "$pd"
+    copy_skill_dir "$REPO_ROOT/hermes/claude-code"                    "$pd/autonomous-ai-agents"
+    copy_skill_dir "$REPO_ROOT/hermes/supermemory-hermes"              "$pd/governance"
+    copy_skill_dir "$REPO_ROOT/hermes/mac-doctor"                     "$pd/apple"
+    copy_skill_dir "$REPO_ROOT/hermes/tts-manager"                    "$pd/hermes"
+    copy_skill_dir "$REPO_ROOT/hermes/tech-support-email"             "$pd/hermes"
+    copy_skill_dir "$REPO_ROOT/hermes/news-assembly"                  "$pd/productivity"
+    copy_skill_dir "$REPO_ROOT/hermes/morning-news-briefing"           "$pd/productivity"
   done
 
   echo "  ✅ Hermes ($(ls -d ~/.hermes/profiles/*/ 2>/dev/null | wc -l | tr -d ' ') profiles)"

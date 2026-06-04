@@ -66,6 +66,7 @@ PAIRS=(
   "hermes/de-slop|de-slop"
   "hermes/claude-code|autonomous-ai-agents/claude-code"
   "hermes/supermemory-hermes|governance/supermemory-hermes"
+  "hermes/memory-hub|governance/memory-hub"
   "hermes/mac-doctor|apple/mac-doctor"
   "hermes/tts-manager|hermes/tts-manager"
   "hermes/tech-support-email|hermes/tech-support-email"

@@ -1,0 +1,1 @@
+{"id": "ISSUE-skill-authoring-001", "type": "issue", "skill": "skill-authoring", "source": "user", "evidence": "用户指令原文：'别忘了和 cc 进行多轮讨论' — 要求技能在执行前与 CC 多轮讨论，而非直接落地", "ts": "2026-06-04T13:40:00+08:00", "requester": "user", "trigger": "user_correction", "skill_version": "3.0.0", "payload": {"implicated_rule": "multi-round-discussion-before-execution", "change_type": "rule_add"}}
