@@ -132,6 +132,7 @@ def main(argv: list[str]) -> int:
     p.add_argument("--doc", default=str(DEFAULT_DOC), help="Override the target Obsidian doc.")
     p.add_argument("--waterline", default=str(WATERLINE_PATH), help="Override the waterline file.")
     p.add_argument("--dry-run", action="store_true", help="Report only; write nothing.")
+    p.add_argument("--quiet", action="store_true", help="Silence 'nothing to do' output (for cron/no_agent).")
     args = p.parse_args(argv[1:])
 
     ref_dir = Path(args.references_dir)
@@ -156,7 +157,8 @@ def main(argv: list[str]) -> int:
         enriched.append(e)
 
     if not enriched:
-        print("✓ no issues in scope; nothing to merge.")
+        if not args.quiet:
+            print("✓ no issues in scope; nothing to merge.")
         return 0
 
     # Determine the ts cutoff: waterline if present, else last 30 days.
@@ -167,7 +169,8 @@ def main(argv: list[str]) -> int:
               f"(cutoff {cutoff.isoformat(timespec='seconds')}).")
     else:
         cutoff = waterline
-        print(f"→ waterline at {waterline.isoformat(timespec='seconds')}; merging newer issues.")
+        if not args.quiet:
+            print(f"→ waterline at {waterline.isoformat(timespec='seconds')}; merging newer issues.")
 
     # Candidates: ts strictly newer than the cutoff (waterline) or >= cutoff (30d window).
     strict = waterline is not None
@@ -191,7 +194,8 @@ def main(argv: list[str]) -> int:
     fresh = [e for e in candidates if e.get("id") not in already]
 
     if not fresh:
-        print(f"✓ {len(candidates)} candidate(s), all already in the doc; nothing appended (idempotent).")
+        if not args.quiet:
+            print(f"✓ {len(candidates)} candidate(s), all already in the doc; nothing appended (idempotent).")
         # Still advance the waterline so future scans stay cheap.
         if not args.dry_run and max_ts is not None and max_ts != waterline:
             try:

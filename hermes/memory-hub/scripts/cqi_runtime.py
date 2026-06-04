@@ -72,6 +72,7 @@ def main(argv: list[str]) -> int:
     p.add_argument("--references-dir", dest="references_dir", default=str(REFERENCES_DIR),
                    help="Override the shard directory (for testing).")
     p.add_argument("--dry-run", action="store_true", help="Report only; append nothing.")
+    p.add_argument("--quiet", action="store_true", help="Silence 'nothing to do' output (for cron/no_agent).")
     args = p.parse_args(argv[1:])
 
     ref_dir = Path(args.references_dir)
@@ -82,7 +83,8 @@ def main(argv: list[str]) -> int:
         return 2
 
     if not new_issues:
-        print("✓ no new issues to acknowledge.")
+        if not args.quiet:
+            print("✓ no new issues to acknowledge.")
         return 0
 
     print(f"→ {len(new_issues)} new issue(s) to acknowledge:")
