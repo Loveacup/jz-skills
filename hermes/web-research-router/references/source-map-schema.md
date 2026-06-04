@@ -81,7 +81,7 @@ Use this shape internally or in serious reports. Keep Telegram output human-read
   非 deep mode 时 `budget` 字段可省略；deep mode 必填。
   `stop_reason` 必填，告诉 caller 为什么停（`reviewer_none` = LLM 自评够了；
   `max_iter` / `token_exhausted` = 强制停；`no_progress` = 连续 2 轮无新 quote）。
-- **`provider` 新增 `searxng`** —— SearXNG 多引擎广扫结果应在 provider 字段标 `searxng`。
+- **`provider` 保留 `searxng`** —— 命中自 SearXNG 兜底通道的结果在 provider 字段标 `searxng`（v3.9：SearXNG 仅作最后兜底，非默认起手）。
   原本由 SearXNG 命中、但 fetch 阶段又被 Exa fetch 抓的 source 标 `searxng` + `notes: fetched via exa`。
 - **`evidence_status` 新增 `extracted`** —— 比 `fetched` 进一步：已跑过 extractor、拿到 verbatim quote。
   排序：`searched` < `fetched` < `extracted` < `verified`（多源交叉过）；`conflicted` 与上述维度正交。

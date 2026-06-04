@@ -4,9 +4,11 @@ Detailed mode instructions for web-research-router. Loaded on-demand from SKILL.
 
 ## Mode Selection
 
-> 🌐 **跨模式默认起手：SearXNG。** 五种模式都从 `mcp_searxng_searxng_web_search` 广扫开始；
-> 看清 landscape 后再按下表选模式、按各模式 Default path 决定精深方向。
-> 这不是省钱省 token——是因为单引擎遗漏太常见，先广扫再精挖比从一开始就走窄漏斗更可靠。
+> 🌐 **跨模式默认起手：Exa + Brave 双主力。**（语义精准 + 独立索引交叉）`web_search` 广扫兜底，
+> Tavily 做深度调研 / 数据 grounding。看清 landscape 后再按下表选模式、按各模式 Default path 决定精深方向。
+> 🔧 **SearXNG 实例已损坏**（Google 失效 / Bing 降级 / DDG CAPTCHA），`mcp_searxng_searxng_web_search`
+> 从"默认起手"降为**最后兜底**——仅当 Exa/Brave/web_search 前几家命中 <3 条时才启用。
+> 这不是省钱省 token——是因为单引擎遗漏太常见,默认双主力交叉再精挖比从一开始就走窄漏斗更可靠。
 
 **Auto-detect vs. ask:** Deterministic scenarios → auto-select. Uncertain scenarios → ask the user.
 
@@ -30,10 +32,11 @@ Detailed mode instructions for web-research-router. Loaded on-demand from SKILL.
 Use when the user asks for background, landscape, competitors, examples, docs, projects, or "有没有相关资料/项目".
 
 Default path:
-1. **SearXNG 广扫**（`mcp_searxng_searxng_web_search`）—— 一次拿到 6+ 通用引擎结果，看清整个 landscape。
-2. Exa 做语义精准——基于 SearXNG 的初探结果定义更精确的语义查询。
-3. Brave if Exa looks narrow or 需要本地化 / 新闻补强。
-4. Fetch 1–3 canonical sources only.
+1. **web_search 广扫**（`web_search`）—— 一次拿到通用引擎结果，看清整个 landscape。
+2. Exa 做语义精准——基于广扫的初探结果定义更精确的语义查询。
+3. Brave 独立索引交叉 if Exa looks narrow or 需要本地化 / 新闻补强。
+4. Fallback: SearXNG（`mcp_searxng_searxng_web_search`）—— 仅当前三家命中 <3 条时才启用；高噪声需人工过滤前 5-10 条。
+5. Fetch 1–3 canonical sources only（抓取用 Exa Fetch / Tavily Extract）。
 
 Good sources: official docs, GitHub repos, maintainer posts, primary reports, credible practitioner analysis.
 
@@ -44,10 +47,11 @@ Good sources: official docs, GitHub repos, maintainer posts, primary reports, cr
 Use when the task depends on dates, numbers, prices, authorship, identity, legal/regulatory facts, current news, or financial/investment claims.
 
 Default path:
-1. **SearXNG 多引擎交叉**（`mcp_searxng_searxng_web_search`）—— 6 个通用引擎同时返回，一致 → 高置信；分歧 → 进入深核流程。
-2. Tavily 深核——仅当 SearXNG 引擎间出现分歧、或目标是最新动态 / 抽取原文时调用。
-3. Brave 作为 Tavily 的补充交叉源。
-4. Fetch/read the primary source before asserting.
+1. **Exa + Brave 并行交叉**（`mcp_exa_web_search_exa` + `mcp_brave_search_brave_web_search`）—— 两个独立索引同时返回，一致 → 高置信；分歧 → 进入深核流程。
+2. web_search 通用兜底——双主力命中不足或需要 mainstream 视角时补盲。
+3. Tavily 深核——目标是最新动态 / 结构化抽取数字 / 口径时调用（`mcp_tavily_tavily_extract`）。
+4. Fallback: SearXNG（`mcp_searxng_searxng_web_search`）—— 仅当上述各家命中 <3 条时兜底。
+5. Fetch/read the primary source before asserting（抓取用 Exa Fetch / Tavily Extract）。
 
 Output must separate confirmed facts, inference, conflicts, and gaps.
 
@@ -58,12 +62,11 @@ Output must separate confirmed facts, inference, conflicts, and gaps.
 Use when the user wants a substantive answer, source map, decision memo, market scan, technical recommendation, or long-form research.
 
 Default path:
-1. **SearXNG landscape scan**（`mcp_searxng_searxng_web_search`）—— 先把全景拉满：通用 + 学术 + 代码 + 中文，得到 100+ 候选源。
-2. Exa 做语义精准——挑出 SearXNG 没覆盖到的 high-signal 角度（公司、产品对比、深度博文）。
-3. Tavily 做事实核验 / 抽取原文。
-4. Brave 仅在需要 mainstream / 新闻视角时叠加。
-5. Fetch only the highest-signal URLs（`mcp_searxng_web_url_read` 适合 GitHub 页面；其余用 Tavily extract）。
-6. Hand off to `source-reader`, `content-source-workflow`, `source-verification`, or a domain skill when the source map is built.
+1. **Exa + Brave 双主力并行**（`mcp_exa_web_search_exa` + `mcp_brave_search_brave_web_search`）—— 语义精准 + 独立索引交叉，把全景拉满（公司、产品对比、深度博文 + 新闻视角）。
+2. Tavily 深研——事实核验 / 结构化抽取原文与事实卡（`mcp_tavily_tavily_extract`）。
+3. web_search 广扫补盲区；SearXNG 不再参与主链路（仅当上述全部命中 <3 条时才作最后兜底）。
+4. Fetch only the highest-signal URLs（抓取用 Exa Fetch `mcp_exa_web_fetch_exa` / Tavily Extract；`mcp_searxng_web_url_read` 仅作两者失败时的备胎）。
+5. Hand off to `source-reader`, `content-source-workflow`, `source-verification`, or a domain skill when the source map is built.
 
 ---
 
@@ -73,14 +76,14 @@ Use when the user asks for papers, literature reviews, arXiv, citations, referen
 
 **Full academic lane policy: `references/academic-lane.md`**
 
-> 🎓 **SearXNG 学术模式：** `mcp_searxng_searxng_web_search` 已开 arXiv + Semantic Scholar + Crossref（约 40 条/次），
-> 一次调用即可拿到三个学术源的合并结果。**适合：** 快速看 landscape、跨源交叉、术语未定时的探路。
-> **不适合：** 引用图谱、作者档案、PubMed 生物医学专项——这些仍需 Semantic Scholar / OpenAlex / PubMed 单刷。
+> 🎓 **学术模式默认起手 = Exa + arXiv skill。** Exa 语义精准召回论文 / project pages / blog 上下文，`arxiv` skill 深刷预印本；
+> Brave 做学术域名独立交叉。**SearXNG 不推荐**——实例已损坏，学术信源会被实例噪声淹没。
+> 专项图谱（引用、作者档案、PubMed 生物医学）仍需 Semantic Scholar / OpenAlex / PubMed 单刷。
 
 Quick default paths by domain:
-1. **AI/ML/CS/math/physics:** SearXNG（一次拿 arXiv+SS+Crossref）→ load `arxiv` 深刷预印本 → Semantic Scholar 拉引用图谱 → Exa/Brave 找 project pages 与 blog 上下文。
+1. **AI/ML/CS/math/physics:** Exa 语义精准 + load `arxiv` 深刷预印本 → Semantic Scholar 拉引用图谱 → Brave 学术域名交叉、找 project pages 与 blog 上下文（SearXNG 不推荐）。
 2. **Biomedical/clinical:** PubMed/Europe PMC first → Semantic Scholar/OpenAlex → journal full text。SearXNG 不覆盖 PubMed，跳过。
-3. **Published metadata / DOI:** SearXNG（Crossref 已包含）→ OpenAlex/Crossref 单刷补全 → publisher page → Semantic Scholar.
+3. **Published metadata / DOI:** OpenAlex/Crossref 单刷补全 → publisher page → Semantic Scholar（SearXNG 实例损坏，不再作 Crossref 入口）。
 4. **Reproducibility:** Papers with Code, GitHub, Hugging Face after canonical paper identified.
 
 Output should distinguish: seminal / survey / SOTA / implementation / critique.
@@ -92,10 +95,10 @@ Output should distinguish: seminal / survey / SOTA / implementation / critique.
 Use when a URL is dead, a source moved, a title is known but the link is missing.
 
 Default path:
-1. **SearXNG 起手**（`mcp_searxng_searxng_web_search`）—— 6 引擎并发，命中概率最高。某一引擎漏掉的快照，另一引擎可能还留着。
-2. Brave with exact title/URL fragments and `site:` operators——SearXNG 没找到时的兜底。
-3. Exa for semantically similar pages or remembered titles（标题模糊时尤其有用）。
-4. Tavily extract/fetch（或 `mcp_searxng_web_url_read` 对付 GitHub 页面）if candidate URLs are found.
+1. **web_search + Brave 双引擎广扫候选**（`web_search` + `mcp_brave_search_brave_web_search`），带 exact title/URL fragments 与 `site:` operators——两个独立索引并发，命中概率最高。某一引擎漏掉的快照，另一引擎可能还留着。
+2. Exa for semantically similar pages or remembered titles（标题模糊时尤其有用）。
+3. Exa Fetch（`mcp_exa_web_fetch_exa`）抓 cache / mirror / GitHub 页面；其次 Tavily Extract（`mcp_tavily_tavily_extract`）if candidate URLs are found.
+4. Fallback: SearXNG（`mcp_searxng_searxng_web_search` 搜索仅当上述命中 <3 条时兜底；抓取失败时 `mcp_searxng_web_url_read` 仅作 Exa Fetch / Tavily Extract 的备胎）。
 5. Report whether the recovered source is canonical, mirrored, archived, or uncertain.
 
 ---

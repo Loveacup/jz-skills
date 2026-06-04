@@ -20,8 +20,8 @@ Hermes profile 将 `HOME` 重定向到 `~/.hermes/profiles/<name>/home/`。CC �
 
 **永久方案：** 在真实 shell（HOME 正常）下 symlink auth 文件到 profile home：
 ```bash
-ln -sf ~/.claude.json "$PROFILE_HOME/.claude.json"
-ln -sf ~/.claude "$PROFILE_HOME/.claude"
+ln -sf /Users/alexcai/.claude.json "$PROFILE_HOME/.claude.json"
+ln -sf /Users/alexcai/.claude "$PROFILE_HOME/.claude"
 ```
 
 ## 3. Worker 假死（文件在磁盘）
@@ -237,6 +237,29 @@ tmux send-keys -t "$s" "选 1+2+3：通用化 + 拷 watchdog + 删旧脚本" Ent
 
 ---
 
+## 38. Context file 未交代 claude-code skill 的架构背景 ★
+
+**症状：** CC 被要求讨论/修订 `claude-code` skill 自身时，在讨论中把监控违规、汇报合规等问题归因于「CC 不听话」或「CC 没遵循规则」。用户纠正：「监控是 Hermes 的事情」「你没给 cc 交代这个 skill 的背景吗？这是让 hermes 可以协同 cc 的 skill，部署在 hermes 上的」。
+
+**根因：** claude-code skill 有独特的双重身份——它既是被审对象（SKILL.md 本体），又是描述「Hermes 如何驱动 CC」的操作手册。CC 不知道这个架构背景时，会按常规 skill 理解——以为规则是给自己（CC）的。实际上：
+- **加载者 = Hermes**：`~/.hermes/skills/.../claude-code/SKILL.md` 是 Hermes 实际读的
+- **被驱动方 = CC**：CC 自己不读这个 skill
+- 因此「📡 汇报」「轮巡」「send-keys」等红线是给 **Hermes** 的职责，违规主体也是 Hermes
+
+**修复：** context file 开篇必须写明：
+```
+## 架构背景（必读）
+此 skill 部署在 Hermes 上，由 Hermes 加载。它教 Hermes 如何驱动 CC（tmux/send-keys/capture-pane/effort路由）。
+- 加载者 = Hermes（小黄）
+- 被驱动方 = CC（Claude Code）
+- CC 本身不读此 skill
+- 所有规则（红线、汇报模板、轮巡指令）的遵守者是 Hermes，不是 CC
+```
+
+**本会话复现：** 2026-06-04。CC CQI Plan 修订讨论中，context file 未写架构背景 → R3 讨论时 CC 把监控违规归因于「CC 没读到红线①」→ 用户纠正「监控是 Hermes 的事」。补充 `/btw` 纠正后，CC 在 R5 正确升级为「加载者 Hermes 合规率 = 红线部署的下游指标」。
+
+---
+
 ## 27. CC 自动恢复旧会话——不是干净启动 ★
 
 **症状：** `tmux new-session` 后在 workdir 执行 `claude`，看到熟悉的 task board 和历史内容——这不是新 session，是 CC 自动 resume 了最近一次会话。
@@ -251,12 +274,52 @@ ls -lt ~/.claude/projects/ | head -5
 ```
 
 **处置策略：**
-1. **先检查旧会话成果**：若上轮已完成目标任务，直接收取结果，不需要重新执行
-2. **需要干净启动**：`claude --new-session`（强制新 UUID）或切换到无 `.claude/` 的目录启动
-3. **不要假设**：每次 `tmux new-session` + `claude` 都是全新 context——实际恢复概率很高
+1. **先检查旧会话成果**：若上轮已完成目标任务，直接收取结果，不需要重新执行。
+2. **需要干净启动**：优先切换到无 `.claude/` 状态的中性/临时 workdir 启动，或启动后立即 `/clear` 并确认底部 `❯` 输入行为空。
+3. **版本敏感 flag 先验证**：不要盲用 `claude --new-session`。先 `claude --help | grep -F -- --new-session` 确认当前 CLI 支持；若不支持，该 flag 会让 pane 直接退出，导致“can't find pane”。
+4. **不要假设**：每次 `tmux new-session` + `claude` 都是全新 context——实际恢复概率很高。
 
 **预防：**
-- 专用任务 session 结束后用 `tmux kill-session` 清理，避免遗留状态
-- 如需重复执行同一任务（如 CI / cron），统一用 `claude --new-session` 启动，明确隔离
+- 专用任务 session 结束后用 `tmux kill-session` 清理，避免遗留状态。
+- 如需重复执行同一任务（如 CI / cron），用独立 workdir + context file + 启动后 `/clear`，不要依赖未经验证的 CLI flag。
 
 **2026-05-31 复现：** 启动 CC 执行 SIL v5.0 改造，结果恢复了之前已全部完成的 session，误以为需要重新执行。确认旧会话已完成后直接收取结果节省了一轮 CC 调用。
+**2026-06-01 复现：** 使用 `claude --new-session` 启动 repo cleanup shadow review 时，当前 Claude Code 2.1.158 不识别该 flag，tmux pane 立即退出；改为普通启动 + `/clear` 后成功。
+
+---
+
+## 28. High-Effort 思考循环 — "almost done" + token 数完全冻结 ★
+
+**症状：** CC 显示 "almost done thinking" >3min，且 token 数**完全未变**（如卡在 2.0k ≥2min）。状态可能是 `✻ Cultivating…`、`✽ Roosting…`、`✢ Effecting…` 等，但底部始终显示 "almost done" + token 数冻结。
+
+**根因：** 宽泛的多任务指令（如「改 5 条修正」）在 high-effort 模式下触发过度思考——CC 试图在脑中规划所有操作的完整执行路径，却始终无法推进到实际工具调用。
+
+**错误做法：** ❌ 重发同样宽泛的指令（会再次卡死，本会话复现：第一次 → 5m13s 卡死 → Ctrl+C → 第二次同样宽泛指令 → 继续卡死）
+
+**正确恢复（已验证，窄指令法）：**
+```bash
+# 步骤 1：Ctrl+C 中断
+tmux send-keys -t <s> C-c
+
+# 步骤 2：提取 ONE 原子操作，只发那一条
+tmux send-keys -t <s> '把两份文档里的 doh-follow-outbound-mode 全部替换为 encrypted-dns-follow-outbound-mode。只做这一件事，改完说 done。' Enter
+
+# 步骤 3：完成后再喂下一条
+tmux send-keys -t <s> '对，继续做剩下 4 条。一次改完，不用汇报每步。' Enter
+```
+
+**已知效果（本会话 2026-06-02）：**
+- 宽泛指令「改 5 条修正」→ 5m13s 卡死，token 冻结在 2.0k
+- 窄指令「只替换一个参数名」→ 26s 成功完成
+- 后续「做剩下 4 条」→ 2m15s 流畅完成全部
+
+**额外陷阱：** 中断后 `❯` 处可能出现拼接的旧+新命令文本（Pitfall #33 排队污染残留）。若新指令出现在 `❯` 但未处理 → 补发空 `Enter` 触发（同 Pitfall #20）。
+
+**新增触发模式（2026-06-03）：** 带**结构化输出格式要求**的多项 checklist（如「逐项检查，输出 ✅/🔴/⚠️ 判定和 PASS/BLOCKED 判决」+「输出到文件」）用 `xhigh` 时极易触发无限思考循环——LLM 试图在脑中规划完整输出结构 + 深度验证 + 格式编排，始终无法推进到工具调用。`ls`/`find` 原子命令在 `xhigh` 下 14s 完成 vs 完整 checklist 4min+ 冻结。
+
+**恢复（已验证）：** 把 checklist 级任务降级为单条 shell 验证命令（`ls` 四个路径 → EXISTS/NOT_FOUND），1 轮出结果。需要多步则逐条喂。
+
+**预防：** 给 CC 的高 effort 任务，指令粒度和 effort 档位要匹配：
+- `high` + 单条原子操作 → 安全
+- `xhigh/max` + 多任务列表 → 考虑拆成逐条喂，或降 effort 到 `high`
+- `xhigh/max` + **结构化输出格式**（✅/🔴/⚠️ 判定、PASS/BLOCKED 判决、逐项报告）→ **高风险**。拆为逐项原子命令各自输出，或接受简单存在性检查代替完整审计

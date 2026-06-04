@@ -1,6 +1,6 @@
 # Query Decomposition · 子查询拆解
 
-> **Read when:** SearXNG 多引擎广扫返回结果分散、噪声多；议题含多个实体 / 时间维度 / 对比对象；
+> **Read when:** 双主力广扫（Exa + Brave）返回结果分散、覆盖不齐；议题含多个实体 / 时间维度 / 对比对象；
 > 需要把一个 broad query 拆成 sub-query 喂给后续 fetch-extract 循环。
 > **Source:** `~/research-tmp/ldr-circuit/` (entity-decomposition + focused-iteration 8×5) +
 > `~/research-tmp/perplexica/` (one-shot classifier，一次 LLM call 多布尔)
@@ -10,11 +10,11 @@
 
 ## 拆解时机
 
-SearXNG 本身就是聚合搜索（一次拉 N 个引擎），所以"广扫一次"≠"拆解"。**拆解的真正动机是给后续 fetch-extract 提供多个聚焦视角**。判断口径：
+默认起手是 Exa + Brave 双主力（各自一次召回一批结果），所以"广扫一次"≠"拆解"。**拆解的真正动机是给后续 fetch-extract 提供多个聚焦视角**。判断口径：
 
 - ✅ 拆：议题含 ≥2 个独立维度（时间 × 实体 × 对比）；top-20 标题落在 ≥3 个不相关子主题
 - ✅ 拆：fact-recall 类题但 query 是模糊自然语言（"那家做 X 的公司在 2025 大概多少估值"）
-- ❌ 不拆：单实体单维度（"Redis 默认端口"）；SearXNG 首页 top-5 已收敛到同一答案
+- ❌ 不拆：单实体单维度（"Redis 默认端口"）；Exa/Brave top-5 已收敛到同一答案
 
 ---
 
@@ -71,7 +71,7 @@ PROVEN HIGH-PERFORMANCE STRATEGY FOR SIMPLEQA
 
 - `max_iterations: int = 8`（line 59）— 最多 8 轮迭代
 - `questions_per_iteration: int = 5`（line 60）— 每轮拆 5 条 sub-query
-- 每轮 sub-query → SearXNG → top-K fetch → extractor 收 verbatim quote → 喂给下一轮
+- 每轮 sub-query → Exa + Brave 双主力（命中 <3 条再补 web_search / SearXNG 兜底）→ top-K fetch（Exa Fetch / Tavily Extract）→ extractor 收 verbatim quote → 喂给下一轮
 - 终止：实体覆盖率 ≥ 阈值（`coverage_ratio >= 0.8` line 458）或 reviewer 返回 None（参考 gptr 模式）
 - **与 deep-research-loop.md 衔接**：deep loop "section research" 这一步可选启用 focused-iteration 作为更密集策略；普通模式 1-2 轮 5×sub-query 即可
 
@@ -102,12 +102,12 @@ PROVEN HIGH-PERFORMANCE STRATEGY FOR SIMPLEQA
 
 ---
 
-## 与 SearXNG 多引擎广扫的协同
+## 与双主力广扫的协同
 
-1. 先用原 query SearXNG 广扫一次 → 看 top-20 landscape（标题足以判断维度数）
+1. 先用原 query 跑 Exa + Brave 双主力一次 → 看 top-20 landscape（标题足以判断维度数；命中 <3 条再补 web_search / SearXNG 兜底）
 2. landscape 收敛（≥80% 标题指向同一答案）→ 直接 fetch-extract，不拆
 3. landscape 发散（≥3 子主题、各自独立）→ 进入 decomposition
-4. 拆出 sub-query 列表（5 条上限）→ 各自再 SearXNG → 各自 fetch-extract → 汇总到 source map
+4. 拆出 sub-query 列表（5 条上限）→ 各自再跑 Exa + Brave → 各自 fetch-extract（Exa Fetch / Tavily Extract）→ 汇总到 source map
 5. **拆出 sub-query 后不要回头再用原 broad query 重跑**，避免重复结果 / 拖慢 RRF
 
 ---
@@ -129,7 +129,7 @@ PROVEN HIGH-PERFORMANCE STRATEGY FOR SIMPLEQA
 - NAMES: `"LangGraph" agent pattern`, `"LlamaIndex" agent pattern`
 - DESCRIPTORS: `agent architecture comparison framework`
 - TEMPORAL: 补 `2025 2026`
-- → 4-5 条 sub-query 一轮 SearXNG → fetch-extract → merge
+- → 4-5 条 sub-query 一轮 Exa + Brave → fetch-extract → merge
 
 ### 示例 2：fact-recall 数字题
 **Query:** "Anthropic 2025 年 Series D 估值多少"
@@ -146,7 +146,7 @@ PROVEN HIGH-PERFORMANCE STRATEGY FOR SIMPLEQA
 - LOCATIONS: `上海`
 - DESCRIPTORS: `具身智能 / embodied AI` + `初创公司`
 - TEMPORAL: 把"最近"具化为 `2025 2026`
-- NAMES: 空 → 第一步广扫拿候选名 → 第二轮把名字补成 NAMES 重跑
+- NAMES: 空 → 第一步 Exa + Brave 广扫拿候选名 → 第二轮把名字补成 NAMES 重跑
 - → Bing 中文 + Bilibili 路径优先（中文议题 lane，见 `query-patterns.md`）
 
 ---

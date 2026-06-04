@@ -81,6 +81,19 @@ icalBuddy -ic "Naomi1,Zelda1" eventsToday | grep "网球"
 
 **写入/修改/删除：AppleScript osascript。** 详见 `references/applescript-operations.md`。
 
+⚠️ **AppleScript 日期陷阱**：`date "Thursday, June 4, 2026 at 9:00:00 AM"` 格式在 osascript 中会报 `-30720` 语法错误。不要用字符串日期，改用 `current date` + 逐属性设置：
+
+```applescript
+set startDate to current date
+set month of startDate to June
+set day of startDate to 4
+set year of startDate to 2026
+set hours of startDate to 9
+set minutes of startDate to 0
+set seconds of startDate to 0
+set endDate to startDate + (3 * hours)  -- 3h 医疗默认
+```
+
 ## 智能询问规则
 
 以下情况暂停并询问用户。**询问必须用 `clarify` + `choices`（最多 4 选项）。**
@@ -163,3 +176,28 @@ Naomi/Zelda 的医疗预约/随访提醒**必须写入对应孩子日历**（Nao
 - [ ] 网球课是否匹配了正确地点（默认冠享，水印城/钱江湾→乐不思）？
 - [ ] 孩子医疗提醒是否写入对应孩子日历而非 Reminders？
 - [ ] 是否向用户展示了结果并等待确认？
+
+## ⚠️ 已记录陷阱
+
+### AppleScript 日期格式不可靠
+
+`date "Thursday, June 4, 2026 at 9:00:00 AM"` 这种字符串格式在部分 macOS 语言/区域设置下会报 `无效的日期与时间` 错误（-30720）。
+
+**可靠替代**：用 `current date` + 逐属性设置。
+
+```applescript
+-- ❌ 不可靠
+set startDate to date "Thursday, June 4, 2026 at 9:00:00 AM"
+
+-- ✅ 可靠
+set startDate to current date
+set month of startDate to June
+set day of startDate to 4
+set year of startDate to 2026
+set hours of startDate to 9
+set minutes of startDate to 0
+set seconds of startDate to 0
+set endDate to startDate + (3 * hours)
+```
+
+> 2026-06-01 实测：`date "Thursday, June 4, 2026 at 9:00:00 AM"` 在 macOS 26.2 (zh-CN) 下失败，程序化方式成功。

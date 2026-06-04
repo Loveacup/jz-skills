@@ -252,6 +252,7 @@ Full list: `references/common-pitfalls.md`
 | File | When to read |
 |------|-------------|
 | `references/supermemory-six-rules.md` | **Daily ops & quick diagnostics** — 太子 live-ops findings: tools vs SDK, pool isolation, supermemory.json trap, false negatives, Dynamic Dreaming failures, daily commands |
+| `references/supermemory-troubleshooting.md` | **Diagnosing outages & drafting support emails** — log grep patterns, API health check script, support email template (bilingual), timeline construction, common pitfalls |
 | `references/hindsight-migration-guide.md` | Historical: Hindsight → Supermemory migration procedure |
 | `references/common-pitfalls.md` | Complete pitfalls list (16 items) |
 | `references/phase-2-3-changelog.md` | What changed in Phase 2/3 implementation |

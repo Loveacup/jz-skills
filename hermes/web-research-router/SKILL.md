@@ -1,19 +1,19 @@
 ---
 name: web-research-router
 description: "Searches the web, finds papers, explores GitHub source code, verifies facts, and runs multi-step deep-research loops using Exa/Brave/web_search/Tavily/SearXNG (5 engines) plus local knowledge (Supermemory/qmd/Obsidian/CodeGraph). Includes verbatim-quote extraction (anti-hallucination), query decomposition, and forced-answer fact-recall. Use when the user needs to 搜索, 检索, 查找, 调研, 核实, 深挖, 出报告, 找资料, 找项目, search, research, deep-research, find, look up, or verify information. Routes GitHub source code tasks to github. Do NOT use for local file ops."
-version: 3.7.0
+version: 3.9.0
 author: Hermes Agent
 license: MIT
 platforms: [macos, linux, windows]
 metadata:
   hermes:
-    tags: [search, research, router, searxng, exa, tavily, brave, academic, papers, citations, sources, mcp, deep-research, verbatim-quote, anti-refusal]
-    related_skills: [source-search, exa-research, source-reader, source-verification, content-source-workflow, qmd, obsidian, arxiv, native-mcp, github]
+    tags: [search, research, router, searxng, exa, tavily, brave, academic, papers, citations, sources, mcp, deep-research, verbatim-quote, anti-refusal, wechat, sogou]
+    related_skills: [source-search, exa-research, source-reader, source-verification, content-source-workflow, qmd, obsidian, native-mcp, github, scrapling]
 ---
 
-# Web Research Router v3.8
+# Web Research Router v3.9
 
-> 🆕 **v3.8 (2026-05-30)**: 🆕 集成 Claude Code WebSearch 作为紧急后备引擎。本地 CLI wrapper（`scripts/claude-web-search.sh`），pi-web-providers custom provider 兼容合约（JSON stdin/stdout）。权威源优先（anthropic.com/github.blog 铁三角），但昂贵（~$0.30-0.66/query），仅在前 5 引擎全失效时启用。Codex 预留入口（需 OpenAI 认证）。
+> 🆕 **v3.9 (2026-06-02)**: 🆕 集成 Sogou/微信公众号搜索 via weixin-search-mcp (PyPI v0.2.1)。搜索 + 加密链接解密 + 正文提取完整链路，Scrapling CLI stealthy-fetch 作为内容抓取 fallback（张睿 2026-06-01 验证）。新增 `references/sogou-wechat-source.md`。
 
 > 🆕 **v3.7 (2026-05-29)**: 🔥 跨平台交叉验证后的路由大改。regent(macOS) + pi(Windows) 同日实测确认 **SearXNG 实例本身已损坏**（Google 失效 / Bing 降级 / DDG CAPTCHA，换 MCP 客户端无救）。SearXNG 从「默认起手」降级为「兜底 + 抓取专用」，Exa/Brave 升为双主力，Tavily 为深度调研专用。新增 MCP Configuration & Deployment 章节、Step 0 强制四步本地检查、Output Contract 强制 `[s<id>]` inline citation + 三分栏、common-pitfalls 新增 4 条（含 fetch 类工具 `urls:[...]` 数组参数陷阱）。
 
@@ -36,6 +36,7 @@ Before calling ANY search tool, check this table. If any excuse below sounds fam
 | "This is a simple query, I'll just use `web_search`" | `web_search` is a generic fallback. The router picks the best engine per query type. Even "simple" factual queries benefit from multi-engine cross-check (web_search + Exa)。 |
 | "I already know the answer" | Training data is stale. Current facts need current search. |
 | "I already loaded the skill, that's enough" | Loading ≠ following. Loading tells you WHAT to do; you still need to DO it. |
+| "The loaded skill / context already has info on this — I can answer from that" ★ | **2026-06-01 真实违规。用户追问"你搜索了吗"。** 加载了 claude-code skill 后，基于 skill 内容和先验知识直接回答了 CC agent team 模型选择机制——但这是关于外部产品当前能力的 factual 问题。skill 里的信息可能过期、不完整或被后续更新推翻。**任何外部事实/版本/能力/当前状态的问题，即使已加载的 skill 看似覆盖了该领域，也必须走 Step 0 + 公网搜索。skill 是工作流指南，不是事实权威来源。** |
 | "The decision tree is too complicated for this" | It's 4 branches. Pick one. Takes 5 seconds. |
 | "I'll cross-check later" | Cross-checking after the fact is twice the work. Do it in the right order now. |
 | "我直接 Exa 单引擎一次到位" | 单引擎容易遗漏独立索引盲区（Exa 的神经索引 vs Brave 的独立爬虫覆盖不同源）。默认双主力 Exa + Brave 交叉，web_search 广扫兜底。 |
@@ -80,7 +81,6 @@ Before calling ANY search tool, check this table. If any excuse below sounds fam
 **只有以上 4 步全部"已查 + 未命中或不足"，才允许调用 web_search / Exa / Brave / Tavily / SearXNG。** 在最终回答的 Verification Checklist 中必须显式声明这 4 步的执行结果（命中 / 未命中 / 跳过+原因）。
 
 ### Step 1: Is this a GitHub source code task?
-- `github.com` / `raw.githubusercontent.com` / `gist.github.com` URL → **⚠️ Skip `web_extract`** (it blocks GitHub as "internal network"). Load `github` (references/code-explorer.md) → L1 Exa/gh api → L2 gh search → L3 browser → L4 clone+CodeGraph.
 - "看看 X 项目源码" / "这个函数怎么实现" → load `github`.
 
 ### Step 2: Pick the search mode and engine
@@ -113,7 +113,7 @@ Before calling ANY search tool, check this table. If any excuse below sounds fam
   - 🆕 **补充源:** 主链路跑完后，对 §不稳定高质量源 做 pre-flight check → 可用则追加搜索（权威源互补覆盖）
 
 - **academic** — 论文 / 引用 / SOTA / arXiv / DOI
-  - Primary: `Exa` + `arXiv` skill
+  - Primary: `Exa` + `arXiv`（curl / `scripts/search_arxiv.py`，见 `references/arxiv-semantic-scholar.md`）
   - Cross-check: `Brave`（学术域名独立交叉）
   - Fallback: `web_search`（SearXNG **不**推荐——学术信源被实例噪声淹没）
 
@@ -187,10 +187,10 @@ Search first, fetch second. Fetch 1–3 high-signal URLs only. Prefer primary/of
   - params: `url: string`
   - 警告: Tavily Extract 在内容质量上完胜，优先用 `mcp_tavily_tavily_extract`
 
-- **arXiv** ✅ 学术专用
+- **arXiv + Semantic Scholar** ✅ 学术专用
   - status: 在线
-  - best-for: CS / AI / ML 预印本
-  - tool: `arxiv` skill
+  - best-for: CS / AI / ML 预印本 + 引用 / 相关 / 作者数据
+  - tool: `scripts/search_arxiv.py` + Semantic Scholar API（见 `references/arxiv-semantic-scholar.md`）
 
 - **gh CLI** ✅ GitHub 代码
   - status: 在线
@@ -234,6 +234,24 @@ which codex && codex login status 2>/dev/null || echo "UNAVAILABLE"
   - pre-flight: `which codex && codex login status`
   - status: CLI 已安装 (v0.135.0)，需 `codex login` 认证
   - ⚠️ 当前不可用，等待认证后激活
+
+- **weixin-search-mcp** 🔶 中文微信专用（新）
+  - status: 🆕 v0.2.1，2026-06-02 实测通过
+  - pre-flight: `uv pip install --python 3.12 weixin-search-mcp` + `python -c "from weixin_search_mcp.tools.weixin_search import sogou_weixin_search; print(len(sogou_weixin_search('测试')))"`
+  - contract: Python import（非 MCP stdio——协议兼容性待解决，直接用 Python API）
+  - best-for: 微信公众号文章搜索 + 加密链接解密 + 正文提取
+  - cost: Free（硬编码 Cookie，可能随时失效）
+  - fallback: Scrapling CLI `stealthy-fetch` 直接抓 `mp.weixin.qq.com`
+  - ⚠️ 仅用于中文 + 微信/公众号相关 query；不接主链路
+  - 详见 `references/sogou-wechat-source.md`
+
+- **Sogou WeChat Search** 🔶 微信专用 🆕
+  - status: v0.2.1 实测通过（搜索 + 加密链接解析 + 正文提取），唯一可索引微信公众号的搜索引擎
+  - pre-flight: `python3 -c "from weixin_search_mcp.tools.weixin_search import sogou_weixin_search; print(len(sogou_weixin_search('test', page=1)))"` — 返回 >0 即正常
+  - tool: `weixin-search-mcp` PyPI 包（需 Python 3.12+）
+  - best-for: 中文 + 微信/公众号视角的 discovery/research；社交媒体信源补充
+  - ⚠️ Cookie 硬编码，可能随时过期；建议每周冒烟测试
+  - 详细文档: `references/sogou-wechat-source.md`
 
 ### 选型口诀 (v3.8)
 
@@ -392,6 +410,7 @@ hermes mcp test searxng --query "claude 4.7 release notes"
 | Detailed mode instructions (default paths, examples) | `references/research-modes.md` |
 | Query patterns for common tasks | `references/query-patterns.md` |
 | Academic lane policy (arXiv, Semantic Scholar, PubMed, etc.) | `references/academic-lane.md` |
+| **arXiv / Semantic Scholar 操作细节**（API 语法 / BibTeX / 引用数据 / 限流降级 / `search_arxiv.py`） | `references/arxiv-semantic-scholar.md` |
 | Vertical domain → engine mapping (finance, security, health, etc.) | `references/vertical-domains.md` |
 | Full Source Map Schema JSON（含 `citation_id` / `extracted_quotes` / `budget` 字段） | `references/source-map-schema.md` |
 | MCP tool names by profile | `references/tool-names.md` |
@@ -401,11 +420,14 @@ hermes mcp test searxng --query "claude 4.7 release notes"
 | **多轮 deep research loop SOP v3.4**（plan → section(facts.jsonl) → CoV验证 → merge(盲区补搜) → 颗粒度Gate） | `references/deep-research-loop.md` |
 | **Deep loop 质量缺陷 + CoV 验证模式**（fetch-write耦合、REFLECT天花板、跨语言盲区 — 2026-05-28 案例RCA） | `references/deep-loop-verification-pattern.md` |
 | **broad 议题如何拆 sub-query**（TEMPORAL/NUMERICAL/NAMES/ENTITY/CONCEPTUAL 五类） | `references/query-decomposition.md` |
-| **产品/公司深度评估快速模式**（并行抓取→补刀→综合，比 formal deep loop 省 50%+ token） | `references/product-evaluation-pattern.md` |
+| **🆕 实用模型选型指南**（实测+公开评测+curl 示例，非专业测试的"什么模型做什么事"方法论） | `references/practical-model-selection-guide.md` |
 | **fact-recall 时 LLM 死活不答如何破**（8 hedge phrase + forced-answer prompt） | `references/anti-refusal-prompt.md` |
 | **🔬 5 引擎质量实测报告（2026-05-28）**（web_search/Exa/SearXNG/Brave/Tavily 全量对比） | `references/engine-quality-report-20260528.md` |
-| **🆕 Claude Code WebSearch wrapper**（JSON stdin/stdout，pi custom provider 兼容） | `scripts/claude-web-search.sh` |
-| **🧪 Claude Code WebSearch benchmark（2026-05-30）**（pi-web-providers 内置 provider，$0.66/query，权威性满分但成本不可持续） | `references/claude-code-websearch-benchmark.md` |
+| **Claude Code WebSearch wrapper**（JSON stdin/stdout，pi custom provider 兼容） | `scripts/claude-web-search.sh` |
+| **🆕 Claude Code WebSearch benchmark（2026-05-30）**（pi-web-providers 内置 provider，$0.66/query，权威性满分但成本不可持续） | `references/claude-code-websearch-benchmark.md` |
+| **🆕 Sogou 微信搜索源**（搜索 + 解密 + 抓取完整链路 — weixin-search-mcp v0.2.1 + Scrapling CLI） | `references/sogou-wechat-source.md` |
+| **🆕 Sogou/微信搜索源（2026-06-02）**（weixin-search-mcp v0.2.1 — 搜索+解密+抓取完整链路，Scrapling CLI fallback） | `references/sogou-wechat-source.md` |
+| **🆕 新闻管线抓取断裂根因（2026-06-02）**（web_extract SSRF 守卫 → 伪引用 → 模型脑补 → 产出不可信 — 三省六部早新闻案例诊断） | `references/news-pipeline-extraction-failure.md` |
 
 ---
 
@@ -417,7 +439,7 @@ hermes mcp test searxng --query "claude 4.7 release notes"
 4. **搜索引擎并发堆叠。** 不必每次调 5 个引擎——`web_search` + Exa 两步覆盖 95% 场景，省 token 且质量高。
 5. **Skipping local truth.** Check Supermemory/qmd/CodeGraph before public web.
 6. **Conflating discovery with evidence.** Search results are candidates; fetched/extracted sources are evidence.
-7. **GitHub `web_extract` trap.** `web_extract` 对所有 URL 均拦截（环境网络策略），不仅 GitHub。用 `mcp_exa_web_fetch_exa` 或 `mcp_searxng_web_url_read`。
+7. **GitHub `web_extract` trap.** `web_extract` 对所有 URL 均拦截（环境网络策略），不仅 GitHub。**已弃用** —— 抓取主力用 `mcp_exa_web_fetch_exa` 或 `mcp_tavily_tavily_extract`（`urls: string[]` 数组）；`mcp_searxng_web_url_read` 仅作两者失败时的备胎。
 8. **Exa 语义漂移。** Exa 语义搜索偶尔跑偏（"React release date" 召回 GTA 6）。对精确事实类 query 优先 `web_search`。
 9. **Cron job model pinning.** Always pin model explicitly in cron jobs — default model may be rate-limited.
 

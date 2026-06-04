@@ -71,7 +71,7 @@ Phase 1 输出包含**建议的新章节骨架**，用户确认后再进 Phase 2
 
 ## 已验证案例
 
-- **A2A 架构讨论文档**（2026-05-29）：1059 行/48KB，由太子 CC team（修复记录）+ 小黄（Kanban 调研）两个 session 合并。3 lens agent 并行审计（A: 1m10s, B: 1m03s, C: ~2m），Phase 1 总耗时 ~5min。发现了 API Server 重复讨论 3 处、Kanban 协作模式出现 2 处、"三省六部"一词 3 个不同含义、arXiv ID 5 处存疑。输出建议三 Part 骨架（A2A 修复纪实 / 协作架构调研 / 路线图与提案）。
+- **A2A 架构讨论文档**（2026-05-29）：1059 行/48KB，由太子 CC team（修复记录）+ 小黄（Kanban 调研）两个 session 合并。3 lens agent 并行审计（A: 1m10s, B: 1m03s, C: ~2m），Phase 1 总耗时 ~5min。发现了 API Server 重复讨论 3 处、Kanban 协作模式出现 2 处、"旧治理体系 — 3 个不同含义、arXiv ID 5 处存疑。输出建议三 Part 骨架（A2A 修复纪实 / 协作架构调研 / 路线图与提案）。
 
 ## 注意事项
 

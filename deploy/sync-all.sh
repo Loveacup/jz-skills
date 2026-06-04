@@ -26,7 +26,7 @@ sync_hermes() {
   cp -r "$REPO_ROOT/hermes/web-research-router"             "$base/research/"
   cp -r "$REPO_ROOT/hermes/source-verification"            "$base/research/"
   cp -r "$REPO_ROOT/hermes/tradingagents"                   "$base/research/"
-  cp -r "$REPO_ROOT/hermes/llm-wiki"                        "$base/research/"
+
   cp -r "$REPO_ROOT/hermes/arxiv"                           "$base/research/"
   cp -r "$REPO_ROOT/hermes/auto-diary"                      "$base/"
   cp -r "$REPO_ROOT/hermes/bilibili-video-analyzer"         "$base/"
@@ -35,13 +35,12 @@ sync_hermes() {
   cp -r "$REPO_ROOT/hermes/cron-worker"                    "$base/"
   cp -r "$REPO_ROOT/hermes/de-slop"                        "$base/"
   cp -r "$REPO_ROOT/hermes/claude-code"                    "$base/autonomous-ai-agents/"
-  cp -r "$REPO_ROOT/hermes/reply-context-retrieval"        "$base/"
   cp -r "$REPO_ROOT/hermes/supermemory-hermes"              "$base/governance/"
   cp -r "$REPO_ROOT/hermes/mac-doctor"                     "$base/apple/"
   cp -r "$REPO_ROOT/hermes/tts-manager"                    "$base/hermes/"
   cp -r "$REPO_ROOT/hermes/tech-support-email"             "$base/hermes/"
   cp -r "$REPO_ROOT/hermes/news-assembly"                  "$base/productivity/"
-  cp -r "$REPO_ROOT/hermes-3S6M-profiles/gongbu/surge-gateway"  "$base/devops/"
+  cp -r "$REPO_ROOT/hermes/morning-news-briefing"           "$base/productivity/"
 
   # Sync to all profiles
   echo "→ Syncing to profiles..."
@@ -55,86 +54,20 @@ sync_hermes() {
     cp -r "$REPO_ROOT/hermes/web-research-router"             "$pd/research/"
     cp -r "$REPO_ROOT/hermes/source-verification"            "$pd/research/"
     cp -r "$REPO_ROOT/hermes/tradingagents"                   "$pd/research/"
-    cp -r "$REPO_ROOT/hermes/llm-wiki"                        "$pd/research/"
     cp -r "$REPO_ROOT/hermes/arxiv"                           "$pd/research/"
     cp -r "$REPO_ROOT/hermes/calendar-manager"               "$pd/"
     cp -r "$REPO_ROOT/hermes/cron-worker"                    "$pd/"
     cp -r "$REPO_ROOT/hermes/de-slop"                        "$pd/"
     cp -r "$REPO_ROOT/hermes/claude-code"                    "$pd/autonomous-ai-agents/"
-    cp -r "$REPO_ROOT/hermes/reply-context-retrieval"        "$pd/"
     cp -r "$REPO_ROOT/hermes/supermemory-hermes"              "$pd/governance/"
     cp -r "$REPO_ROOT/hermes/mac-doctor"                     "$pd/apple/"
     cp -r "$REPO_ROOT/hermes/tts-manager"                    "$pd/hermes/"
     cp -r "$REPO_ROOT/hermes/tech-support-email"             "$pd/hermes/"
     cp -r "$REPO_ROOT/hermes/news-assembly"                  "$pd/productivity/"
-    cp -r "$REPO_ROOT/hermes-3S6M-profiles/common/three-provinces-constitution"  "$pd/governance/"
-    cp -r "$REPO_ROOT/hermes-3S6M-profiles/common/financial-research-agents"     "$pd/research/"
+    cp -r "$REPO_ROOT/hermes/morning-news-briefing"           "$pd/productivity/"
   done
 
   echo "  ✅ Hermes ($(ls -d ~/.hermes/profiles/*/ 2>/dev/null | wc -l | tr -d ' ') profiles)"
-}
-
-# === Profile-specific skills ===
-sync_profiles() {
-  echo "→ Syncing profile-specific skills..."
-  local pd
-
-  # regent (监国太子)
-  pd=~/.hermes/profiles/regent/skills
-  mkdir -p "$pd"
-  for skill in kanban-orchestrator kanban-worker kanban-gate 6m-smoke-test morning-news-briefing; do
-    [ -d "$REPO_ROOT/hermes-3S6M-profiles/regent/$skill" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/regent/$skill" "$pd/"
-  done
-  # surge-gateway from gongbu (shared infra skill)
-  [ -d "$REPO_ROOT/hermes-3S6M-profiles/gongbu/surge-gateway" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/gongbu/surge-gateway" "$pd/"
-
-  # gongbu (工部)
-  pd=~/.hermes/profiles/gongbu/skills
-  for skill in disk-cleanup infra-health-check infra-monitoring surge-gateway agent-observability; do
-    [ -d "$REPO_ROOT/hermes-3S6M-profiles/gongbu/$skill" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/gongbu/$skill" "$pd/"
-  done
-
-  # tester (刑部)
-  pd=~/.hermes/profiles/tester/skills
-  for skill in code-review-toolkit agent-security-audit; do
-    [ -d "$REPO_ROOT/hermes-3S6M-profiles/tester/$skill" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/tester/$skill" "$pd/"
-  done
-
-  # jiangzuojian (将作监)
-  pd=~/.hermes/profiles/jiangzuojian/skills
-  for skill in delivery-gate specialist-engineer; do
-    [ -d "$REPO_ROOT/hermes-3S6M-profiles/jiangzuojian/$skill" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/jiangzuojian/$skill" "$pd/"
-  done
-
-  # protocol (礼部)
-  pd=~/.hermes/profiles/protocol/skills
-  [ -d "$REPO_ROOT/hermes-3S6M-profiles/protocol/md-to-pdf" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/protocol/md-to-pdf" "$pd/"
-
-  # auditor (御史台)
-  pd=~/.hermes/profiles/auditor/skills
-  [ -d "$REPO_ROOT/hermes-3S6M-profiles/auditor/agent-audit-evaluation" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/auditor/agent-audit-evaluation" "$pd/"
-
-  # archivist (史馆)
-  pd=~/.hermes/profiles/archivist/skills
-  [ -d "$REPO_ROOT/hermes-3S6M-profiles/archivist/agent-memory-manager" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/archivist/agent-memory-manager" "$pd/"
-
-  # shangshu (尚书省)
-  pd=~/.hermes/profiles/shangshu/skills
-  [ -d "$REPO_ROOT/hermes-3S6M-profiles/shangshu/a2a-protocol" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/shangshu/a2a-protocol" "$pd/"
-
-  # budget (户部)
-  pd=~/.hermes/profiles/budget/skills
-  [ -d "$REPO_ROOT/hermes-3S6M-profiles/budget/agent-cost-manager" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/budget/agent-cost-manager" "$pd/"
-
-  # registry (吏部)
-  pd=~/.hermes/profiles/registry/skills
-  [ -d "$REPO_ROOT/hermes-3S6M-profiles/registry/agent-registry" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/registry/agent-registry" "$pd/"
-
-  # hanlinyuan (翰林院)
-  pd=~/.hermes/profiles/hanlinyuan/skills
-  [ -d "$REPO_ROOT/hermes-3S6M-profiles/hanlinyuan/deep-research-agent" ] && cp -r "$REPO_ROOT/hermes-3S6M-profiles/hanlinyuan/deep-research-agent" "$pd/"
-
-  echo "  ✅ Profile skills (11 departments)"
 }
 
 # === Claude Code ===
@@ -179,7 +112,6 @@ sync_pi() {
 case "${1:-all}" in
   hermes)
     sync_hermes
-    sync_profiles
     ;;
   cc)     sync_cc ;;
   pi)     sync_pi ;;
@@ -187,7 +119,6 @@ case "${1:-all}" in
     sync_hermes
     sync_cc
     sync_pi
-    sync_profiles
     ;;
   *)
     echo "Usage: $0 {hermes|cc|pi|all}"

@@ -12,7 +12,7 @@ After ANY update to this skill:
    done
    ```
 2. Update Obsidian doc: `00-Inbox/工具制作_Hermes检索总控与GitHub源码探索_三省六部体系_20260526.md`
-   （v3.1.0 增量：SearXNG MCP 整合，作为多引擎广扫的默认起手）
+   （v3.9 增量：SearXNG 实例已损坏，降为最后兜底 + 抓取通道；默认起手改为 Exa + Brave 双主力）
 3. `qmd update`
 4. Spot-check 2-3 profiles for SKILL.md presence。可 `grep -l "v3.1\|SearXNG" ~/.hermes/profiles/*/skills/research/web-research-router/SKILL.md` 快速验证 v3.1.0 已传播。
 
@@ -27,10 +27,12 @@ After ANY update to this skill:
 - 验证：`hermes mcp list` 应见 exa/brave/tavily/searxng 四行；`curl -s http://127.0.0.1:32080/ | head -5` 确认 SearXNG 首页。
 - 完整 MCP config snippet + `.env` 模板见 SKILL.md `⚙️ MCP Configuration & Deployment` 章节。
 
-## v3.1.0 前置依赖（SearXNG MCP）
+## SearXNG MCP 后备 / 抓取通道（可选）
 
-部署到任何 profile 前确认：
+> ⚙️ **v3.9：SearXNG 实例已损坏（Google 失效 / Bing 降级 / DDG CAPTCHA），不再是默认起手。** 仅作最后兜底搜索（前几家命中 <3 条才用）+ `web_url_read` 抓取备胎。以下检查仅在仍想保留兜底通道时执行。
+
+部署到任何 profile 时可选确认：
 
 - SearXNG 本地实例运行中：`curl -s http://127.0.0.1:32080/` 应返回 SearXNG 首页 HTML。
 - MCP 服务 `mcp-searxng` 在该 profile 的 gateway 配置中已启用，工具 `mcp_searxng_searxng_web_search` 与 `mcp_searxng_web_url_read` 在 `hermes mcp test searxng` 输出中可见。
-- 若 SearXNG 不可达，本 skill 仍能回退到 Exa/Tavily/Brave 单引擎链路——但 SKILL.md 中"默认起手"假设会失效，需在 session 内显式声明跳过 SearXNG 步骤。
+- 若 SearXNG 不可达，本 skill 默认链路（Exa + Brave 双主力 → Tavily → web_search）不受影响——SearXNG 本就只是最后兜底，无需在 session 内特别声明。

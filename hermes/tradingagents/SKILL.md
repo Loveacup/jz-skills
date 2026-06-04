@@ -8,7 +8,7 @@ metadata:
   hermes:
     tags: [trading, finance, stocks, research, langgraph, multi-agent]
     homepage: https://github.com/TauricResearch/TradingAgents
-    related_skills: [financial-research-agents, arxiv, polymarket]
+    related_skills: [financial-research-agents, web-research-router, polymarket]
 ---
 
 # TradingAgents

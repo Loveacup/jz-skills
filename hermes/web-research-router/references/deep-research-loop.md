@@ -62,7 +62,7 @@ Step 1 PLAN → Step 2 SECTION (fetch → facts.jsonl → write) → Step 3 CoV 
 
   **2.1 `generate_queries`** —— 基于 section.description 生成 `Queries{queries: List[SearchQuery]}`，数量 = `number_of_queries`（默认 2）。
 
-  **2.2 `search_web`** —— 用 SearXNG 广扫候选 → 每个候选走 **fetch-extract-pattern**（详见 `./fetch-extract-pattern.md`），抽取 verbatim quotes，section 内本地编号引用。
+  **2.2 `search_web`** —— 用 Exa + Brave 双主力广扫候选（web_search 兜底；SearXNG 仅命中 <3 条时兜底）→ 每个候选走 **fetch-extract-pattern**（详见 `./fetch-extract-pattern.md`，抓取主力 Exa Fetch / Tavily Extract），抽取 verbatim quotes，section 内本地编号引用。
 
   **2.2+ 🆕 不稳定高质量源补充（pre-flight 必检）** —— 主链路搜索完成后，对 §不稳定高质量源 做 pre-flight check：
   - `which claude && claude --version` → 可用则 `scripts/claude-web-search.sh` 追加搜索，结果合并入候选池

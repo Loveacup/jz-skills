@@ -5,17 +5,17 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-60-blue" alt="60 skills">
+  <img src="https://img.shields.io/badge/skills-38-blue" alt="60 skills">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
   <img src="https://img.shields.io/badge/license-MIT-brightgreen" alt="MIT license">
 </p>
 
-> 🤖 **Hermes + Claude Code + pi 三端 AI agent 技能仓库 — 60 skills, 四层结构, 双向同步。**
+> 🤖 **Hermes + Claude Code + pi 三端 AI agent 技能仓库 — 38 skills, 三层结构, 双向同步。**
 >
-> Skills authored, audited, and evolved by AI agents following [skill-authoring](shared/skill-authoring/). Deployed to a 15-profile Hermes governance system (三省六部), Claude Code, and pi (Windows).
+> Skills authored, audited, and evolved by AI agents following [skill-authoring](shared/skill-authoring/). Deployed to a Hermes, Claude Code, and pi (Windows).
 >
-> 所有技能由 AI agent 按 [skill-authoring v3.0](shared/skill-authoring/) 创作、审计和迭代。部署于三省六部 15-profile 体系、Claude Code 和 pi (Windows)。
+> 所有技能由 AI agent 按 [skill-authoring v3.0](shared/skill-authoring/) 创作、审计和迭代。部署于Hermes、Claude Code 和 pi (Windows)。
 
 ---
 
@@ -24,16 +24,15 @@
 ```
 jz-skills/
 ├── shared/   🌐 跨平台 · Cross-platform (16)
-├── hermes/   ⚙️ Hermes (15)
-├── hermes-3S6M-profiles/ 🏯 三省六部 (23) → [s6m-a2a](https://github.com/Loveacup/hermes-s6m-a2a)
-└── pi/       🪟 Pi / Windows (6)
+├── hermes/   ⚙️ Hermes (16)
+├── pi/       🪟 Pi / Windows (6)
+└── _archived-hermes-3S6M-profiles/ 🗄️ 三省六部 · 已归档 (23)
 ```
 
 | Layer | Directory | Skills | Scope · 范围 |
 |:---|:---|:---:|:---|
 | 🌐 | `shared/` | 16 | All 3 platforms · 三端同步 |
-| ⚙️ | `hermes/` | 15 | Hermes platform · 平台通用 |
-| 🏯 | `hermes-3S6M-profiles/` | 23 | 三省六部 governance → [s6m-a2a](https://github.com/Loveacup/hermes-s6m-a2a) |
+| ⚙️ | `hermes/` | 16 | Hermes platform · 平台通用 |
 | 🪟 | `pi/` | 6 | Pi (Windows), self-authored · Pi 自创作 |
 
 <details>
@@ -68,19 +67,11 @@ jz-skills/
 │   ├── tech-support-email/        # v1.1 · 技术支持邮件
 │   ├── supermemory-hermes/        # Hermes Supermemory 配置
 │   ├── tradingagents/             # 交易分析
-│   ├── llm-wiki/                  # LLM 知识库
 │   ├── arxiv/                     # 论文检索
 │   ├── bilibili-video-analyzer/   # B站视频分析
 │   ├── xhs-crawler/               # 小红书爬虫 (CloakBrowser)
 │   ├── calendar-manager/          # 智能日历
-│   └── reply-context-retrieval/   # TG 引用回溯
-├── hermes-3S6M-profiles/          # 🏯 三省六部 (23)
-│   ├── common/ (2)                # 全部门通用
-│   ├── regent/ (5) 👑             # 太子 · 唯一有 gateway
-│   ├── gongbu/ (5) 🛠️             # 工部
-│   ├── tester/ (2) ⚖️             # 刑部
-│   ├── jiangzuojian/ (2) 🔧       # 将作监
-│   └── <dept>/ (1 each × 10)      # 其余 10 部门
+│   ├── morning-news-briefing/     # 早新闻 · 每日新闻简报
 └── pi/                            # 🪟 Pi / Windows (6)
     ├── web-research-router/       # TS SDK 检索总控
     ├── pi-web-research/           # v3.4 多引擎深度研究
@@ -250,12 +241,10 @@ General reference for Supermemory — long-term memory infrastructure shared acr
 | 🎤 [`tts-manager`](hermes/tts-manager/) | TTS provider registry + voice testing |
 | 📧 [`tech-support-email`](hermes/tech-support-email/) | Investigation-first vendor emails v1.1 |
 | 📈 [`tradingagents`](hermes/tradingagents/) | A-share / market analysis / 交易分析 |
-| 🧠 [`llm-wiki`](hermes/llm-wiki/) | LLM knowledge base / LLM 知识库 |
 | 📚 [`arxiv`](hermes/arxiv/) | Academic paper search / 论文检索 |
 | 📺 [`bilibili-video-analyzer`](hermes/bilibili-video-analyzer/) | Bilibili video analysis / B站视频 |
 | 📕 [`xhs-crawler`](hermes/xhs-crawler/) | XHS CDP extraction (CloakBrowser) / 小红书爬虫 |
 | 📅 [`calendar-manager`](hermes/calendar-manager/) | Smart calendar + reminders / 智能日历 |
-| ↩️ [`reply-context-retrieval`](hermes/reply-context-retrieval/) | Telegram reply context / TG 引用回溯 |
 
 ### 🏯 hermes-3S6M-profiles/ — 三省六部 (23)
 

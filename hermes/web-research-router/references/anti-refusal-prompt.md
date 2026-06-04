@@ -2,7 +2,7 @@
 
 > **Read when:** fact-recall 类查询（端口号、版本号、日期、命名实体、估值数字）但 LLM 回 hedge
 > （"我无法确定" / "信息不足"）；综合答案时 LLM 拒绝下断言而堆砌"可能"；
-> SearXNG 已返回足够 verbatim quote 但 LLM 不肯综合。
+> 搜索（Exa + Brave）已返回足够 verbatim quote 但 LLM 不肯综合。
 > **Source:** `~/research-tmp/ldr-circuit/src/local_deep_research/citation_handlers/forced_answer_citation_handler.py`
 > **Sibling refs:** `fetch-extract-pattern.md` (verbatim quote 收集前置步骤) · `query-decomposition.md` (sub-query 拆解前置步骤) · `deep-research-loop.md`
 > **范围限定：** 仅对 fact-recall 类问题使用；分析类、伦理敏感类、推荐类问题**不要**用，会强迫 LLM 编造。
@@ -132,7 +132,7 @@ Answer:
 ## fact-recall mode 说明
 
 - fact-recall 是一个隐式 mode，触发条件：query 落在上表"启用"区
-- 必经路径：先走 SearXNG + fetch-extract 收集 verbatim quote（见 `fetch-extract-pattern.md`）
+- 必经路径：先走 Exa + Brave 双主力搜索 + fetch-extract 收集 verbatim quote（见 `fetch-extract-pattern.md`）
 - 收集到的 quote ≥ 1 条 → 用 forced-answer prompt 综合
 - 收集到的 quote = 0（extractor 全部返回 `NOT RELEVANT`）→ **不要** forced-answer，直接说"未找到 / 需要更换搜索词或引擎"
 - 与 deep-research-loop.md 关系：fact-recall mode 跳过"reviewer 多轮迭代"，单轮 fetch-extract + forced-synthesize
@@ -164,7 +164,7 @@ Answer:
 
 ### 示例 3：quote = 0 时的正确退让
 **Query:** "X 公司 2026 年 5 月的某次内部调整里 CTO 是谁"
-**SearXNG + fetch-extract 结果:** 5 个 source 全部返回 `NOT RELEVANT`
+**Exa + Brave + fetch-extract 结果:** 5 个 source 全部返回 `NOT RELEVANT`
 **判断:** 没有 verbatim quote 锚定 → **不要** forced-answer（会凭空编造人名）
 **正确处理:** "未找到公开来源记录该信息。建议：(a) 换查询词；(b) 走 academic-lane / discussion-lane；(c) 直接查公司公告页"
 

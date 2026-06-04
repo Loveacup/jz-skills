@@ -2,19 +2,21 @@
 
 Common search query patterns. Loaded on-demand from SKILL.md.
 
-## 多引擎广扫（默认起手）· Multi-engine broad search
+## 双主力广扫（默认起手）· Dual-primary broad search
 
-Primary: **SearXNG**（`mcp_searxng_searxng_web_search`）。一次调用聚合 6+ 引擎
-（Bing/Brave/Qwant/Mwmbl/DuckDuckGo/Startpage + arXiv/Semantic Scholar/Crossref + GitHub/StackOverflow + Bilibili），
-覆盖最广，看清 landscape 后再决定走哪个垂直精挖路径。
+> ⚠️ **v3.9：SearXNG 实例已损坏（Google 失效 / Bing 降级 / DDG CAPTCHA），从「默认起手」降为「最后兜底」（前几家命中 <3 条才用）。** 默认起手 = Exa + Brave 双主力。
+
+Primary: **Exa**（`mcp_exa_web_search_exa`，语义精准）+ **Brave**（`mcp_brave_search_brave_web_search`，独立索引交叉）双引擎并行。
+覆盖神经索引 + 独立爬虫两套互补盲区，看清 landscape 后再决定走哪个垂直精挖路径。
 
 ```
-<topic> 2026  →  SearXNG（拿到 100+ 候选源、跨学术+代码+中文）
+<topic> 2026  →  Exa（语义精准候选）+ Brave（独立索引交叉）
+                 → 命中 <3 条再补 web_search 广扫 / SearXNG 兜底
                  → 按结果分布判断后续路径：
                    - 学术多 → arXiv / Semantic Scholar 深刷
                    - 代码多 → github skill / gh CLI
-                   - 主流报道多 → Tavily / Brave 深核
-                   - 全是 blog/discovery 类 → Exa 做语义精准
+                   - 主流报道多 → Tavily 深核
+                   - 全是 blog/discovery 类 → Exa 已覆盖语义精准
 ```
 
 适合：议题不熟、术语未定、不知道从哪个垂直入口下手时的探路。
@@ -22,7 +24,7 @@ Primary: **SearXNG**（`mcp_searxng_searxng_web_search`）。一次调用聚合 
 
 ## Current factual lookup
 
-Primary: SearXNG 多引擎交叉（先看 6 引擎是否一致）→ Tavily 深核 / Brave 补充。一致 → 高置信；分歧 → cross-check。
+Primary: Exa + Brave 双引擎交叉（独立索引看是否一致）→ Tavily 深核抽数字 / web_search 兜底补充。一致 → 高置信；分歧 → cross-check。
 
 ```
 <entity/topic> latest official announcement pricing release date 2026
@@ -32,7 +34,7 @@ Output: concise answer + citations + uncertainty if sources disagree.
 
 ## Semantic source discovery
 
-Primary: SearXNG 广扫 → Exa 拣语义精准。Exa 擅长基于"已有种子页"找语义相邻源；SearXNG 帮你先拿到种子。
+Primary: Exa 语义精准起手 → Brave 独立索引补种子。Exa 擅长基于"已有种子页"找语义相邻源；Brave 帮你先拿到独立爬虫覆盖的种子。
 
 ```
 high signal sources about <topic> official docs reports practitioner analysis 2026
@@ -42,7 +44,7 @@ Output: source map, not a raw result dump.
 
 ## Company / market scan
 
-Primary: SearXNG（先看主流报道+官网+对手覆盖范围）→ Exa for semantic 拣选；Brave for coverage 补强；Tavily extract for selected pages.
+Primary: Exa + Brave 双主力（语义精准 + 独立索引看主流报道/官网/对手覆盖范围）→ Tavily extract for selected pages；web_search 广扫补盲区。
 
 ```
 <company/category> competitors pricing product positioning enterprise adoption 2026 official pages
@@ -52,7 +54,7 @@ Prefer official sites, docs, pricing, changelogs, investor materials, credible i
 
 ## Technical docs / API lookup
 
-Primary: SearXNG（一次拿到 GitHub + StackOverflow + 官方文档，约 35+ 条代码源）→ Exa for discovery 补充；fetch 官方文档。Use CodeGraph first for local repo behavior.
+Primary: Exa（语义召回官方文档 + GitHub + StackOverflow 代码源）+ Brave 独立交叉 → fetch 官方文档（Exa Fetch / Tavily Extract）。Use CodeGraph first for local repo behavior.
 
 ```
 <language/framework/package version> <API/error> official docs examples issue
@@ -60,8 +62,8 @@ Primary: SearXNG（一次拿到 GitHub + StackOverflow + 官方文档，约 35+ 
 
 ## Academic paper / literature lookup
 
-Primary: SearXNG（一次聚合 arXiv + Semantic Scholar + Crossref，约 40 条）做 landscape；
-再用 arXiv 深刷预印本 / Semantic Scholar 拉引用图谱。
+Primary: Exa + arXiv skill 做 landscape（Brave 学术域名独立交叉）；
+再用 arXiv 深刷预印本 / Semantic Scholar 拉引用图谱。SearXNG **不**推荐——学术信源被实例噪声淹没（见 `academic-lane.md`）。
 
 ```
 <topic/method> recent papers survey related work SOTA citations code benchmark 2024 2025 2026

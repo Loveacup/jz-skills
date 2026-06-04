@@ -20,9 +20,11 @@ orchestrator 在所有 quotes 都收齐之后一次性做。
 
 ## 默认 fetch 工具
 
-`mcp_searxng_web_url_read` — SearXNG 自带 URL→markdown 抓取，没有 web_extract 把 GitHub
-issue/wiki 误判为内网的问题，适合配合 verbatim 抽取。备选：`mcp_exa_web_fetch_exa`（贵但稳）/
-`mcp_tavily_tavily_extract`（有时返回为空）。
+抓取主力 = **Exa Fetch**（`mcp_exa_web_fetch_exa`，参数 `urls: string[]`，覆盖广、含 GitHub 页面）
++ **Tavily Extract**（`mcp_tavily_tavily_extract`，参数 `urls: string[]`，结构化提取、噪声最低）。
+两者都能把 URL→正文，适合配合 verbatim 抽取。**SearXNG URL Read**（`mcp_searxng_web_url_read`，
+参数 `url: string`）**仅作前两者都失败时的备胎**（30% 导航噪声 + 5000 字符截断）。
+`web_extract` 已弃用：沙箱网络策略拦截所有 HTTPS URL，禁止用于抓页面。
 
 ## 抽取 prompt（verbatim 从源码抄）
 
@@ -166,9 +168,9 @@ research 用 grader 即可。
 
 ### 示例 1: "Hermes A2A 的端口号是多少"（事实查询 / fact-recall）
 
-1. `mcp_searxng_searxng_web_search "Hermes A2A port"` → 返回 5 个 URL
+1. 搜索 "Hermes A2A port" → 返回 5 个 URL
 2. 对 top-3 URL（如 `github.com/.../hermes/blob/main/a2a/server.py`、官方 docs）跑
-   `mcp_searxng_web_url_read`
+   `mcp_exa_web_fetch_exa(urls=[...])`（或 `mcp_tavily_tavily_extract`；都失败再退 SearXNG URL Read）
 3. 每个页面分别灌入 Prompt 1（`focus="A2A server port number"`），收集 verbatim quotes
    （例：`"DEFAULT_A2A_PORT = 8765"`、`"a2a listens on 8765 by default"`）
 4. 把所有 quotes 喂给 Prompt 4，让 LLM 选最可能端口；citation 用 quote 行号锚定

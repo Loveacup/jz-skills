@@ -1,8 +1,8 @@
 ---
 name: grill-with-docs
 description: "Grills a plan or design against the Hermes/三省六部 domain model — challenges against CONTEXT.md glossary, cross-references with code and configs, stress-tests with concrete scenarios, and updates documentation inline as decisions crystallise. Structured 4-phase flow: load domain → walk decision tree (one question at a time via clarify+choices) → evidence challenge (read code/docs before asking) → capture & summarize. Use when the user wants to stress-test a plan, review an edict, validate a design, or explicitly invokes 'grill me' / '拷打我' / 'challenge this' / '找漏洞'. DO NOT trigger on simple unambiguous instructions or pure execution tasks."
-version: 2.1.0
-author: Hermes Agent (v2.1 adds source-code-only red flag + web-search-first evidence rule; v2.0 absorbs pi/pi-grill v3.1 structured phases)
+version: 2.2.0
+author: Hermes Agent (v2.2 adds multi-agent bidirectional discussion mode; v2.1 adds source-code-only red flag + web-search-first evidence rule)
 license: MIT
 platforms: [macos, linux]
 metadata:
@@ -144,6 +144,42 @@ Before asking the user a question, exhaust all verifiable sources:
 - [ ] CHECK: Did NOT accept "I'll figure that out later" without noting it?
 
 **Every box must honestly pass. If unchecked, go back.**
+
+---
+
+## 🔥 Multi-Agent Discussion Mode（Hermes↔CC 双向拷问）v2.2
+
+> **扩展场景：** 本 skill 原生设计为人↔agent 单方拷问。当 Hermes 与 Claude Code 协作处理复杂任务时，升级为**双向**——Hermes 拷问 CC，CC 也可拷问 Hermes。
+
+### 何时升级到双向模式
+
+- Hermes 拉 CC 处理非平凡任务（skill 编写、架构改动、多文件重构）
+- 任务方案不明确，需多轮对齐才进入执行
+- 用户说"讨论一下 / 看方案 / 处理决策点"——默认讨论，不是执行
+
+### 双向拷问规则
+
+1. **开场即讨论**，除非需求明确到不需要讨论。写 context 文件时即包含讨论协议要求。
+2. 每轮结束产出**讨论简报**（≤5 bullet：讨论了什么 / 决定了什么 / 分歧 / Hermes 的拷问 / 下一步），发给 Alex。
+3. **CC 提问触及 Hermes 无法代答的决策** → 🛑 立即转发给 Alex，不要猜测或沉默等待。
+4. CC 深度思考时 Hermes **每 30s 轮询** capture-pane，沉默 >2min 主动声明。特别关注决策停滞——CC 在等回答但 Hermes 没察觉。
+5. 双向都需遵守证据纪律：关于"现状"的陈述必须带可验证 artifact（文件路径、命令输出、git log）。
+6. 终止条件：双方对所有未决分支达成显式一致 → 进入执行。≤3 轮仍有分歧 → 标记未决、写入 assumption log、带条件推进。
+
+### 讨论简报模板
+
+```markdown
+📡 讨论简报 R{n}
+  · 讨论了什么
+  · 决定了什么
+  · 分歧 / 未决
+  · Hermes 的拷问（需 Alex 回答的问题，每问带推荐答案）
+  · 下一步
+```
+
+### 与 claude-code skill 的关系
+
+本 skill 提供 grill 方法论（逐问 / 证据 / 术语澄清 / 场景压测）。`claude-code` skill 的 §讨论协议 提供编排层落地（双向拷问规则 / agent team 对齐 / 简报模板）。两者互补：方法论 ← grill-with-docs，编排 ← claude-code。
 
 ---
 

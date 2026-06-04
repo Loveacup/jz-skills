@@ -1,7 +1,7 @@
 ---
 name: tts-manager
 description: "Use when managing, evaluating, configuring, or testing text-to-speech providers for Hermes or local agent workflows. Covers provider registry, fallback policy, voice/sample tests, resource benchmarks, artifact/noise checks, and keeping TTS decisions synchronized into this skill. Triggers on: TTS, text-to-speech, 语音合成, 音色测试, 后备 TTS, Hermes tts provider, edge-tts, Qwen3-TTS, custom voice. DO NOT use for STT/transcription, generic audio editing unrelated to TTS, or model research without a TTS deployment decision."
-version: 0.1.0
+version: 0.2.2
 author: Hermes Agent + Alex
 license: MIT
 platforms: [macos, linux]
@@ -22,6 +22,8 @@ This is the base skill for managing all Hermes/local TTS providers. Every future
 | "It's just a quick voice test" | Voice tests create durable provider decisions; log text, files, artifacts, and verdicts here. |
 | "The default provider is obvious" | Hermes profiles may diverge. Always read live `config.yaml` before claiming the active provider. |
 | "Generated WAV exists, so it works" | TTS quality includes first-token artifacts, latency, memory, language fit, and delivery behavior. |
+| "A zip bundle is enough for voice review" | Wrong for Telegram listening tests. Send the most relevant audio files directly with `MEDIA:`; use zip only as optional backup or when requested. |
+| "Post-processing made the waveform cleaner, so the issue is solved" | User-perceived noise is authoritative. If the user still hears artifacts, record it as unresolved and try generation-side variants rather than declaring success. |
 | "I'll remember the benchmark" | Benchmarks become stale unless captured in `references/provider-registry.md` with date/context. |
 
 ## 🔀 Decision Tree
@@ -31,6 +33,7 @@ TTS-related request?
 ├── Hermes config/provider/default/fallback? → Load `hermes-agent`, read live config, then §Provider Ops
 ├── Voice/sample test?                       → §Voice Test Protocol + references/voice-testing-protocol.md
 ├── Resource/latency/quality benchmark?      → §Benchmark Protocol + update provider registry
+├── Content-aware tone / voice routing?      → §Voice Director + references/voice-director-architecture.md
 ├── New local/API provider integration?      → §Provider Intake + add registry entry
 ├── Artifact/noise issue?                    → §Artifact Triage
 └── Not TTS (STT/transcription/audio editing) → use audio-transcriber or voice-to-markdown-workflow instead
@@ -72,6 +75,8 @@ Always report:
 - generation time or RTF if measured
 - subjective artifact notes: start noise, clipping, truncation, pronunciation, prosody
 
+When delivering samples over Telegram, send individual `MEDIA:/...wav` attachments for the primary choices. Do not make the user open a zip just to audition voices.
+
 Detailed templates live in `references/voice-testing-protocol.md`.
 
 ## Benchmark Protocol
@@ -84,6 +89,18 @@ For local providers, benchmark at least short/medium/long text. Capture:
 - wall-clock RTF
 - peak memory if available
 - known blockers (missing acceleration, unsupported dtype, model reload cost)
+
+## Voice Director
+
+When adding content-aware tone, emotion, or voice-routing behavior:
+1. Use provider-neutral schemas (`TTSPlan`, `VoiceRoute`, `TTSRoutingMemory`) rather than hard-coding one engine's prompt format.
+2. Route voices/providers from declared capability manifests: languages, voices, style controls, streaming, latency, artifact risks, memory/cost, and fallback role.
+3. Keep the core router adapter-based. Adding a new provider should require only `manifest.yaml`, `adapter.py`, optional `postprocess.py`, and optional reference notes. If core router code must special-case a provider name, treat it as an architecture defect.
+4. Automatically write structured routing outcomes and user feedback so future route scoring can learn from accepted/rejected voices, artifacts, latency, and scenario fit.
+5. For MVP or dry-run work, verify the full closed loop without touching live defaults: `plan_text` → `route_voice(load_builtin_manifests())` → adapter compile → routing memory payload → focused tests → demo script with `--no-memory-write`.
+6. When producing review samples, generate individual Telegram-compatible files for the main scenarios (`formal_report`, `good_news`, `warning`, `comfort`, `technical_explanation`), verify file existence/duration, and record exact text plus sanitized paths in `references/voice-testing-protocol.md`.
+
+Detailed schema and adapter contract: `references/voice-director-architecture.md`. Sample set protocol: `references/voice-testing-protocol.md`.
 
 ## Artifact Triage
 
@@ -102,6 +119,7 @@ When the user reports noise, truncation, clicks, or distortion:
 | File | Use |
 |---|---|
 | `references/provider-registry.md` | Provider status, default/fallback policy, benchmark log, voice notes |
+| `references/voice-director-architecture.md` | Provider-neutral TTSPlan/VoiceRoute/RoutingMemory schemas, adapter contract, extensible voice routing design |
 | `references/voice-testing-protocol.md` | Sample text templates, artifact triage workflow, Telegram delivery rule |
 | `references/trigger-tests.md` | Should-trigger / should-not-trigger cases for description changes |
 | `references/changelog.md` | Durable TTS management changes |
@@ -112,13 +130,15 @@ See `references/provider-registry.md` for the live registry. Current baseline at
 - Hermes default TTS remains Edge TTS.
 - Qwen3-TTS 0.6B CustomVoice is installed as a local fallback command provider, not default.
 - On Apple Silicon/MPS, Qwen3-TTS 0.6B works in float32; float16 produced invalid probabilities during prior testing.
-- Qwen3-TTS 0.6B voice samples showed start-of-audio artifacts that were not fully fixed by silence/fade/trim post-processing.
+- Qwen3-TTS 0.6B voice samples showed start-of-audio artifacts. Simple silence/fade-in did not fix them, but **trim 500ms + 300ms fade-in post-processing eliminates the artifact** (confirmed across 5 Chinese voices). Production wrappers must apply this automatically.
+- Voice Director work must remain provider-extensible: use capability manifests + adapters + structured routing memory rather than provider-specific core branches.
 
 ## ✅ Verification Checklist (RUN BEFORE RETURNING RESULTS)
 
 - [ ] Did I load `hermes-agent` for Hermes TTS config/provider work?
 - [ ] Did I read live config or artifact files before stating current status?
 - [ ] Did I record exact sample text and output paths for voice tests?
+- [ ] For content-aware tone/voice routing, did I keep the design provider-neutral and write/plan structured routing memory?
 - [ ] Did I update `references/provider-registry.md` or `references/changelog.md` for durable TTS changes?
 - [ ] Did I state whether the default provider changed or remained unchanged?
 - [ ] Did I verify generated audio files exist before sending/reporting them?

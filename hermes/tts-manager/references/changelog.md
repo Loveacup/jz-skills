@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-06-02 — v0.2.2 patch Qwen artifact fix confirmed
+
+- Corrected stale provider-registry and baseline snapshot entries: Qwen3-TTS 0.6B start-of-audio artifacts ARE fixable with post-processing (trim 500ms + 300ms fade-in, confirmed across 5 Chinese voice samples). Earlier language said "not fully fixed" which was inaccurate after the trim+fade variant was validated.
+- No code change; documentation correction only.
+
 ## 2026-06-01 — v0.2.2 Speakable text optimizer MVP
 
 - Added deterministic `agent/tts_voice_director/text_optimizer.py` with `SpeakableText` and `optimize_for_tts(...)`.

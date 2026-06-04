@@ -30,8 +30,8 @@ Update this file whenever TTS provider status, default/fallback policy, benchmar
 - **Install footprint observed:** about 4 GB total including model and venv.
 - **Observed resource use:** about 2.6–3.2 GB peak RSS during prior tests.
 - **Observed speed:** command cold-start is too slow for default live replies; single loaded process performs better but still slower than Edge.
-- **Known quality issue:** start-of-audio artifacts/noise occurred in Chinese voice samples. Lead silence, fade-in, and trim+fade variants did not fully eliminate the perceived noise.
-- **Current verdict:** keep as fallback only; not suitable as default Hermes TTS yet.
+- **Known quality issue:** start-of-audio artifacts/noise occurred in Chinese voice samples. Simple silence/fade-in alone did not eliminate the noise, but **trim 500ms + 300ms fade-in post-processing removes the artifact** (confirmed across Serena, Vivian, Uncle_Fu, Dylan, and Eric samples). Production wrappers must apply this post-processing automatically.
+- **Current verdict:** keep as fallback only; not suitable as default Hermes TTS yet, but usable for manual high-quality output with mandatory trim+fade post-processing.
 
 #### Voice Notes
 

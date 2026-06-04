@@ -4,6 +4,35 @@
 
 ---
 
+## v4.1.1 (2026-06-04) — 三路合并去分叉 + CQI 诊断吸收（Phase 0）
+
+> 根因：v4.1.0 红线宪法 commit 进源仓库却**从未部署到运行端**——源(524)/运行(647)双向分叉、同标 `4.1.0` 但 md5 不一致（CQI 事件 #3）。2026-06-04 的监控违规实为**加载端缺红线①**，非 CC 不听话。本版三路合并去分叉 + 落地 CQI 诊断改进。
+
+### Fixed（去分叉）
+- **双向分叉消除** — 以源端红线宪法/Gate Stamp/effort 下沉为主干，吸收运行端「连续推进模式 + Pitfall #20/★33」，统一 v4.1.1，`cp` 后两端 md5 一致
+- **RA-03 Pitfall 编号** — ★30 去重（曾重复 2 次）、修 ★38 markdown（`\n` 字面量）、★33 排到数字顺序位、表头注明 #16/#17/#29/#32/#34/#35 为历史废弃不重用
+
+### Added（CQI 诊断吸收）
+- **§0 通用性声明** — 本 skill 被所有 Hermes agent 加载（不限小黄）；加载者=Hermes / 被驱动方=CC / CC 不读此 skill（父皇纠正）
+- **§0 read hook 防漂移** — 加载时校验 runtime md5 vs 源 provenance，取代纸面化漂移 cron
+- **🔗 跨 skill 规格透传（RA-08）** — 调另一 skill 时强制把其核心验收标准原样写入 CC context
+- **🧠 任务记忆同步（RA-09）** — 任务交接时把 Hermes 侧相关记忆摘要写入 CC context
+- **Core Rule #12 完成前磁盘一致性校验（RA-06）** — 宣布完成前 `find -newer`/`ls` 确认文件真实落盘
+- **Session GC（RA-12）** — 残留 session 按命名/age/假空闲三条回收，阶段未结束不杀
+
+### Changed
+- **Gate Stamp 4→5 项** — 增「该调 CC？重活别自己扛」（2026-06-03 教训）
+- **讨论协议** — 加 #7 思考保护（token 增长=活跃思考不打断，仅冻结 >3min 才中断，RA-07）+ 讨论简报强制产物段
+- **watchdog 移除** — 删「未监控后装 no-agent watchdog」指令，改为 Hermes 自身持续轮巡（父皇校准：不建 watchdog）
+- **Pitfalls 富集** — 补 ★28/★36/★37/★38（含「context 未交代 skill 架构背景致 CC 误解角色」）
+- **Progress Reporting 增强** — 加「capture-pane=用户可见事件」「TG 工具调用≠可见」「投递失败也算未汇报」硬规则
+
+### Metrics
+- 行数：源 524 / 运行 647（分叉）→ 统一 **600**（≤600 阈值）；两端 md5 一致
+- 红线维持 **2 条**（防 MUST 通胀；effort/session/占用/调 CC 留 Gate Stamp）
+
+---
+
 ## v4.1.0 (2026-06-01) — Instruction-Following Enforcement: 红线宪法 + Gate Stamp
 
 > 聚焦「指令遵循」的一轮优化。根因：旧 skill 规则全但约束力弱——MUST 通货膨胀 + 软 checklist + salience 与违规频率倒挂，agent 能合理化跳过 📡 汇报与讨论协议。经 3-lens 审查（规则强制力 / 可检测性 / 简洁vs完整）+ 4 轮 Hermes↔CC 讨论收口。

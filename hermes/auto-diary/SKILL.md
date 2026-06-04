@@ -1,13 +1,13 @@
 ---
 name: auto-diary
 description: |
-  自动化日记生成和周报汇总。由 cron job 定时触发，采集天气(Open-Meteo)、日历事件(icalBuddy)、
-  AI 对话记录(Hermes state.db + Claude Code JSONL)、知识库变更(Obsidian vault)，
-  生成 Obsidian 日记并通过 Telegram 通知。
-  周报可手动汇总上周日记生成（注：周报无自动 cron，仅手动触发）。支持日历事件回填和日记清理。
+  自动化日记生成和四层聚合（日/周/月/年）。cron 定时触发：每日日记(23:00)、每周周报(Mon 09:00)、
+  每月月报(1号 09:30)、每年年报(1/1 10:00)。采集天气(Open-Meteo)、日历(icalBuddy)、
+  AI 对话(Hermes state.db + CC JSONL)、知识库变更(Obsidian vault)，经校验闭环交付。
+  支持日历事件回填和日记清理。详见知识库 [[日记系统-三机架构与路线图]]。
 
-  Use when: cron triggers daily diary (23:00), or user manually requests
-  生成日记 / 生成周报 / 日记草稿 / weekly report / diary / 补日程 / 整理日记.
+  Use when: cron triggers or user manually requests
+  生成日记 / 生成周报 / 生成月报 / 生成年报 / diary / weekly / monthly / 补日程 / 整理日记.
 
   DO NOT use for: general note-taking, non-diary content generation, one-off research.
 version: 3.5.0
@@ -16,7 +16,7 @@ author: Hermes Agent — v3.5 周/月/年报 cron + 聚合金字塔 + verify_rep
 
 # Auto-Diary v3.5
 
-自动化日记生成 + 周/月/年报聚合。Cron 定时触发或手动调用。
+自动化日记生成 + 四层聚合（日/周/月/年）。Cron 定时触发或手动调用。
 
 > ⚠️ **真实调度状态**（2026-06-01 核实，勿凭文档假设）：4 个 auto-diary cron 在跑。
 > 🔴 **两套 scheduler**：日记在**根** scheduler；周/月/年报在 **cron-worker profile** scheduler。
@@ -218,7 +218,7 @@ Cron job 配置存档于 `config/cron-job.json`，包含完整 prompt + schedule
 
 - Current: 每天 23:00, cron-worker profile, deepseek-v4-flash
 - Job ID: `1ca6e7d692fa`
-- **唯一在跑的日记 cron**。周报/月报/年报均无 cron(见 Workflow B 警告)。
+- **唯一在跑的日记 cron**。周报/月报/年报 cron 在 cron-worker profile scheduler（查 `hermes cron list --profile cron-worker`）。
 - v3.4 prompt 闭环: 写日记前先 `Read` 已有文件(合并安全) → 写入 → 跑 `verify_diary_compliance.py` → FAIL 则对照 spec 重写直到 PASS → 交付。
 - CC 数据真实路径: `ai_logs.claude_overview.{agent_team,standalone,program_call}`(注意 `ai_logs.` 前缀)。
 
