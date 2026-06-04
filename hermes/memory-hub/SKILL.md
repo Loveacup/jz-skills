@@ -47,29 +47,63 @@ python3 scripts/validate_logs.py
 
 ## Phase 1.5：CC × CQI 自动化接入
 
-闭环：**CC 吐事件 → Hermes 归集 → CQI 自动确认 → 状态可查**。三个新脚本，零新依赖，全 fail-open。
+闭环：**CC 吐事件 → Hermes 归集 → CQI 自动确认 → 状态可查**。三个新脚本，零新依赖，全 fail-open。查询用 `mem_read.py`：
 
 ```bash
-# ① 归集：Hermes 检测 CC session 结束时调，读 handoff → 校验 → 批量写 → 删 handoff → 最终闸门
-python3 scripts/mem_ingest.py            # 默认 glob /tmp/cc-cqi-events-*.jsonl
-
-# ② 查询：按 status_event 的 ts 最新归约出每条 issue 的 current_status（无事件=new）
+# 按 status_event 的 ts 最新归约出每条 issue 的 current_status（无事件=new）
 python3 scripts/mem_read.py --type issue --status new --skill <skill> --since 2026-06-01
-
-# ③ CQI runtime 薄层：拉 new issue，自动追加 status_event（new→acknowledged, by=cqi-auto）
-python3 scripts/cqi_runtime.py           # 不碰 resolved/wontfix/duplicate（裁判面边界）
-
-# ④ 合并：把新 issue 按 waterline 增量合并进 Obsidian CQI 审计文档（只追加、去重、幂等）
-python3 scripts/mem_merge.py             # 无 waterline=全量但仅近 30 天；文档不存在则建带 frontmatter 新档
 ```
 
-- **自动触发链**：CC session 结束后 Hermes 异步依次跑 `mem_ingest → cqi_runtime → mem_merge`，全 fail-open。
-  另设每 30 分钟 cron 兜底 `cqi_runtime && mem_merge`（捕获漏触发，两脚本幂等）。接入协议见 `claude-code`「§CQI 事件吐出」。
+## 接入协议 · Integration Protocol
 
-- **CC 接入协议**：见 `autonomous-ai-agents/claude-code` skill「§CQI 事件吐出」——CC 每轮结束把 issue/evolution
-  以 JSONL 写到 `/tmp/cc-cqi-events-<session>.jsonl`（只吐原始事件，不写 status）。
-- **状态机边界**：`new→acknowledged` 由 `cqi_runtime.py` 自动；`resolved/wontfix/duplicate` 必须裁判面，禁止自动。
-- **fail-open**：ingest 单行坏不阻断其余行（计 degraded）；任一环节写失败不阻断 Hermes 主任务。
+任何技能接入 memory-hub，只需做一件事：CC 会话结束时写 handoff 文件。其余由 Hermes 侧链自动完成。
+
+### CC 侧：handoff 格式
+
+CC 每轮结束，把本轮发现的 issue / evolution 追加到 `/tmp/cc-cqi-events-<session>.jsonl`（`<session>` = CC session 名）。一行一条 JSON。
+
+字段（对齐 schema）：
+- `type`：`issue` | `evolution`
+- `skill`：受影响技能名
+- `source`：恒为 `"cc"`
+- `evidence`：原话逐字，勿摘要
+- `ts`：ISO-8601 带时区
+- `id`：可省（归集时自动生成 `ISSUE-/EVO-<skill>-NNN`）
+- `session_id`：建议带上
+- `payload`：issue → `implicated_rule`；evolution → `change_type`（必填），可选 `validation_score`/`changelog_ref`
+
+事件类型：
+- `issue` — 技能规则缺陷 / 指令未遵循 / 反复踩坑
+- `evolution` — 本轮改进了技能正文/脚本/版本
+
+约束：CC 只吐原始事件，**不写 status**（状态机由 cqi_runtime.py 维护：`new→acknowledged` 自动，`resolved/wontfix/duplicate` 必须裁判面）。
+
+示例：
+```json
+{"type":"issue","skill":"skill-authoring","source":"cc","evidence":"Step 9 deployment audit 被跳过，deploy 前未跑 fresh agent 验证","ts":"2026-06-04T20:00:00+08:00","session_id":"hermes-cc-regent-205850","payload":{"implicated_rule":"deployment-grounded-audit"}}
+```
+
+### Hermes 侧：三步自动链
+
+Hermes 检测到 CC session 结束（❯ 提示符且无 ● 持续 >2min）时自动触发：
+
+```bash
+cd ~/.hermes/skills/governance/memory-hub
+python3 scripts/mem_ingest.py      # 归集 handoff → 校验 → 批量写 shard → 删 handoff
+python3 scripts/cqi_runtime.py     # new→acknowledged（幂等）
+python3 scripts/mem_merge.py       # 合并进 Obsidian CQI 审计文档（waterline 去重）
+```
+
+全 fail-open（单行坏只丢该行计 degraded；任一环节写失败不阻断 Hermes 主任务）。cron 每 30 分钟兜底 `cqi_runtime --quiet && mem_merge --quiet`（无事零 stdout）。
+
+### 接入清单
+
+把某技能接入 memory-hub 时逐项过：
+- [ ] 在该技能 SKILL.md 加一节「CC 会话结束时写 handoff」，内容引用本协议
+- [ ] 确保 CC 理解 handoff 格式（字段、事件类型、不写 status）
+- [ ] Hermes 侧：确认三步链已部署（`~/.hermes/skills/governance/memory-hub/scripts/` 下三脚本存在）
+- [ ] 跑一次 dry-run 验证 handoff → ingest → ack → merge 全链
+- [ ] 在该技能 CHANGELOG 记「接入 memory-hub CQI 回路」
 
 ## Schema 速览
 
