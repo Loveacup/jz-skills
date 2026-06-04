@@ -8,8 +8,8 @@ description: |
   memory-hub write、validate logs、记忆回路、日志回路。
   DO NOT use for: 通用长期记忆/向量检索（用 supermemory）、cron/Kanban 自动编排（Phase 2）、
   直接改技能正文或评判技能质量。
-version: 0.1.0
-author: Hermes + Claude Code — Phase 1 记忆-日志回路基础
+version: 0.2.0
+author: Hermes + Claude Code — Phase 1.5 CC × CQI 自动化接入
 license: MIT
 ---
 
@@ -21,7 +21,7 @@ Cursor 插件生态只是参考样板；**这个回路才是 Jz-Plugin 的主体
 
 1. **单写入口**：所有结构化记录只经 `scripts/mem_write.py`；**不手改 jsonl**（手改绕过校验与 provenance）。
 2. **只追加**：writer 仅 `O_APPEND`，永不重写既有行。
-3. **分片不混库**：`type` 决定 shard——`issue`→`references/issue-log.jsonl`，`evolution`→`references/evolution-log.jsonl`。
+3. **分片不混库**：`type` 决定 shard——`issue`→`references/issue-log.jsonl`，`evolution`→`references/evolution-log.jsonl`，`status_event`→`references/status-log.jsonl`。
 4. **存储层不做业务判断**：只管格式/溯源完整性，不评判技能质量、不改技能正文。
 
 ## 快速用法
@@ -45,9 +45,29 @@ python3 scripts/validate_logs.py
 
 校验失败 → exit 2，**零写入**；IO 失败 → exit 3（不阻断调用方主任务，降级报告）。
 
+## Phase 1.5：CC × CQI 自动化接入
+
+闭环：**CC 吐事件 → Hermes 归集 → CQI 自动确认 → 状态可查**。三个新脚本，零新依赖，全 fail-open。
+
+```bash
+# ① 归集：Hermes 检测 CC session 结束时调，读 handoff → 校验 → 批量写 → 删 handoff → 最终闸门
+python3 scripts/mem_ingest.py            # 默认 glob /tmp/cc-cqi-events-*.jsonl
+
+# ② 查询：按 status_event 的 ts 最新归约出每条 issue 的 current_status（无事件=new）
+python3 scripts/mem_read.py --type issue --status new --skill <skill> --since 2026-06-01
+
+# ③ CQI runtime 薄层：拉 new issue，自动追加 status_event（new→acknowledged, by=cqi-auto）
+python3 scripts/cqi_runtime.py           # 不碰 resolved/wontfix/duplicate（裁判面边界）
+```
+
+- **CC 接入协议**：见 `autonomous-ai-agents/claude-code` skill「§CQI 事件吐出」——CC 每轮结束把 issue/evolution
+  以 JSONL 写到 `/tmp/cc-cqi-events-<session>.jsonl`（只吐原始事件，不写 status）。
+- **状态机边界**：`new→acknowledged` 由 `cqi_runtime.py` 自动；`resolved/wontfix/duplicate` 必须裁判面，禁止自动。
+- **fail-open**：ingest 单行坏不阻断其余行（计 degraded）；任一环节写失败不阻断 Hermes 主任务。
+
 ## Schema 速览
 
-硬校验（缺失/非法即拒写）：`id` · `type`(issue|evolution) · `skill` · `source`(user|cc|agent|hook|runtime|audit) · `evidence`(存原话) · `ts`(ISO-8601 带时区)。
+硬校验（缺失/非法即拒写）：`id` · `type`(issue|evolution|status_event) · `skill` · `source`(user|cc|agent|hook|runtime|audit) · `evidence`(存原话) · `ts`(ISO-8601 带时区)。`status_event` 额外硬校验 `payload.issue_id` + `payload.status`(new|acknowledged|in_progress|resolved|wontfix|duplicate)。
 软校验（告警）：`requester` · `source_hash`(sha256:…) · `trigger` · `skill_version` · `payload`。
 完整规范见 `schemas/event.schema.json`。
 

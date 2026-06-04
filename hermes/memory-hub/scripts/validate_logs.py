@@ -19,15 +19,20 @@ from datetime import datetime
 from pathlib import Path
 
 # --- Spec constants (keep in sync with schemas/event.schema.json) ---
-TYPES = ("issue", "evolution")
+TYPES = ("issue", "evolution", "status_event")
 SOURCES = ("user", "cc", "agent", "hook", "runtime", "audit")
 REQUESTERS = ("user", "cc", "agent", "cron", "kanban")
 TRIGGERS = ("manual_review", "runtime_failure", "scheduled_audit", "user_correction")
 CHANGE_TYPES = ("rule_add", "rule_edit", "rule_remove", "refactor", "version_bump", "doc")
+STATUSES = ("new", "acknowledged", "in_progress", "resolved", "wontfix", "duplicate")
 REQUIRED_FIELDS = ("id", "type", "skill", "source", "evidence", "ts")
 
 # type -> shard filename
-SHARD_FILES = {"issue": "issue-log.jsonl", "evolution": "evolution-log.jsonl"}
+SHARD_FILES = {
+    "issue": "issue-log.jsonl",
+    "evolution": "evolution-log.jsonl",
+    "status_event": "status-log.jsonl",
+}
 
 REFERENCES_DIR = Path(__file__).resolve().parent.parent / "references"
 
@@ -69,6 +74,18 @@ def validate_record(rec) -> tuple[list[str], list[str]]:
                 errors.append(f"ts {ts!r} must include a timezone offset (e.g. +08:00)")
         except ValueError:
             errors.append(f"ts {ts!r} is not a valid ISO-8601 datetime")
+
+    # --- hard: status_event requires payload.issue_id + valid payload.status ---
+    if rec.get("type") == "status_event":
+        sp = rec.get("payload")
+        if not isinstance(sp, dict):
+            errors.append("status_event requires a payload object with issue_id and status")
+        else:
+            if not _nonempty_str(sp.get("issue_id")):
+                errors.append("status_event missing/empty required field: payload.issue_id")
+            st = sp.get("status")
+            if st not in STATUSES:
+                errors.append(f"invalid payload.status {st!r}; must be one of {STATUSES}")
 
     # --- soft: optional fields & payload ---
     if "requester" in rec and rec["requester"] not in REQUESTERS:

@@ -574,6 +574,7 @@ sleep 3 && tmux send-keys -t <s> Down && tmux send-keys -t <s> Enter
 | `references/skill-redesign-via-cc-discussion.md` | 通过 CC 讨论协议做 skill 架构重设计（2026-06-02） |
 | `references/destructive-system-cleanup-pattern.md` | 四阶段系统清理模式：Archive → Pre-Review → Destroy → Post-Audit（2026-06-03） |
 | `references/cqi-instance-pattern.md` | CQI Instance 模式：skill CQI 计划重构为母计划实例的 8 节骨架 + 三桶分流（2026-06-04） |
+| `references/three-lens-infra-debugging.md` | 🆕 3-Lens 基础设施调试：CC agent team 并行调查 adapter+网络+配置（2026-06-04 GPT-5.5 排查） |
 | `references/jz-skills-cc-first-pattern.md` | jz-skills 仓库改动走 CC agent team 先审查后执行模式（2026-06-03） |
 | `references/hermes-infrastructure-self-audit.md` | Hermes 基础设施自审计模式（2026-06-03） |
 | `references/kanban-swarm-practical-syntax.md` | Kanban Swarm CLI 实测语法 vs 概念语法对照表（2026-06-03） |
@@ -598,3 +599,22 @@ sleep 3 && tmux send-keys -t <s> Down && tmux send-keys -t <s> Enter
 - [ ] **收尾安全：** 最终报告后是否检查 `❯` 输入行没有残留下一步/commit/外发命令？
 - [ ] **生产环境复核：** 若 CC 部署/重启 Hermes、A2A、gateway、launchd 服务，是否用服务真实 `HOME/HERMES_HOME/PYTHONPATH` 复现导入并核对 live pid/log/artifact？
 - [ ] **🔄 skill 漂移？** 改完是否 `cp` 同步部署端、两端 `md5` 一致？（§0 read hook）
+
+---
+
+## §CQI 事件吐出（memory-hub 接入）
+
+> CC 每轮任务结束时，把本轮发现的 **issue / evolution** 以 JSONL 追加写到 handoff 文件
+> `/tmp/cc-cqi-events-<session>.jsonl`（`<session>` = 当前 CC session 名）。一行一条 JSON。
+> 这是 fail-open 的旁路：写不写都不影响主任务交付，但写了能让 memory-hub 自动归集。
+
+- **字段（对齐 live 6 硬字段 + payload）**：`type`（`issue`|`evolution`）、`skill`（受影响技能名）、
+  `source`（恒为 `"cc"`）、`evidence`（原话/trace 逐字，勿摘要）、`ts`（ISO-8601 带时区）；
+  `id` 可省（归集时自动生成 `ISSUE-/EVO-<skill>-NNN`）。`payload` 可选：issue 填 `implicated_rule`/`change_type`；
+  evolution 必填 `change_type`，可带 `validation_score`/`changelog_ref`。`session_id` 建议带上。
+- **CC 自判事件类型**：
+  - `issue` —— 发现某技能的规则缺陷 / 指令未遵循 / 反复踩同一坑（trigger 多为 `runtime_failure` 或 `user_correction`）。
+  - `evolution` —— 本轮实际改进了某技能正文/脚本/版本（trigger 多为 `manual_review`，带 `change_type`）。
+- **状态语义**：CC 只吐 `issue`/`evolution` 原始事件，**不写 status**；状态机（new→acknowledged…）由 memory-hub 侧 `cqi_runtime.py` 维护。
+- **Hermes 侧触发**：Hermes 检测到 CC session 结束（`❯` 提示符且无 `●` 持续 >2min，复用 Session GC 判据）时，
+  异步调 `memory-hub/scripts/mem_ingest.py` 归集该 handoff 文件 → 校验 → 批量写入 → 删 handoff。全程 fail-open，写失败不阻断 Hermes 主任务。

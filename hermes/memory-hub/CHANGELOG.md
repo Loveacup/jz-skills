@@ -3,6 +3,30 @@
 All notable changes to this skill are documented here. Append-only intent;
 machine-readable mirror lives in `references/evolution-log.jsonl`.
 
+## [0.2.0] — 2026-06-04
+
+Phase 1.5：CC × CQI 自动化接入（CC handoff → ingest → CQI runtime → 状态可查）。
+
+### Added
+- 第三分片 `status_event` → `references/status-log.jsonl`；schema/validator 同步扩展，
+  硬校验 `payload.issue_id` + `payload.status`(new|acknowledged|in_progress|resolved|wontfix|duplicate)。
+- `scripts/mem_ingest.py` — 批量归集 CC handoff（`/tmp/cc-cqi-events-*.jsonl`）：逐行校验→填默认→
+  append→删 handoff→`validate_logs.py` 最终闸门。fail-open：坏行计 degraded 不阻断其余行。
+- `scripts/mem_read.py` — 跨 shard 查询；按 `payload.issue_id` 将 status_event 按 ts 最新归约成
+  `current_status`（无事件默认 new）；`--skill/--type/--status/--since` 过滤。
+- `scripts/cqi_runtime.py` — CQI 薄层：拉 new issue 自动追加 status_event（new→acknowledged, by=cqi-auto）；
+  幂等；**不**自动 resolved/wontfix/duplicate（裁判面边界）。
+- `mem_write.py` 新增 `--status/--issue-id/--by` 与 `STATUS-<skill>-NNN` id 前缀。
+- CC 侧协议写入 `autonomous-ai-agents/claude-code`「§CQI 事件吐出」节（A 决定，正文 ≤20 行）。
+
+### Verified
+- status_event：合法 dry-run exit 0；缺 issue_id / 非法 status 均 exit 2 零写入。
+- mem_ingest：混合 handoff（2 合法 + 1 坏 JSON + 1 缺字段）→ 2 写入、2 degraded、handoff 删除、exit 0。
+- mem_read：ack→in_progress 双事件正确归约 in_progress；`--status new` 过滤正确。
+- 端到端：mem_write→validate→mem_read(new)→cqi_runtime→mem_read(acknowledged)→再 cqi_runtime(幂等无操作)；
+  真实 references 上 `ISSUE-skill-authoring-001` 已自动 acknowledged，生成首条真实 `status-log.jsonl`。
+- 零外部依赖：python3 stdlib。append-only 铁律未破。
+
 ## [0.1.0] — 2026-06-04
 
 Phase 1：记忆-日志回路基础（Memory/Log Loop Foundation）首版。

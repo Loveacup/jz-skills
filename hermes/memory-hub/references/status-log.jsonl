@@ -1,0 +1,1 @@
+{"type": "status_event", "skill": "skill-authoring", "source": "runtime", "evidence": "CQI runtime auto-acknowledged ISSUE-skill-authoring-001 (new -> acknowledged)", "requester": "cron", "payload": {"issue_id": "ISSUE-skill-authoring-001", "status": "acknowledged", "by": "cqi-auto"}, "ts": "2026-06-04T15:52:56+08:00", "id": "STATUS-skill-authoring-001"}

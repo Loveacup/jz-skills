@@ -42,8 +42,8 @@ def _now_iso() -> str:
 
 
 def _next_id(shard_path: Path, rec_type: str, skill: str) -> str:
-    """Generate a stable sequential id: ISSUE-<skill>-NNN / EVO-<skill>-NNN."""
-    prefix = "ISSUE" if rec_type == "issue" else "EVO"
+    """Generate a stable sequential id: ISSUE-/EVO-/STATUS-<skill>-NNN."""
+    prefix = {"issue": "ISSUE", "evolution": "EVO", "status_event": "STATUS"}.get(rec_type, "REC")
     count = 0
     if shard_path.exists():
         for raw in shard_path.read_text(encoding="utf-8").splitlines():
@@ -94,6 +94,12 @@ def _build_record(args) -> dict:
         payload["validation_score"] = args.validation_score
     if args.changelog_ref:
         payload["changelog_ref"] = args.changelog_ref
+    if args.issue_id:
+        payload["issue_id"] = args.issue_id
+    if args.status:
+        payload["status"] = args.status
+    if args.by:
+        payload["by"] = args.by
     if not payload:
         rec.pop("payload")
 
@@ -131,6 +137,10 @@ def main(argv: list[str]) -> int:
     p.add_argument("--change-type", dest="change_type")
     p.add_argument("--validation-score", dest="validation_score", type=float)
     p.add_argument("--changelog-ref", dest="changelog_ref")
+    p.add_argument("--issue-id", dest="issue_id", help="status_event: id of the issue being transitioned.")
+    p.add_argument("--status", dest="status",
+                   help="status_event: new|acknowledged|in_progress|resolved|wontfix|duplicate")
+    p.add_argument("--by", dest="by", help="status_event: who performed the transition (e.g. cqi-auto).")
     p.add_argument("--payload-json", dest="payload_json", help="JSON object merged into payload.")
     p.add_argument("--references-dir", dest="references_dir", default=str(REFERENCES_DIR),
                    help="Override the shard directory (for testing).")

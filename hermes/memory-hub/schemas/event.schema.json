@@ -15,8 +15,8 @@
     },
     "type": {
       "type": "string",
-      "enum": ["issue", "evolution"],
-      "description": "Shard selector. issue -> issue-log.jsonl ; evolution -> evolution-log.jsonl"
+      "enum": ["issue", "evolution", "status_event"],
+      "description": "Shard selector. issue -> issue-log.jsonl ; evolution -> evolution-log.jsonl ; status_event -> status-log.jsonl"
     },
     "skill": {
       "type": "string",
@@ -63,7 +63,7 @@
     },
     "payload": {
       "type": "object",
-      "description": "Type-specific fields. issue: { implicated_rule, change_type? }. evolution: { change_type, validation_score, changelog_ref }.",
+      "description": "Type-specific fields. issue: { implicated_rule, change_type? }. evolution: { change_type, validation_score, changelog_ref }. status_event: { issue_id, status, by? }.",
       "additionalProperties": true,
       "properties": {
         "implicated_rule": { "type": "string" },
@@ -72,7 +72,20 @@
           "enum": ["rule_add", "rule_edit", "rule_remove", "refactor", "version_bump", "doc"]
         },
         "validation_score": { "type": "number", "minimum": 0, "maximum": 100 },
-        "changelog_ref": { "type": "string" }
+        "changelog_ref": { "type": "string" },
+        "issue_id": {
+          "type": "string",
+          "description": "For status_event: the issue id whose status this record transitions (CQI join key)."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["new", "acknowledged", "in_progress", "resolved", "wontfix", "duplicate"],
+          "description": "For status_event: the new lifecycle state of the referenced issue."
+        },
+        "by": {
+          "type": "string",
+          "description": "For status_event: who/what performed the transition, e.g. cqi-auto."
+        }
       }
     }
   },
@@ -82,6 +95,15 @@
       "then": {
         "properties": {
           "payload": { "required": ["change_type"] }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "status_event" } } },
+      "then": {
+        "required": ["payload"],
+        "properties": {
+          "payload": { "required": ["issue_id", "status"] }
         }
       }
     }
