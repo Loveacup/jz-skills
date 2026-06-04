@@ -43,7 +43,7 @@ from mem_read import (  # noqa: E402
 
 WATERLINE_PATH = Path(__file__).resolve().parent.parent / ".merge_waterline"
 DEFAULT_DOC = (
-    Path.home() / "Documents" / "Obsidian" / "AlexCai" / "02-Plan&CQI"
+    Path.home() / "Documents" / "Obsidian" / "AlexCai" / "88-审计"
     / "memory-hub CQI 持续审计.md"
 )
 FULL_MERGE_WINDOW_DAYS = 30
