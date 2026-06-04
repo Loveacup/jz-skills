@@ -616,5 +616,10 @@ sleep 3 && tmux send-keys -t <s> Down && tmux send-keys -t <s> Enter
   - `issue` —— 发现某技能的规则缺陷 / 指令未遵循 / 反复踩同一坑（trigger 多为 `runtime_failure` 或 `user_correction`）。
   - `evolution` —— 本轮实际改进了某技能正文/脚本/版本（trigger 多为 `manual_review`，带 `change_type`）。
 - **状态语义**：CC 只吐 `issue`/`evolution` 原始事件，**不写 status**；状态机（new→acknowledged…）由 memory-hub 侧 `cqi_runtime.py` 维护。
-- **Hermes 侧触发**：Hermes 检测到 CC session 结束（`❯` 提示符且无 `●` 持续 >2min，复用 Session GC 判据）时，
-  异步调 `memory-hub/scripts/mem_ingest.py` 归集该 handoff 文件 → 校验 → 批量写入 → 删 handoff。全程 fail-open，写失败不阻断 Hermes 主任务。
+- **Hermes 侧触发（三步链，全异步 + fail-open）**：Hermes 检测到 CC session 结束（`❯` 提示符且无 `●` 持续 >2min，复用 Session GC 判据）时，
+  在 `memory-hub/` 下依次调用，**任一步失败不阻断后续，也不阻断 Hermes 主任务**：
+  1. `scripts/mem_ingest.py` —— 归集该 handoff 文件 → 校验 → 批量写入 shard → 删 handoff。
+  2. `scripts/cqi_runtime.py` —— 拉本期 new issue，自动追加 status_event（new→acknowledged，by=cqi-auto）；幂等。
+  3. `scripts/mem_merge.py` —— 将新 issue 合并进 Obsidian CQI 审计文档（waterline 去重，只追加）；幂等。
+- **cron 兜底**：上述链以 CC session 结束为触发；另有每 30 分钟的 cron 跑 `cqi_runtime.py && mem_merge.py`，
+  捕获漏触发的批次。两脚本均幂等（无 new issue 直接跳过、waterline 去重），重复跑无副作用。

@@ -3,6 +3,27 @@
 All notable changes to this skill are documented here. Append-only intent;
 machine-readable mirror lives in `references/evolution-log.jsonl`.
 
+## [0.2.1] — 2026-06-04
+
+Phase 1.5 收尾：CQI 文档自动合并 + 全链自动触发 + cron 兜底（CC → ingest → ack → merge → Obsidian）。
+
+### Added
+- `scripts/mem_merge.py` — 把 issue 按 waterline 增量合并进 Obsidian CQI 审计文档
+  `02-Plan&CQI/memory-hub CQI 持续审计.md`。复用 `mem_read` 的状态归约标注 `current_status`；
+  每次追加一个 `## 批次 YYYY-MM-DD HH:MM` 段落，逐条列出状态 + evidence/location/fix 简要。
+  **只追加、不覆盖、不删除**；按 issue_id 去重（已在文档中则跳过），无新条目不追加空批次（幂等）。
+  waterline 存 `.merge_waterline`（上次合并最大 ts）；缺失→全量但仅近 30 天。fail-open（IO 失败 exit 3）。
+- 自动触发链：`claude-code`「§CQI 事件吐出」改为三步链 `mem_ingest → cqi_runtime → mem_merge`，
+  全异步 + fail-open（任一步失败不阻断后续与 Hermes 主任务）。
+- cron 兜底：`~/.hermes/scripts/memory-hub-cqi-sweep.sh`（every 30m，no-agent）跑
+  `cqi_runtime && mem_merge`，捕获 session 钩子漏触发。`&&` 顺序确保 merge 看到最新 ack 状态，
+  避免 issue 以 new 状态被写入文档后被去重永久冻结。
+
+### Verified
+- mem_merge dry-run：6 条真实 issue 正确归约状态（resolved/wontfix/acknowledged），格式正常。
+- 幂等：二次跑去重跳过、不追加空批次；waterline 增量推进。
+- 零外部依赖：python3 stdlib。append-only 铁律未破（merge 仅 `O_APPEND` 到 Obsidian 文档）。
+
 ## [0.2.0] — 2026-06-04
 
 Phase 1.5：CC × CQI 自动化接入（CC handoff → ingest → CQI runtime → 状态可查）。

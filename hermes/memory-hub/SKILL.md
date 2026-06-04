@@ -8,8 +8,8 @@ description: |
   memory-hub write、validate logs、记忆回路、日志回路。
   DO NOT use for: 通用长期记忆/向量检索（用 supermemory）、cron/Kanban 自动编排（Phase 2）、
   直接改技能正文或评判技能质量。
-version: 0.2.0
-author: Hermes + Claude Code — Phase 1.5 CC × CQI 自动化接入
+version: 0.2.1
+author: Hermes + Claude Code — Phase 1.5 收尾（mem_merge + 自动触发 + cron 兜底）
 license: MIT
 ---
 
@@ -58,7 +58,13 @@ python3 scripts/mem_read.py --type issue --status new --skill <skill> --since 20
 
 # ③ CQI runtime 薄层：拉 new issue，自动追加 status_event（new→acknowledged, by=cqi-auto）
 python3 scripts/cqi_runtime.py           # 不碰 resolved/wontfix/duplicate（裁判面边界）
+
+# ④ 合并：把新 issue 按 waterline 增量合并进 Obsidian CQI 审计文档（只追加、去重、幂等）
+python3 scripts/mem_merge.py             # 无 waterline=全量但仅近 30 天；文档不存在则建带 frontmatter 新档
 ```
+
+- **自动触发链**：CC session 结束后 Hermes 异步依次跑 `mem_ingest → cqi_runtime → mem_merge`，全 fail-open。
+  另设每 30 分钟 cron 兜底 `cqi_runtime && mem_merge`（捕获漏触发，两脚本幂等）。接入协议见 `claude-code`「§CQI 事件吐出」。
 
 - **CC 接入协议**：见 `autonomous-ai-agents/claude-code` skill「§CQI 事件吐出」——CC 每轮结束把 issue/evolution
   以 JSONL 写到 `/tmp/cc-cqi-events-<session>.jsonl`（只吐原始事件，不写 status）。
