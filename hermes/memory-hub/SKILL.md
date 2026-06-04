@@ -1,21 +1,20 @@
 ---
 name: memory-hub
 description: |
-  Jz-Plugin v4.0 的记忆-日志回路内核：集中式单写入口 + 按 type 分片的 append-only JSONL +
-  共享 envelope schema + 纯 stdlib 校验。把技能的「问题/纠正」(issue) 与「演进/版本变更」(evolution)
-  沉淀为机器可审计的真相源，经 git 同步、按 issue id 关联 Obsidian CQI 文档。
+  Jz-Plugin v4.0 的记忆-日志回路内核：集中式单写入口 + 按 type 分片的 append-only JSONL（issue/evolution/status_event 三 shard）+
+  共享 envelope schema + 纯 stdlib 校验。CC 自动归集管：CC handoff → mem_ingest → cqi_runtime → mem_merge → Obsidian CQI 持续审计。
+  把技能的「问题/纠正」(issue) 与「演进/版本变更」(evolution) 沉淀为机器可审计的真相源，经 git 同步、按 issue id 关联 Obsidian CQI 文档。
   Use when: 记录技能问题/用户纠正/审计发现、登记技能演进、校验记忆日志、append CQI event、
-  memory-hub write、validate logs、记忆回路、日志回路。
-  DO NOT use for: 通用长期记忆/向量检索（用 supermemory）、cron/Kanban 自动编排（Phase 2）、
-  直接改技能正文或评判技能质量。
+  memory-hub write、validate logs、记忆回路、日志回路、CC 事件归集、CQI 自动 ack、合并审计文档。
+  DO NOT use for: 通用长期记忆/向量检索（用 supermemory）、自主改写技能正文或评判技能质量。
 version: 0.2.1
 author: Hermes + Claude Code — Phase 1.5 收尾（mem_merge + 自动触发 + cron 兜底）
 license: MIT
 ---
 
-# memory-hub（Phase 1：记忆-日志回路基础）
+# memory-hub（Phase 1.5：CC × CQI 自动化接入）
 
-Cursor 插件生态只是参考样板；**这个回路才是 Jz-Plugin 的主体**。Phase 1 只做最小可验证的本地回路，不碰 marketplace/UI/Kanban/cron。
+Cursor 插件生态只是参考样板；**这个回路才是 Jz-Plugin 的主体**。Phase 1 落地了单写入口 + append-only 三 shard + git 回路。Phase 1.5 接入了 CC 自动归集管道 + CQI runtime + mem_merge 自动审计 + cron 兜底。不碰 marketplace/UI/Kanban 关键路径。
 
 ## 铁律（违反即破坏真相源）
 
@@ -47,69 +46,46 @@ python3 scripts/validate_logs.py
 
 ## Phase 1.5：CC × CQI 自动化接入
 
-闭环：**CC 吐事件 → Hermes 归集 → CQI 自动确认 → 状态可查**。三个新脚本，零新依赖，全 fail-open。查询用 `mem_read.py`：
+闭环：**CC 吐事件 → Hermes 归集 → CQI 自动确认 → 状态可查**。三个新脚本，零新依赖，全 fail-open。
 
 ```bash
-# 按 status_event 的 ts 最新归约出每条 issue 的 current_status（无事件=new）
+# ① 归集：Hermes 检测 CC session 结束时调，读 handoff → 校验 → 批量写 → 删 handoff → 最终闸门
+python3 scripts/mem_ingest.py            # 默认 glob /tmp/cc-cqi-events-*.jsonl
+
+# ② 查询：按 status_event 的 ts 最新归约出每条 issue 的 current_status（无事件=new）
 python3 scripts/mem_read.py --type issue --status new --skill <skill> --since 2026-06-01
+
+# ③ CQI runtime 薄层：拉 new issue，自动追加 status_event（new→acknowledged, by=cqi-auto）
+python3 scripts/cqi_runtime.py           # 不碰 resolved/wontfix/duplicate（裁判面边界）
+python3 scripts/cqi_runtime.py --quiet   # cron/no_agent 模式：无事零 stdout 静默
+
+# ④ 合并：把新 issue 按 waterline 增量合并进 Obsidian CQI 审计文档（只追加、去重、幂等）
+python3 scripts/mem_merge.py             # 无 waterline=全量但仅近 30 天；文档不存在则建带 frontmatter 新档
+python3 scripts/mem_merge.py --quiet     # cron/no_agent 模式：无事零 stdout 静默
 ```
 
-## 接入协议 · Integration Protocol
+- **自动触发链**：CC session 结束后 Hermes 异步依次跑 `mem_ingest → cqi_runtime → mem_merge`，全 fail-open。
+  另设每 30 分钟 cron 兜底 `cqi_runtime --quiet && mem_merge --quiet`（捕获漏触发，两脚本幂等）。**必须加 `--quiet`**——cron `no_agent=true` 时非空 stdout = 消息投递，不加则无事也每 30 分钟推送一条噪音。
 
-任何技能接入 memory-hub，只需做一件事：CC 会话结束时写 handoff 文件。其余由 Hermes 侧链自动完成。
-
-### CC 侧：handoff 格式
-
-CC 每轮结束，把本轮发现的 issue / evolution 追加到 `/tmp/cc-cqi-events-<session>.jsonl`（`<session>` = CC session 名）。一行一条 JSON。
-
-字段（对齐 schema）：
-- `type`：`issue` | `evolution`
-- `skill`：受影响技能名
-- `source`：恒为 `"cc"`
-- `evidence`：原话逐字，勿摘要
-- `ts`：ISO-8601 带时区
-- `id`：可省（归集时自动生成 `ISSUE-/EVO-<skill>-NNN`）
-- `session_id`：建议带上
-- `payload`：issue → `implicated_rule`；evolution → `change_type`（必填），可选 `validation_score`/`changelog_ref`
-
-事件类型：
-- `issue` — 技能规则缺陷 / 指令未遵循 / 反复踩坑
-- `evolution` — 本轮改进了技能正文/脚本/版本
-
-约束：CC 只吐原始事件，**不写 status**（状态机由 cqi_runtime.py 维护：`new→acknowledged` 自动，`resolved/wontfix/duplicate` 必须裁判面）。
-
-示例：
-```json
-{"type":"issue","skill":"skill-authoring","source":"cc","evidence":"Step 9 deployment audit 被跳过，deploy 前未跑 fresh agent 验证","ts":"2026-06-04T20:00:00+08:00","session_id":"hermes-cc-regent-205850","payload":{"implicated_rule":"deployment-grounded-audit"}}
-```
-
-### Hermes 侧：三步自动链
-
-Hermes 检测到 CC session 结束（❯ 提示符且无 ● 持续 >2min）时自动触发：
-
-```bash
-cd ~/.hermes/skills/governance/memory-hub
-python3 scripts/mem_ingest.py      # 归集 handoff → 校验 → 批量写 shard → 删 handoff
-python3 scripts/cqi_runtime.py     # new→acknowledged（幂等）
-python3 scripts/mem_merge.py       # 合并进 Obsidian CQI 审计文档（waterline 去重）
-```
-
-全 fail-open（单行坏只丢该行计 degraded；任一环节写失败不阻断 Hermes 主任务）。cron 每 30 分钟兜底 `cqi_runtime --quiet && mem_merge --quiet`（无事零 stdout）。
-
-### 接入清单
-
-把某技能接入 memory-hub 时逐项过：
-- [ ] 在该技能 SKILL.md 加一节「CC 会话结束时写 handoff」，内容引用本协议
-- [ ] 确保 CC 理解 handoff 格式（字段、事件类型、不写 status）
-- [ ] Hermes 侧：确认三步链已部署（`~/.hermes/skills/governance/memory-hub/scripts/` 下三脚本存在）
-- [ ] 跑一次 dry-run 验证 handoff → ingest → ack → merge 全链
-- [ ] 在该技能 CHANGELOG 记「接入 memory-hub CQI 回路」
+- **CC 接入协议**：见 `autonomous-ai-agents/claude-code` skill「§CQI 事件吐出」——CC 每轮结束把 issue/evolution
+  以 JSONL 写到 `/tmp/cc-cqi-events-<session>.jsonl`（只吐原始事件，不写 status）。
+- **状态机边界**：`new→acknowledged` 由 `cqi_runtime.py` 自动；`resolved/wontfix/duplicate` 必须裁判面，禁止自动。
+- **fail-open**：ingest 单行坏不阻断其余行（计 degraded）；任一环节写失败不阻断 Hermes 主任务。
 
 ## Schema 速览
 
 硬校验（缺失/非法即拒写）：`id` · `type`(issue|evolution|status_event) · `skill` · `source`(user|cc|agent|hook|runtime|audit) · `evidence`(存原话) · `ts`(ISO-8601 带时区)。`status_event` 额外硬校验 `payload.issue_id` + `payload.status`(new|acknowledged|in_progress|resolved|wontfix|duplicate)。
 软校验（告警）：`requester` · `source_hash`(sha256:…) · `trigger` · `skill_version` · `payload`。
 完整规范见 `schemas/event.schema.json`。
+
+## ⚠️ 常见坑
+
+- **`mem_write --type status_event` 必须同时带 `--source`**（如 `--source audit`），否则校验以 `invalid source None` 拒写。仅 `--by human` 不够——`by` 只是 payload 字段，不替代信封的 `source`。
+- **`mem_write --issue-id` 指向的 issue 必须已存在**，否则 status-log 中出现孤立状态事件。手动裁决前先 `mem_read` 确认 issue_id 正确。
+- **手改 jsonl = 绕过校验**。即使只是改一个字符，也可能引入不可解析的 ts 或非法 type，导致 `mem_read` 的 reduce 崩溃（已知 bug：ts 不可解析 + 合法 ts 混排会炸 TypeError，待修）。
+- **cron `no_agent=true` + 脚本有 stdout = 噪音轰炸**：`no_agent=true` 模式下，非空 stdout 会作为消息投递给用户。`cqi_runtime.py` 和 `mem_merge.py` 在无事发生时默认打印 `✓ no new issues`、`→ waterline at` 等，导致每 tick 一条噪音。**解决方案：cron shell 脚本中加 `--quiet`，无事时零 stdout → 静默**。手工跑不加 `--quiet`（保留可读输出），只有 cron 模板加。
+- **`sync-all.sh` 部署后必须 `diff` 验证**：修改脚本后跑 `./deploy/sync-all.sh hermes`，部署端文件可能因 `rm -rf` + `cp -r` 时序问题未实际更新（2026-06-04 真实案例：源码加了 `--quiet` flag 并 commit，`sync-all.sh` 显示 `✅ Hermes (3 profiles)`，但部署端 `cqi_runtime.py` 和 `mem_merge.py` 仍是旧版无 `--quiet`，cron 继续每 30 分钟推送噪音）。**部署后必须验证：** `diff ~/code/jz-skills/hermes/memory-hub/scripts/cqi_runtime.py ~/.hermes/skills/governance/memory-hub/scripts/cqi_runtime.py` 等关键文件两端一致。不一致时手动 `cp` 补齐。
+- **Cron shell 脚本路径：profile 目录优先** 🆕：`cronjob()` 的 `script` 字段解析相对路径时走 `~/.hermes/profiles/<profile>/scripts/`，**不是** `~/.hermes/scripts/`。cron 兜底脚本必须落在 profile 目录下（如 `~/.hermes/profiles/regent/scripts/memory-hub-cqi-sweep.sh`），否则 cron scheduler 找不到脚本。多 profile 环境每个 profile 独立维护。2026-06-04 真实案例：脚本更新到 `~/.hermes/scripts/` 但 cron 实际执行 `~/.hermes/profiles/regent/scripts/` 下的旧版——cron 持续推送噪音直至发现并修复。
 
 ## Git 同步回路
 
@@ -118,9 +94,10 @@ python3 scripts/mem_merge.py       # 合并进 Obsidian CQI 审计文档（water
 ## 深入
 
 - **完整 Phase 1 方案 / 架构 / 研究采纳-暂缓 / 验收标准** → [references/phase-1-scheme.md](references/phase-1-scheme.md)
+- **CQI 审计工作流（全管道 + Obsidian 文档映射 + 裁决命令）** → [references/cqi-audit-workflow.md](references/cqi-audit-workflow.md)
 - **CQI 方法学根基** → `governance/skill-authoring`（`log-driven-cqi-mvp`、`structured-cqi-log-memory`）
 - **路线图全景** → Obsidian `02-Plan&CQI/Jz-Plugin-v4.0-Cursor插件生态研究计划.md`（第 3 节 Phase 1）
 
-## 边界（Phase 1 明确不做）
+## 边界（Phase 1.5 明确不做）
 
-cron / Kanban / A2A / 持续巡检 / 自主改写技能；SQLite / 向量 / 知识图谱 / MCP 记忆服务——数据积累后于 P5 评估。
+Kanban 关键路径 / A2A / 自主改写技能 / 自动 resolved/wontfix/duplicate；SQLite / 向量 / 知识图谱 / MCP 记忆服务——数据积累后于 P5 评估。

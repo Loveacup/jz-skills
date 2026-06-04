@@ -1,13 +1,13 @@
 ---
 name: skill-authoring
 description: "Creates, audits, and improves Agent Skills with a compliance-first approach. 11-step flow: capture → grill → progressive disclosure → anti-rationalization → rule positioning → checklist → 7-dim compliance scoring → test cases → deployment-grounded audit → failure classification (DISCOVERY/OPTIMIZATION/SKILL DEFECT/EXECUTION LAPSE) → targeted revision → deploy. v3.0 absorbs SkillEvolver + EmbodiSkill (2026-05) for deployment-driven skill evolution. Use when creating, auditing, restructuring, or adding compliance elements to skills. Triggers on: 制作skill, 写skill, 优化skill, 审查skill, skill太长了, agent不遵循skill, create/improve/audit skill. DO NOT use for general documentation or one-off tasks."
-version: 3.1.0
-author: Hermes Agent (v3.0 absorbs SkillEvolver + EmbodiSkill insights; v3.1 wires memory-hub CQI loop)
+version: 3.0.0
+author: Hermes Agent (v3.0 absorbs SkillEvolver + EmbodiSkill insights)
 license: MIT
 metadata:
   hermes:
     tags: [skill-authoring, compliance, progressive-disclosure, anti-rationalization, governance]
-    related_skills: [grill-with-docs, web-research-router, github, hermes-agent-skill-authoring, memory-hub]
+    related_skills: [grill-with-docs, web-research-router, github, hermes-agent-skill-authoring]
 ---
 
 # Skill Authoring — Compliance-First Edition v3.0
@@ -26,7 +26,6 @@ metadata:
 | "The description is good enough" | Description determines trigger rate. Not pushy enough → undertrigger. Missing do-not → overtrigger. |
 | "I taught this rule to others, my own skill is fine" | **Reflexivity trap.** Meta-skills teaching compliance are most likely to miss their own rules. This very skill was caught missing its Deployment & Sync section during self-audit. Always run the Compliance Scorecard on your own skill before shipping. |
 | "I'll just review it myself, I wrote it" | **Self-review is NOT deployment-grounded.** SkillEvolver (2026) shows that learning signals from ANOTHER agent using the skill are 30% more reliable than self-reflection. Always deploy to a fresh agent before finalizing. |
-| "I'll log the CQI events later / 事件之后再记" | Memory decays. CC must write the handoff file at session end — the Hermes side auto-ingest chain depends on it. Missing handoff = lost issue/evolution data. |
 
 **If you caught yourself thinking any of these → stop and follow the process below.**
 
@@ -179,49 +178,6 @@ Put skill in the correct directory. Verify triggering. Follow Deployment & Sync 
 
 ---
 
-## § Memory-Hub 接入（CQI 日志回路）🔴 必接
-
-> skill-authoring **自身**通过本技能创作/审计/演进的每个技能，CC 会话结束时必须将本轮发现的 issue/evolution 以 JSONL 写入 handoff 文件，由 memory-hub 自动归集→确认→合并审计文档。
-
-### CC 侧：会话结束时写 handoff
-
-CC 每轮任务结束时，把本轮发现的 **issue / evolution** 追加到 `/tmp/cc-cqi-events-<session>.jsonl`（`<session>` = 当前 CC session 名）。一行一条 JSON。
-
-字段（对齐 memory-hub schema 硬 6 字段 + payload）：
-- `type`：`issue` | `evolution`
-- `skill`：受影响技能名
-- `source`：恒为 `"cc"`
-- `evidence`：原话/trace 逐字，勿摘要
-- `ts`：ISO-8601 带时区（如 `2026-06-04T20:00:00+08:00`）
-- `id`：可省（归集时自动生成 `ISSUE-/EVO-<skill>-NNN`）
-- `payload`：issue 填 `implicated_rule`；evolution 填 `change_type`，可带 `validation_score`/`changelog_ref`
-- `session_id`：建议带上，便于追溯
-
-CC 自判事件类型：
-- `issue` — 发现某技能的规则缺陷 / 指令未遵循 / 反复踩同一坑
-- `evolution` — 本轮实际改进了某技能正文/脚本/版本
-
-状态语义：CC 只吐原始事件，**不写 status**；状态机（new→acknowledged…）由 memory-hub 侧维护。
-
-### Hermes 侧：三步自动链
-
-Hermes 检测到 CC session 结束（`❯` 提示符且无 `●` 持续 >2min）时，在 `memory-hub/` 下依次调用：
-
-```bash
-cd ~/.hermes/skills/governance/memory-hub
-python3 scripts/mem_ingest.py      # 归集 handoff → 校验 → 批量写入 shard → 删 handoff
-python3 scripts/cqi_runtime.py     # 拉 new issue → 自动追加 status_event（new→acknowledged）
-python3 scripts/mem_merge.py       # 合并新 issue 进 Obsidian CQI 审计文档（waterline 去重）
-```
-
-全 fail-open：任一步失败不阻断 Hermes 主任务。cron 每 30 分钟兜底 `cqi_runtime --quiet && mem_merge --quiet`。
-
-### 对其他技能：可选接入
-
-skill-authoring 创建的**其他技能**如需接入，参见 `references/memory-hub-integration.md`。接入前**必须先问用户**——不得未经许可就给别的技能装管道。
-
----
-
 ## Repo Import Workflow (Existing Skill → jz-skills)
 
 When the user says "把这个 skill 推到 GitHub" or "审查后入库" for an existing skill that's NOT yet in jz-skills:
@@ -278,6 +234,7 @@ Case studies: `references/slimming-case-studies.md` — strategic-insight-longfo
 | **sync-back.sh PAIR herm_path wrong when skill name = category name** | When the skill name matches the category directory name (e.g., `github` skill lives in `~/.hermes/skills/github/`), the PAIR should be `"shared/github|github"` — NOT `"shared/github|github/github"`. The herm_path is the local path relative to `~/.hermes/skills/`, so a skill that IS the github directory maps to just `github`. Contrast with a subcategory skill like `grill-with-docs` which maps to `governance/grill-with-docs`. Symptom: sync-back.sh dry-run says `source not found — skipped`. |
 | **Multi-profile skill name ambiguity — `skill_view()` fails with 'Ambiguous skill name'** | When a profile's local `skills/` contains a symlink or real copy of a skill that also exists in `external_dirs`, `skill_view(name)` finds TWO copies and refuses to guess. **Workarounds** (temporary): (a) `read_file` with absolute path instead of `skill_view`; (b) for `skill_manage` passes, use `cross_profile=True`; (c) for bulk writes use `terminal` to bypass the guard. **Permanent fix**: (1) identify the DUPLICATE SOURCE — common culprits are plugin-created symlinks (e.g. 3s6m `skill_sync.py`), stale `sync_skills` artifacts, or manual copies; (2) check if the source now has skip logic (newer `skill_sync.py` reads `external_dirs` and skips duplicates — old symlinks were created before skip was added); (3) delete ONLY the profile-local entry using `find -maxdepth 1 -type l -name <name> -delete` for symlinks or `rm -rf` for real dirs (⚠️ `rm -rf */` follows symlinks and destroys source files — use maxdepth guard); (4) verify the symlink won't be recreated on next session start by testing the creation source's skip logic in dry-run mode; (5) re-run `skill_view(name)` to confirm clean. |
 | **Watchdog shadow fix: DELETE, don't symlink — then update baseline** | The `skill-integrity-watchdog` cron job flags BOTH real-dir copies (CRITICAL a) AND symlinks (CRITICAL d) when a profile-local entry shadows a pool skill. Converting a real-dir to a symlink just moves the alert from (a) to (d) — the fix is to DELETE the local entry entirely (pool `external_dirs` already provides it) and then run `python3 scripts/skill-integrity-watchdog.py --update-baseline` to reset. Symlinks into the pool are ALSO considered shadowing because they create ambiguous-skill-name conflicts (skill_sync is supposed to skip pool-covered skills, but pre-existing symlinks evade the guard). Case: 2026-06-03 — de-slop, news-assembly, source-verification, tts-manager, morning-news-briefing. |
+| **Watchdog shadows recur after deletion — patch the runtime syncer, not just repo** | If profile-local shadows reappear after cleanup, check which `tools/skills_sync.py` is imported at runtime. Hermes may use `venv/lib/python*/site-packages/tools/skills_sync.py`, which can lag behind the repo copy and lack `.no-bundled-skills` opt-out support. Root fix: update/reinstall the runtime syncer, create opt-out markers for profiles whose skills come from `external_dirs`, delete local shadows, verify `sync_skills()` skips, then run local watchdog + cron. If watchdog warns a pool skill disappeared, search profile/lane copies and restore the most complete copy before changing the baseline. See `references/skill-integrity-watchdog-recovery.md`. |
 | **Consolidated/deleted old skills without global grep for stale references** | After deleting absorbed skills, other skills' `related_skills`, `description`, decision trees, and reference files may still point to the OLD skill names. Run `grep -rn "<old-name>" ~/.hermes/skills/ --include="*.md" | grep -v "replaces:"` to find every remaining reference. Fix ALL of them before declaring done. Case study: `github-code-explorer` → `github` consolidation left 7 stale references across web-research-router, grill-with-docs, and skill-authoring. |
 | **Patch fuzzy-match destroyed file content — old_string didn't match precisely** | When `patch` can't find an exact match, fuzzy matching can replace a MUCH larger block than intended (e.g., 188-line file → 54-line file because the tool matched a near-but-wrong section and rewrote everything from there). **Symptoms**: file suddenly much shorter, unrelated content gone. **Recovery**: (1) `cp` from known-good source (jz-skills git repo, or another profile copy); (2) verify `wc -l` matches expected; (3) re-read fresh file from disk; (4) re-patch using exact strings copy-pasted from the fresh read. **Prevention**: after ANY `patch` to a reference file, `wc -l` and spot-check the first line to confirm the file wasn't replaced wholesale. Case study: mac-doctor cron-module.md corrupted during cross-profile patch (2026-05-31). |
 | **Premature conclusion without reconciling contradictory evidence** | You tested X and it failed. Someone else tested X and it worked. Declaring "X is dead, don't try" burns trust and wastes opportunity. The right response: flag the contradiction, propose investigation steps, and suspend conclusion until reconciled. Case study: Scrapling WeChat — own tests failed (0/5) but 张睿 succeeded; premature "放弃" before reconciling. |
@@ -335,11 +292,11 @@ Case studies: `references/slimming-case-studies.md` — strategic-insight-longfo
 | `references/log-driven-cqi-mvp.md` | Log-driven Phase 1 CQI route: GitHub sync, per-skill changelog, read/modify/event checks, CQI/log separation, and Phase 2 deferral of cron/Kanban/A2A |
 | `references/bundled-skill-drift-detection.md` | 🆕 Detecting locally-modified bundled skills: git show origin/main + sha256 comparison — catch version drift + stale residues |
 | `references/bulk-text-replacement.md` | 🆕 Mass find-and-replace across many skill files: Python dict-driven pattern, multi-round strategy, YAML frontmatter gotchas |
+| `references/skill-integrity-watchdog-recovery.md` | 🆕 Recovering skill-integrity-watchdog failures: recurrent profile-local shadows, stale runtime syncer, missing pool skill restoration, and cron verification |
 | `references/runtime-grounded-cqi-audit.md` | Runtime-grounded CQI audit pattern: compare source vs deployed skill copy, score the artifact agents actually load, and treat same-version hash divergence as a high-severity event |
 | `references/kanban-skill-cqi-phase2-pattern.md` | Kanban as Phase-2 execution layer for skill CQI: mode mapping, truth-source layering, runtime-grounded gates, MUSE-Autoskill lessons, and safe Phase-1.5 pilot |
 | `references/structured-cqi-log-memory.md` | Structured CQI log-memory pattern: append-only JSONL truth source + manifest/provenance/schema writer, with SQLite/qmd/Kanban as derived indexes only. Use when revising Skill CQI logs or Kanban-driven quality workflows. |
 | `references/muse-autoskill-insights.md` | 🆕 MUSE-Autoskill paper analysis (2026-06-04): per-skill memory, test gating, skill bank health — three actionable takeaways for Hermes skill system |
-| `references/memory-hub-integration.md` | 🆕 How to wire any skill into memory-hub: CC handoff format, Hermes chain, mandatory vs optional, ask-user-first protocol |
 
 ---
 
@@ -357,8 +314,6 @@ Case studies: `references/slimming-case-studies.md` — strategic-insight-longfo
 - [ ] Did I classify deployment failures using the 4-type system (Step 9a)?
 - [ ] Did I accumulate ≥3 reflections before consolidating and revising (Step 10)?
 - [ ] If multi-profile: are Deployment & Sync rules embedded?
-- [ ] Did CC write the CQI handoff file (`/tmp/cc-cqi-events-<session>.jsonl`) at session end?
-- [ ] Did Hermes run the three-step auto-ingest chain after CC ended?
 
 **Every box must honestly pass before deploying. If unchecked, fix it.**
 

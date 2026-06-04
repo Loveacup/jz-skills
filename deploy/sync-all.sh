@@ -31,7 +31,7 @@ sync_hermes() {
   copy_skill_dir "$REPO_ROOT/shared/pdf"                    "$base/productivity"
   copy_skill_dir "$REPO_ROOT/shared/strategic-insight-longform"  "$base/productivity"
   copy_skill_dir "$REPO_ROOT/shared/voice-to-markdown-workflow"  "$base/productivity"
-  copy_skill_dir "$REPO_ROOT/shared/github"                   "$base/github"
+  copy_skill_dir "$REPO_ROOT/shared/github"                   "$base"
   copy_skill_dir "$REPO_ROOT/shared/xhs-tech-writer"    "$base/hermes"
 
   # Hermes-specific skills
@@ -40,7 +40,6 @@ sync_hermes() {
   copy_skill_dir "$REPO_ROOT/hermes/source-verification"            "$base/research"
   copy_skill_dir "$REPO_ROOT/hermes/tradingagents"                   "$base/research"
 
-  copy_skill_dir "$REPO_ROOT/hermes/arxiv"                           "$base/research"
   copy_skill_dir "$REPO_ROOT/hermes/auto-diary"                      "$base"
   copy_skill_dir "$REPO_ROOT/hermes/bilibili-video-analyzer"         "$base"
   copy_skill_dir "$REPO_ROOT/hermes/xhs-crawler"                     "$base"
@@ -63,12 +62,11 @@ sync_hermes() {
     mkdir -p "$pd/research" "$pd/github" "$pd/governance" "$pd/productivity" "$pd/autonomous-ai-agents" "$pd/apple" "$pd/hermes"
     copy_skill_dir "$REPO_ROOT/shared/grill-with-docs"        "$pd/governance"
     copy_skill_dir "$REPO_ROOT/shared/skill-authoring"        "$pd/governance"
-    copy_skill_dir "$REPO_ROOT/shared/github"                "$pd/github"
+    copy_skill_dir "$REPO_ROOT/shared/github"                "$pd"
     copy_skill_dir "$REPO_ROOT/shared/xhs-tech-writer"        "$pd/hermes"
     copy_skill_dir "$REPO_ROOT/hermes/web-research-router"             "$pd/research"
     copy_skill_dir "$REPO_ROOT/hermes/source-verification"            "$pd/research"
     copy_skill_dir "$REPO_ROOT/hermes/tradingagents"                   "$pd/research"
-    copy_skill_dir "$REPO_ROOT/hermes/arxiv"                           "$pd/research"
     copy_skill_dir "$REPO_ROOT/hermes/calendar-manager"               "$pd"
     copy_skill_dir "$REPO_ROOT/hermes/cron-worker"                    "$pd"
     copy_skill_dir "$REPO_ROOT/hermes/de-slop"                        "$pd"
