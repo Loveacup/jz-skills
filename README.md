@@ -52,17 +52,17 @@ jz-skills/
 │   ├── methodology-writer/        # 经验→结构化方法论
 │   ├── obsidian/                  # Vault ops + CLI + Bases + Defuddle
 │   ├── obsidian-md-ac/            # OFM + Mermaid + Canvas 参考
-│   ├── supermemory-maintenance/   # Supermemory v6 参考
+│   ├── supermemory-maintenance/   # Supermemory v7 参考
 │   ├── de-slop/                   # 中英双语去 AI 味
 │   ├── xiaohongshu-cards/         # 文章→小红书图文卡片
 │   ├── xhs-tech-writer/           # 小红书 AI 科技短图文
 │   └── _archived-*/               # [已归档]
 ├── hermes/                        # ⚙️ Hermes 平台 (15)
-│   ├── web-research-router/       # v3.8 · 5 引擎深度研究
-│   ├── auto-diary/                # v3.5 · 日/周/月/年金字塔聚合
-│   ├── mac-doctor/                # v2.2 · macOS 六级巡检
-│   ├── cron-worker/               # v1.3 · 定时任务 + 四种心跳
-│   ├── claude-code/               # v4.1 · CC 编排+双向拷问+自治团队
+│   ├── web-research-router/       # v3.9 · 5 引擎深度研究
+│   ├── auto-diary/                # v3.5.1 · 日/周/月/年金字塔聚合
+│   ├── mac-doctor/                # v2.4.1 · macOS 六级巡检
+│   ├── cron-worker/               # v1.0 · 定时任务 + 四种心跳
+│   ├── claude-code/               # v4.1.1 · CC 编排+双向拷问+自治团队
 │   ├── memory-hub/                # v0.2.1 · CC×CQI 自动归集回路
 │   ├── tts-manager/               # TTS 聚合管理
 │   ├── tech-support-email/        # v1.1 · 技术支持邮件
@@ -128,9 +128,9 @@ Automated daily diary + weekly/monthly/yearly report generation from cron. Evolv
 
 ---
 
-### 🔍 web-research-router · 检索总控 v3.8
+### 🔍 web-research-router · 检索总控 v3.9
 
-> **14 commits** — 5 major versions (v3.1→v3.8), 22 reference files · 22 个引用文件
+> **14 commits** — 5 major versions (v3.1→v3.9), 22 reference files · 22 个引用文件
 
 Multi-engine search router with deep research loop. The most architecturally complex skill in the repo, evolved through five versions each adding a distinct capability layer.
 五引擎搜索路由 + 深度研究循环。仓库中架构最复杂的技能，五个版本各叠加一层能力。
@@ -145,9 +145,9 @@ Multi-engine search router with deep research loop. The most architecturally com
 
 ---
 
-### 🤖 claude-code · CC 编排 v4.1
+### 🤖 claude-code · CC 编排 v4.1.1
 
-> **12 commits** — 7 versions (v3.0→v4.1.0) · 29 reference files · Hermes↔CC 双向拷问 + 自治团队编排
+> **12 commits** — 7 versions (v3.0→v4.1.1) · 29 reference files · Hermes↔CC 双向拷问 + 自治团队编排
 
 Hermes-to-Claude Code orchestration bridge with bidirectional grilling protocol and autonomous agent team coordination. v4.1 adds constitutional red lines + Gate Stamp discipline — a correctness layer before execution.
 从 Hermes 编排 Claude Code，v4.1 新增红线宪法 + Gate Stamp 执行前签章。
@@ -178,7 +178,7 @@ Jz-Plugin v4.0 的内核——append-only 三 shard JSONL 真相源 + CC 自动�
 
 ---
 
-### 🩺 mac-doctor · macOS 巡检 v2.2
+### 🩺 mac-doctor · macOS 巡检 v2.4.1
 
 > **10 commits** — 19 files, 2,135 lines · 仓库中最全面的系统运维技能
 
@@ -194,7 +194,7 @@ Six-tier macOS system health monitoring with root-cause diagnosis and dual cron 
 
 ---
 
-### 🕐 cron-worker · 定时任务 Agent v1.3
+### 🕐 cron-worker · 定时任务 Agent v1.0
 
 > **6 commits** — architectural foundation for all scheduled agent workloads · 定时任务基础设施
 
@@ -210,7 +210,7 @@ Dedicated cron-worker profile with four heartbeat patterns and cross-profile ski
 
 ---
 
-### 🧠 supermemory-maintenance · 记忆参考 v6
+### 🧠 supermemory-maintenance · 记忆参考 v7
 
 > **6 commits** — cross-platform memory infrastructure reference · 跨平台记忆基础设施参考
 
@@ -241,7 +241,7 @@ General reference for Supermemory — long-term memory infrastructure shared acr
 | 📐 [`methodology-writer`](shared/methodology-writer/) | Experience→structured methodology / 经验框架化 |
 | 📓 [`obsidian`](shared/obsidian/) | Vault ops, CLI, plugin dev, Bases, Defuddle / Obsidian 全操作 |
 | 🧷 [`obsidian-md-ac`](shared/obsidian-md-ac/) | OFM + Mermaid + JSON Canvas / OFM 参考 |
-| 🧠 [`supermemory-maintenance`](shared/supermemory-maintenance/) | Supermemory v6 — [§active](#-supermemory-maintenance--记忆参考-v6) |
+| 🧠 [`supermemory-maintenance`](shared/supermemory-maintenance/) | Supermemory v7 — [§active](#-supermemory-maintenance--记忆参考-v7) |
 | ✂️ [`de-slop`](shared/de-slop/) | Bilingual AI writing detection / 中英去 AI 味 |
 | 🎴 [`xiaohongshu-cards`](shared/xiaohongshu-cards/) | Article→RED card images / 小红书图文卡片 |
 | ✍️ [`xhs-tech-writer`](shared/xhs-tech-writer/) | RED AI/tech short-form content / 小红书科技短图文 |
@@ -250,7 +250,7 @@ General reference for Supermemory — long-term memory infrastructure shared acr
 
 | Skill | Purpose · 用途 |
 |:---|:---|
-| 🔍 [`web-research-router`](hermes/web-research-router/) | 5-engine search + deep loop — [§active](#-web-research-router--检索总控-v38) |
+| 🔍 [`web-research-router`](hermes/web-research-router/) | 5-engine search + deep loop — [§active](#-web-research-router--检索总控-v39) |
 | 📔 [`auto-diary`](hermes/auto-diary/) | Daily→yearly diary — [§active](#-auto-diary--自动化日记-v35) |
 | 🩺 [`mac-doctor`](hermes/mac-doctor/) | macOS 6-tier health — [§active](#-mac-doctor--macos-巡检-v22) |
 | 🕐 [`cron-worker`](hermes/cron-worker/) | Cron profile + pool watchdog — [§active](#-cron-worker--定时任务-agent-v13) |
