@@ -9,6 +9,7 @@ Usage:
 
 Default dir: ~/Documents/Obsidian/AlexCai/50-Self/01_日记/
 
+v2.1 (2026-06-04) — v3.5.2: 三问答案深度校验（禁止空洞占位符）。
 v2.0 (2026-06-01) — 从"标题存在性扫描"升级为"结构深度校验"。
 2026-06 全月重写事故暴露:旧版只查 section 标题在不在,而真正的翻车点
 (三问缩写、CC 未按三组拆、治理段缺 info callout、底部段落拍扁、折叠 callout)
@@ -132,6 +133,23 @@ def check_structural(content):
                             (pos[1], pos[2], "待办↔临时笔记")]:
             if not re.search(r"^---\s*$", content[a:b], re.MULTILINE):
                 issues.append(f"底部段落拍扁({label} 间缺 --- 分隔)")
+
+    # 6) 🔴 v3.5.2: 三问答案不可空洞。检查每条三问后面是否有实质性内容(≥20 字且不含占位符)。
+    #    (翻车点:退化日记 Q2/Q3 写 "(无)" 或 "(待补充)" 仍 PASS)
+    q_patterns = [
+        (r'1\.\s*\*\*今天我做了什么推动进展的事情？\*\*\s*\n\s*(.+?)(?=\n\s*\d\.|\n\n|---|\Z)', "Q1"),
+        (r'2\.\s*\*\*明天我可以构建什么未来的事情？\*\*\s*\n\s*(.+?)(?=\n\s*\d\.|\n\n|---|\Z)', "Q2"),
+        (r'3\.\s*\*\*我可以从过去淘汰什么流程？\*\*\s*\n\s*(.+?)(?=\n\s*\d\.|\n\n|---|\Z)', "Q3"),
+    ]
+    placeholders = {'(无)', '(待补充)', '(待定)', '无', 'N/A', '...', '—'}
+    for pat, label in q_patterns:
+        m = re.search(pat, content, re.DOTALL)
+        if m:
+            answer = m.group(1).strip()
+            # Strip markdown formatting
+            answer_clean = re.sub(r'[*_~`#>|\[\]]', '', answer).strip()
+            if len(answer_clean) < 20 or answer_clean in placeholders:
+                issues.append(f"三问{label}空洞(答案≤20字或仅占位符: '{answer_clean[:30]}')")
 
     return issues
 

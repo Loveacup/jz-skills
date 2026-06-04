@@ -18,7 +18,11 @@ def _get_state_dbs() -> list[tuple[str, Path]]:
 
     Main DB = "default". Profile DBs are named after the profile directory.
     """
-    hermes_home = os.environ.get("HERMES_HOME", str(Path.home() / ".hermes"))
+    # 🔴 v3.5.2: 硬编码 Path.home()/.hermes，不依赖 HERMES_HOME。
+    # Cron 跑在 cron-worker profile 下时 HERMES_HOME 被设为 profile 私有路径，
+    # 导致 _get_state_dbs() 只扫 cron-worker 的 state.db，漏掉 regent 和 default。
+    # Path.home() 读 OS 级 HOME，不受 HERMES_HOME 环境影响。
+    hermes_home = str(Path.home() / ".hermes")
     hermes_home = Path(hermes_home)
     dbs: list[tuple[str, Path]] = []
 
