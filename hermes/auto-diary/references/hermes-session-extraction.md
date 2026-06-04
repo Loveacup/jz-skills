@@ -65,7 +65,7 @@ WHERE session_id = ? ORDER BY timestamp ASC
 ### Profile aggregation
 
 - `default` profile sessions → "Hermes / default" section
-- All non-default profiles → collapsed into "太子 / 三省六部工作概览"
+- All non-default profiles → collapsed into "regent / 多 profile 工作概览"
 - `_interesting_topics()` applies a second skip-prefix filter for kanban noise
 
 ## Why v1.0 (JSON) broke

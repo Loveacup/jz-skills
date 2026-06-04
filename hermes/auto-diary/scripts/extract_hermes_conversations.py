@@ -214,7 +214,7 @@ def build_profile_overview(summaries: list) -> dict:
         "total_messages": sum(s.get("message_count", 0) for s in summaries),
         "total_user_turns": sum(s.get("user_turns", 0) for s in summaries),
         "assistant": pack(assistant_sessions, "🐴 助理体系（小黄 + cron-worker）"),
-        "governance": pack(governance_sessions, "🏛️ 治理体系（太子 + 三省六部）"),
+        "governance": pack(governance_sessions, "🏛️ 治理体系（regent + 多 profile）"),
     }
 
 
@@ -238,7 +238,7 @@ def format_for_diary(summaries: list) -> str:
 
     governance = overview.get("governance")
     if governance:
-        lines.append("\n#### 🏛️ 治理体系（太子 + 三省六部）")
+        lines.append("\n#### 🏛️ 治理体系（regent + 多 profile）")
         lines.append(f"- 覆盖 profiles: {', '.join(governance['profiles'])}")
         lines.append(f"- 会话数: {governance['session_count']}")
         lines.append(f"- 消息数: {governance['message_count']}")
@@ -246,7 +246,7 @@ def format_for_diary(summaries: list) -> str:
         if governance["topics"]:
             lines.append("- 重点: " + "；".join(governance["topics"][:8]))
         else:
-            lines.append("- 重点: 太子治理、派工、审校、归档与三省六部 kanban 子任务执行。")
+            lines.append("- 重点: regent 治理、派工、审校、归档与 kanban 子任务执行。")
 
     return "\n".join(lines)
 

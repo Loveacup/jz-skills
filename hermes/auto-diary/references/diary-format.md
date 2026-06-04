@@ -95,7 +95,7 @@ tags: [type/日记, status/闪念, src/对话]
 #### 🏛️ 治理体系
 
 ```markdown
-### 🏛️ 治理体系（太子 + 三省六部）
+### 🏛️ 治理体系（regent + 多 profile）
 
 > [!info] 📊 数据概览
 > - 会话: {N} · 消息: {N} · 轮次: {N}
@@ -154,7 +154,7 @@ tags: [type/日记, status/闪念, src/对话]
 1. 遍历 `vault_changes` 每条记录（path + title）
 2. 与 `ai_logs.hermes.*.topics` 和 `ai_logs.claude.*.projects` 做**关键字交叉匹配**
 3. 路径含 `hermes-a2a` → 关联 CC hermes-a2a 项目
-4. 标题含「三省六部」「治理」「太子」→ 关联 🏛️ 治理体系
+4. 标题含「多 profile 治理 / regent」→ 关联 🏛️ 治理体系
 5. 标题含「CC」「Claude Code」「skill」→ 关联 💻 CC 相关
 6. 无法匹配 → 归入最相关的体系，标注 `(推断)`
 7. 按「来源体系 + 目录」双层分组，每组内按文件名排序

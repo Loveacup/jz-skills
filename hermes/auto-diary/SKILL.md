@@ -10,21 +10,20 @@ description: |
   生成日记 / 生成周报 / 生成月报 / 生成年报 / diary / weekly / monthly / 补日程 / 整理日记.
 
   DO NOT use for: general note-taking, non-diary content generation, one-off research.
-version: 3.5.0
-author: Hermes Agent — v3.5 周/月/年报 cron + 聚合金字塔 + verify_report.py
+version: 3.5.1
+author: Hermes Agent — v3.5.1 cron skills 空数组静默故障诊断 + scheduler 表修正
 ---
 
 # Auto-Diary v3.5
 
 自动化日记生成 + 四层聚合（日/周/月/年）。Cron 定时触发或手动调用。
 
-> ⚠️ **真实调度状态**（2026-06-01 核实，勿凭文档假设）：4 个 auto-diary cron 在跑。
-> 🔴 **两套 scheduler**：日记在**根** scheduler；周/月/年报在 **cron-worker profile** scheduler。
-> 查根用 `hermes cron list`；查周月年报**必须** `hermes cron list --profile cron-worker`（否则看不到）。
+> ⚠️ **真实调度状态**（2026-06-04 核实，勿凭文档假设）：4 个 auto-diary cron 在跑。
+> 🔴 **全部在 cron-worker profile scheduler**：日记 cron `1ca6e7d692fa`（`profile: cron-worker`）虽然在根 `cronjob list` 可见，但实际以 cron-worker 身份运行；周/月/年报在 cron-worker profile scheduler（查 `hermes cron list --profile cron-worker`）。
 >
 > | job_id | 任务 | schedule | scheduler | 聚合源 |
 > |--------|------|----------|-----------|--------|
-> | `1ca6e7d692fa` | 每日日记草稿 | `0 23 * * *` | 根 | 采集脚本 |
+> | `1ca6e7d692fa` | 每日日记草稿 | `0 23 * * *` | cron-worker (根可见) | 采集脚本 |
 > | `4f5b5607912d` | 每周周报 | `0 9 * * 1`（周一 09:00） | cron-worker | 上周 7 篇日记 |
 > | `59a992daaa55` | 每月月报 | `30 9 1 * *`（1 号 09:30） | cron-worker | 当月日记 |
 > | `b6659cd1c94c` | 每年年报 | `0 10 1 1 *`（1/1 10:00） | cron-worker | 去年 12 篇月报 |
@@ -48,6 +47,7 @@ author: Hermes Agent — v3.5 周/月/年报 cron + 聚合金字塔 + verify_rep
 | "Knowledge base changes are independent" | 🔴 **KB ↔ AI linking** (v3.1): Every vault change was produced by an AI session. Cross-reference `vault_changes` paths/titles with session topics. Group by source system (🐴/🏛️/💻). Unreliable matches → mark `(推断)`. |
 | "I'll batch-generate all 31 diaries with a Python loop, it'll be fast" | 🔴 **批量生成 = 垃圾** (v3.2): 用户明确拒绝模板填充式批量生成。正确做法：逐条处理，用 cron 输出摘要的叙事做底子，三问必须有洞察力。详见 `references/batch-generation-pitfall.md`。 |
 | "I've written diaries before, I know the format — no need to load diary-format.md" | 🔴 **NEVER write from memory** (v3.3): 凭记忆写日记导致 2026-06-02 全月重写——用户发现缺失 info callout、段落合并、三问缩写、CC 未按三组拆分、底部分段拍扁、tip 格式错误。教训：写或重写任何日记之前，**必须** `skill_view(name='auto-diary', file_path='references/diary-format.md')` 加载格式 spec，逐段对照写。记忆不可信。 |
+| "The cron job status says 'ok' and diaries are being produced, so it must be working" | 🔴 **Status 'ok' ≠ skill loaded** (v3.5): cron 即使 `skills: []` 空数组也会以 status 'ok' 运行——用自己的裸 prompt 产出退化日记。日记文件存在≠质量合格。症状：CC=0、知识库变更=0、三问空洞、裸模板。**必须用 `cronjob list` 或 `hermes cron list` 确认 `Skills:` 字段非空**。2026-06-02~04 三日日记崩塌根因即此。 |
 
 ## 🔀 Decision Tree
 
@@ -149,7 +149,9 @@ Key improvements history: see `CHANGELOG.md` (skill 根目录)。
 | Quoting user's raw messages in diary | Diary becomes chat log, not personal record |
 | Overwriting existing user content | User's personal notes lost |
 | Trusting icalBuddy silent empty output | Calendar events silently missing for weeks (see config drift below) |
-| Not checking `existing_content` before writing | Duplicate or conflicting diary entries |
+| **Not checking `existing_content` before writing** | Duplicate or conflicting diary entries |
+| **Using `~` paths in shell commands from cron-worker profile** | `~` resolves to the cron-worker chroot (`~/.hermes/profiles/cron-worker/home/`), NOT `~/`. Scripts `obsidian_sync.py`, `collect_data.py`, `verify_diary_compliance.py`, and file reads (`~/Documents/Obsidian/...`) all fail silently. Fix: always use the full absolute path `~/...` in shell commands and `read_file`/`write_file` tool calls. |
+| **verify_diary_compliance.py section header spacing** | The regex `r"^## 🤖 AI助手工作记录"` requires exactly `## 🤖 AI助手工作记录` — no space between `AI` and `助手`. Writing `## 🤖 AI 助手工作记录` (with space) or `## 🤖 AI工作记录` (without 助手) both fail validation. Always match the exact header string from `diary-format.md`. |
 | Using relative dates without `-nrd` flag | Adjacent-day events bleed into wrong date |
 | **Using `Path("~/...")` without `.expanduser()` or `Path.home()`** | `Path("~/Documents/...")` does NOT expand `~` — `find` / `open()` silently fail (0 vault changes). Fix: `Path.home() / "Documents/..."`. Same applies to `str(Path("~/..."))` passed to shell commands. |
 | **Reading session JSON files instead of SQLite DB** | JSON session files deprecated May 2026; sessions now in `state.db` SQLite (2026-05-27 fix: `extract_hermes_conversations.py` v2.0 queries `state.db`)
@@ -160,6 +162,7 @@ Key improvements history: see `CHANGELOG.md` (skill 根目录)。
 | **Shortening diaries to "speed up"** | 为了赶进度压缩日记到 900 字符 → 质量崩塌。用户要的是质量不是速度。"不行啊，我们是改了整个逻辑的，llm严格按照一天一天来，所有数据重新读"。宁可慢、要对。 |
 | **Keeping zero-data days as separate files** | 全零日（无 Hermes/CC/vault/cal）不创建独立日记。连续多日→合并为一篇时期笔记。低密度日（仅 CC /usage）同理。 |
 | **Dumping raw topics into 三问** | 把 `ai_logs.*.topics` 直接贴进"今天我做了什么推动进展的事情"→ "work kanban task t_cf1c6c9b" 这样的内容毫无意义。必须 LLM 加工成可读叙事。 |
+| **🔴 Cron skills 数组为空** | **最危险的静默故障** (v3.5 发现)：cron job 的 `skills: []` 为空时，cron 仍以 status 'ok' 正常运行——但 agent 收不到 auto-diary skill 的任何指令。后果：没有 `collect_data.py` 数据采集、没有 `diary-format.md` 格式约束、没有 `verify_diary_compliance.py` 校验。日记逐日退化（CC=0、知识库=0、裸模板），直到用户发现。**诊断**：`cronjob list` 看 Skills 列；`hermes --profile cron-worker cron list` 查周月年报。**修复**：`cronjob update <job_id> --skills '["auto-diary"]'`（根 scheduler）；`hermes --profile cron-worker cron edit <job_id> --skill auto-diary`（cron-worker profile）。所有四个 cron（日/周/月/年）都必须挂 skill。 |
 
 ## ⚠️ Config Drift (Silent Failure)
 
@@ -190,6 +193,7 @@ icalBuddy `-ic "cal1,cal2"` on mismatched names returns empty **without error**.
 | CC logs empty | Check `find ~/.claude/projects/ -name "*.jsonl" -newermt "YYYY-MM-DD"`; verify JSONL files exist for target date |
 | Weather fails | `curl -s "https://api.open-meteo.com/v1/forecast?latitude=30.27&longitude=120.16&current_weather=true"` |
 | dataless files on read | Trigger Obsidian sync first; fallback to qmd index |
+| 🔴 **日记质量逐日退化** (CC=0, 知识库=0, 裸模板) | ⭐ **先查 cron skills！** `cronjob list` 和 `hermes --profile cron-worker cron list` 看 Skills 字段是否为空。这是 v3.5 发现的最高优先级故障——skills 空数组时 cron 仍以 'ok' 运行但产垃圾。修复见 Common Pitfalls 最后一条。 |
 
 ## ✅ Verification Checklist
 
@@ -218,7 +222,8 @@ Cron job 配置存档于 `config/cron-job.json`，包含完整 prompt + schedule
 
 - Current: 每天 23:00, cron-worker profile, deepseek-v4-flash
 - Job ID: `1ca6e7d692fa`
-- **唯一在跑的日记 cron**。周报/月报/年报 cron 在 cron-worker profile scheduler（查 `hermes cron list --profile cron-worker`）。
+- **四个 cron 全部在 cron-worker profile**。日记 cron 虽在根 `cronjob list` 可见（`profile: cron-worker`），但以 cron-worker 身份运行。周/月/年报 cron 必须在 cron-worker profile scheduler 查看（`hermes cron list --profile cron-worker`）。
+- v3.5.1: **🔴 四个 cron 的 skills 必须非空**。2026-06-02~04 日记崩塌根因：skills 空数组导致裸跑。诊断：`cronjob list` 看 Skills 列；修复：`cronjob update`（根可见）/ `hermes --profile cron-worker cron edit --skill auto-diary`（cron-worker）。
 - v3.4 prompt 闭环: 写日记前先 `Read` 已有文件(合并安全) → 写入 → 跑 `verify_diary_compliance.py` → FAIL 则对照 spec 重写直到 PASS → 交付。
 - CC 数据真实路径: `ai_logs.claude_overview.{agent_team,standalone,program_call}`(注意 `ai_logs.` 前缀)。
 
