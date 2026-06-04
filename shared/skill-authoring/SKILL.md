@@ -211,6 +211,7 @@ Case studies: `references/slimming-case-studies.md` — strategic-insight-longfo
 | No test cases | Changing description breaks triggering silently |
 | Vague name | Use gerund form (e.g., `recover-hindsight-mcp`) |
 | Creating a skill for a one-off task | Wastes tokens, pollutes skill list |
+| **Editing protected bundled/hub-installed skills** | User may ask to update the skill library after a session where the only directly relevant loaded skill is bundled (e.g. `hermes-agent`). Do NOT patch protected skills. First look for an existing user-owned umbrella skill that covers the class; add a concise `references/` file and one-line SKILL.md pointer there. If no unprotected umbrella fits, say `Nothing to save.` instead of creating a narrow duplicate. |
 | Batch-interviewing the user | User only answers the last question |
 | Asking questions that code/docs could answer | Wastes user time, reduces trust |
 | Missing Red Flags table | ⚠️ MANDATORY. Without it, skill is dead on arrival |
@@ -232,15 +233,42 @@ Case studies: `references/slimming-case-studies.md` — strategic-insight-longfo
 | **`cp -r` trailing slash missing when skill name matches category directory** | `cp -r shared/<name> $base/<name>/` creates nested `<name>/<name>/` when `$base/<name>/` already exists (because `cp -r source dest_dir/` copies source *into* dest_dir). For skills whose name IS the category (e.g., `github` → `$pd/github/`), use trailing slash on source: `cp -r shared/<name>/ $base/<name>/` to copy CONTENTS without nesting. Affects both `sync_hermes()` and the per-profile loop. |
 | **sync-back.sh PAIR herm_path wrong when skill name = category name** | When the skill name matches the category directory name (e.g., `github` skill lives in `~/.hermes/skills/github/`), the PAIR should be `"shared/github|github"` — NOT `"shared/github|github/github"`. The herm_path is the local path relative to `~/.hermes/skills/`, so a skill that IS the github directory maps to just `github`. Contrast with a subcategory skill like `grill-with-docs` which maps to `governance/grill-with-docs`. Symptom: sync-back.sh dry-run says `source not found — skipped`. |
 | **Multi-profile skill name ambiguity — `skill_view()` fails with 'Ambiguous skill name'** | When a profile's local `skills/` contains a symlink or real copy of a skill that also exists in `external_dirs`, `skill_view(name)` finds TWO copies and refuses to guess. **Workarounds** (temporary): (a) `read_file` with absolute path instead of `skill_view`; (b) for `skill_manage` passes, use `cross_profile=True`; (c) for bulk writes use `terminal` to bypass the guard. **Permanent fix**: (1) identify the DUPLICATE SOURCE — common culprits are plugin-created symlinks (e.g. 3s6m `skill_sync.py`), stale `sync_skills` artifacts, or manual copies; (2) check if the source now has skip logic (newer `skill_sync.py` reads `external_dirs` and skips duplicates — old symlinks were created before skip was added); (3) delete ONLY the profile-local entry using `find -maxdepth 1 -type l -name <name> -delete` for symlinks or `rm -rf` for real dirs (⚠️ `rm -rf */` follows symlinks and destroys source files — use maxdepth guard); (4) verify the symlink won't be recreated on next session start by testing the creation source's skip logic in dry-run mode; (5) re-run `skill_view(name)` to confirm clean. |
+| **Watchdog shadow fix: DELETE, don't symlink — then update baseline** | The `skill-integrity-watchdog` cron job flags BOTH real-dir copies (CRITICAL a) AND symlinks (CRITICAL d) when a profile-local entry shadows a pool skill. Converting a real-dir to a symlink just moves the alert from (a) to (d) — the fix is to DELETE the local entry entirely (pool `external_dirs` already provides it) and then run `python3 scripts/skill-integrity-watchdog.py --update-baseline` to reset. Symlinks into the pool are ALSO considered shadowing because they create ambiguous-skill-name conflicts (skill_sync is supposed to skip pool-covered skills, but pre-existing symlinks evade the guard). Case: 2026-06-03 — de-slop, news-assembly, source-verification, tts-manager, morning-news-briefing. |
 | **Consolidated/deleted old skills without global grep for stale references** | After deleting absorbed skills, other skills' `related_skills`, `description`, decision trees, and reference files may still point to the OLD skill names. Run `grep -rn "<old-name>" ~/.hermes/skills/ --include="*.md" | grep -v "replaces:"` to find every remaining reference. Fix ALL of them before declaring done. Case study: `github-code-explorer` → `github` consolidation left 7 stale references across web-research-router, grill-with-docs, and skill-authoring. |
 | **Patch fuzzy-match destroyed file content — old_string didn't match precisely** | When `patch` can't find an exact match, fuzzy matching can replace a MUCH larger block than intended (e.g., 188-line file → 54-line file because the tool matched a near-but-wrong section and rewrote everything from there). **Symptoms**: file suddenly much shorter, unrelated content gone. **Recovery**: (1) `cp` from known-good source (jz-skills git repo, or another profile copy); (2) verify `wc -l` matches expected; (3) re-read fresh file from disk; (4) re-patch using exact strings copy-pasted from the fresh read. **Prevention**: after ANY `patch` to a reference file, `wc -l` and spot-check the first line to confirm the file wasn't replaced wholesale. Case study: mac-doctor cron-module.md corrupted during cross-profile patch (2026-05-31). |
 | **Premature conclusion without reconciling contradictory evidence** | You tested X and it failed. Someone else tested X and it worked. Declaring "X is dead, don't try" burns trust and wastes opportunity. The right response: flag the contradiction, propose investigation steps, and suspend conclusion until reconciled. Case study: Scrapling WeChat — own tests failed (0/5) but 张睿 succeeded; premature "放弃" before reconciling. |
-| **Assumed integration exists without verifying** | A technical analysis document describes an integration design — you read it and assume it's already implemented. User corrects: it was never built, never deployed. **Fix**: when reading a design/proposal document, explicitly CHECK whether it describes current state or aspirational state. Ask "is this already live, or is this a plan?" before referencing it as fact. Case study: aihot+xhs-tech-writer — design doc existed, no code deployed. |
+| **Assumed integration exists without verifying** | A technical analysis document describes an integration design. You read it and assume it's already implemented. User corrects: it was never built, never deployed. Fix: when reading a design/proposal document, explicitly CHECK whether it describes current state or aspirational state. Ask "is this already live, or is this a plan?" before referencing it as fact. Case study: aihot+xhs-tech-writer.
+| **Bundled skill locally modified — version drift undetected** 🆕 | A skill shipped with Hermes (in `hermes-agent/skills/`) was locally modified by a governance system that's now decommissioned — version number bumped, hundreds of lines added with stale references. The skill loads and triggers normally, but its content is wrong. Version string alone is insufficient (the local version was bumped to 3.6.0 while upstream is 3.0.0 — version NUMBERS can be modded too). **Fix**: compare sha256 + git. Detection recipe in `references/bundled-skill-drift-detection.md`. Case study: kanban-orchestrator — 66 governance residues in local 3.6.0 vs upstream clean 3.0.0 (2026-06-03).
 | **Replaced plan content instead of appending** | User said "加到计划里" (add to the plan). You used `patch` to replace a section with new content. The old_string and new_string happened to be identical so the tool rejected it — but the intent was wrong from the start. **Fix**: when user says 加/追加/补充, APPEND — read the file, find insertion point, add AFTER the target section. Don't look for text to replace. |
+| **Over-automated CQI MVP before the log/manual loop is stable** | A CQI plan jumped straight to cron/Kanban/A2A/fleet inspection as Phase 1, but the intended MVP was log automation → CC-mediated CQI Plan Writer → fresh CC audit → writeback. **Fix**: keep Phase 1 log-driven and manually gated; move cron/Kanban/A2A/continuous inspection to Phase 2. For the detailed pattern, see `references/log-driven-cqi-mvp.md`. |
+| **Sub-agent injected P(N+1) deps into P(N) deliverables** 🆕 | A sub-agent (CC) working on Phase N inserted Phase N+1 dependencies (APIs/sources not yet built or tested) into Phase N deliverables. Detection: diff references tools not in phase plan; referenced file 404; degradation table admits unreliability. Fix: gate new deps against phase plan. No pre-flight test → stay auxiliary. Full case: `references/cross-phase-dependency-injection.md`. |
+| **`platforms` field used non-whitelist value → skill permanently unsupported** 🆕 | Hermes `agent/skill_utils.py` hardcodes `PLATFORM_MAP = {"macos": "darwin", "linux": "linux", "windows": "win32"}`. Any other value (e.g., `cron`, `telegram`) is NOT mapped — compared raw against `sys.platform` → always FAILS → `readiness_status: unsupported`. **Fix**: only use `macos`, `linux`, or `windows` in the `platforms:` frontmatter field. Never invent values like `cron` or `telegram`. |
+| **Skill deployed to `skills/` top-level directory → never indexed** 🆕 | Hermes skill indexer scans ONLY category subdirectories (e.g., `productivity/`, `devops/`). A skill directory placed directly under `skills/` (no parent category) is invisible — `skill_view` returns "not found" even though files exist on disk. **Fix**: always deploy skills into a category subdirectory. For cross-profile symlinks: `ln -s ~/.hermes/skills/<category>/<name> ~/.hermes/profiles/<prof>/skills/<category>/<name>` — NOT to the profile's `skills/` top level. Case: morning-news-briefing 2026-06-03 P0 fix. |
 
 ---
 
-## References
+## 🔀 Skill Integration / Deprecation（子 skill 吸收回主体或清理）
+
+当某个独立 skill 被发现是另一 skill 的子组件时，按以下流程整合或清理：
+
+### 流程
+
+1. **全仓库依赖分析** — `grep -rl '<skill-name>' hermes/ shared/ --include='*.md'` 扫描所有引用者，确认依赖面不是单一的
+2. **判断是否共享组件** — 若被 2+ 个主体 skill 调用 → 保留独立（DRY 合理）。若只被 1 个主体调用 → 候选吸收
+3. **出整合方案** — 操作细节 → 主体 `references/` 新文件；脚本 → 主体 `scripts/`；主体 SKILL.md 引用更新；被吸收 skill 删除
+4. **同步脚本清理** — 检查并更新 `deploy/sync-all.sh`（正向）和 `deploy/sync-back.sh`（反向）中的路径映射
+5. **README 更新** — 技能计数、目录树、描述行
+6. **部署端侦查** — 用 `find ~/.hermes -type d -name <skill>` 扫描所有副本；活跃加载路径执行删除+同步，沙盒/归档/venv 跳过
+7. **qmd update** — 删完 skill 后刷新向量索引
+
+### Pitfalls
+
+- **不要假设"子 skill 只被一个主体用"** — 先跑全仓库 grep，可能发现是共享闸门（如 source-verification 被 morning-news + news-assembly 共用，保留独立）
+- **sed 在格式化 README 中不可靠** — Python 行级过滤更稳：`[line for line in lines if 'skill-name' not in line]`
+- **不要顺手做无关修复** — 发现既有死引用（如 WRR 的 code-explorer.md）记下即可，不混入本次范围
+- **git 不擅自提交** — 所有改动留在工作区，等用户确认
+
+## 📦 References
 
 | File | Use |
 |------|-----|
@@ -257,7 +285,16 @@ Case studies: `references/slimming-case-studies.md` — strategic-insight-longfo
 | `references/category-naming-pitfall.md` | Rule: don't create single-skill categories (note-taking/ case study) |
 | `references/template-vs-command.md` | 🆕 Case study: descriptive labels vs imperative commands for agent compliance (claude-code 2026-05) |
 | `references/cqi-plan-template.md` | 🆕 Template for CQI (持续质量改进) plan documents: dual-track structure (self-improvement + assist others), update log, issue log, success criteria |
-| `references/cross-skill-defect-patterns.md` | 🆕 Cross-skill defect pattern library (P01-P08+): recurring failure modes extracted from other skills' CQI plans and issue logs |
+| `references/cross-skill-defect-patterns.md` | 🆕 Cross-skill defect pattern library (P01-P16): recurring failure modes extracted from other skills' CQI plans. P13-P15 added from claude-code v4.1.0 optimization (MUST inflation, salience inversion, soft checklist). P16 added from claude-code v4.1.1 de-forking session (paper compliance/self-reported health). |
+| `references/cross-phase-dependency-injection.md` | 🆕 P16: sub-agent inserting unbuilt P(N+1) deps into P(N) deliverables — morning-news-briefing 2026-06-03 case study |
+| `references/research-backed-cqi-restructure.md` | Pattern for restructuring CQI plans with paper research, live infrastructure baselines, CC agent teams, and mechanical verification |
+| `references/log-driven-cqi-mvp.md` | Log-driven Phase 1 CQI route: GitHub sync, per-skill changelog, read/modify/event checks, CQI/log separation, and Phase 2 deferral of cron/Kanban/A2A |
+| `references/bundled-skill-drift-detection.md` | 🆕 Detecting locally-modified bundled skills: git show origin/main + sha256 comparison — catch version drift + stale residues |
+| `references/bulk-text-replacement.md` | 🆕 Mass find-and-replace across many skill files: Python dict-driven pattern, multi-round strategy, YAML frontmatter gotchas |
+| `references/runtime-grounded-cqi-audit.md` | Runtime-grounded CQI audit pattern: compare source vs deployed skill copy, score the artifact agents actually load, and treat same-version hash divergence as a high-severity event |
+| `references/kanban-skill-cqi-phase2-pattern.md` | Kanban as Phase-2 execution layer for skill CQI: mode mapping, truth-source layering, runtime-grounded gates, MUSE-Autoskill lessons, and safe Phase-1.5 pilot |
+| `references/structured-cqi-log-memory.md` | Structured CQI log-memory pattern: append-only JSONL truth source + manifest/provenance/schema writer, with SQLite/qmd/Kanban as derived indexes only. Use when revising Skill CQI logs or Kanban-driven quality workflows. |
+| `references/muse-autoskill-insights.md` | 🆕 MUSE-Autoskill paper analysis (2026-06-04): per-skill memory, test gating, skill bank health — three actionable takeaways for Hermes skill system |
 
 ---
 

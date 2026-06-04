@@ -1,13 +1,13 @@
 ---
 name: supermemory-hermes
-description: "Set up, configure, and manage Supermemory as Hermes Agent's external memory provider. Covers SDK setup, API key config, provider switching, container_tag isolation for multi-profile deployments, metadata taxonomy, cross-pool wrapper usage, LRU cache layer, and the 三省六部 cabinet memory sharing model. Load when the user mentions Supermemory, memory setup, provider switching, cross-pool queries, or multi-profile memory architecture. Do NOT load for local `memory` tool operations (those are L1, independent of Supermemory)."
-version: 1.2.0
+description: "Set up, configure, and manage Supermemory as Hermes Agent's external memory provider. Covers SDK setup, API key config, provider switching, container_tag isolation for multi-profile deployments, metadata taxonomy, cross-pool wrapper usage, LRU cache layer, and the multi-profile cabinet memory sharing model. Load when the user mentions Supermemory, memory setup, provider switching, cross-pool queries, or multi-profile memory architecture. Do NOT load for local `memory` tool operations (those are L1, independent of Supermemory)."
+version: 1.3.0
 author: Hermes Agent
 license: MIT
 platforms: [macos, linux]
 metadata:
   hermes:
-    tags: [supermemory, memory, migration, multi-profile, cabinet, 三省六部, governance]
+    tags: [supermemory, memory, migration, multi-profile, cabinet, governance]
     related_skills: [cross-profile-api-bridge, hermes-agent]
 ---
 
@@ -38,8 +38,12 @@ User mentions Supermemory/memory/cabinet/cross-pool?
 │   └── → §Key SDK Methods
 ├── Hitting errors or need daily ops guide?
 │   └── → §Common Pitfalls (top 5) then `references/supermemory-six-rules.md`（2026-05-29 太子实测六条）
+├── Dashboard shows documents but no memories/connections?
+│   └── → §Knowledge Graph Disconnect (verify with SDK first!)
+├── Dashboard shows a second pool / suspected cross-profile contamination?
+│   └── → §Dual-Pool Recurrence Triage + `references/dual-pool-recurrence-runbook.md`
 └── Full architecture design?
-    └── → Obsidian: `20-Areas/10_AI实践/三省六部_Hermes/10_制度/Supermemory三省六部记忆架构设计_v2.0.md`
+    └── → Obsidian: `20-Areas/10_AI实践/Hermes/10_制度/Supermemory多profile记忆架构设计_v2.0.md`
 ```
 
 ---
@@ -55,7 +59,7 @@ Three+ `container_tag` pools with physical isolation. The known pools:
 
 ```
 hermes            → default (小黄) — private
-hermes-cabinet    → regent + 14 三省六部 — shared institutional
+hermes-cabinet    → regent + 14 multi-agent — shared institutional
 sm_project_cli    → pi (Windows 7800x3d) — jz-skills project config
 ```
 
@@ -111,7 +115,7 @@ Standalone script at `~/.hermes/scripts/supermemory_crosspool.py`. Three channel
 ```bash
 # Query with cross-pool
 ~/.hermes/hermes-agent/venv/bin/python3 \
-  ~/.hermes/scripts/supermemory_crosspool.py default "三省六部 ADR 决策"
+  ~/.hermes/scripts/supermemory_crosspool.py default "ADR 决策"
 
 # Check channel stats
 ~/.hermes/hermes-agent/venv/bin/python3 \
@@ -207,7 +211,24 @@ Enforcement is **client-side (wrapper)** — SDK does NOT enforce. Write without
 
 ---
 
-## Role Confusion Prevention
+## Knowledge Graph Disconnect (Dashboard ≠ SDK)
+
+**Symptom**: Dashboard shows X documents but 0 memories and 0 connections, yet `supermemory_search` via SDK returns valid results with populated `memory` fields.
+
+**Root cause**: Supermemory has two data planes:
+- **Search index** — populated during document processing (embedding → indexing). What SDK `search.memories()` queries.
+- **Knowledge Graph** — built as a separate step after indexing. What Dashboard's graph view displays. Nodes = memories, edges = connections.
+
+A container can have a working search index but a broken/unbuilt knowledge graph. This is a **Supermemory backend issue** — not a Hermes config problem.
+
+**Diagnosis workflow**:
+1. Verify with SDK first: `client.search.memories(q="test", container_tag="<tag>", search_mode="hybrid")`
+2. Check profile: `client.profile(container_tag="<tag>")` → static + dynamic counts
+3. If SDK works but Dashboard shows 0 memories: **backend graph processing failure**
+4. Contact <email redacted> with: affected container_tag, SDK search proof (works), Dashboard screenshot (broken)
+5. Do NOT re-create the container or change Hermes config — the data is there, just not graph-linked
+
+**Verified 2026-06-03**: hermes pool has functioning search (5 results, static=8, dynamic=50) but Dashboard graph shows only documents. hermes-cabinet pool is fully healthy in both planes.
 
 Five-layer defense: (1) Write constraint — wrapper auto-fills `department`, (2) Recall filtering — `search_policy`, (3) Prompt labeling — `[来源: gongbu]` headers, (4) Behavior — SOUL.md reference rules, (5) Post-audit — auditor sampling (deferred).
 
@@ -233,7 +254,18 @@ client.memories.forget(id="mem_xxx", container_tag="hermes")
 
 ---
 
-## Common Pitfalls (Top 7)
+## Dual-Pool Recurrence Triage
+
+When the user reports “双池” again, first classify the symptom before changing config:
+
+- **Name-variant split**: `hermes-cabinet` vs `hermes_cabinet` → suspect tag sanitization or stale code path.
+- **Routing/isolation split**: `hermes` vs `hermes-cabinet` → suspect profile map drift, profile-local `supermemory.json`, or an unrestarted Gateway/Event Bridge.
+
+For the current cabinet deployment, expected routing is `default/cron-worker → hermes` and `regent + multi-agent profiles → hermes-cabinet`. Always verify both planes: real-home `~/.hermes/supermemory.json` for daemon/Event Bridge behavior and `~/.hermes/profiles/<profile>/supermemory.json` for provider/profile behavior. Historical Dashboard containers are not proof of a live regression; check recent writes and loaded-provider results. Detailed runbook: `references/dual-pool-recurrence-runbook.md`.
+
+---
+
+## Common Pitfalls (Top 11)
 
 1. **SDK not installed** → `python3 -m pip install supermemory` in venv
 2. **Provider switch needs restart** → `hermes gateway restart`
@@ -242,6 +274,9 @@ client.memories.forget(id="mem_xxx", container_tag="hermes")
 5. **A2A mode doesn't load MemoryProvider** → use API Server for memory ops
 6. **Assuming only two pools exist** → additional pools like `sm_project_cli` (pi) may be live. Discover with `client.search.memories(q="test", container_tag="<candidate>")` — if it returns without error, the pool exists even if empty.
 7. **`search_policy` is a string, not a dict** → the crosspool wrapper calls `.get('cross_pool_read')` on `search_policy`. If `search_policy` is `"department"` (string), it crashes. See §Cross-Pool Config Format for the correct dict structure.
+9. **Config file location confusion** → The Hermes Supermemory plugin reads ONLY from `$HERMES_HOME/supermemory.json` (for default profile: `~/.hermes/supermemory.json`). Profile-level files at `~/.hermes/profiles/<name>/supermemory.json` are **silently ignored** by the plugin. If both files exist, only the root one matters. Always verify which file the plugin is actually reading before troubleshooting.
+10. **Dashboard graph ≠ SDK search** → The Dashboard's "Memories" and "Connections" counts come from the Knowledge Graph — a separate backend processing step from the flat search index. A container can return valid search results via SDK (`search.memories()`) while the Dashboard shows zero memories/connections because the graph-building step failed or is incomplete. **Always verify with SDK before trusting the Dashboard.** If SDK search works but Dashboard shows nothing, the issue is backend graph processing, not data loss.
+11. **Hermes writes documents, not memories** → `supermemory_store` and `sync_turn` both call `client.documents.add()`, never a direct memory insert. Memories are derived by the Supermemory backend pipeline from documents. If the Dashboard shows documents but no memories, the pipeline is processing documents into the search index but failing at the knowledge-graph stage.
 
 Full list: `references/common-pitfalls.md`
 
@@ -253,11 +288,12 @@ Full list: `references/common-pitfalls.md`
 |------|-------------|
 | `references/supermemory-six-rules.md` | **Daily ops & quick diagnostics** — 太子 live-ops findings: tools vs SDK, pool isolation, supermemory.json trap, false negatives, Dynamic Dreaming failures, daily commands |
 | `references/supermemory-troubleshooting.md` | **Diagnosing outages & drafting support emails** — log grep patterns, API health check script, support email template (bilingual), timeline construction, common pitfalls |
+| `references/dual-pool-recurrence-runbook.md` | **Dual-pool recurrence triage** — distinguish sanitization name-variant splits from `hermes`/`hermes-cabinet` routing isolation issues; verify both config planes and loaded-provider behavior |
 | `references/hindsight-migration-guide.md` | Historical: Hindsight → Supermemory migration procedure |
 | `references/common-pitfalls.md` | Complete pitfalls list (16 items) |
 | `references/phase-2-3-changelog.md` | What changed in Phase 2/3 implementation |
 
-Obsidian vault: `20-Areas/10_AI实践/三省六部_Hermes/10_制度/Supermemory三省六部记忆架构设计_v2.0.md`
+Obsidian vault: `20-Areas/10_AI实践/Hermes/10_制度/Supermemory多profile记忆架构设计_v2.0.md`
 
 ---
 

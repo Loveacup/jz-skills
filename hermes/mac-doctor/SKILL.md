@@ -1,12 +1,12 @@
 ---
 name: mac-doctor
 description: |-
-  macOS 设备巡检 v2.0 — 评分/巡检/审计/清理/追踪/告警六层。Use when:
+  macOS 设备巡检 v2.4 — 评分/巡检/审计/清理/追踪/告警六层。Use when:
   check my mac, system health, mac slow, disk full, cleanup mac, 设备巡检,
   系统评分, 健康检查, 磁盘空间, 内存压力, swap, 清理缓存, brew/npm/uv cache,
   CPU 大户, 安全检查, 电池健康, 网络配置审计, 历史趋势, 异常检测, 臃肿/隐私扫描。
   Do NOT use for: GUI 操作, 实时网络诊断 (ping/traceroute), 清理孤儿 App 数据。
-version: 2.3.0
+version: 2.4.1
 author: Hermes Agent
 platforms: [macos]
 metadata:
@@ -156,6 +156,25 @@ du -sh ~/.npm 2>/dev/null
 
 判断：npm/uv >2G 可清。qmd/huggingface 模型不删。
 
+### Profile 缓存（Tier 2a 补充检查）
+
+多 profile 架构下，每个 profile 的 `home/` 下各自累积 `.npm`、`Library/Caches`、`.cache/uv`。这些在用户级 `du ~/.cache` 中看不到（`~` 不指向 profile home），是常见的隐性磁盘大户。
+
+```bash
+# 检查各 profile home 缓存
+for d in ~/.hermes/profiles/*/home/; do
+  [ -d "$d" ] || continue
+  total=$(du -sm "$d" 2>/dev/null | cut -f1)
+  [ "$total" -gt 200 ] && echo "${total}M  $d"
+done | sort -rn
+
+# 逐个查看具体占用
+du -sh ~/.hermes/profiles/*/home/.{npm,cache} 2>/dev/null
+du -sh ~/.hermes/profiles/*/home/Library/Caches 2>/dev/null
+```
+
+> [!TIP] 💡 典型回收：regent home 的 .npm + Library/Caches + .cache 约 5G，cron-worker 约 2.3G。全部可安全清理。
+
 ### Homebrew
 
 ```bash
@@ -183,6 +202,26 @@ done
 tmutil listlocalsnapshots /
 ```
 
+### Hermes Profile 缓存重复 ⚠️
+
+当多个 Hermes profile 存在时，每个 profile 的 home 目录会独立缓存模型（qmd/huggingface）和开发工具（npm/playwright/uv/pip），导致磁盘被静默膨胀。
+
+**诊断**（见 `references/disk-space-patterns.md` §Hermes Profile 缓存重复）：
+```bash
+# 快速排查
+for p in ~/.hermes/profiles/*/; do
+  name=$(basename "$p")
+  du -sh "$p/home/.cache/" 2>/dev/null
+  du -sh "$p/home/.npm/" 2>/dev/null
+done
+```
+
+**常见重复**：qmd 模型 ×3（用户 + regent + cron-worker = 5.6G，实际只需 2.3G）、ms-playwright ×2（1.5G）。
+
+**安全清理**：见 `references/disk-space-patterns.md` §安全清理。**qmd/huggingface 模型不动**，只清 dev 缓存。
+
+**根治**：`external_dirs` — 让 profile 共享用户级缓存。需 CC 审计后执行。
+
 ---
 
 ## Tier 2b/2c/2d: 安全 + 硬件 + 网络审计
@@ -208,8 +247,11 @@ tmutil listlocalsnapshots /
 | uv | `uv cache clean` → `--force` | ✅ | 先 `lsof ~/.cache/uv` |
 | brew | `brew cleanup` | ✅ | 通常 300-400MB |
 | Chrome | `rm -rf ~/Library/Caches/Google/Chrome/*` | ✅ | 运行中可能超时 |
-| qmd models | **不删** | ❌ | 生产模型 |
-| huggingface | **不删** | ❌ | Whisper/embedding |
+| qmd models | **不删用户级**。Profile 副本 → `models/` symlink 去重。详见 `references/qmd-model-dedup.md` | 🟡 | 模型 2.1G/份。**不设 XDG_CACHE_HOME**（会合并索引导致 WAL 写冲突）。`external_dirs` 是 skills 专用，无效 |
+| huggingface | **不删用户级** | ❌ | 生产模型。Profile 副本同理用 symlink 去重 |
+| Profile dev 缓存 | `rm -rf .../home/.cache/{uv,puppeteer}` | ✅ | npm/uv/playwright/pip。见 disk-space-patterns §安全清理 |
+| Profile npm | `rm -rf .../home/.npm/_cacache` | ✅ | 每 profile 一份，清完回收 2G+ |
+| s6m/unused 归档 | `rm -rf ~/.hermes/archives/...` | ✅ | 旧 profile 残留，确认无用后直接删 |
 | Xcode | 需确认 | ⚠️ | DerivedData |
 | iOS backups | 需确认 | ⚠️ | 不可恢复 |
 
@@ -222,6 +264,8 @@ tmutil listlocalsnapshots /
 - 可疑进程检测
 
 磁盘大户清单 & 轻量扫描技巧见 `references/disk-space-patterns.md`（Claude vm_bundles / Chrome / IDE 残留 / Discord 等）。
+
+Profile 缓存重复诊断（profile home 下 `.cache/` 异常膨胀的根因与修复）：见 `references/profile-cache-duplication.md`。
 
 ### ⚠️ 跨 Profile 路径陷阱
 
@@ -239,9 +283,11 @@ tmutil listlocalsnapshots /
 
 | 陷阱 | 表现 | 解法 |
 |------|------|------|
-| **Swap >90% 时 `du` 超时** | `du -sh ~/Library/` 15s+ 不返回 | 系统 I/O 被 swap 打满，改用轻量命令：`ls -lt /System/Volumes/VM/swapfile*` 查 swap 增速、`diskutil info /` 查磁盘。深度目录扫描等高 swap 消退后再做。 |
+| **磁盘满时 `du`/`find` 全超时** | `du -sh ~/Library/` 60s 不返回，`find -size +100M` 30s 超时 | 磁盘 <15% 导致 I/O 拥塞。改用轻量方法：`ls -lht` 看指定目录、逐项 `du -sh <target>` 单目录扫描、先查已知大户再深挖。详见 `references/disk-space-patterns.md` §扫描技巧。 |
+| **磁盘 <10% 时 `du`/`find` 超时（即使 swap 不高）** | `du -sh ~/Library/`、`find ~ -size +100M` 60s+ 不返回 | APFS 严重碎片化 + 低剩余空间导致 I/O 拥塞。**优先清理而非深挖**：先 thin TM 快照、清已知可删缓存，再重试 `du`。超时期间改用 `ls -lhS <已知大目录>` 逐个检查。 |
 | **非 default profile 下 `~` 指向错误** | `~/Library/Caches/` 只显示 56M，实际用户缓存 1.4G | 全部改用绝对路径：`~/Library/Caches/`、`~/.cache/` |
 | **Anomaly 误报：baseline 不成熟** | 新装 collector < 7 天，夜间基线被白天正常活动打破 → z > σ 但绝对值健康 | σ 提到 3.0。watchdog 区分 threshold/anomaly：纯异常 + diagnosis "All clear" → 静默 |
+| **Profile 缓存隔离 → 磁盘膨胀** | 多 profile 各自克隆 qmd 模型（×3）、npm（×3）、playwright（×2）。.hermes 从 11G 膨胀到 32G+，其中 5.6G 的 qmd 模型只需 2.3G | 短期：清 dev 缓存（不动模型）— `references/disk-space-patterns.md` §安全清理。根治：配 `external_dirs` 让 profile 共享用户级缓存。每次新增 profile 后检查 `references/disk-space-patterns.md` §诊断命令。 |
 | **跨 Profile config 不同步** | 手动改 `~/.hermes/inspection/config.json` 但 cron job 读的是 `.../profiles/cron-worker/home/.hermes/inspection/config.json` → 行为不一致 | 修改阈值时两份 config 同步改。详见 `references/cron-module.md` §跨 Profile 配置陷阱 |
 | `du ~/*/` 超时 | 15s+ 不返回 | 加 `-d 1` |
 | `uv cache clean` 卡住 | "Cache is currently in-use" | `lsof` → `--force` |

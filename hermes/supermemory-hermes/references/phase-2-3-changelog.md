@@ -6,7 +6,7 @@ What changed since the v2.0 design document was written. Referenced from `superm
 
 | Change | Detail |
 |--------|--------|
-| **14 profiles switched** | All 三省六部 profiles configured with `memory.provider: supermemory`, `container_tag: hermes-cabinet`, per-profile `.env` with `SUPERMEMORY_API_KEY` |
+| **14 profiles switched** | All multi-agent profiles configured with `memory.provider: supermemory`, `container_tag: hermes-cabinet`, per-profile `.env` with `SUPERMEMORY_API_KEY` |
 | **Hindsight retired** | Physical data cleaned (6 paths deleted, ~1.5MB freed); schema docs kept for reference |
 | **Cross-pool channels** | `~/.hermes/scripts/supermemory_crosspool.py` — standalone wrapper with rate limiting, intent detection, audit logging |
 | **Channel X1** | `default → hermes-cabinet` (read-only, cabinet-shared only, 6/min limit, intent-gated) |

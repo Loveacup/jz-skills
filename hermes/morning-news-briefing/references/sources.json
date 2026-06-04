@@ -1,6 +1,6 @@
 {
   "$schema": "morning-news-source-registry-v1",
-  "version": "1.1.0",
+  "version": "1.0.0",
   "description": "早新闻信源注册中心 — locale-driven source routing, tiered by reliability and freshness.",
   "routing_rules": {
     "优先中文": { "locale": "zh", "min_sources": 15, "engines": ["tavily", "brave"] },
@@ -99,13 +99,6 @@
         "notes": "路透社，全球通讯社金标准"
       },
       {
-        "id": "en-001-fallback", "name": "Reuters via Google News", "domain": "news.google.com",
-        "tier": 1, "category": "general", "status": "active",
-        "rss": "https://news.google.com/rss/search?q=site%3Areuters.com%20when%3A1d&hl=en-US&gl=US&ceid=US%3Aen",
-        "fallback_query": "site:reuters.com when:1d",
-        "notes": "Reuters RSS deprecated; cclank fetch_news.py:636-639 REUTERS_GOOGLE_NEWS_RSS verbatim — Google News 24h search fallback"
-      },
-      {
         "id": "en-002", "name": "Associated Press", "domain": "apnews.com",
         "tier": 1, "category": "general", "status": "active",
         "notes": "美联社"
@@ -113,20 +106,7 @@
       {
         "id": "en-003", "name": "BBC News", "domain": "bbc.com",
         "tier": 1, "category": "general", "status": "active",
-        "rss": "https://feeds.bbci.co.uk/news/rss.xml",
-        "notes": "BBC Top News — cclank INTERNATIONAL_NEWS_SOURCES verbatim"
-      },
-      {
-        "id": "en-003b", "name": "BBC World", "domain": "bbc.com",
-        "tier": 1, "category": "international", "status": "active",
-        "rss": "https://feeds.bbci.co.uk/news/world/rss.xml",
-        "notes": "cclank INTERNATIONAL_NEWS_SOURCES verbatim"
-      },
-      {
-        "id": "en-003c", "name": "BBC Chinese", "domain": "bbc.com",
-        "tier": 2, "category": "international", "status": "active",
-        "rss": "https://feeds.bbci.co.uk/zhongwen/simp/rss.xml",
-        "notes": "BBC 中文简体；cclank fetch_news.py:630 verbatim"
+        "notes": "英国广播公司"
       },
       {
         "id": "en-004", "name": "The New York Times", "domain": "nytimes.com",
@@ -163,16 +143,9 @@
         "notes": "卫报"
       },
       {
-        "id": "en-010b", "name": "The Guardian World", "domain": "theguardian.com",
-        "tier": 1, "category": "international", "status": "active",
-        "rss": "https://www.theguardian.com/world/rss",
-        "notes": "cclank INTERNATIONAL_NEWS_SOURCES verbatim"
-      },
-      {
         "id": "en-011", "name": "Al Jazeera", "domain": "aljazeera.com",
         "tier": 1, "category": "international", "status": "active",
-        "rss": "https://www.aljazeera.com/xml/rss/all.xml",
-        "notes": "中东/国际视角，头条区必查；cclank INTERNATIONAL_NEWS_SOURCES verbatim"
+        "notes": "中东/国际视角，头条区必查"
       },
       {
         "id": "en-012", "name": "Politico", "domain": "politico.com",
@@ -216,8 +189,7 @@
       {
         "id": "en-021", "name": "France 24", "domain": "france24.com",
         "tier": 2, "category": "international", "status": "active",
-        "rss": "http://www.france24.com/en/rss",
-        "notes": "欧洲/非洲视角；cclank INTERNATIONAL_NEWS_SOURCES verbatim"
+        "notes": "欧洲/非洲视角"
       },
       {
         "id": "en-022", "name": "Deutsche Welle", "domain": "dw.com",
@@ -236,58 +208,6 @@
       {
         "id": "en-025", "name": "The Block", "domain": "theblock.co",
         "tier": 2, "category": "crypto", "status": "active"
-      }
-    ],
-    "ai_newsletter": [
-      {
-        "id": "ai-001", "name": "Ben's Bites", "domain": "bensbites.com",
-        "tier": 1, "category": "ai-newsletter", "status": "active",
-        "rss": "https://www.bensbites.com/feed",
-        "notes": "cclank AI_NEWSLETTER_SOURCES verbatim; Cloudflare-protected — needs Playwright fetcher"
-      },
-      {
-        "id": "ai-002", "name": "Interconnects", "domain": "interconnects.ai",
-        "tier": 1, "category": "ai-newsletter", "status": "active",
-        "rss": "https://www.interconnects.ai/feed",
-        "notes": "Nathan Lambert; cclank verbatim (needs www.)"
-      },
-      {
-        "id": "ai-003", "name": "One Useful Thing", "domain": "oneusefulthing.org",
-        "tier": 1, "category": "ai-newsletter", "status": "active",
-        "rss": "https://www.oneusefulthing.org/feed",
-        "notes": "Ethan Mollick; cclank verbatim"
-      },
-      {
-        "id": "ai-004", "name": "ChinAI", "domain": "chinai.substack.com",
-        "tier": 1, "category": "ai-newsletter", "status": "active",
-        "rss": "https://chinai.substack.com/feed",
-        "notes": "Jeff Ding; China AI policy/research translations; cclank verbatim"
-      },
-      {
-        "id": "ai-005", "name": "Memia", "domain": "memia.substack.com",
-        "tier": 2, "category": "ai-newsletter", "status": "active",
-        "rss": "https://memia.substack.com/feed",
-        "notes": "cclank verbatim"
-      },
-      {
-        "id": "ai-006", "name": "AI to ROI", "domain": "ai2roi.substack.com",
-        "tier": 2, "category": "ai-newsletter", "status": "active",
-        "rss": "https://ai2roi.substack.com/feed",
-        "notes": "cclank verbatim"
-      },
-      {
-        "id": "ai-007", "name": "KDnuggets", "domain": "kdnuggets.com",
-        "tier": 2, "category": "ai-newsletter", "status": "active",
-        "rss": "https://www.kdnuggets.com/feed",
-        "notes": "data science / ML community blog; cclank verbatim"
-      }
-    ],
-    "aggregator": [
-      {
-        "id": "agg-001", "name": "Hacker News (Algolia 24h)", "domain": "hn.algolia.com",
-        "tier": 1, "category": "tech-aggregator", "status": "active",
-        "rss": "https://hn.algolia.com/api/v1/search?tags=front_page&numericFilters=created_at_i>now-24h",
-        "notes": "Algolia HN search API (JSON, not RSS). cclank fetch_news.py:113 uses search_by_date variant: http://hn.algolia.com/api/v1/search_by_date?tags=story&numericFilters=created_at_i>{timestamp_24h}&query={kw}. Use this for tech/AI/crypto keyword recall (Level-2 fallback: drop to first keyword if 0 hits)"
       }
     ],
     "special": [
@@ -333,5 +253,5 @@
     "notes": "不屏蔽付费墙域名（Tavily/Brave 可穿透摘要层）。如需加拦截，在此列表添加 domain。"
   },
   "update_cadence": "monthly_review",
-  "last_updated": "2026-05-28"
+  "last_updated": "2026-05-27"
 }

@@ -1,7 +1,7 @@
 ---
 name: tts-manager
-description: "Use when managing, evaluating, configuring, or testing text-to-speech providers for Hermes or local agent workflows. Covers provider registry, fallback policy, voice/sample tests, resource benchmarks, artifact/noise checks, and keeping TTS decisions synchronized into this skill. Triggers on: TTS, text-to-speech, 语音合成, 音色测试, 后备 TTS, Hermes tts provider, edge-tts, Qwen3-TTS, custom voice. DO NOT use for STT/transcription, generic audio editing unrelated to TTS, or model research without a TTS deployment decision."
-version: 0.2.2
+description: "Use when managing, evaluating, configuring, or testing text-to-speech providers for Hermes or local agent workflows. Covers provider registry, fallback policy, voice/sample tests, resource benchmarks, artifact/noise checks, and keeping TTS decisions synchronized into this skill. Triggers on: TTS, text-to-speech, 语音合成, 音色测试, 后备 TTS, Hermes tts provider, edge-tts, CosyVoice, Qwen3-TTS, custom voice. DO NOT use for STT/transcription, generic audio editing unrelated to TTS, or model research without a TTS deployment decision."
+version: 0.3.0
 author: Hermes Agent + Alex
 license: MIT
 platforms: [macos, linux]
@@ -30,6 +30,7 @@ This is the base skill for managing all Hermes/local TTS providers. Every future
 
 ```
 TTS-related request?
+├── Evaluate new TTS backend vs current?     → §Backend Evaluation Protocol + references/cosyvoice-h200.md (if CosyVoice)
 ├── Hermes config/provider/default/fallback? → Load `hermes-agent`, read live config, then §Provider Ops
 ├── Voice/sample test?                       → §Voice Test Protocol + references/voice-testing-protocol.md
 ├── Resource/latency/quality benchmark?      → §Benchmark Protocol + update provider registry
@@ -102,6 +103,17 @@ When adding content-aware tone, emotion, or voice-routing behavior:
 
 Detailed schema and adapter contract: `references/voice-director-architecture.md`. Sample set protocol: `references/voice-testing-protocol.md`.
 
+## Backend Evaluation Protocol
+
+When comparing current TTS/ASR against a new backend (e.g., local server, new API):
+
+1. **Probe first** — health check all relevant endpoints before discussing migration.
+2. **Audition all voices** — generate the same test sentence for every available speaker, send individually via `MEDIA:` for direct comparison.
+3. **Benchmark latency** — at minimum short (2 chars) and medium (10+ chars) text. Report RTF.
+4. **Echo-test ASR** — generate TTS → convert to 16kHz WAV → send to ASR endpoint. Verify accuracy and measure round-trip time.
+5. **Present comparison table** — current vs candidate, with concrete metrics, not vibes.
+6. **Let user audition before deciding** — do not switch defaults until the user has heard the samples and explicitly approves.
+
 ## Artifact Triage
 
 When the user reports noise, truncation, clicks, or distortion:
@@ -119,19 +131,32 @@ When the user reports noise, truncation, clicks, or distortion:
 | File | Use |
 |---|---|
 | `references/provider-registry.md` | Provider status, default/fallback policy, benchmark log, voice notes |
+| `references/cosyvoice-h200.md` | CosyVoice API endpoints, voice registration workflow, latency benchmarks, speaker catalog, Hermes command provider config, YAML multi-line pitfall |
 | `references/voice-director-architecture.md` | Provider-neutral TTSPlan/VoiceRoute/RoutingMemory schemas, adapter contract, extensible voice routing design |
 | `references/voice-testing-protocol.md` | Sample text templates, artifact triage workflow, Telegram delivery rule |
 | `references/trigger-tests.md` | Should-trigger / should-not-trigger cases for description changes |
+| `references/cosyvoice-h200.md` | CosyVoice voice list, API reference, voice cloning quality rules |
+| `references/h200-asr.md` | H200 ASR integration, performance benchmarks, fallback procedure |
 | `references/changelog.md` | Durable TTS management changes |
+
+## Scripts
+
+| File | Use |
+|---|---|
+| `scripts/cosyvoice-tts.sh` | Bash wrapper for Hermes command provider — reads text from file, calls CosyVoice API, saves OGG output |
 
 ## Current Baseline Snapshot
 
-See `references/provider-registry.md` for the live registry. Current baseline at creation:
-- Hermes default TTS remains Edge TTS.
-- Qwen3-TTS 0.6B CustomVoice is installed as a local fallback command provider, not default.
-- On Apple Silicon/MPS, Qwen3-TTS 0.6B works in float32; float16 produced invalid probabilities during prior testing.
-- Qwen3-TTS 0.6B voice samples showed start-of-audio artifacts. Simple silence/fade-in did not fix them, but **trim 500ms + 300ms fade-in post-processing eliminates the artifact** (confirmed across 5 Chinese voices). Production wrappers must apply this automatically.
-- Voice Director work must remain provider-extensible: use capability manifests + adapters + structured routing memory rather than provider-specific core branches.
+See `references/provider-registry.md` for the live registry. Current baseline at 2026-06-02:
+- **Default TTS:** CosyVoice (Fun-CosyVoice3-0.5B) on H200 server, via Hermes command provider.
+- **Voice:** `AlexCai` — custom voice clone (re-registered with casual reference audio after first attempt was too 播音腔).
+- **Wrapper:** `~/.hermes/scripts/cosyvoice-tts.sh` — pure bash + curl, zero deps.
+- **Fallback:** Edge TTS (`zh-CN-XiaoxiaoNeural`) kept configured but not default.
+- **Latency:** ~1.4s for 14-char Chinese (RTF 0.33–0.41 on H200).
+- **Coverage:** All 18 Hermes profiles configured. 3 gateways restarted and verified.
+- **Qwen3-TTS 0.6B:** Retired from active use (now experimental-only). Artifacts + slow cold start made it unsuitable vs CosyVoice.
+- **Voice cloning quality rule:** Casual conversational reference audio produces natural clones. Formal/self-introduction references produce stiff 播音腔. See `references/cosyvoice-h200.md` for full integration guide.
+- **ASR:** Still on Groq Whisper. H200 ASR evaluated and ready for migration, but not yet switched. See `references/cosyvoice-h200.md`.
 
 ## ✅ Verification Checklist (RUN BEFORE RETURNING RESULTS)
 

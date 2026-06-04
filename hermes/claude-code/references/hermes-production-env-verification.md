@@ -19,14 +19,14 @@ Do not verify production behavior using the parent session's implicit `~` or env
    - For launchd: `launchctl print gui/$(id -u)/<label>` and read `HOME`, `HERMES_HOME`, `PYTHONPATH`, working directory, pid, and custom env flags.
    - For Hermes gateway/profile processes: inspect the actual service unit/config and logs, not the current profile defaults.
 2. Check both candidate paths if a profile sandbox is active:
-   - Production/global example: `/Users/alexcai/.hermes/plugins/hermes-a2a/...`
-   - Profile sandbox example: `/Users/alexcai/.hermes/profiles/regent/home/.hermes/plugins/hermes-a2a/...`
+   - Production/global example: `~/.hermes/plugins/hermes-a2a/...`
+   - Profile sandbox example: `~/.hermes/profiles/regent/home/.hermes/plugins/hermes-a2a/...`
 3. Run verification with explicit env matching the service, e.g.:
 
    ```bash
    HOME=/Users/alexcai \
-   HERMES_HOME=/Users/alexcai/.hermes \
-   PYTHONPATH=/Users/alexcai/.hermes/plugins/hermes-a2a \
+   HERMES_HOME=~/.hermes \
+   PYTHONPATH=~/.hermes/plugins/hermes-a2a \
    /opt/homebrew/bin/python3.12 - <<'PY'
    import inspect
    import event_bridge.daemon as d
@@ -48,7 +48,7 @@ Do not verify production behavior using the parent session's implicit `~` or env
 
 ## Pitfall from 2026-06-01
 
-A regent session had `HOME=/Users/alexcai/.hermes/profiles/regent/home` while production launchd ran with `HOME=/Users/alexcai` and `HERMES_HOME=/Users/alexcai/.hermes`. A naive import from the parent session resolved to the profile sandbox and falsely suggested deployment had not taken effect. Re-running with launchd's explicit env showed the production plugin copy was correct.
+A regent session had `HOME=~/.hermes/profiles/regent/home` while production launchd ran with `HOME=/Users/alexcai` and `HERMES_HOME=~/.hermes`. A naive import from the parent session resolved to the profile sandbox and falsely suggested deployment had not taken effect. Re-running with launchd's explicit env showed the production plugin copy was correct.
 
 ## Acceptance criteria
 

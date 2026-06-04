@@ -1,6 +1,6 @@
 # Cross-Profile Evidence Gathering
 
-When grilling a design that involves other Hermes profiles (三省六部 departments, regent, etc.), your own Hindsight bank is **incomplete** — it only captures YOUR profile's conversations. The other profile may have had extensive discussions, decisions, and iterations you cannot see.
+When grilling a design that involves other Hermes profiles (multi-agent departments, regent, etc.), your own Hindsight bank is **incomplete** — it only captures YOUR profile's conversations. The other profile may have had extensive discussions, decisions, and iterations you cannot see.
 
 ## Filesystem Query Toolkit
 
@@ -58,4 +58,4 @@ When filesystem queries aren't enough and you need the profile to answer questio
 
 ## Known Pitfall (2026-05-27)
 
-When designing the 三省六部 cross-department memory sharing architecture, the default assistant designed an entire three-layer agentmemory + Hindsight方案 based only on default's Hindsight. The regent had already iterated through v3.0.0 with extensive discussions about EmpireThread, Kanban watchers, and memory isolation — none visible to default. Lesson: **never design cross-profile architecture without first exhausting filesystem queries on ALL involved profiles.**
+When designing the cross-department memory sharing architecture, the default assistant designed an entire three-layer agentmemory + Hindsight方案 based only on default's Hindsight. The regent had already iterated through v3.0.0 with extensive discussions about EmpireThread, Kanban watchers, and memory isolation — none visible to default. Lesson: **never design cross-profile architecture without first exhausting filesystem queries on ALL involved profiles.**

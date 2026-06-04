@@ -1,8 +1,8 @@
 ---
 name: morning-news-briefing
 description: "Use when producing the daily morning news briefing — multi-source parallel search via web-research-router, fused analysis format (前提→推理→结论 + 趋势 + 为什么重要), mobile + A4 PDF delivery, and TTS voice edition. Supports dual execution mode: Cron (shell-parallel search + sequential pipeline) and Interactive (Kanban Swarm with auto-decomposition). Do NOT use for single-topic deep dives, non-news content, or manual article curation."
-version: 4.0.1
-author: Hermes Agent (v4.0.1 — 2026-06-04 Cron 验证：parallel tool calls 替代 shell background，零路径问题)
+version: 4.1.0
+author: Hermes Agent (v4.1.0 — 2026-06-04：Mode B Kanban Swarm 全链路修复：gateway pre-flight + 全路径 skill + publisher symlink + dispatch fallback + 4 新 pitfalls)
 license: MIT
 platforms: [macos, linux]
 metadata:
@@ -59,6 +59,8 @@ Trigger: cron scheduler (daily 08:00)
 │
 ├── Step 4: Render PDF (two editions)
 │   Mobile: 430×932px + A4: 210×297mm
+│   ⚠️ 渲染后必须机械验证：`ls -lh output/*.pdf` 确认文件存在再进入 Step 5。
+│   不得只描述渲染结果——必须用 ls 检查文件系统。
 │
 ├── Step 5: Audit (7 sentinels + anti-hedging + source count)
 │
@@ -68,14 +70,46 @@ Trigger: cron scheduler (daily 08:00)
 └── Step 7: Deliver (MEDIA: PDFs + audio to user)
 ```
 
+> ⛔ **EXECUTION LAPSE GUARD**: v4.0 实测中 agent 多次读完 Mode A 后只描述 pipeline 而不执行工具调用（声称"Step 4 完成"但 PDF 未生成）。此为已知 Execution Lapse——skill 内容正确，agent 未遵循。**若 Mode A 连续失败，直接切 Mode B**。
+
 ### Mode B: Interactive / Kanban Swarm (manual trigger)
+
+> 🚁 **PRE-FLIGHT**: 运行 `hermes kanban swarm` 前确保所有 worker（lane-zh/lane-en/lane-mixed/lane-tech）+ verifier（auditor）+ synthesizer（publisher）profile gateway 全部 running。检查：`hermes profile list`。任一 stopped → `hermes gateway start --profile <name>`。详见 `references/mode-b-operational-gotchas.md`。
 
 **状态：✅ 已验证（2026-06-04）** — 并行搜索 + 验证通过，publisher gateway 需修端口配置。
 
-When triggered interactively (not cron), use Kanban v0.15 Swarm for full multi-agent pipeline:
+When triggered interactively (not cron), use Kanban v0.15 Swarm for full multi-agent pipeline.
+
+### ⚡ Gateway Pre-flight (MANDATORY before swarm)
+
+All worker/verifier/synthesizer profiles' gateways MUST be running. Check with `hermes profile list` — if any show `stopped`, start them:
 
 ```bash
-# 实测语法 — 2026-06-04 验证
+for p in lane-zh lane-en lane-mixed lane-tech auditor publisher; do
+  hermes gateway start --profile "$p"
+done
+```
+
+Also verify each profile has `dispatch_in_gateway: true` in its `config.yaml` (or be prepared to run `hermes kanban dispatch` manually after swarm creation).
+
+### Publisher profile skill setup
+
+Publisher profile needs these skill symlinks (one-time setup):
+
+```bash
+mkdir -p ~/.hermes/profiles/publisher/skills/{productivity,creative,hermes}
+ln -sf ~/.hermes/skills/productivity/morning-news-briefing ~/.hermes/profiles/publisher/skills/productivity/
+ln -sf ~/.hermes/skills/productivity/news-assembly ~/.hermes/profiles/publisher/skills/productivity/
+ln -sf ~/.hermes/skills/creative/de-slop ~/.hermes/profiles/publisher/skills/creative/
+ln -sf ~/.hermes/skills/hermes/tts-manager ~/.hermes/profiles/publisher/skills/hermes/
+```
+
+### Swarm command
+
+⚠️ `--skill` flags MUST use full categorized paths, not short names. Short names cause `Unknown skill(s)` errors.
+
+```bash
+# 实测语法 — 2026-06-04 验证（全路径 skill + gateway pre-flight 修复后）
 hermes kanban swarm \
   --worker "lane-zh:中文搜索:productivity/morning-news-briefing,web-research-router" \
   --worker "lane-en:英文搜索:productivity/morning-news-briefing,web-research-router" \
@@ -84,6 +118,12 @@ hermes kanban swarm \
   --verifier auditor \
   --synthesizer publisher \
   "生成 {date} 早新闻简报：四路并行搜索 → 汇编 → 深度分析 → 渲染 PDF → TTS → 交付"
+```
+
+After swarm creation, check task status. If publisher sits in `ready` (not auto-dispatched), run:
+
+```bash
+hermes kanban dispatch
 ```
 
 **实测结果（2026-06-04）**：
@@ -97,7 +137,18 @@ hermes kanban swarm \
 | auditor (pro) | PASS — 仅 1 处轻微不一致 | ✅ |
 | publisher (pro) | 合成+渲染+TTS | ⚠️ 54 次崩溃 |
 
-**Publisher 崩溃根因**：`platforms.api_server.extra.port` 需为每个 profile 分配独立端口（当前默认为 8460，与 default 冲突）。修复后 publisher 应正常完成合成。
+**Publisher 崩溃根因**：`platforms.api_server.extra.port` 需为每个 profile 分配独立端口（当前默认为 8460，与 default 冲突）。
+
+修复方法：在 publisher 的 `config.yaml` 中设置独立端口：
+```yaml
+platforms:
+  api_server:
+    extra:
+      port: 8461  # 必须与 default (8460) 不同
+```
+修复后 publisher 应正常完成合成。**此修复尚未应用到 publisher profile 配置中。**
+
+**🔄 Recovery: stuck workers**: 若 worker 显示 `running` 但 `hermes kanban log <task>` 卡在 "Initializing agent..." → reclaim + dispatch 救活：`hermes kanban reclaim <task> && hermes kanban dispatch`。详见 `references/mode-b-operational-gotchas.md`。
 
 ⚠️ **注意**：
 - `--worker` 格式是 `PROFILE:TITLE[:SKILL,SKILL]`，每个并行 worker 一个独立 flag
@@ -315,6 +366,9 @@ Note: 今日要闻 is a flat list, not sectional. The sections below it organize
 | `assets/mobile-template.html` | 🆕 v7 Swiss Hybrid mobile template (430×932px) — IKB + serif 编辑体 |
 | `assets/standard-template.html` | 🆕 v7 Swiss Hybrid A4 template — 5 列市场 grid + 3 列来源 |
 | `assets/diff-check.sh` | Pre-render CSS diff against baseline |
+| `references/cron-model-resilience.md` | 🆕 Cron model/provider 故障链（kimi-k2.6 废弃 + tts toolset 缺失 + DeepSeek 400） |
+| `references/agent-hallucination-patterns.md` | 🆕 Agent 描述但未执行模式（PDF 渲染幻觉 + 修复指南） |
+| `references/mode-b-operational-gotchas.md` | 🆕 Mode B 运营 checklist：gateway 预检 + worker 卡死 recovery + Brave 429 + publisher 端口 |
 
 ## 🔧 P0 修复记录 (2026-06-03)
 
@@ -364,6 +418,16 @@ PLATFORM_MAP = {
 | **Cron 搜索用 shell background 而非 parallel tool calls** | shell background 写入的 JSON 文件可能因 cron-worker 的 execute_code 路径偏移落在错误的 workspace（`~/.hermes/profiles/cron-worker/home/...`），导致后续 assembly 读不到。parallel tool calls 直接在主 Agent 上下文处理结果，无此问题。2026-06-04 验证：12 查询单轮次并行 → 直接汇编，零路径问题 |
 | **cp 到 skills 顶层** | 索引器只扫描分类子目录。顶层裸目录 = skill 永不加载。必须放 `skills/productivity/` 下 |
 | **反骑墙 grep 写了但没跑** | SKILL.md 规定 `grep 可能/或许/似乎 → REJECT`，但 agent 在汇编阶段不会主动跑 grep。必须在 Step 2 汇编完成后用 `execute_code` 或 `terminal` 机械执行 grep，命中任一即阻断渲染，不是 checklist 里的可选项 |
+| **tts toolset 未加入 cron enabled_toolsets** | `text_to_speech` 工具需要 `tts` toolset。cron job 创建时若未显式加 `tts` → Agent 看不到 TTS 工具 → 永远无法调用 → Step 6 静默失败。**必须在 enabled_toolsets 中包含 `tts`**。2026-06-04：历史所有 run 都无 TTS 产出，根因即此。 |
+| **Fallback model 已废弃** | cron job 的 `model` 字段不应使用已废弃的模型（如 `kimi-k2.6`）。Hermes 主 provider 挂了会自动 fallback — 但 fallback 到的模型若已下线（HTTP 404），3 次重试后整个 job 失败。始终用当前已验证可用的模型（如 `deepseek-v4-pro`）。2026-06-04：kimi-k2.6 返回 404 导致 08:00 run 失败。 |
+| **DeepSeek 内容安全拦截（400 Content Exists Risk）** | 新闻内容可能触发 DeepSeek 的安全过滤器返回 HTTP 400。不视为永久故障 — 若为单次请求的瞬时拦截，retry 通常可过。若持续触发，需检查是否有特定新闻条目/措辞触发了过滤器。 |
+| **Kanban swarm 路由错分配不存在的 skill** | Swarm 的 `--synthesizer publisher` 自动路由可能给任务分配不存在的 skill（如 `avoid-ai-writing`）。症状：publisher 连续崩溃，log 显示 `Unknown skill(s)`。修复：回收任务 → 用 `hermes kanban create --skill <full-path>` 重建 — `--skill` 必须用全路径（`productivity/morning-news-briefing`），短名无效。 |
+| **过期 model 仍在 credential pool 中** | `hermes auth list` 检查池中是否有已下线的 model（如 kimi-k2.6）。有 → `hermes auth remove <provider> <N>` 移除。否则 Hermes 主 provider 失败时自动 fallback 到死 model → 404 × 3  → job 失败。2026-06-04：kimi-k2.6 在池中导致 08:00 run 三次 404 后全局失败。 |
+| **Kanban swarm publisher profile 无 skill symlink** | Publisher profile 的 `skills/` 目录可能为空（无 symlink）。症状：即使 task `--skill` 用了正确全路径，worker 仍报 `Unknown skill(s)`。修复：`ln -sf ~/.hermes/skills/<category>/<name> ~/.hermes/profiles/publisher/skills/<category>/` 补全四个核心 skill。 |
+| **Worker gateway 未启动 → kanban 任务永不执行** | Mode B swarm 创建后，四路 worker + auditor + publisher 的 gateway 必须全部 running。`hermes profile list` 可以检查状态。`stopped` = 任务永远卡在 running/todo。修复：`for p in lane-zh lane-en lane-mixed lane-tech auditor publisher; do hermes gateway start --profile "$p"; done`。 |
+| **dispatch_in_gateway=false → 任务 sitting in ready** | 某些 profile 的 `config.yaml` 中 kanban dispatch 可能关闭。swarm 创建后 publisher 卡在 ready 不自动推进。修复：`hermes kanban dispatch` 手动推一把。 |
+| **Cron prompt 过于依赖 skill 引用 → Agent 不执行** | 只写「严格按 SKILL.md 执行」时，agent 可能把 skill 当背景知识读完，在 response 里总结就交了，不去跑工具调用 pipeline。**prompt 必须写具体工具调用**：`write_file` 写 Markdown、`terminal` 跑 render-pdfs.py、`text_to_speech` 生成 TTS。 |
+| **Agent 描述渲染结果但 PDF 实际不存在** | 2026-06-04 实测：cron agent 声称 PDF 已生成但 `ls` 显示文件不存在。Agent 描述了 Step 4 但未执行 `render-pdfs.py`。**必须在 Step 4 后机械 `ls` 验证文件存在，不得相信 agent 自述**。详见 `references/agent-hallucination-patterns.md`。 |
 
 ## ✅ Verification Checklist (RUN BEFORE DELIVERY)
 
@@ -375,6 +439,7 @@ PLATFORM_MAP = {
 - [ ] Source ledger: S01–SNN numbered with outlet names + verifiable URLs?
 - [ ] TTS: `output/morning-news-{date}.mp3` exists and 试听通过? (if unreachable: annotated skip)
 - [ ] PDF files delivered directly (not just path)?
+- [ ] ⚠️ **机械验证**：`ls -lh output/*.pdf` 输出中有两个 PDF 文件（mobile + A4）且 size > 100KB？（不靠 agent 自述）
 - [ ] Audio file delivered alongside PDFs?
 
 **If any box is unchecked, go back.**
@@ -421,6 +486,7 @@ Cron 只需要引用 skill，不需要内联 prompt。用 `hermes cron create` �
     "productivity/news-assembly"
   ],
   "schedule": "0 8 * * *",
+  "enabled_toolsets": ["web", "terminal", "file", "delegation", "search", "tts"],
   "profile": "cron-worker",
   "model": "deepseek-v4-pro",
   "provider": "deepseek",

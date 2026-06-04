@@ -90,7 +90,7 @@ CONTEXT:
 YOUR LENS (Challenger):
 1. Assume the agent will rationalize skipping this skill — does the Red Flags table actually prevent it?
 2. Assume critical rules are outside the attention window — does positioning actually work?
-3. Simulate deployment failures: what happens if this skill is loaded in a governance chain (三省六部) and silently bypassed?
+3. Simulate deployment failures: what happens if this skill is loaded in a governance chain (multi-profile chain and silently bypassed?
 4. Check anti-patterns: does this skill exhibit any catalog failures (see references/anti-rationalization-catalog.md)?
 5. Adversarially test compliance scores: if Advocate gave a 4, can you find evidence for a 3?
 
@@ -205,7 +205,7 @@ WHEN SYNTHESIS FAILS:
 - Step 9 Deployment Audit when a skill is being deployed to a new agent/profile and compliance must be verified
 - Skill hygiene triage when scanning 50+ skills for consolidation, deprecation, or overlap — Advocate finds salvageable content, Challenger finds redundancy
 - Post-absorption review (e.g., after absorbing external repo into existing skill) to validate that the integration didn't break compliance
-- Multi-profile governance audits (三省六部) where silent bypass risk is high — Challenger simulates cross-profile failure modes
+- Multi-profile governance audits (multi-profile where silent bypass risk is high — Challenger simulates cross-profile failure modes
 - When a skill has been revised ≥3 times and author suspects rationalization drift — Challenger catches self-review blind spots
 - Before creating a references/consolidation-case-study.md for a major skill merge — dual-role review validates the consolidation improved compliance
 

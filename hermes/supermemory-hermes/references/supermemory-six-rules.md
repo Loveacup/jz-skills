@@ -15,7 +15,7 @@
 | Profile | 池名 | Wrapper ID |
 |:--|:--|:--|
 | `default`（小黄） | `hermes` | 2 |
-| `regent`（太子）+ 14 三省六部 | `hermes-cabinet` | 3 |
+| `regent`（太子）+ 14 multi-agent | `hermes-cabinet` | 3 |
 
 - 两池写入互不干扰——**这是架构决策，不是 bug**
 - 跨池查询需 `~/.hermes/scripts/supermemory_crosspool.py` 包装

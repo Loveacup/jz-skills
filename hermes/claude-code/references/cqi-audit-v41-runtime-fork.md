@@ -17,8 +17,8 @@ A 2026-06-01 CC agent-team反审 found that the runtime `claude-code` skill and 
 ## Reusable audit checklist
 
 ```bash
-SRC=/Users/alexcai/code/jz-skills/hermes/claude-code/SKILL.md
-DEP=/Users/alexcai/.hermes/skills/autonomous-ai-agents/claude-code/SKILL.md
+SRC=~/code/jz-skills/hermes/claude-code/SKILL.md
+DEP=~/.hermes/skills/autonomous-ai-agents/claude-code/SKILL.md
 wc -l "$SRC" "$DEP"
 md5 "$SRC" "$DEP"
 diff -q "$SRC" "$DEP" || true

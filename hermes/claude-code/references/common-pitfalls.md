@@ -20,8 +20,8 @@ Hermes profile 将 `HOME` 重定向到 `~/.hermes/profiles/<name>/home/`。CC �
 
 **永久方案：** 在真实 shell（HOME 正常）下 symlink auth 文件到 profile home：
 ```bash
-ln -sf /Users/alexcai/.claude.json "$PROFILE_HOME/.claude.json"
-ln -sf /Users/alexcai/.claude "$PROFILE_HOME/.claude"
+ln -sf ~/.claude.json "$PROFILE_HOME/.claude.json"
+ln -sf ~/.claude "$PROFILE_HOME/.claude"
 ```
 
 ## 3. Worker 假死（文件在磁盘）
@@ -323,3 +323,30 @@ tmux send-keys -t <s> '对，继续做剩下 4 条。一次改完，不用汇报
 - `high` + 单条原子操作 → 安全
 - `xhigh/max` + 多任务列表 → 考虑拆成逐条喂，或降 effort 到 `high`
 - `xhigh/max` + **结构化输出格式**（✅/🔴/⚠️ 判定、PASS/BLOCKED 判决、逐项报告）→ **高风险**。拆为逐项原子命令各自输出，或接受简单存在性检查代替完整审计
+
+### 中断后强制输出变体（内容/分析/盘点类任务专用，2026-06-04 验证）
+
+当 CC 在 **生成报告/manifest/分类方案/分析简报** 时陷入 xhigh 长思考（非代码执行任务），窄指令法不适用——没有可拆的原子操作，CC 只是越想越深。此时用「强制输出」指令：
+
+```bash
+# 步骤 1：Ctrl+C 中断
+tmux send-keys -t <s> C-c
+
+# 步骤 2：要求立即输出，禁止继续思考或运行命令
+tmux send-keys -t <s> "Stop deep thinking. Output X now in concise bullets. Use gathered evidence only. Do not run more commands. Do not edit files." C-m
+
+# 步骤 3：若仍未消费 → 补发空 Enter（Pitfall #20）
+```
+
+**关键差异 vs 窄指令法：**
+| 维度 | 窄指令法（#28 主体） | 强制输出变体 |
+|------|---------------------|-------------|
+| 任务类型 | 代码/编辑/替换 | 内容/分析/盘点/分类 |
+| 根因 | 任务太宽泛，过度规划 | 分析级联加深，无法收敛 |
+| 目标 | 拆为单一原子操作 | 压缩已有结论，停止探索 |
+| 典型命令 | "只替换 X 为 Y，改完说 done" | "Stop deep thinking. Output brief now. Do not run commands." |
+
+**已知效果（2026-06-04，Obsidian Inbox 盘点）：**
+- R1 盘点任务，CC 在 `Combobulating… (6m21s, almost done)` → Ctrl+C + Stop deep thinking → `Smooshing… (19s)` → 成功输出 R1 简报
+- R2 manifest 生成，`Combobulating… (3m5s, almost done)` → 同上 → `Seasoning… (2m30s)` → 写 `/tmp/ob-inbox-dry-run-manifest-20260604.md`（110 行）
+- merge 执行中，`Channeling… (1m47s)` + token 持续增长 → **未中断**（token 增长 = 思考活跃，非冻结，符合 RA-07 思考保护）

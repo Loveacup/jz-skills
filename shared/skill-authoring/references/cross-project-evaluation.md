@@ -44,7 +44,7 @@ External project identified?
 
 ## Case Study: ECC → jz-skills (2026-05-27)
 
-**Result:** ECC validates our path (SKILL.md + checklist + Red Flags) but doesn't challenge it. No absorption needed — our architecture (三省六部 governance) is intentionally narrower and deeper than ECC's broad marketplace approach.
+**Result:** ECC validates our path (SKILL.md + checklist + Red Flags) but doesn't challenge it. No absorption needed — our architecture (multi-profile governance) is intentionally narrower and deeper than ECC's broad marketplace approach.
 
 ## Case Study: taste-skill → jz-skills (2026-05-27)
 

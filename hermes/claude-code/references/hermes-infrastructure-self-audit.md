@@ -66,4 +66,4 @@ When running in a non-default Hermes profile (e.g., cron-worker), `~` resolves t
 - `gh auth status` reads WRONG config
 - `cd ~/.hermes/...` resolves to WRONG path
 
-**Fix:** Always use absolute paths (`/Users/alexcai/...`) when operating on system-level files from a non-default profile. Pass `HOME=/Users/alexcai` to subprocesses like `gh` and `claude`.
+**Fix:** Always use absolute paths (`~/...`) when operating on system-level files from a non-default profile. Pass `HOME=/Users/alexcai` to subprocesses like `gh` and `claude`.

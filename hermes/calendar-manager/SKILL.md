@@ -201,3 +201,11 @@ set endDate to startDate + (3 * hours)
 ```
 
 > 2026-06-01 实测：`date "Thursday, June 4, 2026 at 9:00:00 AM"` 在 macOS 26.2 (zh-CN) 下失败，程序化方式成功。
+
+### 移动事件：不要直接修改 start/end date
+
+直接 `set start date of ev to newStart` + `set end date of ev to newEnd` 会报 `-10025` 错误（"开始日期必须早于结束日期"），即使 newStart 确实早于 newEnd。
+
+**可靠替代**：delete + recreate（详见 `references/applescript-operations.md` 的「移动事件」章节）。
+
+> 2026-06-04 实测：移「🏥 省口腔·张睿（检查）」从 6/4 到 6/5，直接改日期连续失败 4 次，delete+recreate 一次成功。

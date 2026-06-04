@@ -1,6 +1,6 @@
 # Supermemory API Quirks & Limitations
 
-> Discovered 2026-05-29 during 三省六部 cabinet memory deployment and regent architecture testing.
+> Discovered 2026-05-29 during multi-profile cabinet memory deployment and regent architecture testing.
 > These are Supermemory **platform** behaviors, not Hermes bugs.
 
 ---
@@ -157,7 +157,7 @@ queued → extracting → chunking → embedding → indexing → done
 - Threshold is `profile_frequency` (likely 50 in Supermemory's config)
 - `dynamic_count` is the running total of dynamic context items
 - Cabinet pool has too little traffic for `static_count` to trigger — this is normal, not a bug
-- If 三省六部 need permanent profile facts, they need to be written explicitly as `type: user_profile` memories
+- If multi-agent profiles need permanent profile facts, they need to be written explicitly as `type: user_profile` memories
 
 ---
 

@@ -103,6 +103,20 @@ See `references/auth.md` for full setup (HTTPS tokens, SSH keys, `gh auth login`
 | `references/codebase-inspection.md` | LOC count, language breakdown, code/comment ratios via pygount |
 | `references/readme-guide.md` | Write or review README: section guide, bilingual patterns, anti-patterns, checklist |
 
+## ⚠️ Profile Isolation Pitfall
+
+When running from a non-default Hermes profile (e.g., cron-worker whose `HERMES_HOME` redirects `~`), `gh` commands silently fail or appear unauthenticated because `gh` reads auth from `~/.config/gh/` — which resolves to the profile's redirected home, not the real macOS user home.
+
+Always prefix `gh` and `git` commands with `HOME=/Users/<username>`:
+
+```bash
+HOME=/Users/alexcai gh auth status
+HOME=/Users/alexcai git push fork branch-name
+HOME=/Users/alexcai gh pr create --base main --head user:branch ...
+```
+
+The real home path is discoverable via `dscl . -read "/Users/$(id -un)" NFSHomeDirectory` if unsure.
+
 ## ✅ Verification Checklist (RUN BEFORE RETURNING RESULTS)
 
 - [ ] Did I run the auth detection block before any GitHub API call?

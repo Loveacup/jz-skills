@@ -4,67 +4,87 @@ Update this file whenever TTS provider status, default/fallback policy, benchmar
 
 ## Current Policy
 
-- **Default Hermes TTS:** Edge TTS.
-- **Fallback/local high-quality provider:** Qwen3-TTS 0.6B CustomVoice command provider.
+- **Default Hermes TTS:** CosyVoice (Fun-CosyVoice3-0.5B) via H200 server.
+- **Fallback (same profile):** Edge TTS (`zh-CN-XiaoxiaoNeural`) — kept configured; used if H200/CosyVoice is unreachable.
+- **Legacy local provider:** Qwen3-TTS 0.6B CustomVoice — retained as experiment only; not used in production.
 - **Default switching rule:** Do not switch `tts.provider` without explicit user approval.
+- **Voice selection rule:** Default voice is `AlexCai` (user's own voice clone). CosyVoice registration API supports custom voices via 3-shot enrollment (audio + text + speaker ID).
 - **Delivery rule:** For voice tests, send individual audio files directly unless the user asks for a bundle.
 
 ## Providers
 
-### Edge TTS
+### CosyVoice (Fun-CosyVoice3-0.5B) — H200 Server — DEFAULT
 
-- **Role:** Default fast TTS for routine Hermes voice replies.
+- **Role:** Default Hermes TTS (migrated from Edge TTS 2026-06-02).
+- **Backend:** Fun-CosyVoice3-0.5B on H200 GPU, reachable via `http://<internal IP redacted>:8088/CosyVoice`.
+- **Integration:** Hermes command provider — wrapper script at `~/.hermes/scripts/cosyvoice-tts.sh`. Config pattern:
+  ```yaml
+  tts:
+    provider: cosyvoice
+    cosyvoice:
+      type: command
+      command: bash ~/.hermes/scripts/cosyvoice-tts.sh {input_path} {voice} {output_path}
+      voice: AlexCai
+      timeout: 30
+  ```
+- **Latency:** RTF 0.33–0.55 (well below real-time; ~1.4s for 14-char Chinese).
+- **Voices:** 9 registered speakers including custom `AlexCai` voice clone. See `references/cosyvoice-h200.md` for full voice list, registration API, and wrapper script details.
+- **Cost:** Zero (local GPU inference, no API key).
+- **Strengths:** Custom voice cloning (~6s reference audio), zero API cost, internal network, no artifacts, OGG output (Telegram-native), solid Chinese prosody.
+- **Weaknesses:** Requires H200 server running + Surge tunnel to <internal IP redacted>/24 subnet; ~1s slower than Edge TTS; command provider has no built-in fallback chain.
+- **Quality:** Excellent Chinese; voice clone fidelity depends on reference audio quality (see §Voice Cloning Quality below).
+- **Current verdict:** Default for all Hermes profiles. 18/18 profiles configured.
+
+### Edge TTS — Fallback
+
+- **Role:** Fallback TTS when CosyVoice/H200 is unreachable.
 - **Cost:** Free / no API key.
-- **Strengths:** Fast startup, stable delivery, good enough for short Chinese replies.
-- **Weaknesses:** Less expressive/custom than local neural custom-voice models.
-- **Current status:** Keep as default until a fallback provider proves low-latency and clean enough.
+- **Strengths:** Fast, stable, independent.
+- **Current status:** Kept configured on all profiles but not default.
 
-### Qwen3-TTS 12Hz 0.6B CustomVoice — Local Fallback
+### Qwen3-TTS 12Hz 0.6B CustomVoice — Deprecated
 
-- **Role:** Local fallback / manual high-quality experiment, not default.
+- **Role:** Deprecated. Previously local fallback; superseded by CosyVoice (H200) which delivers better quality with no artifacts.
 - **Model:** `Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice` plus tokenizer.
-- **Suggested local root:** `${QWEN3_TTS_HOME:-/Volumes/<external-disk>/agent/qwen3-tts}`.
-- **Hermes provider name used in local profile:** `qwen3_0_6b_local`.
-- **Backend tested:** Apple Silicon MPS, PyTorch float32.
-- **Precision finding:** float32 works; float16 on MPS previously failed with invalid probability/NaN behavior.
-- **Install footprint observed:** about 4 GB total including model and venv.
-- **Observed resource use:** about 2.6–3.2 GB peak RSS during prior tests.
-- **Observed speed:** command cold-start is too slow for default live replies; single loaded process performs better but still slower than Edge.
-- **Known quality issue:** start-of-audio artifacts/noise occurred in Chinese voice samples. Simple silence/fade-in alone did not eliminate the noise, but **trim 500ms + 300ms fade-in post-processing removes the artifact** (confirmed across Serena, Vivian, Uncle_Fu, Dylan, and Eric samples). Production wrappers must apply this post-processing automatically.
-- **Current verdict:** keep as fallback only; not suitable as default Hermes TTS yet, but usable for manual high-quality output with mandatory trim+fade post-processing.
+- **Retained for:** experimental/historical reference only. Not used in any production Hermes profile.
+- **Known quality issue (historical):** Start-of-audio artifacts required trim 500ms + 300ms fade-in post-processing.
+- **Current verdict:** Deprecated. Use CosyVoice for all TTS needs.
 
-#### Voice Notes
+## Voice Cloning Quality (CosyVoice)
 
-Chinese voices tested:
-- `Vivian` — female, bright; artifact issue still reported.
-- `Serena` — female, softer; candidate for Chinese fallback if artifacts are acceptable.
-- `Uncle_Fu` — mature male; stronger start artifact in diagnostics.
-- `Dylan` — young male; start artifact observed.
-- `Eric` — bright male; start artifact observed.
+**Critical rule for reference audio:** Natural conversational speech works. Formal/播音腔 ruins the clone.
 
-Other voices tested:
-- `Ryan`, `Aiden` — English.
-- `Ono_Anna` — Japanese.
-- `Sohee` — Korean.
+| Reference Style | Result |
+|---|---|
+| "我刚吃完饭，今天那个回锅肉还挺下饭的，你吃了没？" (casual) | ✅ Natural, relaxed, authentic |
+| "大家好，我是Alex，很高兴用这种方式和你交流…" (formal intro) | ❌ Stiff, 播音腔, unnatural |
+
+**Rules for reference audio:**
+- 4-8 seconds, no background noise, 16kHz mono WAV
+- Use everyday conversational content (meal talk, casual chat) — NOT self-introductions, NOT reading aloud
+- **Act like you're sending a voice message to a friend, not recording for a system**
+- If user complains about stiffness → re-clone with casual reference audio immediately
+- Delete old speaker before re-registering with same `spk_id`
 
 ## Benchmark Log
 
 ### 2026-06-01 — Qwen3-TTS 0.6B local fallback smoke/benchmark
 
-Context:
-- Mac Apple Silicon with MPS.
-- Model loaded from external disk path (sanitized above).
-- Hermes default remained Edge TTS.
+## Voice Cloning Quality (CosyVoice)
 
-Representative results from prior local benchmark:
-- Short Chinese text: total around 28 s, audio around 4.3 s, peak RSS around 2.6 GB.
-- Medium Chinese text: total around 90 s, audio around 19.2 s, peak RSS around 3.2 GB.
-- Long Chinese text: total around 280 s, audio around 44.5 s, peak RSS around 3.1 GB.
+**Critical rule for reference audio:** Natural conversational speech works. Formal/播音腔 ruins the clone.
 
-Interpretation:
-- Works as a local fallback experiment.
-- Too slow for default immediate replies when invoked as a cold command provider.
-- Quality blocker remains start-of-audio noise/artifact.
+| Reference Style | Result |
+|---|---|
+| "我刚吃完饭，今天那个回锅肉还挺下饭的，你吃了没？" (casual) | ✅ Natural, relaxed, authentic |
+| "大家好，我是Alex，很高兴用这种方式和你交流…" (formal intro) | ❌ Stiff, 播音腔, unnatural |
+
+**Rules for reference audio:**
+- 4-8 seconds, no background noise, 16kHz mono WAV
+- Use everyday conversational content (meal talk, casual chat) — NOT self-introductions, NOT reading aloud
+- **Act like you're sending a voice message to a friend, not recording for a system**
+- If user complains about stiffness → re-clone with casual reference audio immediately
+- Delete old speaker before re-registering with same `spk_id`
 
 ## Update Rules
 
