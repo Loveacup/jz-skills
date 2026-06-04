@@ -5,13 +5,13 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-38-blue" alt="60 skills">
+  <img src="https://img.shields.io/badge/skills-37-blue" alt="37 skills">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
   <img src="https://img.shields.io/badge/license-MIT-brightgreen" alt="MIT license">
 </p>
 
-> 🤖 **Hermes + Claude Code + pi 三端 AI agent 技能仓库 — 38 skills, 三层结构, 双向同步。**
+> 🤖 **Hermes + Claude Code + pi 三端 AI agent 技能仓库 — 37 skills, 三层结构, 双向同步。**
 >
 > Skills authored, audited, and evolved by AI agents following [skill-authoring](shared/skill-authoring/). Deployed to a Hermes, Claude Code, and pi (Windows).
 >
@@ -32,7 +32,7 @@ jz-skills/
 | Layer | Directory | Skills | Scope · 范围 |
 |:---|:---|:---:|:---|
 | 🌐 | `shared/` | 16 | All 3 platforms · 三端同步 |
-| ⚙️ | `hermes/` | 16 | Hermes platform · 平台通用 |
+| ⚙️ | `hermes/` | 15 | Hermes platform · 平台通用 |
 | 🪟 | `pi/` | 6 | Pi (Windows), self-authored · Pi 自创作 |
 
 <details>
@@ -67,7 +67,8 @@ jz-skills/
 │   ├── tech-support-email/        # v1.1 · 技术支持邮件
 │   ├── supermemory-hermes/        # Hermes Supermemory 配置
 │   ├── tradingagents/             # 交易分析
-│   ├── arxiv/                     # 论文检索
+│   ├── news-assembly/             # 多源搜索→简报骨架
+│   ├── source-verification/       # 事实验证 + Claim 溯源
 │   ├── bilibili-video-analyzer/   # B站视频分析
 │   ├── xhs-crawler/               # 小红书爬虫 (CloakBrowser)
 │   ├── calendar-manager/          # 智能日历
@@ -108,13 +109,14 @@ Skills ranked by total commit count across the full repository history — refle
 
 ---
 
-### 📔 auto-diary · 自动化日记 v3.5
+### 📔 auto-diary · 自动化日记 v3.5.1
 
-> **14 commits** — evolved through six major versions (v2.0 → v3.5) · 历经六个大版本迭代
+> **14 commits** — evolved through six major versions (v2.0 → v3.5.1) · 历经六个大版本迭代
 
-Automated daily diary + weekly/monthly/yearly report generation from cron. Evolved through six major versions (v2.0 → v3.5) with progressive structural refinement.
-从 cron 触发的日记生成到金字塔聚合的年报体系，历经 v2.0→v3.5 六个大版本。
+Automated daily diary + weekly/monthly/yearly report generation from cron. Evolved through six major versions (v2.0 → v3.5.1) with progressive structural refinement.
+从 cron 触发的日记生成到金字塔聚合的年报体系，历经 v2.0→v3.5.1 六个大版本。
 
+- **v3.5.1 — Silent cron failure fix · 静默故障修复:** 🔴 Cron `skills: []` 空数组仍然 status 'ok' 运行，但日记因缺少 skill 逐日退化（CC=0, 知识库=0, 裸模板）。诊断+修复命令已写入 skill Red Flags + Common Pitfalls + Troubleshooting
 - **v3.5 — Pyramid aggregation · 金字塔聚合:** Daily→weekly→monthly→yearly with cron scheduling + validation / 日→周→月→年四级聚合
 - **v3.4 — Validation loop · 校验闭环:** Real validation fixing internal contradictions between config and output / 修复配置与输出矛盾
 - **v3.2 — CC classification · CC 三分类:** agent-team / independent / programmatic, entrypoint+parentUuid tracking / 三类 CC 会话分类
@@ -241,10 +243,12 @@ General reference for Supermemory — long-term memory infrastructure shared acr
 | 🎤 [`tts-manager`](hermes/tts-manager/) | TTS provider registry + voice testing |
 | 📧 [`tech-support-email`](hermes/tech-support-email/) | Investigation-first vendor emails v1.1 |
 | 📈 [`tradingagents`](hermes/tradingagents/) | A-share / market analysis / 交易分析 |
-| 📚 [`arxiv`](hermes/arxiv/) | Academic paper search / 论文检索 |
+| 📰 [`news-assembly`](hermes/news-assembly/) | Multi-source search→briefing skeleton / 简报汇编 |
+| 🔬 [`source-verification`](hermes/source-verification/) | Fact-checking + claim verification / 事实验证 |
 | 📺 [`bilibili-video-analyzer`](hermes/bilibili-video-analyzer/) | Bilibili video analysis / B站视频 |
 | 📕 [`xhs-crawler`](hermes/xhs-crawler/) | XHS CDP extraction (CloakBrowser) / 小红书爬虫 |
 | 📅 [`calendar-manager`](hermes/calendar-manager/) | Smart calendar + reminders / 智能日历 |
+| 📰 [`morning-news-briefing`](hermes/morning-news-briefing/) | Daily news briefing / 早新闻简报 |
 
 ### 🏯 hermes-3S6M-profiles/ — 三省六部 (23)
 
