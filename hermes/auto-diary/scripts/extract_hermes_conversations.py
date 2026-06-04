@@ -5,7 +5,6 @@ Queries Hermes state.db SQLite databases (main + profiles) for sessions.
 v2.0: migrated from JSON file reading to SQLite (JSON files deprecated May 2026).
 """
 
-import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path

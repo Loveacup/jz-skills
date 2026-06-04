@@ -9,6 +9,7 @@ Usage:
 
 Default dir: ~/Documents/Obsidian/AlexCai/50-Self/01_日记/
 
+v2.2 (2026-06-05) — v3.6.0: #6 改为 find()-based fail-loud（格式漂移/半角?/不加粗 不再静默放过；旧 regex m=None 时 fail-open）。
 v2.1 (2026-06-04) — v3.5.2: 三问答案深度校验（禁止空洞占位符）。
 v2.0 (2026-06-01) — 从"标题存在性扫描"升级为"结构深度校验"。
 2026-06 全月重写事故暴露:旧版只查 section 标题在不在,而真正的翻车点
@@ -134,22 +135,35 @@ def check_structural(content):
             if not re.search(r"^---\s*$", content[a:b], re.MULTILINE):
                 issues.append(f"底部段落拍扁({label} 间缺 --- 分隔)")
 
-    # 6) 🔴 v3.5.2: 三问答案不可空洞。检查每条三问后面是否有实质性内容(≥20 字且不含占位符)。
-    #    (翻车点:退化日记 Q2/Q3 写 "(无)" 或 "(待补充)" 仍 PASS)
-    q_patterns = [
-        (r'1\.\s*\*\*今天我做了什么推动进展的事情？\*\*\s*\n\s*(.+?)(?=\n\s*\d\.|\n\n|---|\Z)', "Q1"),
-        (r'2\.\s*\*\*明天我可以构建什么未来的事情？\*\*\s*\n\s*(.+?)(?=\n\s*\d\.|\n\n|---|\Z)', "Q2"),
-        (r'3\.\s*\*\*我可以从过去淘汰什么流程？\*\*\s*\n\s*(.+?)(?=\n\s*\d\.|\n\n|---|\Z)', "Q3"),
+    # 6) 🔴 v3.6.0: 三问答案 fail-loud（find()-based）。旧 regex 当格式漂移（半角?、不加粗）时
+    #    m=None → 静默放行 = fail-open。改为 find() 定位问句 → 提取答案 → 不得缺失/占位/<20字。
+    q_stems = [
+        ("**今天我做了什么推动进展的事情？**", "Q1"),
+        ("**明天我可以构建什么未来的事情？**", "Q2"),
+        ("**我可以从过去淘汰什么流程？**",    "Q3"),
     ]
     placeholders = {'(无)', '(待补充)', '(待定)', '无', 'N/A', '...', '—'}
-    for pat, label in q_patterns:
-        m = re.search(pat, content, re.DOTALL)
-        if m:
-            answer = m.group(1).strip()
-            # Strip markdown formatting
-            answer_clean = re.sub(r'[*_~`#>|\[\]]', '', answer).strip()
-            if len(answer_clean) < 20 or answer_clean in placeholders:
-                issues.append(f"三问{label}空洞(答案≤20字或仅占位符: '{answer_clean[:30]}')")
+    for stem, label in q_stems:
+        qpos = content.find(stem)
+        if qpos < 0:
+            issues.append(f"三问{label}缺失(找不到问句)")
+            continue
+        rest = content[qpos + len(stem):]
+        # 截到下一问句 / 空行 / --- / ## 标题
+        cut = len(rest)
+        for nstem, _ in q_stems:
+            npos = rest.find(nstem)
+            if npos >= 0:
+                cut = min(cut, npos)
+        mb = re.search(r"\n\s*\n", rest)
+        if mb:
+            cut = min(cut, mb.start())
+        md = re.search(r"\n---", rest)
+        if md:
+            cut = min(cut, md.start())
+        answer_clean = re.sub(r'[*_~`#>|\[\]]', '', rest[:cut]).strip()
+        if answer_clean in placeholders or len(answer_clean) < 20:
+            issues.append(f"三问{label}空洞(答案缺失/占位/<20字: '{answer_clean[:30]}')")
 
     return issues
 
