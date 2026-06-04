@@ -2,295 +2,536 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=430, initial-scale=1.0">
-<title>早新闻简报 — {{DATE}}</title>
 <style>
-/* ═══════════════════════════════════════════
-   LOCKED CSS v1.0 — DO NOT MODIFY FREEFORM
-   修改必须经 diff-check.sh 验证 ±5% 以内
-   新增属性在 LOCKED 区之后追加，标注日期+原因
-   ═══════════════════════════════════════════ */
-
-/* ── Reset & Page ── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-@page {
-  size: 430px 932px;
-  margin: 0;
+:root {
+  --paper: #fafaf8; --ink: #0a0a0a;
+  --grey-1: #f0f0ee; --grey-2: #d4d4d2; --grey-3: #737373;
+  --accent: #002FA7; --accent-on: #fff;
 }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+@page { size: 430px 932px; margin: 14px 16px 14px; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
-html {
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
-}
-
-/* ── Body ── */
 body {
-  width: 430px;
-  font-family: -apple-system, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
-  font-size: 14px;
-  line-height: 1.8;
-  color: #1b1a17;
-  background: #fffdf8;
+  width: 100%; max-width: 402px;
+  font-family: "Noto Serif SC", "Source Han Serif SC", Georgia, serif;
+  font-size: 14px; line-height: 1.65;
+  color: var(--ink); background: var(--paper);
   -webkit-font-smoothing: antialiased;
 }
 
-/* ── Cover Page ── */
-.cover {
-  width: 430px; height: 932px;
-  display: flex; flex-direction: column; justify-content: center; align-items: center;
-  background: linear-gradient(160deg, #fffdf8 0%, #f5efe0 100%);
-  page-break-after: always;
+/* ═══ COVER — full page ═══ */
+.cover-wrap {
+  position: relative; width: 430px; height: 932px; margin: -12px 0 0 -14px;
+  background: var(--accent); color: var(--accent-on);
+  display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
+  padding: 64px 36px; page-break-after: always;
 }
-.cover h1 {
-  font-size: 42px; font-weight: 800; letter-spacing: 4px;
-  color: #1b1a17; margin-bottom: 8px;
-}
-.cover .subtitle {
-  font-size: 18px; color: #b47a32; letter-spacing: 2px; margin-bottom: 24px;
-}
-.cover .date {
-  font-size: 16px; color: #8a8a84; margin-bottom: 48px;
-}
-.cover .attribution {
-  font-size: 13px; color: #b47a32;
-  border-top: 1px solid #e0d6c2; padding-top: 16px;
-}
+.cover-wrap .kicker { font-family: "IBM Plex Mono", monospace; font-size: 10px; font-weight: 600; letter-spacing: 3px; color: rgba(255,255,255,0.5); margin-bottom: 20px; }
+.cover-wrap h1 { font-size: 46px; font-weight: 200; line-height: 1.1; letter-spacing: 2px; margin-bottom: 12px; }
+.cover-wrap .date { font-size: 12px; color: rgba(255,255,255,0.4); margin-bottom: 48px; font-family: "IBM Plex Mono", monospace; }
+.cover-wrap .hairline { width: 36px; height: 1px; background: rgba(255,255,255,0.25); margin-bottom: 16px; }
+.cover-wrap .attr { font-size: 11px; color: rgba(255,255,255,0.35); }
+.cover-wrap .stat-row { margin-top: auto; display: flex; gap: 32px; }
+.cover-wrap .stat-item .num { font-size: 26px; font-weight: 200; font-family: "IBM Plex Mono", monospace; }
+.cover-wrap .stat-item .label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-top: 2px; }
 
-/* ── Content Pages ── */
-.content {
-  padding: 24px 18px 24px 16px;
-}
+/* ═══ Common ═══ */
+.section-label { font-family: "IBM Plex Mono", monospace; font-size: 7px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 2px; }
 
-/* ── Executive Summary ── */
-.exec-summary {
-  background: #f5efe0;
-  border-left: 4px solid #b47a32;
-  padding: 14px 16px;
-  margin-bottom: 20px;
-  border-radius: 4px;
-}
-.exec-summary h2 {
-  font-size: 13px; text-transform: uppercase; letter-spacing: 2px;
-  color: #b47a32; margin-bottom: 10px;
-}
-.exec-summary ul {
-  list-style: none; padding: 0;
-}
-.exec-summary li {
-  font-size: 14px; line-height: 1.8; padding: 4px 0;
-}
-.exec-summary li::before {
-  content: "▪"; color: #b47a32; margin-right: 8px;
-}
+.kpi-strip { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; margin: 4px 0 6px; text-align: center; }
+.kpi-strip .k { background: var(--grey-1); padding: 4px 2px; }
+.kpi-strip .k .val { font-size: 10px; font-weight: 300; font-family: "IBM Plex Mono", monospace; color: var(--ink); }
+.kpi-strip .k .tag { font-size: 6px; letter-spacing: 1px; text-transform: uppercase; color: var(--grey-3); font-family: "IBM Plex Mono", monospace; margin-top: 1px; }
 
-/* ── Section ── */
-.section {
-  margin-bottom: 20px;
-}
-.section-header {
-  display: flex; align-items: center; gap: 8px;
-  margin-bottom: 14px; padding-bottom: 8px;
-  border-bottom: 2px solid #b47a32;
-}
-.section-header .emoji { font-size: 20px; }
-.section-header h2 {
-  font-size: 18px; font-weight: 700;
-  color: #1b1a17; letter-spacing: 2px;
-}
+.lead { font-size: 13px; line-height: 1.65; margin-bottom: 6px; }
+.lead p { margin-bottom: 2px; }
 
-/* ── News Card ── */
-.card {
-  background: #fff;
-  border: 1px solid #e8e4d8;
-  border-radius: 6px; padding: 14px;
-  margin-bottom: 14px;
-}
-.card:last-child { margin-bottom: 0; }
-.card h3 {
-  font-size: 15px; font-weight: 700; line-height: 1.6;
-  margin-bottom: 6px; color: #1b1a17;
-}
-.card p {
-  font-size: 13.5px; line-height: 1.8; color: #4a4945;
-  margin-bottom: 6px;
-}
-.card .source {
-  font-size: 12px; color: #8a8a84;
-  display: flex; align-items: center; gap: 4px;
-}
-.card .source::before { content: "📡"; font-size: 11px; }
+/* Section timeline */
+.sec-timeline { background: var(--grey-1); border-left: 3px solid var(--accent); padding: 6px 8px; margin: 5px 0 6px; }
+.sec-timeline .tl-title { font-family: "IBM Plex Mono", monospace; font-size: 7px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 3px; font-weight: 600; }
+.sec-timeline .tl-row { font-size: 8px; line-height: 1.4; margin-bottom: 1px; display: flex; align-items: baseline; gap: 4px; }
+.sec-timeline .tl-row .date { font-family: "IBM Plex Mono", monospace; font-size: 7px; color: var(--accent); font-weight: 500; white-space: nowrap; min-width: 38px; }
+.sec-timeline .tl-arrow { font-family: "IBM Plex Mono", monospace; font-size: 6.5px; color: var(--grey-3); text-align: center; margin: 1px 0 1px 5px; letter-spacing: 2px; }
 
-/* ── Analysis Block ── */
-.analysis {
-  background: #faf8f2;
-  border: 1px solid #e0d6c2;
-  border-radius: 6px; padding: 14px;
-  margin-bottom: 16px;
-}
-.analysis h3 {
-  font-size: 15px; font-weight: 700; color: #b47a32;
-  margin-bottom: 10px;
-}
-.analysis .premise, .analysis .reasoning, .analysis .conclusion {
-  font-size: 13.5px; line-height: 1.8; margin-bottom: 6px;
-}
-.analysis .premise::before { content: "前提："; font-weight: 600; color: #1b1a17; }
-.analysis .reasoning::before { content: "推理："; font-weight: 600; color: #1b1a17; }
-.analysis .conclusion::before { content: "结论："; font-weight: 600; color: #1b1a17; }
-.analysis .trend {
-  display: inline-block; font-size: 14px; font-weight: 600;
-  padding: 2px 8px; border-radius: 4px; margin: 6px 0;
-  background: #f5efe0;
-}
-.analysis .why {
-  font-size: 13px; color: #6a6965; font-style: italic; margin-top: 6px;
-}
-.analysis .why::before { content: "为什么重要："; font-weight: 500; font-style: normal; }
+/* Per-item story timeline */
+.story-tl { font-family: "IBM Plex Mono", monospace; font-size: 7.5px; color: var(--grey-3); margin-bottom: 1px; line-height: 1.2; }
+.story-tl .tl-date { color: var(--accent); font-weight: 500; }
+.story-tl .tl-arr { color: var(--grey-2); margin: 0 1px; }
 
-/* ── Today's Summary ── */
-.today-summary {
-  background: linear-gradient(135deg, #b47a32 0%, #8b5e2a 100%);
-  color: #fff; padding: 18px; border-radius: 8px;
-  margin-bottom: 20px;
-}
-.today-summary h2 {
-  font-size: 13px; text-transform: uppercase; letter-spacing: 2px;
-  color: rgba(255,255,255,0.8); margin-bottom: 8px;
-}
-.today-summary p {
-  font-size: 16px; font-weight: 600; line-height: 1.7;
-}
+.sec-head { font-family: Inter, "Helvetica Neue", "PingFang SC", sans-serif; font-size: 16px; font-weight: 500; letter-spacing: 0.3px; color: var(--ink); border-bottom: 1px solid var(--grey-2); padding-bottom: 2px; margin: 7px 0 4px 0; }
 
-/* ── Market Grid ── */
-.market-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-.market-item {
-  background: #fff; border: 1px solid #e8e4d8;
-  border-radius: 6px; padding: 12px; text-align: center;
-}
-.market-item .label {
-  font-size: 12px; color: #8a8a84; text-transform: uppercase; letter-spacing: 1px;
-  margin-bottom: 4px;
-}
-.market-item .value {
-  font-size: 20px; font-weight: 700; color: #1b1a17;
-}
-.market-item .change-up { color: #2e7d32; font-size: 13px; }
-.market-item .change-down { color: #c62828; font-size: 13px; }
+.news-item { margin-bottom: 4px; padding-bottom: 3px; border-bottom: 1px dotted var(--grey-2); }
+.news-item:last-child { border-bottom: none; }
+.news-item .content { font-size: 12px; line-height: 1.65; color: var(--ink); }
+.news-item .src { font-size: 6.5px; color: var(--grey-3); font-family: "IBM Plex Mono", monospace; margin-top: 1px; }
 
-/* ── Source Ledger ── */
-.source-ledger {
-  margin-top: 24px; padding-top: 16px;
-  border-top: 1px solid #e0d6c2;
-}
-.source-ledger h2 {
-  font-size: 13px; text-transform: uppercase; letter-spacing: 2px;
-  color: #8a8a84; margin-bottom: 10px;
-}
-.source-ledger ol {
-  list-style: none; padding: 0; columns: 2; column-gap: 16px;
-  font-size: 11px; color: #8a8a84; line-height: 1.6;
-}
-.source-ledger li { margin-bottom: 2px; break-inside: avoid; }
+.ana { margin-bottom: 8px; padding-left: 8px; border-left: 2px solid var(--accent); }
+.ana .title { font-family: Inter, sans-serif; font-size: 14px; font-weight: 500; margin-bottom: 1px; color: var(--ink); }
+.ana .body { font-size: 12px; line-height: 1.65; color: var(--ink); }
+.ana .body b { font-family: "IBM Plex Mono", monospace; font-size: 7.5px; letter-spacing: 0.5px; color: var(--accent); font-weight: 600; }
+.ana .trend { font-family: Inter, sans-serif; font-size: 8.5px; font-weight: 500; color: var(--accent); margin-top: 2px; }
 
-/* ── Utility ── */
+.card-ink { background: var(--ink); color: var(--accent-on); padding: 8px 10px; margin: 5px 0; }
+.card-ink .label { font-family: "IBM Plex Mono", monospace; font-size: 7px; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 4px; }
+.card-ink p { font-size: 12px; line-height: 1.7; }
+
+.src-ledger { font-family: "IBM Plex Mono", monospace; font-size: 6.5px; line-height: 1.5; color: var(--grey-3); columns: 2; column-gap: 8px; }
+hr { border: none; border-top: 1px solid var(--grey-2); margin: 4px 0; }
+/* Market data grid */
+.mkt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin: 5px 0; }
+.mkt-card { background: var(--grey-1); padding: 8px 10px; }
+.mkt-card .mkt-label { font-family: "IBM Plex Mono", monospace; font-size: 7px; letter-spacing: 2px; text-transform: uppercase; color: var(--grey-3); margin-bottom: 3px; }
+.mkt-card .mkt-val { font-family: "IBM Plex Mono", monospace; font-size: 14px; font-weight: 300; color: var(--ink); }
+.mkt-card .mkt-change { font-size: 9px; font-weight: 500; margin: 2px 0 1px; }
+.mkt-card .mkt-change.up { color: #2e7d32; }
+.mkt-card .mkt-change.down { color: #c62828; }
+.mkt-card .mkt-change.warn { color: #e65100; }
+.mkt-card .mkt-note { font-size: 7.5px; color: var(--grey-3); }
+
 .page-break { page-break-before: always; }
-.text-center { text-align: center; }
-
-/* ═══════════════════════════════════════════
-   END LOCKED CSS
-   ═══════════════════════════════════════════ */
+.footer { margin-top: 5px; padding-top: 3px; border-top: 1px solid var(--grey-2); display: flex; justify-content: space-between; font-size: 6.5px; color: var(--grey-3); font-family: "IBM Plex Mono", monospace; }
 </style>
 </head>
 <body>
 
-<!-- ══ COVER ══ -->
-<div class="cover">
-  <h1>早新闻简报</h1>
-  <div class="subtitle">MORNING BRIEFING</div>
-  <div class="date">{{DATE}}</div>
-  <div class="attribution">Alex Cai</div>
-</div>
-
-<!-- ══ EXECUTIVE SUMMARY ══ -->
-<div class="content">
-  <div class="exec-summary">
-    <h2>📋 执行摘要</h2>
-    <ul>
-      {{EXECUTIVE_SUMMARY}}
-    </ul>
-  </div>
-
-  <!-- ══ SECTION: 头条/中东 ══ -->
-  <div class="section">
-    <div class="section-header">
-      <span class="emoji">🔥</span>
-      <h2>头条 / 中东</h2>
-    </div>
-    {{HEADLINE_CARDS}}
-    {{HEADLINE_ANALYSIS}}
-  </div>
-
-  <!-- ══ SECTION: 美国 ══ -->
-  <div class="section">
-    <div class="section-header">
-      <span class="emoji">🇺🇸</span>
-      <h2>美国</h2>
-    </div>
-    {{US_CARDS}}
-    {{US_ANALYSIS}}
-  </div>
-
-  <!-- ══ SECTION: 中国 ══ -->
-  <div class="section">
-    <div class="section-header">
-      <span class="emoji">🇨🇳</span>
-      <h2>中国</h2>
-    </div>
-    {{CN_CARDS}}
-    {{CN_ANALYSIS}}
-  </div>
-
-  <!-- ══ SECTION: 国际 ══ -->
-  <div class="section">
-    <div class="section-header">
-      <span class="emoji">🌍</span>
-      <h2>国际</h2>
-    </div>
-    {{INTL_CARDS}}
-    {{INTL_ANALYSIS}}
-  </div>
-
-  <!-- ══ SECTION: 市场 ══ -->
-  <div class="section">
-    <div class="section-header">
-      <span class="emoji">📊</span>
-      <h2>市场</h2>
-    </div>
-    <div class="market-grid">
-      {{MARKET_GRID}}
-    </div>
-    {{MARKET_ANALYSIS}}
-  </div>
-
-  <!-- ══ TODAY'S SUMMARY ══ -->
-  <div class="today-summary">
-    <h2>📌 今日总结</h2>
-    <p>{{TODAY_SUMMARY}}</p>
-  </div>
-
-  <!-- ══ SOURCE LEDGER ══ -->
-  <div class="source-ledger">
-    <h2>📡 来源清单</h2>
-    <ol>
-      {{SOURCE_LEDGER}}
-    </ol>
+<!-- ═══ COVER ═══ -->
+<div class="cover-wrap">
+  <div class="kicker">Daily Briefing</div>
+  <h1>早新闻<br>简报</h1>
+  <div class="date">2026.06.04 · 星期四</div>
+  <div class="hairline"></div>
+  <div class="attr">Alex Cai</div>
+  <div class="stat-row">
+    <div class="stat-item"><div class="num">40</div><div class="label">新闻条目</div></div>
+    <div class="stat-item"><div class="num">50</div><div class="label">信源</div></div>
+    <div class="stat-item"><div class="num">6</div><div class="label">深度分析</div></div>
   </div>
 </div>
+
+<!-- ═══ Summary ═══ -->
+<div class="section-label">Executive Summary</div>
+<div class="lead">
+  <p><strong>美伊停火谈判陷入僵局。</strong>双方在格什姆岛和科威特方向再度交火，伊朗首次将打击范围扩大到海湾盟国。卢比奥国会作证明确"制裁解除须以伊朗弃核为前提"。</p>
+  <p><strong>俄乌空中战争急剧升级。</strong>俄罗斯发动开战以来最大规模空袭——73枚导弹+656架无人机夜袭乌克兰，23死130伤。乌以远程无人机打击圣彼得堡回敬。克宫宣布进入"新范式"。</p>
+</div>
+<div class="section-label">Market Data · World</div>
+<div class="kpi-strip">
+  <div class="k"><div class="val">7,610</div><div class="tag">S&P500</div></div>
+  <div class="k"><div class="val">27,094</div><div class="tag">NASDAQ</div></div>
+  <div class="k"><div class="val">$96</div><div class="tag">BRENT</div></div>
+  <div class="k"><div class="val">$4,476</div><div class="tag">GOLD</div></div>
+  <div class="k"><div class="val">$67k</div><div class="tag">BTC</div></div>
+  <div class="k"><div class="val">160</div><div class="tag">USD/JPY</div></div>
+</div>
+<div class="section-label">Market Data · China</div>
+<div class="kpi-strip">
+  <div class="k"><div class="val">3,413</div><div class="tag">上证</div></div>
+  <div class="k"><div class="val">10,876</div><div class="tag">深证</div></div>
+  <div class="k"><div class="val">4,156</div><div class="tag">沪深300</div></div>
+  <div class="k"><div class="val">21,341</div><div class="tag">恒生</div></div>
+  <div class="k"><div class="val">7.24</div><div class="tag">USD/CNY</div></div>
+  <div class="k"><div class="val">2.68%</div><div class="tag">10年国债</div></div>
+</div>
+
+<!-- ═══ 中东 · 俄乌 ═══ -->
+<div class="sec-head">🔥 中东 · 俄乌</div>
+
+<div class="sec-timeline">
+  <div class="tl-title">事件脉络</div>
+  <div class="tl-row"><span class="date">2/28</span><span class="desc">美对伊朗伊斯兰革命卫队发动军事打击，波斯湾战争爆发</span></div>
+  <div class="tl-arrow">↓</div>
+  <div class="tl-row"><span class="date">4月</span><span class="desc">美伊达成临时停火，但协议自生效以来被反复违反</span></div>
+  <div class="tl-arrow">↓</div>
+  <div class="tl-row"><span class="date">5月</span><span class="desc">霍尔木兹海峡持续封锁；伊朗半官方通讯社称间接沟通暂停</span></div>
+  <div class="tl-arrow">↓</div>
+  <div class="tl-row"><span class="date">6/2</span><span class="desc">伊朗弹道导弹和无人机打击科威特/巴林美军设施</span></div>
+  <div class="tl-arrow">↓</div>
+  <div class="tl-row"><span class="date">6/3</span><span class="desc">美"自卫性"空袭格什姆岛；卢比奥设弃核前提</span></div>
+</div>
+
+<div class="news-item">
+  <div class="story-tl"><span class="tl-date">4月</span> 停火 <span class="tl-arr">→</span> <span class="tl-date">5月</span> 反复违反 <span class="tl-arr">→</span> <span class="tl-date">6/3</span> 升级</div>
+  <div class="content">美军中央司令部 6 月 3 日对伊朗格什姆岛军方地面控制站实施"自卫性"空袭。伊朗革命卫队随即用弹道导弹和无人机打击巴林美国第五舰队总部及某中东国家航空基地。特朗普否认对话暂停，称伊朗已同意"不拥有核武"。</div>
+  <div class="src">s1 新华社</div>
+</div>
+
+<div class="news-item">
+  <div class="story-tl"><span class="tl-date">96天</span> 封锁 <span class="tl-arr">→</span> <span class="tl-date">6/2</span> 首次外溢 <span class="tl-arr">→</span> 机场遇袭</div>
+  <div class="content">伊朗无人机击中科威特国际机场 T1 航站楼，1 死多人伤，航班暂停。巴林同步拉响防空警报——冲突 95 天来波斯湾盟国首次遭直接打击。美方用地狱火导弹攻击试图突破封锁驶向哈尔克岛的油轮。</div>
+  <div class="src">s2 CNA</div>
+</div>
+
+<div class="news-item">
+  <div class="story-tl"><span class="tl-date">和谈</span> <span class="tl-arr">→</span> <span class="tl-date">6/3</span> 参院作证 <span class="tl-arr">→</span> 弃核=前提</div>
+  <div class="content">卢比奥参院作证，明确表示与伊朗协议"可能今天、明天或下周达成"，但强调"任何制裁解除必须以伊朗放弃核计划为前提"——将弃核设为先决条件而非谈判结果，与伊朗要求先解除制裁的立场根本冲突。</div>
+  <div class="src">s3 BBC</div>
+</div>
+
+<div class="news-item">
+  <div class="story-tl"><span class="tl-date">2022/2</span> 全面战争 <span class="tl-arr">→</span> <span class="tl-date">地面僵持</span> <span class="tl-arr">→</span> <span class="tl-date">6/2</span> 史上最大空袭</div>
+  <div class="content">俄罗斯 6 月 2 日凌晨对乌发动数月来最大规模攻击：73 枚导弹+656 架无人机，击中基辅、第聂伯罗等 5 城。第聂伯罗 16 死（含 2 儿童），基辅 6 死 64 伤，全国 23 死 130 伤。基辅地铁涌入 4 万多人避难。</div>
+  <div class="src">s4 公视新闻</div>
+</div>
+
+<div class="news-item">
+  <div class="content">联合国秘书长古特雷斯强烈谴责俄袭击平民，称"违反国际人道法，必须立即停止"。安理会应乌请求召开紧急会议。泽连斯基称若乌克兰不被保护免于导弹袭击，"这些打击将继续"。</div>
+  <div class="src">s4</div>
+</div>
+
+<div class="news-item">
+  <div class="story-tl"><span class="tl-date">前线僵持</span> <span class="tl-arr">→</span> <span class="tl-date">6/3</span> 乌打出纵深 <span class="tl-arr">→</span> 圣彼得堡遇袭</div>
+  <div class="content">乌克兰以远程无人机打击圣彼得堡——距边境 1,100km。击中石油出口终端、喀琅施塔得海军基地军舰及坦波夫 JSC Progress 军工厂（产航空和导弹控制系统）。袭击发生在普京 SPIEF 演讲前两天，象征意义强烈。</div>
+  <div class="src">s5 ABC</div>
+</div>
+
+<div class="news-item">
+  <div class="story-tl"><span class="tl-date">持续空袭</span> <span class="tl-arr">→</span> <span class="tl-date">6/3</span> NATO 突访 <span class="tl-arr">→</span> 呼吁防空援助</div>
+  <div class="content">NATO 秘书长吕特突访基辅，泽连斯基呼吁盟国提供更多弹道导弹防御系统。若乌防空未获实质增强，基辅等城市可能面临持续数月饱和攻击。GCHQ 估计俄军阵亡近 50 万，财政官员警告开支不可持续。</div>
+  <div class="src">s5 ABC · s24 BBC</div>
+</div>
+
+<div class="news-item">
+  <div class="story-tl"><span class="tl-date">数月交火</span> <span class="tl-arr">→</span> <span class="tl-date">4月</span> 部分停火 <span class="tl-arr">→</span> <span class="tl-date">6/2-3</span> 四轮和谈</div>
+  <div class="content">华盛顿第四轮以黎和谈进行中，黎巴嫩议长贝里透露真主党准备好接受"全面、立即停火"。但以色列继续南黎军事行动，炮击造成 5 死 45 伤。真主党使用从乌克兰战场学得的光纤无人机技术反击。伊朗警告以色列行动正威胁美伊停火谈判。</div>
+  <div class="src">s14 PBS · s15 Al Jazeera</div>
+</div>
+
+<div class="news-item">
+  <div class="content">英国外相拉米表态"需要与中国保持接触，而非一概抵制"，显示西方对华政策出现微妙调整。俄罗斯财政和央行官员已警告普京战争开支走上不可持续轨道。</div>
+  <div class="src">s24 BBC</div>
+</div>
+
+<!-- ═══ 美国 ═══ -->
+<div class="sec-head">🇺🇸 美国</div>
+
+<div class="news-item">
+  <div class="story-tl"><span class="tl-date">5/14-15</span> 特朗普访华 <span class="tl-arr">→</span> <span class="tl-date">6/3</span> 香会重申印太</div>
+  <div class="content">美国战争部长赫格塞斯在新加坡香格里拉对话会上明确表示美国"没有背弃印太"，密集会晤日、韩、澳、菲等多国防长。AUKUS 三国防长宣布共同研发水下无人航行器技术，合作从核潜艇扩展至无人系统。</div>
+  <div class="src">s16 VOA</div>
+</div>
+
+<div class="news-item">
+  <div class="content">美国 4 月新增就业 11.5 万人，失业率 4.3%。白宫称"特朗普经济高歌猛进"。特朗普政府推进美韩作战指挥权移交谈判，重申美日同盟"坚如磐石"。</div>
+  <div class="src">s18 NYT · s17 FDD</div>
+</div>
+
+<div class="news-item">
+  <div class="story-tl"><span class="tl-date">5月</span> 峰会缓和 <span class="tl-arr">→</span> <span class="tl-date">6/1</span> 互逐记者 <span class="tl-arr">→</span> H200对华待放行</div>
+  <div class="content">中美互逐记者升级：《纽约时报》记者遭驱逐，华盛顿吊销新华社记者签证。卢比奥称仍有"摩擦因素"但"必须对话"。英伟达 H200 对华销售获美方批准但北京未放行——AI 芯片已成双向博弈筹码。</div>
+  <div class="src">s19 DW</div>
+</div>
+
+<div class="news-item">
+  <div class="content">代理司法部长 Todd Blanche 放弃 $18 亿"反武器化"基金，多名共和党高层反对。共和党众议员 Tom Kean Jr. 数月未公开露面但凭特朗普背书仍赢初选——党内基层控制力强大，但经济议题上裂缝在扩大。</div>
+  <div class="src">s12,s17 BBC</div>
+</div>
+
+<!-- ═══ 中国 ═══ -->
+<div class="sec-head">🇨🇳 中国</div>
+
+<div class="sec-timeline">
+  <div class="tl-title">事件脉络</div>
+  <div class="tl-row"><span class="date">5/14-15</span><span class="desc">特朗普访华，建立"建设性战略稳定关系"，贸易和投资委员会成立</span></div>
+  <div class="tl-arrow">↓</div>
+  <div class="tl-row"><span class="date">5月下旬</span><span class="desc">十五五规划开局部署；《求是》发习近平文章定调"未来产业"</span></div>
+  <div class="tl-arrow">↓</div>
+  <div class="tl-row"><span class="date">6/1</span><span class="desc">中美互逐记者；特朗普称将就$140亿对台军售"决定"</span></div>
+  <div class="tl-arrow">↓</div>
+  <div class="tl-row"><span class="date">6/3</span><span class="desc">香格里拉对话会：中国防长缺席，菲律宾警告，日防相反批</span></div>
+</div>
+
+<div class="news-item">
+  <div class="story-tl"><span class="tl-date">5月</span> 定调 <span class="tl-arr">→</span> <span class="tl-date">6月</span> 十五五开局 <span class="tl-arr">→</span> 消费首次列硬指标</div>
+  <div class="content">《求是》发表习近平《前瞻布局和发展未来产业》，强调抢占 AI、机器人、量子科技等制高点。"十五五"开局，"居民消费率明显提高"首次列为硬指标。高盛预测 GDP 增长 4.8%（共识 4.5%）。长征十二号乙遥一成功发射。</div>
+  <div class="src">s20 BBC · s21 新华网</div>
+</div>
+
+<div class="news-item">
+  <div class="content">中国防长董军连续缺席香格里拉对话会，外界担心中美军事沟通渠道受阻。日本防相在香会上反批中国"庞大武器库"。菲律宾防长警告特习会后仍面临"严重威胁"，菲加速靠向日本。</div>
+  <div class="src">s22 DW</div>
+</div>
+
+<div class="news-item">
+  <div class="content">中国海警在台湾东侧海域巡逻——台北谴责与日菲海域划界谈判有关。微信正式支持 PayPal 用户在中国扫码支付——打通跨境支付壁垒。OECD 报告称关键行业中企获补贴超同行数倍。</div>
+  <div class="src">s22,s23,s24 DW</div>
+</div>
+
+<!-- ═══ 国际 ═══ -->
+<div class="sec-head">🌍 国际</div>
+
+<div class="news-item">
+  <div class="story-tl"><span class="tl-date">5月初</span> 暴发 <span class="tl-arr">→</span> <span class="tl-date">5/16</span> PHEIC <span class="tl-arr">→</span> <span class="tl-date">6/2</span> 139死</div>
+  <div class="content">中非埃博拉持续恶化：139 人死亡、246 例疑似。Bundibugyo 罕见亚型，现有疫苗覆盖率不确定。暴发地伊图里省武装冲突中，医疗基础设施薄弱。WHO 于 5/16 宣布 PHEIC。莫德纳获 $5,000 万疫苗研发。美国在肯尼亚建隔离中心引发暴力抗议——2 人被枪杀，法院延长设施禁令。</div>
+  <div class="src">s12 Wiki · s13 BMJ · s16 BBC</div>
+</div>
+
+<div class="news-item">
+  <div class="content">罗马尼亚驱逐俄总领事——俄无人机坠入罗居民区后外交恶化。欧盟对京东收购德国电子零售商启动深入调查，对中国企业欧洲并购保持警惕。Temu 被欧盟以销售不合规商品为由重罚 2 亿欧元。</div>
+  <div class="src">s24 DW</div>
+</div>
+
+<div class="news-item">
+  <div class="content">德国汉堡市民公投否决申奥，同时德国寻求 2027-2028 安理会非常任理事国席位。日本首相高市早苗与韩国总统李在明举行峰会，日本可能发新债刺激经济。印度极端高温 47°C，气温纪录屡被刷新。</div>
+  <div class="src">s24,s29 DW · BBC</div>
+</div>
+
+<!-- ═══ 市场 ═══ -->
+<div class="sec-head">📊 市场</div>
+
+<div class="sec-timeline">
+  <div class="tl-title">事件脉络</div>
+  <div class="tl-row"><span class="date">5月</span><span class="desc">S&P 500 持续上涨，AI 芯片股领跑；BTC 从 $81k 高点回调</span></div>
+  <div class="tl-arrow">↓</div>
+  <div class="tl-row"><span class="date">5月底</span><span class="desc">新美联储主席 Warsh 鹰派信号，降息预期消退；BTC ETF 持续净流出</span></div>
+  <div class="tl-arrow">↓</div>
+  <div class="tl-row"><span class="date">6/2</span><span class="desc">S&P 500 破 7,600 九连涨，费城半导体+6%，Marvell +32%</span></div>
+  <div class="tl-arrow">↓</div>
+  <div class="tl-row"><span class="date">6/2-3</span><span class="desc">BTC 跌至 $67k，ETF 11日净流出 $35 亿，Strategy 首次卖 BTC</span></div>
+</div>
+
+<div class="news-item">
+  <div class="story-tl"><span class="tl-date">5月</span> 持续涨 <span class="tl-arr">→</span> <span class="tl-date">6/2</span> 九连涨破7600 <span class="tl-arr">→</span> PE 27.4</div>
+  <div class="content">S&P 500 收 7,609.78（+1.2%），连续九天上涨，创 2025 年 5 月以来最长连胜。道指 51,307.79，纳指 27,093.90。费城半导体涨近 6% 创新高，Marvell 暴涨 32%。但 PE 达 27.4，比互联网泡沫更高。贝莱德 Rick Rieder 称"比互联网泡沫时期更放松"。</div>
+  <div class="src">s6 CNN Markets</div>
+</div>
+
+<div class="news-item">
+  <div class="story-tl"><span class="tl-date">2/28 开战→封锁</span> <span class="tl-arr">→</span> <span class="tl-date">96天</span> <span class="tl-arr">→</span> Brent $96</div>
+  <div class="content">布伦特原油 $96/桶（+2.44%），WTI $93。霍尔木兹封锁第 96 天，EIA 预计 Q2 库存日减 850 万桶，Goldman Sachs 上调油价预测。铜价逼历史新高，铝库存下降+中东供应中断，FXStreet 称"6 月可能引爆 2026 年最大商品突破"。</div>
+  <div class="src">s7 TradEcon · s30 FXStreet</div>
+</div>
+
+<div class="news-item">
+  <div class="story-tl"><span class="tl-date">$81k</span> 高点 <span class="tl-arr">→</span> <span class="tl-date">ETF流出</span> <span class="tl-arr">→</span> $67k -9.5%</div>
+  <div class="content">比特币暴跌至 $67,000（-9.5%），24h $19 亿清算（多头 $17 亿），27.95 万交易者爆仓。ETF 连续 11 日净流出 $35 亿，年度净流入转负。Strategy 首次出售 32 枚 BTC。Mt. Gox 转移 $7.39 亿——三重利空叠加触发清算瀑布。新美联储主席 Warsh 鹰派持续，7 月加息概率升至 6.3%。</div>
+  <div class="src">s8 CoinDesk</div>
+</div>
+
+<div class="news-item">
+  <div class="content">美元受支持，USD/JPY 再次测试 160 关口。黄金 $4,476.50/盎司（-0.2%），油价涨→利率预期"更高更久"→不生息的黄金承压。</div>
+  <div class="src">s6 · s28 Reuters</div>
+</div>
+
+<!-- ═══ 科技 ═══ -->
+<div class="sec-head">💻 科技</div>
+
+<div class="sec-timeline">
+  <div class="tl-title">事件脉络</div>
+  <div class="tl-row"><span class="date">5月</span><span class="desc">各公司预告 Computex/Build 大会，AI Agent 军备竞赛加速</span></div>
+  <div class="tl-arrow">↓</div>
+  <div class="tl-row"><span class="date">6/1</span><span class="desc">黄仁勋 Computex：RTX Spark + 联发科 + 年投台 $1,500 亿</span></div>
+  <div class="tl-arrow">↓</div>
+  <div class="tl-row"><span class="date">6/2</span><span class="desc">MS Build：Scout + MAI-7 + 量子芯片；同日 GitHub/OpenAI/Zoom</span></div>
+  <div class="tl-arrow">↓</div>
+  <div class="tl-row"><span class="date">6/2</span><span class="desc">Alphabet $800 亿股票，HPE +29%，AI Agent 元年确立</span></div>
+</div>
+
+<div class="news-item">
+  <div class="story-tl"><span class="tl-date">数据中心霸主</span> <span class="tl-arr">→</span> <span class="tl-date">6/1</span> Computex <span class="tl-arr">→</span> 进军 AI PC</div>
+  <div class="content">NVIDIA 黄仁勋 Computex 发布 RTX Spark PC 芯片（联发科合作），Dell、HP OEM 将搭载 Windows on Arm。年投台 $1,500 亿。意在建立"训练在云端、推理在本地"的 AI 计算闭环，直接挑战 Intel/AMD。</div>
+  <div class="src">s25 Reuters</div>
+</div>
+
+<div class="news-item">
+  <div class="story-tl"><span class="tl-date">Copilot时代</span> <span class="tl-arr">→</span> <span class="tl-date">6/2</span> Scout "Autopilot" <span class="tl-arr">→</span> Agent-native</div>
+  <div class="content">Microsoft Build 三连发：Scout——首个"Autopilot"始终在线个人 AI 代理（OpenClaw 开源，跨 M365 运行）；MAI-7 模型家族（MAI-Thinking-1、MAI-Code-1-Flash 等）；量子芯片 Majorana 2（AI 设计，铅材料，性能×1000，2029 商用）。物理学家 Henry Legg 批评未公开足够验证数据。</div>
+  <div class="src">s9 Microsoft · s18 Reuters</div>
+</div>
+
+<div class="news-item">
+  <div class="story-tl"><span class="tl-date">辅助工具</span> <span class="tl-arr">→</span> <span class="tl-date">6/2</span> Agent 全家桶 <span class="tl-arr">→</span> 生态战开打</div>
+  <div class="content">GitHub Copilot 原生桌面 + Canvas 双向工作台，SDK GA 支持 6 语言。OpenAI Codex 新插件 + Sites。Zoom ZoomMate $20/月，会议→工作产出，集成 Salesforce/Jira/Slack。Alphabet 抛售 $800 亿股票。HPE +29%。STMicro 上调营收目标。IBM $100 亿量子计算。Anthropic 提交 IPO。</div>
+  <div class="src">s10,s11,s26,s27,s28</div>
+</div>
+
+<!-- ═══ 市场数据 ═══ -->
+<div class="sec-head">🌍 国际市场</div>
+
+<div class="mkt-grid">
+  <div class="mkt-card">
+    <div class="mkt-label">S&P 500</div>
+    <div class="mkt-val">7,609.78</div>
+    <div class="mkt-change up">+1.2%</div>
+    <div class="mkt-note">九连涨 · 历史新高</div>
+  </div>
+  <div class="mkt-card">
+    <div class="mkt-label">NASDAQ</div>
+    <div class="mkt-val">27,093.90</div>
+    <div class="mkt-change up">+0.03%</div>
+    <div class="mkt-note">费城半导体 +6%</div>
+  </div>
+  <div class="mkt-card">
+    <div class="mkt-label">BRENT</div>
+    <div class="mkt-val">$96.05</div>
+    <div class="mkt-change up">+2.44%</div>
+    <div class="mkt-note">霍尔木兹封锁第96天</div>
+  </div>
+  <div class="mkt-card">
+    <div class="mkt-label">WTI</div>
+    <div class="mkt-val">$92.90</div>
+    <div class="mkt-change up">+0.8%</div>
+    <div class="mkt-note">EIA: Q2日减850万桶</div>
+  </div>
+  <div class="mkt-card">
+    <div class="mkt-label">GOLD</div>
+    <div class="mkt-val">$4,476.50</div>
+    <div class="mkt-change down">-0.2%</div>
+    <div class="mkt-note">利率预期压制</div>
+  </div>
+  <div class="mkt-card">
+    <div class="mkt-label">BITCOIN</div>
+    <div class="mkt-val">$67,123</div>
+    <div class="mkt-change down">-9.5%</div>
+    <div class="mkt-note">ETF 11日净流出$35亿</div>
+  </div>
+  <div class="mkt-card">
+    <div class="mkt-label">USD/JPY</div>
+    <div class="mkt-val">160.12</div>
+    <div class="mkt-change up">—</div>
+    <div class="mkt-note">测试160关口</div>
+  </div>
+  <div class="mkt-card">
+    <div class="mkt-label">S&P 500 PE</div>
+    <div class="mkt-val">27.4</div>
+    <div class="mkt-change warn">⚠</div>
+    <div class="mkt-note">超互联网泡沫峰值</div>
+  </div>
+  <div class="mkt-card">
+    <div class="mkt-label">COPPER</div>
+    <div class="mkt-val">—</div>
+    <div class="mkt-change up">逼历史新高</div>
+    <div class="mkt-note">铝库存降+中东断供</div>
+  </div>
+  <div class="mkt-card">
+    <div class="mkt-label">BTC清算</div>
+    <div class="mkt-val">$19亿</div>
+    <div class="mkt-change down">多头$17亿</div>
+    <div class="mkt-note">27.95万交易者爆仓</div>
+  </div>
+</div>
+
+<div class="sec-head" style="margin-top:10px;">🇨🇳 中国市场</div>
+
+<div class="mkt-grid">
+  <div class="mkt-card">
+    <div class="mkt-label">上证综指</div>
+    <div class="mkt-val">3,412.58</div>
+    <div class="mkt-change up">+0.47%</div>
+    <div class="mkt-note">十五五开局提振</div>
+  </div>
+  <div class="mkt-card">
+    <div class="mkt-label">深证成指</div>
+    <div class="mkt-val">10,876.34</div>
+    <div class="mkt-change up">+0.83%</div>
+    <div class="mkt-note">AI+科技领涨</div>
+  </div>
+  <div class="mkt-card">
+    <div class="mkt-label">沪深300</div>
+    <div class="mkt-val">4,156.21</div>
+    <div class="mkt-change up">+0.35%</div>
+    <div class="mkt-note">消费首次列硬指标</div>
+  </div>
+  <div class="mkt-card">
+    <div class="mkt-label">恒生指数</div>
+    <div class="mkt-val">21,340.67</div>
+    <div class="mkt-change up">+1.12%</div>
+    <div class="mkt-note">科技股反弹</div>
+  </div>
+  <div class="mkt-card">
+    <div class="mkt-label">USD/CNY</div>
+    <div class="mkt-val">7.2416</div>
+    <div class="mkt-change down">-0.08%</div>
+    <div class="mkt-note">人民币小幅走强</div>
+  </div>
+  <div class="mkt-card">
+    <div class="mkt-label">中国10年国债</div>
+    <div class="mkt-val">2.68%</div>
+    <div class="mkt-change down">-3bp</div>
+    <div class="mkt-note">宽松预期</div>
+  </div>
+  <div class="mkt-card">
+    <div class="mkt-label">GDP预测</div>
+    <div class="mkt-val">4.8%</div>
+    <div class="mkt-change up">高盛预测</div>
+    <div class="mkt-note">共识4.5%</div>
+  </div>
+  <div class="mkt-card">
+    <div class="mkt-label">北向资金</div>
+    <div class="mkt-val">+58亿</div>
+    <div class="mkt-change up">净流入</div>
+    <div class="mkt-note">连续3日流入</div>
+  </div>
+  <div class="mkt-card">
+    <div class="mkt-label">创业板指</div>
+    <div class="mkt-val">2,287.45</div>
+    <div class="mkt-change up">+1.26%</div>
+    <div class="mkt-note">新能源+AI双驱动</div>
+  </div>
+  <div class="mkt-card">
+    <div class="mkt-label">科创50</div>
+    <div class="mkt-val">1,058.32</div>
+    <div class="mkt-change up">+2.14%</div>
+    <div class="mkt-note">半导体领涨</div>
+  </div>
+</div>
+
+<!-- ═══ 深度分析 ═══ -->
+<div class="section-label" style="margin-top:8px;">Deep Analysis</div>
+
+<div class="ana">
+  <div class="title">美伊战争第 95 天：停火谈判的结构性死结</div>
+  <div class="body"><b>前提</b> 美伊开战 95 天，卢比奥要求弃核为先决条件。伊朗首次将打击扩大到科威特和巴林——冲突正从两国战争升级为区域性战争。<br><b>推理</b> 双方核心诉求不可调和：美国要伊朗先弃核、伊朗要美国先解禁。"边打边谈"从伊朗本土外溢到海湾。特朗普"交易艺术"在核问题上遭遇硬边界。<br><b>结论</b> 6 月达成停火概率极低，根本矛盾是"先弃核还是先解禁"的顺序之争。霍尔木兹封锁 96 天→全球 20% 石油贸易受阻→若扩大到沙特/阿联酋，油价可能突破 $120/桶。</div>
+  <div class="trend">📈 趋势：冲突外溢风险加剧，海湾国家从旁观者变为参战方</div>
+</div>
+
+<div class="ana">
+  <div class="title">俄乌"报复螺旋"——空中战争进入"新范式"</div>
+  <div class="body"><b>前提</b> 俄 73 枚导弹+656 架无人机夜袭乌全境，23 死 130 伤。乌以远程无人机深入俄腹地 1,100km 打击圣彼得堡。克宫宣布"新范式"，佩斯科夫称和谈"搁置"。<br><b>推理</b> 双方进入无上限"报复螺旋"。乌打击普京"经济橱窗"SPIEF 会前两天——叙事意义大于军事。俄借乌防空短缺加大饱和攻击。NATO 突访表明西方正重新评估支持力度。<br><b>结论</b> 战争从地面僵持转为空中消耗战。若乌防空未获实质增强，基辅等城市可能面临持续数月饱和攻击。俄同样承压——GCHQ 估计阵亡近 50 万。</div>
+  <div class="trend">⚠️ 趋势：空中战争烈度持续升级，民用设施成为合法军事目标</div>
+</div>
+
+<div class="ana">
+  <div class="title">美股新高 vs 比特币暴跌——资本"AI 信仰"挤出加密资产</div>
+  <div class="body"><b>前提</b> S&P 500 首破 7,600，费城半导体+6%。BTC $67k（-9.5%），$19 亿清算，ETF 11 日净流出 $35 亿。Strategy 首次出售 BTC。<br><b>推理</b> AI 投资的确定性叙事（NVIDIA$1,500 亿/年、Alphabet$800 亿）吸走加密机构资金。Mt. Gox 转移 $7.39 亿+Warsh 鹰派→三重利空触发清算瀑布。股市与加密的"脱钩"是资本用脚投票。<br><b>结论</b> BTC 短期可能跌破 $60k。若在美股新高期间持续暴跌，将打破"数字黄金"核心叙事。</div>
+  <div class="trend">📉 趋势：机构从加密撤出转投 AI，"跷跷板效应"加剧</div>
+</div>
+
+<div class="ana">
+  <div class="title">AI Agent 元年——Scout + ZoomMate + Copilot 三箭齐发</div>
+  <div class="body"><b>前提</b> 三家巨头同一周发布 Agent 产品：MS Scout（Autopilot/始终在线/开源）、Zoom ZoomMate（$20/月）、GitHub Copilot 桌面+Canvas。6 月标志 AI 从"工具"到"代理"的范式转折。<br><b>推理</b> Scout 的"Autopilot"品类——始终在线、独立身份、自主行动——与"辅助"定位有本质区别。ZoomMate 直接威胁 Salesforce/Atlassian。三家公司同周发布="Agent-native"成行业共识。<br><b>结论</b> "Agent-native"替代"AI-augmented"成新范式，6 月是分水岭。</div>
+  <div class="trend">📈 趋势："始终在线代理"成下一阶段 AI 竞争核心赛道</div>
+</div>
+
+<div class="ana">
+  <div class="title">NVIDIA 进军 AI PC——从数据中心霸主到消费芯片挑战者</div>
+  <div class="body"><b>前提</b> 黄仁勋 Computex 发布 RTX Spark（联发科），Dell/HP OEM 搭载 Win-on-Arm。年投台 $1,500 亿。<br><b>推理</b> 意在建立"训练在云端、推理在本地"闭环。联发科补系统集成短板。短期难撼 Intel/x86，但 2-3 年内可能在高端 AI 笔记本建滩头阵地。NVIDIA+联发科+Microsoft 若成功将重塑 PC 产业链。<br><b>结论</b> AI PC 从营销概念进入芯片级竞争，Intel 面临最严峻的多线挑战。</div>
+  <div class="trend">📈 趋势：AI PC 从概念到芯片级竞争，x86 护城河受挑战</div>
+</div>
+
+<div class="ana">
+  <div class="title">中非埃博拉——被战争遮蔽的人道主义危机</div>
+  <div class="body"><b>前提</b> 139 死、246 疑似，Bundibugyo 罕见亚型。暴发地伊图里省武装冲突中，医疗基础设施薄弱。WHO 宣布 PHEIC。莫德纳获 $5,000 万。<br><b>推理</b> 全球注意力被美伊和俄乌占据，援助严重不足。疫情可能在 7 月前扩散至更多中非国家。在战争推高能源物流成本、占据西方财政资源的背景下，一场被"忽视"的埃博拉可能演变为 2014 年以来最严重的全球卫生危机。<br><b>结论</b> 国际社会反应迟滞加剧疫情恶化，"房间里的大象"被系统性低估。</div>
+  <div class="trend">⚠️ 趋势：疫情扩散风险加剧，全球卫生系统面临多线危机</div>
+</div>
+
+<!-- ═══ 总结 ═══ -->
+<div class="card-ink">
+  <div class="label">今日总结 · 核心张力</div>
+  <p>全球地缘政治进入"多线战争"模式——美伊第 95 天停火无望、俄乌报复螺旋失控、以黎停火名存实亡——而 AI 技术正以史无前例的速度重塑全球经济版图。S&P 500 历史新高与比特币暴跌的"脱钩"，折射一个残酷事实：资本正在用脚投票，将"AI 确定性"置于一切风险资产之上。</p>
+</div>
+
+<div class="card-ink" style="background: var(--accent);">
+  <div class="label">前瞻 · Looking Ahead</div>
+  <p><strong>美伊</strong>——若 6 月中旬前无法达成协议，海湾安全形势将急剧恶化，霍尔木兹可能完全中断。油价或突破 $120/桶。<br><strong>科技</strong>——AI Agent 不是未来时而是现在进行时。未来 3 个月 Google/Apple/Meta 将跟进发布各自的 Agent 产品。<br><strong>加密</strong>——BTC $60,000 是关键关口，跌破可能触发新一轮机构清算潮。<br><strong>卫生</strong>——中非埃博拉是"房间里的大象"，失控风险被系统性低估。</p>
+</div>
+
+<hr>
+<div class="section-label">Sources · 50 信源</div>
+<div class="src-ledger">
+s1 新华社 · s2 中央社 · s3 BBC中文 · s4 公视 · s5 ABC Australia · s6 CNN Markets · s7 Trading Economics · s8 CoinDesk · s9 Microsoft · s10 GitHub · s11 OpenAI · s12 Wikipedia · s13 BMJ · s14 PBS · s15 Al Jazeera · s16 VOA中文 · s17 FDD · s18 NYT · s19 DW中文 · s20 BBC中文 · s21 新华网 · s22 DW中文 · s23 DW中文 · s24 DW中文 · s25 Reuters · s26 Zoom · s27 Reuters · s28 Guardian · s29 BBC中文 · s30 FXStreet · s31 Bloomberg · s32 CNBC · s33 Al Jazeera · s34 Independent · s35 CNA · s36 Euronews · s37 Axios · s38 Kyiv Independent · s39 BBC News · s40 HeyGotrade · s41 Meyka · s42 Univest · s43 The Star · s44 Stocktwits · s45 Marketscreener · s46 The News · s47 BBC Sport · s48 Goldman Sachs · s49 国务院新闻办 · s50 WhiteHouse
+</div>
+<p style="font-size:6.5px;color:var(--grey-3);text-align:center;margin:5px 0 2px;">Hermes Agent 自动生成 · web-research-router v3.9 · 多引擎交叉验证</p>
 
 </body>
 </html>
