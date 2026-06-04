@@ -5,13 +5,13 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-37-blue" alt="37 skills">
+  <img src="https://img.shields.io/badge/skills-38-blue" alt="38 skills">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
   <img src="https://img.shields.io/badge/license-MIT-brightgreen" alt="MIT license">
 </p>
 
-> 🤖 **Hermes + Claude Code + pi 三端 AI agent 技能仓库 — 37 skills, 三层结构, 双向同步。**
+> 🤖 **Hermes + Claude Code + pi 三端 AI agent 技能仓库 — 38 skills, 四层结构, 双向同步。**
 >
 > Skills authored, audited, and evolved by AI agents following [skill-authoring](shared/skill-authoring/). Deployed to a Hermes, Claude Code, and pi (Windows).
 >
@@ -32,7 +32,7 @@ jz-skills/
 | Layer | Directory | Skills | Scope · 范围 |
 |:---|:---|:---:|:---|
 | 🌐 | `shared/` | 16 | All 3 platforms · 三端同步 |
-| ⚙️ | `hermes/` | 15 | Hermes platform · 平台通用 |
+| ⚙️ | `hermes/` | 16 | Hermes platform · 平台通用 |
 | 🪟 | `pi/` | 6 | Pi (Windows), self-authored · Pi 自创作 |
 
 <details>
@@ -63,6 +63,7 @@ jz-skills/
 │   ├── mac-doctor/                # v2.2 · macOS 六级巡检
 │   ├── cron-worker/               # v1.3 · 定时任务 + 四种心跳
 │   ├── claude-code/               # v4.1 · CC 编排+双向拷问+自治团队
+│   ├── memory-hub/                # v0.2.1 · CC×CQI 自动归集回路
 │   ├── tts-manager/               # TTS 聚合管理
 │   ├── tech-support-email/        # v1.1 · 技术支持邮件
 │   ├── supermemory-hermes/        # Hermes Supermemory 配置
@@ -162,6 +163,21 @@ Hermes-to-Claude Code orchestration bridge with bidirectional grilling protocol 
 
 ---
 
+### 🧠 memory-hub · CC×CQI 自动归集回路 v0.2.1
+
+> **4 commits** — 3 versions in single day (v0.1.0→v0.2.1) · Jz-Plugin v4.0 内核
+
+Append-only JSONL event log with 3-shard schema (issue/evolution/status_event) + CC handoff auto-ingest + CQI runtime auto-acknowledge + mem_merge auto-documentation + cron fallback. The first Jz-Plugin component to reach full automated CQI closed loop.
+
+Jz-Plugin v4.0 的内核——append-only 三 shard JSONL 真相源 + CC 自动归集 + CQI 自动标记 + Obsidian 持续审计 + cron 兜底。首个跑通完整自动化 CQI 闭环的 Jz-Plugin 组件。
+
+- **Phase 1 (v0.1.0):** Single-write-entry, append-only dual-shard, stdlib validation gate / 单写入口、双分片、stdlib 校验闸门
+- **Phase 1.5 (v0.2.0–0.2.1):** CC handoff→ingest→CQI runtime→mem_merge pipeline, `status_event` 3rd shard, cron every-30m fallback, Obsidian `88-审计/` auto-output / CC 三步链全自动 + 状态分片 + cron 兜底 + Obsidian 自动输出
+
+→ [`hermes/memory-hub/`](hermes/memory-hub/)
+
+---
+
 ### 🩺 mac-doctor · macOS 巡检 v2.2
 
 > **10 commits** — 19 files, 2,135 lines · 仓库中最全面的系统运维技能
@@ -230,7 +246,7 @@ General reference for Supermemory — long-term memory infrastructure shared acr
 | 🎴 [`xiaohongshu-cards`](shared/xiaohongshu-cards/) | Article→RED card images / 小红书图文卡片 |
 | ✍️ [`xhs-tech-writer`](shared/xhs-tech-writer/) | RED AI/tech short-form content / 小红书科技短图文 |
 
-### ⚙️ hermes/ — Hermes platform (15)
+### ⚙️ hermes/ — Hermes platform (16)
 
 | Skill | Purpose · 用途 |
 |:---|:---|
@@ -239,6 +255,7 @@ General reference for Supermemory — long-term memory infrastructure shared acr
 | 🩺 [`mac-doctor`](hermes/mac-doctor/) | macOS 6-tier health — [§active](#-mac-doctor--macos-巡检-v22) |
 | 🕐 [`cron-worker`](hermes/cron-worker/) | Cron profile + pool watchdog — [§active](#-cron-worker--定时任务-agent-v13) |
 | 🤖 [`claude-code`](hermes/claude-code/) | CC orchestration v4.1 — discussion protocol + agent team — [§active](#-claude-code--cc-编排-v41) |
+| 🧠 [`memory-hub`](hermes/memory-hub/) | v0.2.1 · CC→CQI auto-ingest loop / CC×CQI 自动归集回路 |
 | 🧠 [`supermemory-hermes`](hermes/supermemory-hermes/) | Hermes Supermemory setup + multi-profile |
 | 🎤 [`tts-manager`](hermes/tts-manager/) | TTS provider registry + voice testing |
 | 📧 [`tech-support-email`](hermes/tech-support-email/) | Investigation-first vendor emails v1.1 |
