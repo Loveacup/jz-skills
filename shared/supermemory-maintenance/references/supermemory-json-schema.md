@@ -14,52 +14,41 @@
 
 ---
 
-## 最小配置（单 profile）
+## 线上真实 schema（以此为准）
+
+线上 `~/.hermes/supermemory.json` 极简——每个 profile 只有一个 `container_tag`：
 
 ```json
 {
   "profiles": {
-    "regent": {
-      "container_tag": "hermes-cabinet",
-      "search_policy": "global",
-      "cross_pool_read": true
-    }
+    "default":     { "container_tag": "hermes" },
+    "cron-worker": { "container_tag": "hermes" },
+    "regent":      { "container_tag": "hermes-cabinet" },
+    "auditor":     { "container_tag": "hermes-cabinet" }
   }
 }
 ```
+
+- 私域池 `hermes`：`default`（小黄）、`cron-worker`
+- 共享池 `hermes-cabinet`：`regent`（太子）、`auditor` 等 cabinet profile
+- 文件里可能还残留 16 个三省六部 dept 条目（gongbu/shangshu/...）——**无害但已无对应 profile**，三省六部架构已退役。线上实际 profile：`regent / auditor / cron-worker / lane-en|zh|tech|mixed / publisher`。
 
 ---
 
-## 完整配置（16 profiles）
+## ⚠️ 历史设计字段（v2.0 设计稿，从未进入线上）
+
+v2.0 设计文档曾规划 `search_policy` / `cross_pool_read` / `visibility` / 16-profile department 矩阵 / LRU lmdb 缓存等。**这些从未落到线上 `supermemory.json`**，诊断时不要去找它们。仅作历史参考：
 
 ```json
-{
-  "profiles": {
-    "regent": {
-      "container_tag": "hermes-cabinet",
-      "search_policy": "global",
-      "cross_pool_read": true
-    },
-    "default": {
-      "container_tag": "hermes",
-      "search_policy": "department",
-      "cross_pool_read": false
-    },
-    "auditor": {
-      "container_tag": "hermes-cabinet",
-      "search_policy": "global",
-      "cross_pool_read": true
-    },
-    "archivist": {
-      "container_tag": "hermes-cabinet",
-      "search_policy": "global",
-      "cross_pool_read": true
-    }
-  }
-}
+// ❌ 设计稿形态，线上不存在
+{ "profiles": { "regent": {
+    "container_tag": "hermes-cabinet",
+    "search_policy": "global",     // 设计稿，未落地
+    "cross_pool_read": true        // 设计稿，未落地
+}}}
 ```
 
-> 注：auditor、archivist 与 regent 共享 `hermes-cabinet` 池 + global 视图。其余部门 profile 使用 `department` 策略，仅读写自身 container_tag。
+完整历史设计见 Obsidian `[[Supermemory记忆架构_Hermes]]`（v2.0）。
 
 ---
 
@@ -67,9 +56,9 @@
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `container_tag` | string | Supermemory container tag，决定写入/搜索的记忆池。**必须与迁移时使用的 tag 一致** |
-| `search_policy` | `"global"` \| `"department"` | global = 可跨池读取；department = 仅读写自身池 |
-| `cross_pool_read` | bool | 是否允许读取其他 profile 的记忆池 |
+| `container_tag` | string | **唯一线上有效字段**。Supermemory container tag，决定写入/搜索的记忆池。**必须与迁移时使用的 tag 一致** |
+| ~~`search_policy`~~ | — | 历史设计稿，线上无 |
+| ~~`cross_pool_read`~~ | — | 历史设计稿，线上无 |
 
 ---
 

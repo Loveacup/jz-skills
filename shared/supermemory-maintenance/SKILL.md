@@ -1,9 +1,9 @@
 ---
 name: "supermemory-maintenance"
-description: "General reference for Supermemory — the long-term memory and context infrastructure for AI agents. Architecture, API, SDK usage, container tags, processing pipeline, and troubleshooting. Covers concepts, quickstart, and operational patterns."
-version: 6
+description: "Reference for Supermemory — the cloud long-term memory infrastructure for AI agents (api.supermemory.ai, NOT self-hosted/Docker). Covers concepts, SDK/API, container tags, processing pipeline, and operational troubleshooting. Two deployments here: (1) Hermes (provider=supermemory, two pools hermes/hermes-cabinet); (2) multi-machine Claude Code/Codex/pi sharing container tag sm_project_cli. Triggers: supermemory, 双池, container tag, sm_project_cli, hermes-cabinet, supermemory_store/search, 记忆故障. DO NOT use for: local Obsidian memory, Hindsight (retired)."
+version: 7
 created: "2026-05-28"
-updated: "2026-05-29"
+updated: "2026-06-04"
 source: "https://supermemory.ai/docs/intro"
 ---
 
@@ -127,12 +127,31 @@ client.add(content="conversation text", container_tag="user-id")
 - `client.profile(container_tag=...)` 只召回该池的画像
 - 搜索也限定 `container_tag`
 
-**本环境配置**：
-| Profile | Container Tag |
-|---------|---------------|
-| default（小黄） | `hermes` |
-| regent（太子） | `hermes-cabinet` |
-| pi（Windows） | `Pi`, `sm_project_cli` |
+> ⚠️ **Supermemory 是云服务**（`api.supermemory.ai`）。本环境**无** Docker 自托管、**无** `~/data/supermemory/` 本地存储——任何"容器部署"说法都是误传。
+
+### 本环境的两套独立部署
+
+两套都用同一个 Supermemory 云账号，但 container tag 互不相干：
+
+**① Hermes**（`memory.provider: supermemory`，配置见 §八）
+
+| 池 | Container Tag | 归属 |
+|----|---------------|------|
+| 私域 | `hermes` | `default`（小黄）、`cron-worker` |
+| 共享 | `hermes-cabinet` | `regent`（太子）、`auditor` 等 cabinet profile |
+
+> **三省六部 16-profile 架构已退役**（历史，见 Obsidian `[[Supermemory记忆架构_Hermes]]`）。`~/.hermes/supermemory.json` 里残留的 16 个 dept 条目无害但已无对应 profile。**线上实际 profile**：`regent / auditor / cron-worker / lane-en|zh|tech|mixed / publisher`。
+
+**② 多机 Claude Code / Codex / pi**（supermemory 插件，非 Hermes）
+
+| 端 | 工具 | Container Tag | 来源标记 `sm_source` |
+|----|------|---------------|---------------------|
+| MacBook CC | claude-supermemory 插件 | `sm_project_cli` | `claude-code-macbook` |
+| Mac mini CC | claude-supermemory 插件 | `sm_project_cli` | `claude-code-macmini` |
+| Windows pi | `@ramarivera/pi-supermemory` | `sm_project_cli` | `pi-supermemory-pi` |
+| 新机 Codex | codex-supermemory | `sm_project_cli` | `codex_*`（默认） |
+
+> 三端共池 + 双向检索 + 来源 filter 区分。要点：来源区分须走 `/v3/documents`（`sm_source` 仅可 filter、GET 不回显）；pi 须统一到 v3（v3/v4 索引割裂）。详见 Obsidian `[[Supermemory多机共池]]`。
 
 ---
 
@@ -149,7 +168,16 @@ Hermes Supermemory provider 注册 4 个工具：
 
 配置路径（优先级从高到低）：
 1. Per-profile：`~/.hermes/profiles/<profile>/supermemory.json`
-2. 全局：`~/.hermes/supermemory.json`（集中管理所有 profile，推荐多 profile 环境使用）
+2. 全局：`~/.hermes/supermemory.json`（集中管理所有 profile，推荐）
+
+**线上真实 schema**（简单，只有 `container_tag`）：
+
+```json
+{ "profiles": { "regent": { "container_tag": "hermes-cabinet" },
+                "default": { "container_tag": "hermes" } } }
+```
+
+> ⚠️ v2.0 设计文档里的 `search_policy` / `cross_pool_read` / `visibility` / LRU lmdb 缓存等字段**从未进入线上配置**，是历史设计稿（见 `references/supermemory-json-schema.md` 顶部说明）。诊断时以线上简单 schema 为准。
 
 缺失时 `supermemory_store` 不报错，静默写入默认/空 tag → 迁移记忆与自然记忆分裂。详见 FAQ §9。
 
@@ -157,10 +185,32 @@ Hermes Supermemory provider 注册 4 个工具：
 
 ## 九、常见问题
 
+### 🔴 双池复发：`hermes-cabinet` → `hermes_cabinet`（最高频，已复发 2 次）
+
+**现象**：Supermemory Dashboard 出现下划线变体池 `hermes_cabinet`（UI 可读化显示为 `hermes cabinet`），新写入进了错误池。
+
+**根因**：`plugins/memory/supermemory/__init__.py` 的 `_sanitize_tag()` 用了 deny-by-default 正则 `[^a-zA-Z0-9_]`，把连字符 `-` 转成 `_` → `hermes-cabinet` 变 `hermes_cabinet`。2026-05-30 首发、2026-06-04 因代码回退**复发**。
+
+**修复**（缺一不可）：
+```python
+# plugins/memory/supermemory/__init__.py — 正则改为保留连字符
+re.sub(r"[^a-zA-Z0-9_-]", "_", raw or "")
+```
+1. 改正则 + 同步更新 `tests/plugins/memory/test_supermemory_provider.py`，跑 `pytest` 应全绿。
+2. 本地验证：provider 加载应显示 `Active. Container: hermes-cabinet.`。
+3. **必须重启长驻 gateway / worker**（`launchctl kickstart`）——否则旧进程仍持旧代码，新写入继续进错池。
+4. 错误池里的旧文档先做 dry-run 清单，迁移/删除须另请旨，不可直接清。
+
+**判定坑**：`container_tag="hermes cabinet"`（带空格）API 返 400，证明空格不是真 tag、只是 Dashboard 显示名；真实错误池是下划线 `hermes_cabinet`。`sm_source` 一类字段同理——只能 filter、GET/search 不回显，"看不到"≠"没存"。
+
+**双写路径陷阱**：Hermes provider 读各 profile 的 `$HERMES_HOME/supermemory.json`，而 launchd 托管的 Event Bridge daemon 读真实 `$HOME` 的 `~/.hermes/supermemory.json`——session 内 `~` ≠ daemon 的 `$HOME`，诊断跨进程问题须两个路径都查。完整审计见 Obsidian `[[Supermemory双池审计]]`。
+
+---
+
 | 现象 | 原因 | 解决 |
 |------|------|------|
 | store 返回 ID 但搜索 content 空（瞬态） | 文档还在 dreaming（索引中） | 等 3-8 秒后重试 |
-| store 返回 ID 但搜索 content 空（**持久**） | 非索引延迟。可能：SDK 版本不兼容、Supermemory 后端 bug、`supermemory.json` 配置不完整 | ① 先查 Obsidian 设计文档 `Supermemory三省六部记忆架构设计_v2.0.md`；② 跑 `references/diagnostic-protocol.md` 三测协议确认不是客户端问题；③ 若排除客户端原因，联系 Supermemory 官方排查后端 |
+| store 返回 ID 但搜索 content 空（**持久**） | 非索引延迟。可能：SDK 版本不兼容、Supermemory 后端 bug（如 2026-05 Dynamic Dreaming）、`supermemory.json` 配置不完整 | ① 跑 `references/diagnostic-protocol.md` 三测协议确认不是客户端问题；② 查 Obsidian `[[Supermemory双池审计]]` / `[[Supermemory记忆架构_Hermes]]`；③ 若排除客户端原因，联系 Supermemory 官方排查后端 |
 | profile static_count=0 | 新容器无积累，或记忆固化管线未工作 | 正常初期 dynamic 先有数据；若持续 0 且 dynamic 增长，检查 Supermemory 后端 profile 聚合是否正常 |
 | 403 | container tag 未授权 | 检查 API key 权限或换 tag |
 | search 返回 unrelated | 查询太短或 search_mode 不对 | 用更具体的 query 或切换 search_mode |
@@ -170,7 +220,7 @@ Hermes Supermemory provider 注册 4 个工具：
 | **迁移记忆与自然记忆不在同一库**（Dashboard 看到两个池） | `supermemory.json` 缺失。迁移时显式指定了 container_tags，但 supermemory_store 无配置映射，默认写入错误 tag | ① 创建 supermemory.json（全局 ~/.hermes/ 或 per-profile）；② 写入 container_tag 映射；③ 详见 references/supermemory-json-schema.md；④ 缺失时不报错，静默分裂——最常见陷阱 |
 | `hermes memory status` 报 API key ✗ 但工具实际可用 | status check 从 config.yaml 或插件注册表检测 key，而工具（`supermemory_store/search`）从环境变量读；二者路径不同导致假阴性 | 优先级低——只要工具可用就无需修复 status check。验证方法：直接调 `supermemory_search` 看是否返回结果，而非依赖 status 输出 |
 | **SDK 直接调用返回 0 结果，Hermes 内置工具正常**（⚠️ P0 诊断陷阱） | Hermes 的 `supermemory_*` 工具**不是标准 SDK 的薄封装**。同一 API key、同一 endpoint `api.supermemory.ai`、同一 SDK v3.43.0，`search.memories()` 三种 search_mode 全返回 0，`profile()` 返回 static=0/dynamic=0。但 Hermes 内置工具正常返回数据。 | **不要用 SDK 诊断 Hermes Supermemory 状态**——SDK 视角和 Hermes 工具视角是两个不同的数据面。诊断时只信 Hermes 工具的输出。Dashboard 显示两个库分离也可能是同一原因：Dashboard 走 SDK/云端视角，与 Hermes 工具数据面不一致。详细对比见 `references/hermes-vs-sdk-divergence.md` |
-| **多 profile 同步 supermemory-maintenance skill** | 更新 skill 后需同步到全 16 agent，否则只有当前 profile 受益 | ① `cd ~/code/jz-skills && git add/commit/push`；② `HOME=/Users/alexcai bash deploy/sync-all.sh hermes`；③ 注意 `~` 在 Hermes session 下解析为 profile home，必须 `HOME=/Users/alexcai` 前缀 |
+| **同步 supermemory-maintenance skill 到各 profile** | skill 在 `~/.hermes/skills` 共享池（profile 经 `external_dirs` 共读），更新后需部署到线上各 profile（regent/auditor/cron-worker/lane-*/publisher），否则不生效 | ① `cd ~/code/jz-skills && git add/commit/push`；② `HOME=/Users/alexcai bash deploy/sync-all.sh hermes`；③ 注意 `~` 在 Hermes session 下解析为 profile home，必须加 `HOME=/Users/alexcai` 前缀 |
 
 ---
 
@@ -193,5 +243,15 @@ Hermes Supermemory provider 注册 4 个工具：
 
 - `references/memory-migration.md` — 批量迁移配方、Document vs Memory ID 陷阱、召回验证清单
 - `references/diagnostic-protocol.md` — 写入→索引→检索三测协议，区分瞬态延迟与持久性后端故障
-- `references/supermemory-json-schema.md` — supermemory.json 配置模板、字段说明、诊断验证步骤
+- `references/supermemory-json-schema.md` — supermemory.json 配置（线上简单 schema vs v2.0 历史设计字段）
 - `references/hermes-vs-sdk-divergence.md` — ⚠️ Hermes 内置工具 vs SDK 行为差异（P0 诊断陷阱：SDK 返回 0 ≠ 数据丢失）
+
+### Obsidian 深度文档（macOS 本机）
+
+位于 `~/Documents/Obsidian/AlexCai/20-Areas/40_技术项目/Supermemory/`：
+
+- `[[Supermemory记忆架构_Hermes]]` — Hermes 两池 + 三省六部历史设计（v2.0，含现状校准 banner）
+- `[[Supermemory多机共池]]` — 多机 CC/Codex/pi 共池 `sm_project_cli` 来源区分改造 + Codex 接入
+- `[[Supermemory双池审计]]` — 🔴 双池 sanitize bug 全审计（常青，故障排查首选）
+
+历史归档（`40-Archives/`）：三省六部碎片合集、v1.1 设计稿、实施日志、Dynamic Dreaming 故障史。
