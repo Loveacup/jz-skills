@@ -97,7 +97,7 @@ Skills ranked by total commit count across the full repository history — refle
 
 ### ✍️ skill-authoring · 合规创作 v3.0
 
-> **16 commits** — the most iterated skill in the repo · 仓库中迭代最多的技能
+> **18 commits** — the most iterated skill in the repo · 仓库中迭代最多的技能
 
 11-step compliance-first skill authoring workflow with 7-dimension scoring. Absorbed SkillEvolver + EmbodiSkill (2026-05) for deployment-driven skill evolution.
 11 步合规创作工作流 + 七维评分。吸收 SkillEvolver + EmbodiSkill 实现部署驱动的技能进化。
@@ -112,7 +112,7 @@ Skills ranked by total commit count across the full repository history — refle
 
 ### 📔 auto-diary · 自动化日记 v3.5.1
 
-> **14 commits** — evolved through six major versions (v2.0 → v3.5.1) · 历经六个大版本迭代
+> **16 commits** — evolved through six major versions (v2.0 → v3.5.1) · 历经六个大版本迭代
 
 Automated daily diary + weekly/monthly/yearly report generation from cron. Evolved through six major versions (v2.0 → v3.5.1) with progressive structural refinement.
 从 cron 触发的日记生成到金字塔聚合的年报体系，历经 v2.0→v3.5.1 六个大版本。
@@ -130,16 +130,17 @@ Automated daily diary + weekly/monthly/yearly report generation from cron. Evolv
 
 ### 🔍 web-research-router · 检索总控 v3.9
 
-> **14 commits** — 5 major versions (v3.1→v3.9), 22 reference files · 22 个引用文件
+> **15 commits** — 6 major versions (v3.1→v3.9), 22 reference files · 22 个引用文件
 
-Multi-engine search router with deep research loop. The most architecturally complex skill in the repo, evolved through five versions each adding a distinct capability layer.
-五引擎搜索路由 + 深度研究循环。仓库中架构最复杂的技能，五个版本各叠加一层能力。
+Multi-engine search router with deep research loop. The most architecturally complex skill in the repo, evolved through six versions each adding a distinct capability layer.
+六引擎搜索路由 + 深度研究循环。仓库中架构最复杂的技能，六个版本各叠加一层能力。
 
-- **5 engines · 五引擎:** Exa + Brave (dual-primary) → Tavily (deep research) → web_search (broad) → SearXNG (fallback) / 双主力→深度→广扫→兜底
+- **6 engines · 六引擎:** Exa + Brave (dual-primary) → Tavily (deep research) → web_search (broad) → Sogou/WeChat (v3.9) → SearXNG (fallback) / 双主力→深度→广扫→微信/搜狗→兜底
 - **v3.2 — Deep research loop · 深度循环:** Plan → Section (facts.jsonl) → Reflect → Merge + cross-language blind-spot detection / 分节→反思→合并+跨语言盲区
 - **v3.4 — Anti-hallucination · 反幻觉:** Verbatim quote extraction, `[s<id>]` inline citation, 3-column output (Confirmed/Inference/Conflicts) / 逐字引用+三分栏
 - **v3.7 — Output contract + Step 0 · 输出契约+本地优先:** Mandatory 4-step local check before any web call + SearXNG demoted after cross-platform validation / 强制四步本地+降级 SearXNG
 - **v3.8 — Auxiliary grounding · 辅助验证:** Claude Code WebSearch as unstable auxiliary source (pre-flight check gated) / CC 引擎作为辅助验证
+- **v3.9 — WeChat/Sogou + Scrapling · 微信/搜狗集成:** 集成 Sogou/微信公众号搜索 via weixin-search-mcp + 加密链接解密 + Scrapling CLI stealthy-fetch 作为内容抓取 fallback / WeChat+Sogou search with encrypted link decryption
 
 → [`hermes/web-research-router/`](hermes/web-research-router/)
 
@@ -147,7 +148,7 @@ Multi-engine search router with deep research loop. The most architecturally com
 
 ### 🤖 claude-code · CC 编排 v4.1.1
 
-> **12 commits** — 7 versions (v3.0→v4.1.1) · 29 reference files · Hermes↔CC 双向拷问 + 自治团队编排
+> **16 commits** — 8 versions (v3.0→v4.1.1) · 29 reference files · Hermes↔CC 双向拷问 + 自治团队编排
 
 Hermes-to-Claude Code orchestration bridge with bidirectional grilling protocol and autonomous agent team coordination. v4.1 adds constitutional red lines + Gate Stamp discipline — a correctness layer before execution.
 从 Hermes 编排 Claude Code，v4.1 新增红线宪法 + Gate Stamp 执行前签章。
@@ -158,6 +159,7 @@ Hermes-to-Claude Code orchestration bridge with bidirectional grilling protocol 
 - **v3.5.x — Stability fixes · 稳定性修复:** Smart effort routing（5 级，signal-based）+ Pitfall #24 假空闲检测 + #25 会话劫持 + #26 权限表单不可靠 + #27 自动恢复旧会话
 - **v4.0.0 — Debt cleanup · 清债:** Pitfall 编号重排（#18–#27 连续无重复）、3 个 detail 补全、2 个坏链修复、6 个孤儿 reference 收编、共享 longterm 策略矛盾消除
 - **Progress reporting · 进度汇报:** 强制 15s 首检 → 30-60s 轮询 → emoji 状态模板；沉默 >2min = 异常
+- **v4.1.1 — CQI 诊断闭环:** 通用性声明（任意 Hermes agent 加载）+ read hook 防漂移（源↔部署端 hash 校验）+ Gate Stamp 补「该调 CC」项 + CC×CQI 三步自动链（mem_ingest→cqi_runtime→mem_merge）+ cron 兜底 / tri-merge anti-drift + CC×CQI auto-trigger chain
 
 → [`hermes/claude-code/`](hermes/claude-code/)
 
@@ -180,7 +182,7 @@ Jz-Plugin v4.0 的内核——append-only 三 shard JSONL 真相源 + CC 自动�
 
 ### 🩺 mac-doctor · macOS 巡检 v2.4.1
 
-> **10 commits** — 19 files, 2,135 lines · 仓库中最全面的系统运维技能
+> **11 commits** — 19 files, 2,135 lines · 仓库中最全面的系统运维技能
 
 Six-tier macOS system health monitoring with root-cause diagnosis and dual cron scheduling. Sustained iteration fixing edge cases and adding diagnostic depth.
 六级 macOS 健康巡检，含根因诊断和双 cron 调度。持续迭代修复边界情况和增强诊断深度。
@@ -189,6 +191,7 @@ Six-tier macOS system health monitoring with root-cause diagnosis and dual cron 
 - **Dual cron · 双调度:** LLM agent (daily deep audit) + Silent Watchdog (30min, `no_agent=true`, anomaly-only) / LLM 深审+静默看门狗
 - **v2.3:** Watchdog threshold-vs-anomaly silent logic; `None`-handling robustness / 看门狗静默逻辑+空值处理
 - **Fixes · 修复:** pgrep browser false-positive (Arc/Edge), disk-cleanup safety gates, sustained-CPU threshold tuning / 进程误报、安全门、CPU 阈值
+- **v2.4 — Profile-aware · 多 Profile 感知:** 多 profile 缓存重复诊断（Hermes profile home 的 .npm/.cache/Library/Caches）、僵尸进程检测与回收、awk 转义修复 / multi-profile cache dedup + zombie process detection
 
 → [`hermes/mac-doctor/`](hermes/mac-doctor/)
 
@@ -212,7 +215,7 @@ Dedicated cron-worker profile with four heartbeat patterns and cross-profile ski
 
 ### 🧠 supermemory-maintenance · 记忆参考 v7
 
-> **6 commits** — cross-platform memory infrastructure reference · 跨平台记忆基础设施参考
+> **7 commits** — cross-platform memory infrastructure reference · 跨平台记忆基础设施参考
 
 General reference for Supermemory — long-term memory infrastructure shared across Hermes, Claude Code, and pi. Architecture, SDK usage, container tags, processing pipeline, and diagnostic protocols. Platform-specific execution delegated to `supermemory-hermes` and `pi-supermemory`.
 跨 Hermes/CC/pi 三端的 Supermemory 长期记忆参考。架构、SDK 使用、容器标签、管线、诊断协议。
@@ -250,11 +253,11 @@ General reference for Supermemory — long-term memory infrastructure shared acr
 
 | Skill | Purpose · 用途 |
 |:---|:---|
-| 🔍 [`web-research-router`](hermes/web-research-router/) | 5-engine search + deep loop — [§active](#-web-research-router--检索总控-v39) |
-| 📔 [`auto-diary`](hermes/auto-diary/) | Daily→yearly diary — [§active](#-auto-diary--自动化日记-v35) |
-| 🩺 [`mac-doctor`](hermes/mac-doctor/) | macOS 6-tier health — [§active](#-mac-doctor--macos-巡检-v22) |
-| 🕐 [`cron-worker`](hermes/cron-worker/) | Cron profile + pool watchdog — [§active](#-cron-worker--定时任务-agent-v13) |
-| 🤖 [`claude-code`](hermes/claude-code/) | CC orchestration v4.1 — discussion protocol + agent team — [§active](#-claude-code--cc-编排-v41) |
+| 🔍 [`web-research-router`](hermes/web-research-router/) | 6-engine search + deep loop — [§active](#-web-research-router--检索总控-v39) |
+| 📔 [`auto-diary`](hermes/auto-diary/) | Daily→yearly diary — [§active](#-auto-diary--自动化日记-v351) |
+| 🩺 [`mac-doctor`](hermes/mac-doctor/) | macOS 6-tier health v2.4.1 — [§active](#-mac-doctor--macos-巡检-v241) |
+| 🕐 [`cron-worker`](hermes/cron-worker/) | Cron profile v1.0 + pool watchdog — [§active](#-cron-worker--定时任务-agent-v10) |
+| 🤖 [`claude-code`](hermes/claude-code/) | CC orchestration v4.1.1 — [§active](#-claude-code--cc-编排-v411) |
 | 🧠 [`memory-hub`](hermes/memory-hub/) | v0.2.1 · CC→CQI auto-ingest loop / CC×CQI 自动归集回路 |
 | 🧠 [`supermemory-hermes`](hermes/supermemory-hermes/) | Hermes Supermemory setup + multi-profile |
 | 🎤 [`tts-manager`](hermes/tts-manager/) | TTS provider registry + voice testing |
