@@ -268,6 +268,7 @@ Case studies: `references/slimming-case-studies.md` — strategic-insight-longfo
 - **sed 在格式化 README 中不可靠** — Python 行级过滤更稳：`[line for line in lines if 'skill-name' not in line]`
 - **不要顺手做无关修复** — 发现既有死引用（如 WRR 的 code-explorer.md）记下即可，不混入本次范围
 - **git 不擅自提交** — 所有改动留在工作区，等用户确认
+- **整合后清理孤儿子目录** — 整合伞形 skill 后，旧独立 skill 目录不会自动从部署池删除。sync-all.sh 只增不删。使用 watchdog + `references/post-consolidation-cleanup.md` 工作流检测和清理孤儿。
 
 ## 📦 References
 
@@ -279,6 +280,7 @@ Case studies: `references/slimming-case-studies.md` — strategic-insight-longfo
 | `references/slimming-case-studies.md` | Case studies: strategic-insight-longform (513→130) + voice-to-markdown (349→133) |
 | `references/skill-evolution-research.md` | SkillEvolver + EmbodiSkill papers (2026-05): deployment-driven skill evolution |
 | `references/consolidation-case-study.md` | Multi-skill consolidation pattern (8→1): shared state, decision tree, governance |
+| `references/post-consolidation-cleanup.md` | 🆕 Post-consolidation orphan detection & cleanup: watchdog triage, pool deletion, sync script fixes, baseline update. Case study: 2026-06-05 GitHub cleanup |
 | `references/cross-project-evaluation.md` | Decision tree for evaluating external projects before absorbing features (case studies: AnySearch, ECC, taste-skill) |
 | `references/cross-project-evaluation.md` | Decision tree for evaluating external projects before absorbing features (case studies: AnySearch, ECC, taste-skill) |
 | `references/absorption-analysis.md` | When to absorb external inspiration vs when NOT to (AnySearch case study) |

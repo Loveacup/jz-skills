@@ -249,12 +249,21 @@ def sync_obsidian():
         from obsidian_sync import sync_and_wait;return sync_and_wait()
     except Exception as e: return {"status":"error","message":f"Obsidian 同步失败: {e}"}
 
+def get_dingtalk_class_msgs(date_str):
+    """读取钉钉班级群每日消息文件"""
+    p=Path.home()/f".hermes/data/dingtalk_class_msgs/{date_str}.txt"
+    content=read_file_safe(p)
+    if content and len(content.strip())>50:
+        return {"status":"ok","content":content,"path":str(p)}
+    return {"status":"empty"}
+
 def collect_diary_data(date_str):
     dp=Path.home()/"Documents/Obsidian/AlexCai/50-Self/01_日记"/f"{date_str}.md"
     vr=Path.home()/"Documents/Obsidian/AlexCai"
     return {"date":date_str,"weekday":get_weekday(date_str),"weather":get_weather(date_str),
             "ai_logs":get_ai_logs(date_str),"calendar_events":get_calendar_events(date_str),
-            "existing_content":read_file_safe(dp),"vault_changes":scan_vault_changes(vr,date_str),"obsidian_sync":sync_obsidian()}
+            "existing_content":read_file_safe(dp),"vault_changes":scan_vault_changes(vr,date_str),
+            "obsidian_sync":sync_obsidian(),"dingtalk_class_msgs":get_dingtalk_class_msgs(date_str)}
 
 def main():
     if len(sys.argv)<2: print("Usage: collect_data.py diary YYYY-MM-DD",file=sys.stderr);sys.exit(1)

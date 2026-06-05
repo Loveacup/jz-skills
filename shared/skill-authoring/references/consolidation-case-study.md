@@ -85,7 +85,12 @@ When consolidating N skills into 1 umbrella:
 - [ ] Run 7-dim compliance scorecard
 - [ ] Search ALL skills for `related_skills` to old skill names → update to new umbrella
 - [ ] Search body text for old skill name mentions → update
-- [ ] Delete old skill directories
+- [ ] Delete old skill directories **from deployed pool** (`~/.hermes/skills/`) — sync-all.sh is additive-only
+- [ ] Remove old deploy lines from `sync-all.sh` (both `sync_hermes()` and per-profile loop)
+- [ ] Fix `sync-all.sh` dst path if skill name = category (e.g., `"$base/github"` → `"$base"`)
+- [ ] Update watchdog baseline: `python3 scripts/skill-integrity-watchdog.py --update-baseline`
+- [ ] Verify clean: watchdog exit 0, no output
+- [ ] Full details: `references/post-consolidation-cleanup.md`
 - [ ] Verify new skill loads via `skill_view`
 
 ## Results

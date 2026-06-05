@@ -2,7 +2,8 @@
 name: auto-diary
 description: |
   自动化日记生成和四层聚合（日/周/月/年）。cron 定时触发：每日日记(23:00)、每周周报(Mon 09:00)、
-  每月月报(1号 09:30)、每年年报(1/1 10:00)。采集天气(Open-Meteo)、日历(icalBuddy)、\n  AI 对话(Hermes state.db + CC JSONL)、知识库变更(Obsidian vault)、钉钉班级群消息(dingwave 解密本地 DB)，经校验闭环交付。
+  每月月报(1号 09:30)、每年年报(1/1 10:00)。采集天气(Open-Meteo)、日历(icalBuddy)、
+  AI 对话(Hermes state.db + CC JSONL)、知识库变更(Obsidian vault)，经校验闭环交付。
   支持日历事件回填和日记清理。详见知识库 [[日记系统-三机架构与路线图]]。
 
   Use when: cron triggers or user manually requests
@@ -75,12 +76,7 @@ Trigger received (cron or manual)?
 7. **CRITICAL 合并安全**: `collect_data.py` 的 `existing_content` 恒为 `null`（已知限制,脚本不读已有日记）。所以写入前**必须先 `Read` 目标日记文件**;若已存在用户手写内容 → 合并,保留用户文字,只填空缺。不可盲目覆盖。
 8. **校验闭环**: 写完后运行 `python3 {baseDir}/scripts/verify_diary_compliance.py <写入的文件>`;若 FAIL,对照 `diary-format.md` 逐项重写,直到 PASS 再交付
 9. Write to Obsidian vault
-10. **日记入记忆** (v3.6): 校验 PASS 且写入 vault 后,把日记写进 supermemory `hermes` 池,让小黄(default profile)能检索每天的日记。
-    `~/.hermes/hermes-agent/venv/bin/python {baseDir}/scripts/write_diary_to_supermemory.py <写入的日记文件绝对路径>`
-    - ⚠️ **必须用 venv python 绝对路径**(系统 `python3` 缺 supermemory SDK 会 skip)。
-    - 幂等(`custom_id=hermes-diary-<date>`,重跑覆盖不重复)、失败不阻塞交付、走 Surge 代理避开 fake-ip。
-    - 这是绕过 memory provider 对 cron session 写入限制(`_write_enabled` 排除 cron)的唯一途径——日记 cron 不会自动 capture。
-11. Notify user (cron: via final response; manual: via Telegram)
+10. Notify user (cron: via final response; manual: via Telegram)
 
 See `references/diary-format.md` for weather codes, calendar table format, and section templates.
 

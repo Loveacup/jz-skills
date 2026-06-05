@@ -525,6 +525,7 @@ sleep 3 && tmux send-keys -t <s> Down && tmux send-keys -t <s> Enter
 | ★36 | **CC 思考循环但用户说"等 CC 好"时，Hermes 抢跑手动编辑** | 症状：CC 在 `✻ almost done thinking` 循环 3-4min，token 不增，Hermes 判断卡死开始手动改。用户说"不行，你等cc好"。**根因**：用户信任 CC 输出质量>速度。用户明确说"等"时，即使 token 冻结 >3min 也继续监控，不代劳、不抢跑。只在用户说"别等了/你来改"时才接手 |
 | ★37 | **Socket error 后不验证文件是否写成功** | 症状：CC Write 报 "socket connection closed" 但未重试直接进入下一步，事后发现文件根本没创建。**修复**：socket error 后 Hermes 必须① `stat` 目标文件确认存在 ② 不存在则明确告诉 CC "文件未写成功，请重试" ③ 不在未验证下假设已写入（呼应 Core Rule #12） |
 | ★38 | **Context file 未交代 skill 架构背景——CC 误解自身角色** | 当 CC 被要求讨论/修订 `claude-code` skill 自身时，context file 必须显式声明：**此 skill 部署在 Hermes 上、由 Hermes 加载、教 Hermes 如何驱动 CC；CC 本身不读此 skill；监控违规主体是 Hermes（加载者），不是 CC（被驱动方）。** 2026-06-04 复现：未交代背景 → CC 误把监控违规归因于"CC 不听话" → 用户纠正"监控是 Hermes 的事情"。**修复**：context file 开篇即写清「加载者=Hermes / 被驱动方=CC / CC 不读此 skill」 |
+| ★39 | **CC 路线图/架构文档重写后，`❯` 输入行残留“下一步建议”** | 症状：CC 完成报告后，底部输入行预填了它建议的下一步（如“开始 P2 manifest 骨架”）。这不是用户授权，尤其当下一步会改代码/manifest。**修复**：最终 capture 后先检查残留输入；尝试 `C-u`/`Escape` 清空；若清不掉且阶段已完成，直接 kill 这个隔离 session。不要按 Enter。完整模式见 `references/jz-plugin-ecc-roadmap-pattern.md`。 |
 
 ## 📦 References
 
@@ -576,6 +577,7 @@ sleep 3 && tmux send-keys -t <s> Down && tmux send-keys -t <s> Enter
 | `references/cqi-instance-pattern.md` | CQI Instance 模式：skill CQI 计划重构为母计划实例的 8 节骨架 + 三桶分流（2026-06-04） |
 | `references/three-lens-infra-debugging.md` | 🆕 3-Lens 基础设施调试：CC agent team 并行调查 adapter+网络+配置（2026-06-04 GPT-5.5 排查） |
 | `references/jz-skills-cc-first-pattern.md` | jz-skills 仓库改动走 CC agent team 先审查后执行模式（2026-06-03） |
+| `references/jz-plugin-ecc-roadmap-pattern.md` | Jz-Plugin 路线图吸收 ECC 优点的 CC 文档重写模式：context 边界、OB+源码+网络 evidence、CQI handoff、残留输入 guard（2026-06-05） |
 | `references/hermes-infrastructure-self-audit.md` | Hermes 基础设施自审计模式（2026-06-03） |
 | `references/kanban-swarm-practical-syntax.md` | Kanban Swarm CLI 实测语法 vs 概念语法对照表（2026-06-03） |
 | `references/cc-session-mass-cleanup.md` | CC session 批量清理命令序列（2026-06-03） |

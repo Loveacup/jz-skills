@@ -295,6 +295,8 @@ Profile 缓存重复诊断（profile home 下 `.cache/` 异常膨胀的根因与
 | 磁盘误判 | df 显示 28% | 用 `diskutil info` |
 || **`npm cache clean --force` 无效** | 清理前后 `du -sh ~/.npm` 不变 | cron profile 下 `npm config get cache` 指向 profile home；系统缓存在 `~/.npm`。对 `_npx/` 直接 `rm -rf ~/.npm/_npx/<旧hash>` |
 || **macOS 沙盒 Container 删不动** | `rm -rf ~/Library/Containers/com.xxx.yyy` → `Operation not permitted` | macOS Container Manager 锁定沙盒目录。`sudo` 无终端不可用（cron/session），`xattr -rc` 无效，`osascript Finder delete` 弹 TCC 权限框超时。**解法：内容 <100KB 时忽略；否则在桌面端 Finder 手动拖废纸篓。** 卸载 App 优先用 App 自带的卸载器或 `AppCleaner` 等工具。 |
+|| **Telegram Group Containers 误判为缓存** | `du` 显示 `~/Library/Group Containers/...Telegram/` 占 8GB，以为是可清理媒体缓存 | 8GB 在 `stable/account-*/postbox/db/` — 这是**消息数据库**，不是缓存。删 = 本地聊天记录全丢。媒体缓存（`postbox/media/`）通常只有几十 MB。真正的清理入口在 Telegram 客户端内：设置 → 数据和存储 → 存储用量。 |
+| **TM 快照积压（磁盘急剧下降的主因）** | 磁盘从 70% → 90% 仅数小时；`tmutil listlocalsnapshots` 显示 20+ 快照 | 备份盘未连接时 macOS 每小时拍快照。`tmutil thinlocalsnapshots` 一次只薄一个，需 Python 批量 `tmutil deletelocalsnapshots`。详见 `references/tm-snapshot-cleanup.md`。 |
 
 ### 清理后验证
 
