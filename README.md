@@ -110,13 +110,14 @@ Skills ranked by total commit count across the full repository history — refle
 
 ---
 
-### 📔 auto-diary · 自动化日记 v3.5.1
+### 📔 auto-diary · 自动化日记 v3.6.1
 
-> **16 commits** — evolved through six major versions (v2.0 → v3.5.1) · 历经六个大版本迭代
+> **17 commits** — evolved through seven major versions (v2.0 → v3.6.1) · 历经七个大版本迭代
 
-Automated daily diary + weekly/monthly/yearly report generation from cron. Evolved through six major versions (v2.0 → v3.5.1) with progressive structural refinement.
-从 cron 触发的日记生成到金字塔聚合的年报体系，历经 v2.0→v3.5.1 六个大版本。
+Automated daily diary + weekly/monthly/yearly report generation from cron. v3.6.1 adds DingTalk class group message ingestion — decrypt local DingTalk SQLite → extract teacher messages → auto-include in daily diary.
+从 cron 触发的日记生成到金字塔聚合的年报体系。v3.6.1 新增钉钉班级群消息采集——解密本地加密 SQLite → 提取老师消息 → 自动写入当日日记。
 
+- **v3.6.1 — DingTalk class group · 钉钉班级群:** 🆕 新增 `dingtalk_class_msgs` 数据源，`collect_data.py` 读取 dingwave 解密后的班级群消息。配套 monitor cron（`458bec58ee72`，每 30 分钟 dingwave 解密 V3 DB + 新消息 Telegram 推送）。
 - **v3.5.1 — Silent cron failure fix · 静默故障修复:** 🔴 Cron `skills: []` 空数组仍然 status 'ok' 运行，但日记因缺少 skill 逐日退化（CC=0, 知识库=0, 裸模板）。诊断+修复命令已写入 skill Red Flags + Common Pitfalls + Troubleshooting
 - **v3.5 — Pyramid aggregation · 金字塔聚合:** Daily→weekly→monthly→yearly with cron scheduling + validation / 日→周→月→年四级聚合
 - **v3.4 — Validation loop · 校验闭环:** Real validation fixing internal contradictions between config and output / 修复配置与输出矛盾
