@@ -184,6 +184,9 @@ dws chat message list --conversation-id <cid>
 - **✅ TCC 绕过：Finder 拖放（com.apple.macl）**: macOS 将 Finder 的拖放操作解释为「用户意图」，对拖放的文件打上 `com.apple.macl` 扩展属性，**永久豁免 TCC 保护**。操作：Finder 中 `Cmd+Shift+G` 打开容器目录 → 将需要访问的文件（如 `user_config`、`dingtalk.db`）拖到桌面或 Terminal → 之后该文件的读操作不再受 TCC 限制。仅需一次拖放，效果持久。详见 `references/tcc-finder-drag-bypass.md`。
 - **`/tmp` 加密 DB 副本**: 当 TCC 阻断实时 DB 拷贝时，检查 `/tmp/dd_enc_*.db` 是否存在之前 cron 运行留下的加密 DB 副本。这些副本可直接用 dingwave 解密——**前提是 `user_config` 也能被读取**（需用上述 Finder 拖放方法先解放 user_config）。
 - **Cookies 目录不受 TCC 限制**: TCC 只锁 `Data/Library/Application Support/DingTalkMac/` 深层目录，`Data/Library/Cookies/Cookies.binarycookies` 可直接 `cat` 读取（实测 7KB，退出码 0）。因此提取 Cookie 不需要 Finder 拖放。
+- **⚠️ 只搜 type=3100 忽略 type=0（文件附件）**: 当用户问"有图片吗"或"有文件吗"时，**必须同时检查所有 attachment type**——type=3100=富文本（含图片），type=0=文件（PDF/Excel 等），type=1202=通知。只搜一种 = 漏掉另一种。此坑 2026-06-06 真实触发：用户指出"昨天就有好几个 pdf"，因为只搜了 authMediaId。
+- **Binarycookies 解析只需 `strings`**：`strings Cookies.binarycookies | grep -E "dd_sid|token|XSRF|dt_s"` 即提取 cookie 名和值，无需 Python 二进制解析器。cookie 值紧跟在 cookie 名后的 `\x00` 分隔字符串中。
+- **Bash `$` 符号变量展开陷阱**：authMediaId 以 `$` 开头（如 `$iwEdAq...`），在 shell 双引号和裸字符串中会被 bash 当作变量展开。**修法**：curl 的 URL 参数用单引号包裹：`curl 'https://.../$iwEdAq...'`。或用 Python `urllib.request` 直接发请求绕过 shell。
 
 ## 进阶①：图片离线下载（authMediaId → URL → curl）
 
@@ -243,23 +246,59 @@ authMediaId 有过期时间（推测 24h 内）。过期后 URL 仍返回 200 �
 详见：
 - **`references/auth-media-id-url-construction.md`** — CC 逆向完整过程 + msgpack 解码细节 + Python 实现
 - **`scripts/build_url.py`** — 输入 authMediaId → 输出正确 URL + 解码字段
-- **`scripts/dingtalk-image-ocr.py`** — 全自动流程：下载 + 视觉模型 OCR + 缓存去重
 
-## 进阶②：图片内容提取（视觉模型 OCR）
+### 统一管线脚本（图片 + 文件）
 
-图片下载后发 GPT-5.5 视觉模型提取文字，输出合并到日记。
-
-### 流程
+`scripts/dingtalk-media-pipeline.py` — 从 DB 自动提取所有图片和文件，统一下载+文字提取+缓存：
 
 ```
-解密 DB → 提取 authMediaId → build_url.py 构造 URL 
-  → curl + dd_sid → 下载原图 → GPT-5.5 vision → OCR 文字 → 写入日记
+解密 DB → 提取媒体
+  ├─ type=3100 → authMediaId → ddmedia URL → curl+dd_sid → GPT-5.5 OCR
+  └─ type=0 → f_id/s_id → mdown URL → curl+dt_s → PyMuPDF(转PDF)/xlrd(转Excel)
 ```
 
-### 监控脚本 v5 已集成
+已整合进 `scripts/dingtalk-class-monitor.sh` v6。
 
-`scripts/dingtalk-class-monitor.sh` v5 在文本提取后自动调用 `dingtalk-image-ocr.py`，将 OCR 结果写为日记的「🖼 图片文字提取」段。
+## 进阶②：文件附件下载（PDF/Excel）
 
-### 文档附件处理（预留）
+**文件附件（type=0）走钉盘（cspace），与图片的 type=3100 完全不同。**
 
-若以后出现 PDF/Word/Excel 附件：智能分流 — PDF 用 `pdf` skill 提取文本，Word/Excel 用 Python 库解析，图片继续走视觉 OCR。
+### 提取路径
+
+```json
+attachments[0].extension = {
+  "f_id": "224016336448",    // dentryId — 直接用
+  "f_name": "6月5日计算练习.pdf",
+  "s_id": "22147563244",     // spaceId
+  "f_size": 258752
+}
+```
+
+### 下载 URL
+
+```
+https://space.dingtalk.com/attachment/mdown?biztype=file&bizid={s_id}&objectid={f_id}
+```
+
+### Cookie 鉴权
+
+**只用 `token` 或 `dt_s`**（cspace 会话），`dd_sid` 无效（图片用 `dd_sid`，文件用 `dt_s`）。
+
+```bash
+T="u-25adff5-9e9bfa7d63-21084bdf-5438b1-610a7ac9-a2d6775a-7931-48b3-a751-795340e045c0"
+curl -L -b "dt_s=$T" \
+  "https://space.dingtalk.com/attachment/mdown?biztype=file&bizid=$SP&objectid=$FID" \
+  -o output.pdf
+```
+
+### 已验证 ✅
+
+3 个样本全部下载成功（含 14MB 大文件），PDF/OLE 校验通过。
+
+### 文字提取
+
+- **PDF** → PyMuPDF (`fitz`) 逐页提取
+- **Excel (.xls)** → `xlrd` 逐行提取
+- **Excel (.xlsx)** → `openpyxl`（预留，当前班级群只有 .xls）
+
+详见：`references/file-download-reverse-engineering.md` — CC 逆向完整过程
