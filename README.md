@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/license-MIT-brightgreen" alt="MIT license">
 </p>
 
-> 🤖 **Hermes + Claude Code + pi 三端 AI agent 技能仓库 — 38 skills, 四层结构, 双向同步。**
+> 🤖 **Hermes + Claude Code + pi 三端 AI agent 技能仓库 — 39 skills, 四层结构, 双向同步。**
 >
 > Skills authored, audited, and evolved by AI agents following [skill-authoring](shared/skill-authoring/). Deployed to a Hermes, Claude Code, and pi (Windows).
 >
@@ -24,7 +24,7 @@
 ```
 jz-skills/
 ├── shared/   🌐 跨平台 · Cross-platform (16)
-├── hermes/   ⚙️ Hermes (16)
+├── hermes/   ⚙️ Hermes (17)
 ├── pi/       🪟 Pi / Windows (6)
 └── _archived-hermes-3S6M-profiles/ 🗄️ 三省六部 · 已归档 (23)
 ```
@@ -32,7 +32,7 @@ jz-skills/
 | Layer | Directory | Skills | Scope · 范围 |
 |:---|:---|:---:|:---|
 | 🌐 | `shared/` | 16 | All 3 platforms · 三端同步 |
-| ⚙️ | `hermes/` | 16 | Hermes platform · 平台通用 |
+| ⚙️ | `hermes/` | 17 | Hermes platform · 平台通用 |
 | 🪟 | `pi/` | 6 | Pi (Windows), self-authored · Pi 自创作 |
 
 <details>
@@ -57,7 +57,7 @@ jz-skills/
 │   ├── xiaohongshu-cards/         # 文章→小红书图文卡片
 │   ├── xhs-tech-writer/           # 小红书 AI 科技短图文
 │   └── _archived-*/               # [已归档]
-├── hermes/                        # ⚙️ Hermes 平台 (15)
+├── hermes/                        # ⚙️ Hermes 平台 (17)
 │   ├── web-research-router/       # v3.9 · 5 引擎深度研究
 │   ├── auto-diary/                # v3.5.1 · 日/周/月/年金字塔聚合
 │   ├── mac-doctor/                # v2.4.1 · macOS 六级巡检
@@ -74,6 +74,7 @@ jz-skills/
 │   ├── xhs-crawler/               # 小红书爬虫 (CloakBrowser)
 │   ├── calendar-manager/          # 智能日历
 │   ├── morning-news-briefing/     # 早新闻 · 每日新闻简报
+│   ├── telegram-topic-manager/     # v2.0 · Telegram Topic 管理 + Hermes /topic
 └── pi/                            # 🪟 Pi / Windows (6)
     ├── web-research-router/       # TS SDK 检索总控
     ├── pi-web-research/           # v3.4 多引擎深度研究
@@ -250,7 +251,7 @@ General reference for Supermemory — long-term memory infrastructure shared acr
 | 🎴 [`xiaohongshu-cards`](shared/xiaohongshu-cards/) | Article→RED card images / 小红书图文卡片 |
 | ✍️ [`xhs-tech-writer`](shared/xhs-tech-writer/) | RED AI/tech short-form content / 小红书科技短图文 |
 
-### ⚙️ hermes/ — Hermes platform (16)
+### ⚙️ hermes/ — Hermes platform (17)
 
 | Skill | Purpose · 用途 |
 |:---|:---|
@@ -270,6 +271,7 @@ General reference for Supermemory — long-term memory infrastructure shared acr
 | 📕 [`xhs-crawler`](hermes/xhs-crawler/) | XHS CDP extraction (CloakBrowser) / 小红书爬虫 |
 | 📅 [`calendar-manager`](hermes/calendar-manager/) | Smart calendar + reminders / 智能日历 |
 | 📰 [`morning-news-briefing`](hermes/morning-news-briefing/) | Daily news briefing / 早新闻简报 |
+| 💬 [`telegram-topic-manager`](hermes/telegram-topic-manager/) | v2.0 · Telegram Topic CRUD + Hermes /topic / 话题管理 |
 
 ### 🏯 hermes-3S6M-profiles/ — 三省六部 (23)
 

@@ -35,7 +35,7 @@ sync_hermes() {
   copy_skill_dir "$REPO_ROOT/shared/xhs-tech-writer"    "$base/hermes"
 
   # Hermes-specific skills
-  mkdir -p "$base/research" "$base/productivity" "$base/governance" "$base/autonomous-ai-agents" "$base/devops" "$base/apple" "$base/hermes"
+  mkdir -p "$base/research" "$base/productivity" "$base/governance" "$base/autonomous-ai-agents" "$base/devops" "$base/apple" "$base/hermes" "$base/social-media"
   copy_skill_dir "$REPO_ROOT/hermes/web-research-router"             "$base/research"
   copy_skill_dir "$REPO_ROOT/hermes/source-verification"            "$base/research"
   copy_skill_dir "$REPO_ROOT/hermes/tradingagents"                   "$base/research"
@@ -54,6 +54,7 @@ sync_hermes() {
   copy_skill_dir "$REPO_ROOT/hermes/tech-support-email"             "$base/hermes"
   copy_skill_dir "$REPO_ROOT/hermes/news-assembly"                  "$base/productivity"
   copy_skill_dir "$REPO_ROOT/hermes/morning-news-briefing"           "$base/productivity"
+  copy_skill_dir "$REPO_ROOT/hermes/telegram-topic-manager"         "$base/social-media"
 
   # Sync to all profiles (skip profiles that use external_dirs to shared pool)
   echo "→ Syncing to profiles..."
@@ -68,7 +69,7 @@ sync_hermes() {
       fi
     fi
     local pd=~/.hermes/profiles/$prof/skills
-    mkdir -p "$pd/research" "$pd/github" "$pd/governance" "$pd/productivity" "$pd/autonomous-ai-agents" "$pd/apple" "$pd/hermes"
+    mkdir -p "$pd/research" "$pd/github" "$pd/governance" "$pd/productivity" "$pd/autonomous-ai-agents" "$pd/apple" "$pd/hermes" "$pd/social-media"
     copy_skill_dir "$REPO_ROOT/shared/grill-with-docs"        "$pd/governance"
     copy_skill_dir "$REPO_ROOT/shared/skill-authoring"        "$pd/governance"
     copy_skill_dir "$REPO_ROOT/shared/github"                "$pd"
@@ -86,6 +87,7 @@ sync_hermes() {
     copy_skill_dir "$REPO_ROOT/hermes/tech-support-email"             "$pd/hermes"
     copy_skill_dir "$REPO_ROOT/hermes/news-assembly"                  "$pd/productivity"
     copy_skill_dir "$REPO_ROOT/hermes/morning-news-briefing"           "$pd/productivity"
+    copy_skill_dir "$REPO_ROOT/hermes/telegram-topic-manager"         "$pd/social-media"
   done
 
   echo "  ✅ Hermes ($(ls -d ~/.hermes/profiles/*/ 2>/dev/null | wc -l | tr -d ' ') profiles)"
