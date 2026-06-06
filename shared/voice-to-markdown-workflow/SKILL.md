@@ -1,6 +1,8 @@
 ---
+
 name: voice-to-markdown-workflow
 description: |
+type: routine
   语音/视频转录文本的智能处理工作流 v6.0。自动识别内容场景并调度专业化Subagent执行多阶段处理。
 
   Supported scenes: meetings (project sync, product review, brainstorm, BD, collaboration, periodic), learning (lectures, podcasts, courses), conversations (interviews), general.
@@ -14,6 +16,7 @@ description: |
 version: 6.0.1
 author: Claude Code → Hermes (slimmed v6.0.1)
 license: Proprietary
+
 ---
 
 # Voice-to-Markdown v6.0.1

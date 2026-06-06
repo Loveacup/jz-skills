@@ -1,6 +1,8 @@
 ---
+
 name: bilibili-video-analyzer
 description: |
+type: routine
   深度分析 Bilibili 视频内容，生成结构化知识资产（13,000+ 字 Obsidian 级 Markdown 报告）。
   支持官方字幕、whisper.cpp/mlx-whisper 音频转录。功能：弹幕情绪分析、评论深度解读、逻辑拆解、批判审视。
 
@@ -9,6 +11,7 @@ description: |
   DO NOT use for: non-Bilibili videos, general video editing, one-off transcript requests without analysis.
 version: 2.1.0
 author: "Hermes Agent (v2.1: adaptive output modes)"
+
 ---
 
 # Bilibili 视频深度解析器 v2.1

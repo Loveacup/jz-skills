@@ -1,6 +1,8 @@
 ---
+
 name: xhs-crawler
 description: |
+type: routine
   小红书内容提取与深度分析。支持链接提取、关键词搜索、创作者主页爬取。
   通过 CDP 自动化提取正文、评论、轮播图 OCR，生成结构化知识资产报告。
   Triggers: 小红书, xhs, rednote, xiaohongshu, 获取小红书, 解析小红书, extract xhs, analyze xhs
@@ -15,6 +17,7 @@ metadata:
       }
     }
   }
+
 ---
 
 # 小红书内容提取器 v5

@@ -1,6 +1,8 @@
 ---
+
 name: tts-manager
 description: "Use when managing, evaluating, configuring, or testing text-to-speech providers for Hermes or local agent workflows. Covers provider registry, fallback policy, voice/sample tests, resource benchmarks, artifact/noise checks, and keeping TTS decisions synchronized into this skill. Triggers on: TTS, text-to-speech, 语音合成, 音色测试, 后备 TTS, Hermes tts provider, edge-tts, CosyVoice, Qwen3-TTS, custom voice. DO NOT use for STT/transcription, generic audio editing unrelated to TTS, or model research without a TTS deployment decision."
+type: routine
 version: 0.3.0
 author: Hermes Agent + Alex
 license: MIT
@@ -9,6 +11,7 @@ metadata:
   hermes:
     tags: [tts, hermes, voice, audio, provider-management, fallback]
     related_skills: [hermes-agent, audio-transcriber, voice-to-markdown-workflow]
+
 ---
 
 # TTS Manager — Aggregated Text-to-Speech Operations
@@ -22,6 +25,7 @@ This is the base skill for managing all Hermes/local TTS providers. Every future
 | "It's just a quick voice test" | Voice tests create durable provider decisions; log text, files, artifacts, and verdicts here. |
 | "The default provider is obvious" | Hermes profiles may diverge. Always read live `config.yaml` before claiming the active provider. |
 | "Generated WAV exists, so it works" | TTS quality includes first-token artifacts, latency, memory, language fit, and delivery behavior. |
+| "text_to_speech timed out, so TTS is impossible" | CosyVoice long scripts can exceed the Hermes tool timeout while the service is healthy. Probe with 2-char text, then use the direct API with a longer max-time before skipping. |
 | "A zip bundle is enough for voice review" | Wrong for Telegram listening tests. Send the most relevant audio files directly with `MEDIA:`; use zip only as optional backup or when requested. |
 | "Post-processing made the waveform cleaner, so the issue is solved" | User-perceived noise is authoritative. If the user still hears artifacts, record it as unresolved and try generation-side variants rather than declaring success. |
 | "I'll remember the benchmark" | Benchmarks become stale unless captured in `references/provider-registry.md` with date/context. |
@@ -132,6 +136,7 @@ When the user reports noise, truncation, clicks, or distortion:
 |---|---|
 | `references/provider-registry.md` | Provider status, default/fallback policy, benchmark log, voice notes |
 | `references/cosyvoice-h200.md` | CosyVoice API endpoints, voice registration workflow, latency benchmarks, speaker catalog, Hermes command provider config, YAML multi-line pitfall |
+| `references/cosyvoice-long-text-timeout-recovery.md` | Long-script timeout recovery: short health probe, direct API with longer timeout, MP3 conversion, and skip-reporting rule |
 | `references/voice-director-architecture.md` | Provider-neutral TTSPlan/VoiceRoute/RoutingMemory schemas, adapter contract, extensible voice routing design |
 | `references/voice-testing-protocol.md` | Sample text templates, artifact triage workflow, Telegram delivery rule |
 | `references/trigger-tests.md` | Should-trigger / should-not-trigger cases for description changes |

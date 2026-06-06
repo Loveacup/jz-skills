@@ -1,6 +1,8 @@
 ---
+
 name: memory-hub
 description: |
+type: routine
   Jz-Plugin v4.0 的记忆-日志回路内核：集中式单写入口 + 按 type 分片的 append-only JSONL（issue/evolution/status_event 三 shard）+
   共享 envelope schema + 纯 stdlib 校验。CC 自动归集管：CC handoff → mem_ingest → cqi_runtime → mem_merge → Obsidian CQI 持续审计。
   把技能的「问题/纠正」(issue) 与「演进/版本变更」(evolution) 沉淀为机器可审计的真相源，经 git 同步、按 issue id 关联 Obsidian CQI 文档。
@@ -10,6 +12,7 @@ description: |
 version: 0.2.1
 author: Hermes + Claude Code — Phase 1.5 收尾（mem_merge + 自动触发 + cron 兜底）
 license: MIT
+
 ---
 
 # memory-hub（Phase 1.5：CC × CQI 自动化接入）

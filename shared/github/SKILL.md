@@ -1,6 +1,8 @@
 ---
+
 name: github
 description: "GitHub 全操作入口：认证、issues、PR、仓库管理、代码审查、源码探索、代码库统计、README 写作规范。Use when working with any GitHub repository — opening issues, creating PRs, reviewing code, searching source code, cloning repos, managing CI, creating releases, counting LOC, writing or reviewing README files. Do NOT use for: local git-only operations (no GitHub remote), generic code review principles (without GitHub context), or non-GitHub platforms (GitLab/Bitbucket)."
+type: routine
 version: 3.0.0
 author: Hermes Agent
 license: MIT
@@ -9,6 +11,7 @@ metadata:
   hermes:
     tags: [GitHub, Git, Issues, PR, Code-Review, CI/CD, Repositories, Code-Exploration]
     replaces: [github-auth, github-issues, github-pr-workflow, github-repo-management, github-code-review, github-code-explorer, codebase-inspection]
+
 ---
 
 # GitHub Operations v3.0

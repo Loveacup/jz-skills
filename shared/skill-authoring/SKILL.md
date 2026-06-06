@@ -1,6 +1,8 @@
 ---
+
 name: skill-authoring
 description: "Creates, audits, and improves Agent Skills with a compliance-first approach. 11-step flow: capture → grill → progressive disclosure → anti-rationalization → rule positioning → checklist → 7-dim compliance scoring → test cases → deployment-grounded audit → failure classification (DISCOVERY/OPTIMIZATION/SKILL DEFECT/EXECUTION LAPSE) → targeted revision → deploy. v3.0 absorbs SkillEvolver + EmbodiSkill (2026-05) for deployment-driven skill evolution. Use when creating, auditing, restructuring, or adding compliance elements to skills. Triggers on: 制作skill, 写skill, 优化skill, 审查skill, skill太长了, agent不遵循skill, create/improve/audit skill. DO NOT use for general documentation or one-off tasks."
+type: routine
 version: 3.0.0
 author: Hermes Agent (v3.0 absorbs SkillEvolver + EmbodiSkill insights)
 license: MIT
@@ -8,6 +10,7 @@ metadata:
   hermes:
     tags: [skill-authoring, compliance, progressive-disclosure, anti-rationalization, governance]
     related_skills: [grill-with-docs, web-research-router, github, hermes-agent-skill-authoring]
+
 ---
 
 # Skill Authoring — Compliance-First Edition v3.0
@@ -298,6 +301,7 @@ Case studies: `references/slimming-case-studies.md` — strategic-insight-longfo
 | `references/runtime-grounded-cqi-audit.md` | Runtime-grounded CQI audit pattern: compare source vs deployed skill copy, score the artifact agents actually load, and treat same-version hash divergence as a high-severity event |
 | `references/kanban-skill-cqi-phase2-pattern.md` | Kanban as Phase-2 execution layer for skill CQI: mode mapping, truth-source layering, runtime-grounded gates, MUSE-Autoskill lessons, and safe Phase-1.5 pilot |
 | `references/structured-cqi-log-memory.md` | Structured CQI log-memory pattern: append-only JSONL truth source + manifest/provenance/schema writer, with SQLite/qmd/Kanban as derived indexes only. Use when revising Skill CQI logs or Kanban-driven quality workflows. |
+| `references/skill-crystallization-roadmap.md` | 🆕 Skill 自动结晶路线：Obsidian 文档索引 + 四条路线概要 + 可运行系统（2026-06-05） |
 | `references/muse-autoskill-insights.md` | 🆕 MUSE-Autoskill paper analysis (2026-06-04): per-skill memory, test gating, skill bank health — three actionable takeaways for Hermes skill system |
 
 ---

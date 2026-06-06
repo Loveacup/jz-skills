@@ -1,6 +1,8 @@
 ---
+
 name: source-verification
 description: "Use when fact-checking claims, verifying numbers/dates/names/quotes/sources, checking whether a reference supports a statement, or producing claim-level evidence notes."
+type: routine
 version: 1.0.0
 author: Hermes Agent, adapted from Yuan1z0825/nature-skills for general content workflows
 license: see references/upstream.md
@@ -9,6 +11,7 @@ metadata:
   hermes:
     tags: [fact-check, verification, claims, sources]
     related_skills: [content-source-workflow, source-search, source-reader]
+
 ---
 
 # Source Verification

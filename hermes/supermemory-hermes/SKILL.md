@@ -1,6 +1,8 @@
 ---
+
 name: supermemory-hermes
 description: "Set up, configure, and manage Supermemory as Hermes Agent's external memory provider. Covers SDK setup, API key config, provider switching, container_tag isolation for multi-profile deployments, metadata taxonomy, cross-pool wrapper usage, LRU cache layer, and the multi-profile cabinet memory sharing model. Load when the user mentions Supermemory, memory setup, provider switching, cross-pool queries, or multi-profile memory architecture. Do NOT load for local `memory` tool operations (those are L1, independent of Supermemory)."
+type: routine
 version: 1.3.0
 author: Hermes Agent
 license: MIT
@@ -9,6 +11,7 @@ metadata:
   hermes:
     tags: [supermemory, memory, migration, multi-profile, cabinet, governance]
     related_skills: [cross-profile-api-bridge, hermes-agent]
+
 ---
 
 # Supermemory for Hermes — Cabinet Memory Manual

@@ -1,6 +1,8 @@
 ---
+
 name: claude-code
 description: |
+type: routine
   Orchestrate Claude Code CLI from Hermes — tmux interactive + agent team (stability-first).
   Print mode is secondary and only used for connectivity smoke tests.
   
@@ -11,6 +13,7 @@ description: |
 version: 4.1.1
 author: Hermes Agent + Teknium (v4.1.1 三路合并去分叉 + CQI 诊断吸收：通用性声明 / read hook 防漂移 / 跨 skill 透传 / 记忆同步 / 磁盘校验 / 连续推进 / Pitfalls 修复)
 license: MIT
+
 ---
 
 # Claude Code — Hermes Orchestration（稳定性优先）
@@ -303,7 +306,7 @@ HOME=/Users/alexcai claude --model claude-opus-4-8 --effort high   # 地板；xh
    - ✅ **但默认本就该新建独立 session**（`hermes-cc-{agent}-{ts}`）；占用检测是安全网，不是复用许可
 
 1. **默认每次新建独立 session，不复用** — 每次调 CC 用独立 session 名 `hermes-cc-{agent}-{ts}`（**不复用**共享 `hermes-claude-longterm`）。**不用 `--continue`**（同一 workdir 下 CC 会自动 resume 最近 session → 串台）。需跨会话传上下文 → 写 `/tmp/cc-context-{task}.md`。
-2. **复杂任务必须 agent team** — 多文件/多步骤/根因分析/实现+测试/架构判断 → 让 CC 自己 spawn subagent。**Agent 数量由 CC 按复杂度自定，context 文件只描述任务，不规定 team 规模。** 按关注点拆，不按文件拆 → 详见 `### 🧩 Agent 数量与拆分原则`。
+2. **复杂任务必须 agent team** — 多文件/多步骤/根因分析/实现+测试/架构判断 → 让 CC 自己 spawn subagent。**Agent 数量由 CC 按复杂度自定，context 文件只描述任务，不规定 team 规模。** 按关注点拆，不按文件拆 → 详见 `### 🧩 Agent 数量与拆分原则`。当任务拆分后各子任务产物相互独立（如多模块架构文档），优先用 **agent-direct-output 模式**（`references/agent-direct-output.md`）：agent 各自写文件、leader 只 cat，避免 max-effort 思考循环。
 3. **Always set `workdir`** — 让 CC 聚焦正确项目目录。
 4. **Always 带 `HOME=/Users/alexcai`** — 避免 Hermes profile HOME override 导致认证失败。
 5. **不要杀慢会话** — 用 `capture-pane` 检查进度，确认卡死才 `Ctrl+C`。
@@ -499,7 +502,7 @@ sleep 3 && tmux send-keys -t <s> Down && tmux send-keys -t <s> Enter
 | 4 | **Worker 真死（无磁盘产出）** | `kill-session` → 手动接管。context file 写 timeout 规则 |
 | 5 | **多轮 context 膨胀** | 每轮后 `/clear` |
 | 6 | **Fact-Forcing Gate** | 正常流程，不是卡死。等 5-10s |
-| 7 | **send-keys 不执行 / CC 思考循环** | 15s 无 `●` → 补发空 `Enter`。若 `✻/✽ thinking` 持续 >3min 且 **token 完全不变**（真卡死，非慢思考）→ `Ctrl+C` → 缩小范围重问；仍循环 >2min → 再 `Ctrl+C` → 压缩到单一原子任务（"把 X 替换为 Y，改完说 done"）。**token 增长 → 真在思考，继续等**（RA-07 思考保护）。2026-06-02 复现：4min token 冻结 → Ctrl+C+单任务 → 26s 执行 |
+| 7 | **send-keys 不执行 / CC 思考循环** | 15s 无 `●` → 补发空 `Enter`。若 `✻/✽ thinking` 持续 >3min 且 **token 完全不变**（真卡死，非慢思考）→ 先用**单行短命令**推动（如 "直接写文件。Done 就 Write。"），不要发多行/长篇 prompt（会排队）。仍循环 → `Ctrl+C` → 缩小到原子任务（"把 X 替换为 Y，改完说 done"）。**token 增长 → 真在思考，继续等**（RA-07 思考保护）。2026-06-02/05 复现：4min token 冻结 → Ctrl+C+单任务/单行推动 → 执行。新发现：多行 send-keys 在思考循环中会排队（Pitfall #33），优先用 ≤120 字符单行命令。max-effort 完整恢复 recipe：`references/max-effort-recovery.md`。 |
 | 8 | **📡 沉默 >2min** | 即使无事也要汇报 |
 | 9 | **Agent team schema 持久化** | Leader wiring 后写 curl 脚本验证新字段 |
 | 10 | **MacOS TCC 沙盒** | `cp` 到 `/tmp/` → CC 处理 → `cp` 回去 |
@@ -525,7 +528,9 @@ sleep 3 && tmux send-keys -t <s> Down && tmux send-keys -t <s> Enter
 | ★36 | **CC 思考循环但用户说"等 CC 好"时，Hermes 抢跑手动编辑** | 症状：CC 在 `✻ almost done thinking` 循环 3-4min，token 不增，Hermes 判断卡死开始手动改。用户说"不行，你等cc好"。**根因**：用户信任 CC 输出质量>速度。用户明确说"等"时，即使 token 冻结 >3min 也继续监控，不代劳、不抢跑。只在用户说"别等了/你来改"时才接手 |
 | ★37 | **Socket error 后不验证文件是否写成功** | 症状：CC Write 报 "socket connection closed" 但未重试直接进入下一步，事后发现文件根本没创建。**修复**：socket error 后 Hermes 必须① `stat` 目标文件确认存在 ② 不存在则明确告诉 CC "文件未写成功，请重试" ③ 不在未验证下假设已写入（呼应 Core Rule #12） |
 | ★38 | **Context file 未交代 skill 架构背景——CC 误解自身角色** | 当 CC 被要求讨论/修订 `claude-code` skill 自身时，context file 必须显式声明：**此 skill 部署在 Hermes 上、由 Hermes 加载、教 Hermes 如何驱动 CC；CC 本身不读此 skill；监控违规主体是 Hermes（加载者），不是 CC（被驱动方）。** 2026-06-04 复现：未交代背景 → CC 误把监控违规归因于"CC 不听话" → 用户纠正"监控是 Hermes 的事情"。**修复**：context file 开篇即写清「加载者=Hermes / 被驱动方=CC / CC 不读此 skill」 |
-| ★39 | **CC 路线图/架构文档重写后，`❯` 输入行残留“下一步建议”** | 症状：CC 完成报告后，底部输入行预填了它建议的下一步（如“开始 P2 manifest 骨架”）。这不是用户授权，尤其当下一步会改代码/manifest。**修复**：最终 capture 后先检查残留输入；尝试 `C-u`/`Escape` 清空；若清不掉且阶段已完成，直接 kill 这个隔离 session。不要按 Enter。完整模式见 `references/jz-plugin-ecc-roadmap-pattern.md`。 |
+| ★39 | **CC 路线图/架构文档重写后，`❯` 输入行残留"下一步建议"** | 症状：CC 完成报告后，底部输入行预填了它建议的下一步（如"开始 P2 manifest 骨架"）。这不是用户授权，尤其当下一步会改代码/manifest。**修复**：最终 capture 后先检查残留输入；尝试 `C-u`/`Escape` 清空；若清不掉且阶段已完成，直接 kill 这个隔离 session。不要按 Enter。完整模式见 `references/jz-plugin-ecc-roadmap-pattern.md`。 |
+| ★40 | **Max-effort 思考循环：CC 持续"almost done thinking" >3min 且 token 冻结** 🆕 | 症状：max effort 任务（research/架构/审查等）中，CC 进入"almost done thinking with max effort"状态但 token 计数完全冻结 >3min，不 spawn agent、不写文件。本 session（2026-06-05）复现 4 次。**修复三阶**：(1) 🏆 首选 — 单行简短推动命令，如 `直接写文件，不要深度分析。Done 就 Write。`；(2) 若消息排队（"Press up to edit queued messages"）→ `Ctrl+C` 清队列 → 重发单行（≤120 字符）；(3) 仍循环 → `Ctrl+C` → 缩小到原子任务（"只 cat 合并 recon 文件，加决策推荐，Write final。"）。**根因**: max effort 在复杂 context 下容易进入分析瘫痪（analysis paralysis），单行短命令比长 context 更有效。**预防**: 连续多轮大任务后 `/clear` 清 context；每轮 agent team 后检查 token 膨胀。 |
+| ★40 | **CC 处于思考态时，send-keys 命令被排队而非执行** | 症状：CC 在 ✻ Flummoxing/✢ Nucleating 等思考态时，`send-keys` 送的命令出现在 `❯` 处但不执行，底部显示 "Press up to edit queued messages"。继续 send-keys 只会加长队列。**修复**：(1) `Ctrl+C` 打断思考 → 等待 "Interrupted · What should Claude do instead?"；(2) 再发**单行**简短命令；(3) 若需多行内容，用文件传递（写到 `/tmp/` 再 `Read`）。**预防**：CC 思考态下只发单行命令，不发多行/长命令。2026-06-05 复现 2 次。 |
 
 ## 📦 References
 
@@ -581,6 +586,10 @@ sleep 3 && tmux send-keys -t <s> Down && tmux send-keys -t <s> Enter
 | `references/hermes-infrastructure-self-audit.md` | Hermes 基础设施自审计模式（2026-06-03） |
 | `references/kanban-swarm-practical-syntax.md` | Kanban Swarm CLI 实测语法 vs 概念语法对照表（2026-06-03） |
 | `references/cc-session-mass-cleanup.md` | CC session 批量清理命令序列（2026-06-03） |
+| `references/agent-direct-output.md` | 🆕 Agent-direct-output 模式：agent 各自写文件、leader 只 cat，避 max-effort 思考循环（2026-06-05） |
+| `references/max-effort-recovery.md` | 🆕 Max-effort 思考循环恢复 recipe：Ctrl+C→窄化→单行短命令→文件传递（2026-06-05） |
+| `references/architecture-production-pattern.md` | 🆕 CC agent team 架构文档生产模式：内联 spec + agent 直写文件 + leader cat 合并（2026-06-05） |
+| `references/research-agent-team-pattern.md` | 🆕 CC agent team 多论文研究模式：context file → 按角度 spawn → 并行搜 → Leader 简报（2026-06-05 验证） |
 
 ---
 

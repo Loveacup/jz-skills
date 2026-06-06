@@ -1,6 +1,8 @@
 ---
+
 name: mac-doctor
 description: |-
+type: routine
   macOS 设备巡检 v2.4 — 评分/巡检/审计/清理/追踪/告警六层。Use when:
   check my mac, system health, mac slow, disk full, cleanup mac, 设备巡检,
   系统评分, 健康检查, 磁盘空间, 内存压力, swap, 清理缓存, brew/npm/uv cache,
@@ -14,6 +16,7 @@ metadata:
     tags: [macos, system-inspection, disk-audit, cache-cleanup, health-check, apfs,
            security-audit, hardware-audit, network-audit, history-tracking, smart-alerts]
     category: apple
+
 ---
 
 # macOS 设备巡检 v2.0

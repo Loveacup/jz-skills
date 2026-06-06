@@ -55,9 +55,18 @@ sync_hermes() {
   copy_skill_dir "$REPO_ROOT/hermes/news-assembly"                  "$base/productivity"
   copy_skill_dir "$REPO_ROOT/hermes/morning-news-briefing"           "$base/productivity"
 
-  # Sync to all profiles
+  # Sync to all profiles (skip profiles that use external_dirs to shared pool)
   echo "→ Syncing to profiles..."
   for prof in $(ls -d ~/.hermes/profiles/*/ 2>/dev/null | xargs -n1 basename); do
+    # Skip profiles that already get skills via external_dirs — don't create
+    # redundant local copies that shadow the shared pool.
+    local cfg=~/.hermes/profiles/$prof/config.yaml
+    if [ -f "$cfg" ] && grep -q 'external_dirs:' "$cfg" 2>/dev/null; then
+      if grep -A2 'external_dirs:' "$cfg" 2>/dev/null | grep -qv '\[\]'; then
+        echo "  ⏭️  $prof (uses external_dirs)"
+        continue
+      fi
+    fi
     local pd=~/.hermes/profiles/$prof/skills
     mkdir -p "$pd/research" "$pd/github" "$pd/governance" "$pd/productivity" "$pd/autonomous-ai-agents" "$pd/apple" "$pd/hermes"
     copy_skill_dir "$REPO_ROOT/shared/grill-with-docs"        "$pd/governance"

@@ -116,6 +116,28 @@ Hermes 脱敏 `***` 可能删相邻字符。用字符串拼接不用 f-string：
 
 **症状：** `tmux new-session` 后立即 `send-keys ... Enter`，命令出现在 `❯` 但永远不执行。**根因：** CC 需 3-5s 初始化。**修复:** `sleep 5` 确认 `❯` 稳定再发。若已发出 → 补发空 `Enter`。本会话复现 2 次。
 
+## 20b. send-keys 在 CC 思考态期间发送 — 命令排队不执行 ★
+
+**症状：** CC 正在 Flummoxing/Nucleating/Whirlpooling（`✻/✢/✳` 旋转 + token 增长），此时发 `send-keys "指令" Enter` → 文本出现在 `❯` 输入行但 CC 不处理 → 多轮后出现 "Press up to edit queued messages"。
+
+**根因：** CC 在深度思考时，输入处理器被思考链占用，不消费 stdin。send-keys 的文本排队在 tmux 缓冲区，CC 完成思考后可能消费、也可能永久搁置。
+
+**恢复：**
+```bash
+# Ctrl+C 中断思考 → 队列清空 → 单行重发
+tmux send-keys -t <s> C-c
+sleep 2 && tmux capture-pane -t <s> -p -S -5  # 确认 "Interrupted · What should Claude do instead?"
+tmux send-keys -t <s> "单行精简指令" Enter
+```
+
+**不要做：** 在思考态期间连续发多条 send-keys（每条都排队，形成死队列，同 Pitfall #33）。
+
+**预防：** 判断 CC 处于思考态（`capture-pane` 显示 `✻/✢/✳` + token 增长）→ **等 CC 自然完成或 Ctrl+C 打断后再发命令**。不要抢在思考态中间发 send-keys。
+
+**2026-06-05 复现：** CC 在 Nucleating 时发 "直接 spawn agent team 搜论文" → 两条命令排队 → 其中 "直接 spawn" 出现在 ❯ 但 "不用再想了" 被 `Press up to edit queued messages` 拦截 → Ctrl+C + 单行重发 → 立即开始执行。
+
+**与 #33 的关系：** #33 是「逐行发多条命令，第一条消费后剩余排队」——思考态是触发条件之一。本 pitfall 是「单条命令在思考态期间排队」——不需要多行，一条就够。两者恢复方法相同（Ctrl+C + 单行重发）。
+
 ## 21. Obsidian Vault Fact-Forcing Gate Loop ★
 
 **症状：** CC agent team 写入 Obsidian vault（`~/Documents/Obsidian/...`）时反复触发 Gate，每次重试再次失败，`Pouncing…`/`Catapulting…`/`Orbiting…` 循环 10+ 分钟。
@@ -350,3 +372,22 @@ tmux send-keys -t <s> "Stop deep thinking. Output X now in concise bullets. Use 
 - R1 盘点任务，CC 在 `Combobulating… (6m21s, almost done)` → Ctrl+C + Stop deep thinking → `Smooshing… (19s)` → 成功输出 R1 简报
 - R2 manifest 生成，`Combobulating… (3m5s, almost done)` → 同上 → `Seasoning… (2m30s)` → 写 `/tmp/ob-inbox-dry-run-manifest-20260604.md`（110 行）
 - merge 执行中，`Channeling… (1m47s)` + token 持续增长 → **未中断**（token 增长 = 思考活跃，非冻结，符合 RA-07 思考保护）
+
+---
+
+## 40. Agent Team 并行设计后接口语义漂移 ★
+
+**症状：** 多个 agent 并行写架构/设计文档，派单时用了统一的共享数据契约（字段名、路径、JSONL schema）。产出看起来字段名都对，但实施时发现大量语义不一致：枚举值分裂（`standard` vs `routine`）、null 值时无防护导致 TypeError、退役条件死角、引用未定义的字段。
+
+**根因：** 共享契约只锁住了字段名/路径层，但每个 agent 在实现时各自脑补值域语义、null 行为、边界条件——这正是并行分工的必然盲区。
+
+**恢复（已验证）：**
+1. 并行写完成后，做一次只读不改的跨模块语义对账——派不同 agent 按接口边界交叉审查，重叠处互相验证
+2. 对账产出接口对账清单，标注严重度（🔴致命/🟡需澄清/🟢轻微）
+3. 对账发现的致命问题在实施前修复，不要带进编码阶段
+
+**预防（共享契约升级）：**
+- 共享契约不仅锁字段名，还要锁：值域枚举（如 `type: routine | critical | experimental`）、null 语义（null 时消费方的行为）、状态机转换路径
+- 并行 agent 的数量与互不重叠的耦合面成正比——接口越多，越要留一个 agent 做全局横切审查
+
+**2026-06-05 复现：** 4 agent 并行写计量/审计/检索/结晶四模块架构，发现 8 个 🔴 致命问题。做了一次对账后全部修复到 v2。CC 事后总结：8 个 🔴 是并行写各自脑补接口的必然产物——正是这次对账要抓的。

@@ -1,6 +1,8 @@
 ---
+
 name: web-research-router
 description: "Searches the web, finds papers, explores GitHub source code, verifies facts, and runs multi-step deep-research loops using Exa/Brave/web_search/Tavily/SearXNG (5 engines) plus local knowledge (Supermemory/qmd/Obsidian/CodeGraph). Includes verbatim-quote extraction (anti-hallucination), query decomposition, and forced-answer fact-recall. Use when the user needs to 搜索, 检索, 查找, 调研, 核实, 深挖, 出报告, 找资料, 找项目, search, research, deep-research, find, look up, or verify information. Routes GitHub source code tasks to github. Do NOT use for local file ops."
+type: routine
 version: 3.9.0
 author: Hermes Agent
 license: MIT
@@ -9,6 +11,7 @@ metadata:
   hermes:
     tags: [search, research, router, searxng, exa, tavily, brave, academic, papers, citations, sources, mcp, deep-research, verbatim-quote, anti-refusal, wechat, sogou]
     related_skills: [source-search, exa-research, source-reader, source-verification, content-source-workflow, qmd, obsidian, native-mcp, github, scrapling]
+
 ---
 
 # Web Research Router v3.9

@@ -10,6 +10,12 @@
 
 ## 清理命令（按顺序）
 
+> [!DANGER] ⛔ 只杀进程，不删文件
+> 「清理 CC 会话」= 终止运行中的进程（tmux + claude + chroma + worker daemon）。
+> **严禁** `rm -rf ~/.claude/projects/`、`~/.claude/sessions/`、`~/.claude/history.jsonl` 等会话文件。
+> 这些是 CC 的持久化会话状态，删除后无法恢复（`rm` 不走废纸篓，APFS 直接释放）。
+> 2026-06-05 真实事故：误删 500MB 会话记录，用户明确指示「以后别删会话记录了」。
+
 ```bash
 # 1. 杀光所有 tmux 会话
 tmux list-sessions -F '#{session_name}' | xargs -I {} tmux kill-session -t {}

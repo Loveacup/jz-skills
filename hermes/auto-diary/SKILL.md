@@ -1,16 +1,20 @@
 ---
+
 name: auto-diary
 description: |
   自动化日记生成和四层聚合（日/周/月/年）。cron 定时触发：每日日记(23:00)、每周周报(Mon 09:00)、
-  每月月报(1号 09:30)、每年年报(1/1 10:00)。采集天气(Open-Meteo)、日历(icalBuddy)、\n  AI 对话(Hermes state.db + CC JSONL)、知识库变更(Obsidian vault)、钉钉班级群消息(dingwave 解密本地 DB)，经校验闭环交付。
+  每月月报(1号 09:30)、每年年报(1/1 10:00)。采集天气(Open-Meteo)、日历(icalBuddy)、
+  AI 对话(Hermes state.db + CC JSONL)、知识库变更(Obsidian vault)、钉钉班级群消息(dingwave 解密本地 DB)，经校验闭环交付。
   支持日历事件回填和日记清理。详见知识库 [[日记系统-三机架构与路线图]]。
 
   Use when: cron triggers or user manually requests
   生成日记 / 生成周报 / 生成月报 / 生成年报 / diary / weekly / monthly / 补日程 / 整理日记.
 
   DO NOT use for: general note-taking, non-diary content generation, one-off research.
+type: routine
 version: 3.6.0
 author: Hermes Agent — v3.6.0 HERMES_HOME 硬编码 + 校验脚本三问深度检查 + cron prompt 精简
+
 ---
 
 # Auto-Diary v3.6
@@ -130,8 +134,9 @@ Trigger: User notices persistent "当日无日历事件" on days that had events
 
 ## Workflow D: Diary Cleanup
 
-1. Scan `50-Self/01_日记/` for empty/template diaries (qmd fallback for dataless files)
-2. Rules in `references/diary-cleanup-heuristics.md`:
+| 日历事件回填流程 | `references/calendar-backfill.md` |
+| 日记清理启发式 | `references/diary-cleanup-heuristics.md` |
+| **🆕 钉钉班级群消息采集 (dingwave 解密)** | `references/dingtalk-class-msgs.md` |
    - Empty/template: backup → delete
    - Sparse: merge by month → `归档/YYYY-MM/碎片日记合并-YYYY-MM.md`
    - Normal: keep
@@ -171,7 +176,8 @@ Key improvements history: see `CHANGELOG.md` (skill 根目录)。
 | **Keeping zero-data days as separate files** | 全零日（无 Hermes/CC/vault/cal）不创建独立日记。连续多日→合并为一篇时期笔记。低密度日（仅 CC /usage）同理。 |
 | **Dumping raw topics into 三问** | 把 `ai_logs.*.topics` 直接贴进"今天我做了什么推动进展的事情"→ "work kanban task t_cf1c6c9b" 这样的内容毫无意义。必须 LLM 加工成可读叙事。 |
 | **🔴 Cron 从 scheduler 消失** | **新一级的静默故障** (v3.5.1 发现)：config/cron-job.json 存在但 cron 实体已从 scheduler 删除。hermes cron list 不显示该 job。后果：日记彻底不生成。诊断：对比 hermes cron list 的输出与 config/cron-job.json 中的 job_id。修复：用 config/cron-job.json 的参数重建 cron。运行每日日记时自我检查：如果本次是 cron 触发且对应 job 在 scheduler 中不存在，在 final response 中报告。 |
-| **🔴 Cron skills 数组为空** | **最危险的静默故障** (v3.5 发现)：cron job 的 skills: [] 为空时，cron 仍以 status ok 正常运行——但 agent 收不到 auto-diary skill 的任何指令。后果：没有 collect_data.py 数据采集、没有 diary-format.md 格式约束、没有 verify_diary_compliance.py 校验。日记逐日退化（CC=0、知识库=0、裸模板），直到用户发现。诊断：cronjob list 看 Skills 列；hermes --profile cron-worker cron list 查周月年报。修复：cronjob update 或 hermes ... cron edit --skill auto-diary。所有四个 cron（日/周/月/年）都必须挂 skill。 |
+| 🔴 **Cron skills 数组为空** | **最危险的静默故障** (v3.5 发现)：cron job 的 skills: [] 为空时，cron 仍以 status ok 正常运行——但 agent 收不到 auto-diary skill 的任何指令。日记逐日退化，直到用户发现。诊断：cronjob list 看 Skills 列。修复：cronjob update 挂上 auto-diary skill。四个 cron 都必须挂 skill。 |
+| **dingwave 超时 (v3.6.1 修复)** | DingTalk 班级群 cron (458bec58ee72) 报 120s timeout。根因: `dingwave -o` 解密完起 HTTP server 不退→sleep+kill 不生效。v3.6.1 改用 `-export-only -merged-out`，解密完即退出。表变更: `createdAt→created_at`, `content→content_json`, `tbmsg_112→messages`。详见 `references/dingtalk-class-msgs.md`。 |
 | **🔴 HERMES_HOME 污染 (v3.6.0 修复)** | Cron 跑在 cron-worker profile 下时 `HERMES_HOME` 被设为 profile 私有路径。`extract_hermes_conversations.py` 的 `_get_state_dbs()` 使用 `HERMES_HOME` 来找 state.db，导致只扫 cron-worker 自己的会话，regent/default 的全部丢失。CC 和知识库不受影响（用 `Path.home()` 直读）。修复：`_get_state_dbs()` 硬编码 `Path.home()/.hermes`，不再读 `HERMES_HOME` 环境变量。 |
 
 ## ⚠️ Config Drift (Silent Failure)

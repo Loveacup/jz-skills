@@ -1,6 +1,8 @@
 ---
+
 name: morning-news-briefing
 description: "Use when producing the daily morning news briefing — multi-source parallel search via web-research-router, fused analysis format (前提→推理→结论 + 趋势 + 为什么重要), mobile + A4 PDF delivery, and TTS voice edition. Supports dual execution mode: Cron (shell-parallel search + sequential pipeline) and Interactive (Kanban Swarm with auto-decomposition). Do NOT use for single-topic deep dives, non-news content, or manual article curation."
+type: routine
 version: 4.1.0
 author: Hermes Agent (v4.1.0 — 2026-06-04：Mode B Kanban Swarm 全链路修复：gateway pre-flight + 全路径 skill + publisher symlink + dispatch fallback + 4 新 pitfalls)
 license: MIT
@@ -9,6 +11,7 @@ metadata:
   hermes:
     tags: [productivity, news, briefing, mobile-pdf, daily, tts, kanban]
     related_skills: [web-research-router, source-verification, de-slop, tts-manager, news-assembly]
+
 ---
 
 # 早新闻简报 v4.0
@@ -22,7 +25,7 @@ CC 设计审查驱动升级。三大修复：新闻数量保障（新增「今�
 | "I'll use yesterday's template, same CSS" | Style continuity gate: must auto-diff against last accepted baseline. Free-form styling = broken brand |
 | "I'll just run web_search for each section" | web-research-router picks the best engine per query type. Brave for broad coverage, Exa for semantic discovery, Tavily for fact grounding. Direct web_search skips all three |
 | "The analysis is thin today, I'll pad it" | Analysis format is locked: 前提→推理→结论 + 📈趋势 + 为什么重要. No hedging — grep for 一方面/另一方面/可能/或许 → auto-reject |
-| "10 articles is fine, they're all deep" | Sentinel #2 demands ≥15 独立新闻条目 in 📰 今日要闻, NOT just deep analysis items. Assembly must not collapse multiple sources into one entry |
+| "10 articles is fine, they're all deep" | Sentinel #2 demands ≥20 independent headlines for normal runs and ≥25 for Mode B reruns. Deep analysis count does NOT substitute for 今日要闻 count. Assembly must not collapse multiple sources into one entry |
 | "I'll render as soon as assembly starts" | Render card MUST wait for assembly completion (parent dependency). Rendering before content = blank/stale PDF |
 | "TTS is optional, skip it" | v4.0 mandate: TTS generation (Step 6) is part of the pipeline. If text_to_speech tool unreachable, skip + annotate — never silently omit |
 
@@ -75,6 +78,8 @@ Trigger: cron scheduler (daily 08:00)
 ### Mode B: Interactive / Kanban Swarm (manual trigger)
 
 > 🚁 **PRE-FLIGHT**: 运行 `hermes kanban swarm` 前确保所有 worker（lane-zh/lane-en/lane-mixed/lane-tech）+ verifier（auditor）+ synthesizer（publisher）profile gateway 全部 running。检查：`hermes profile list`。任一 stopped → `hermes gateway start --profile <name>`。详见 `references/mode-b-operational-gotchas.md`。
+>
+> 🎛️ **MODEL PINNING**: 若用户指定「协同 agent 都用某模型」（如 `deepseek-v4-pro`），先更新全部参与 profile 的 `model.default` 与 `fallback_providers`，再重启/kickstart gateways。不得让 fallback 滑回旧模型。DeepSeek Mode B 复跑细节见 `references/mode-b-deepseek-recovery-2026-06-05.md`。
 
 **状态：✅ 已验证（2026-06-04）** — 并行搜索 + 验证通过，publisher gateway 需修端口配置。
 
@@ -193,7 +198,7 @@ See `references/kanban-swarm-workflow.md` for full Kanban integration spec.
 ### 📰 今日要闻 (Today's Headlines) — NEW in v4.0
 
 - **Purpose**: Quick-scan summary before deep analysis.
-- **Count**: 15-20 条独立新闻条目（展开后每条 2-3 句完整描述，非标题碎片）
+- **Count**: 普通运行 ≥20 条；Mode B 复跑/用户质检后重做 ≥25 条。每条 2-3 句完整描述，非标题碎片
 - **Format**: 每条 2-3 句完整描述 + 信源编号 [sN] + 可选小时间线
 - **Source**: 从四路搜索中提取，保留独立性，不在此层融合
 - **Organization**: 按板块分组（🔥 中东/俄乌 / 🇺🇸 美国 / 🇨🇳 中国 / 🌍 国际 / 📊 市场+科技）
@@ -369,6 +374,8 @@ Note: 今日要闻 is a flat list, not sectional. The sections below it organize
 | `references/cron-model-resilience.md` | 🆕 Cron model/provider 故障链（kimi-k2.6 废弃 + tts toolset 缺失 + DeepSeek 400） |
 | `references/agent-hallucination-patterns.md` | 🆕 Agent 描述但未执行模式（PDF 渲染幻觉 + 修复指南） |
 | `references/mode-b-operational-gotchas.md` | 🆕 Mode B 运营 checklist：gateway 预检 + worker 卡死 recovery + Brave 429 + publisher 端口 |
+| `references/mode-b-deepseek-recovery-2026-06-05.md` | 🆕 Mode B 指定 DeepSeek v4 Pro 全员复跑：profile model/fallback pinning、内容风险恢复、scratch GC 后稳定归档 |
+| `references/kanban-mode-selection-cqi.md` | 🆕 早新闻 CQI 的 Kanban 模式选型：Swarm 主生产、编排修复/CQI、单任务补救、Triage/Goal 慎用，以及 cron-triggered Swarm gates |
 
 ## 🔧 P0 修复记录 (2026-06-03)
 
@@ -410,7 +417,7 @@ PLATFORM_MAP = {
 | Pitfall | Why it burns you |
 |---------|-----------------|
 | **单引擎搜索** | 直接 web_search 不走三引擎路由 = 丢失深度发现和事实校验 |
-| **汇编截断新闻数** | 把 20 条新闻 fusion 成 10 条分析 = Sentinel #2 失败。📰 今日要闻必须在分析之前独立产出 |
+| **汇编截断新闻数** | 把 20+ 条新闻 fusion 成少量分析 = Sentinel #2 失败。📰 今日要闻必须在分析之前独立产出；普通早新闻目标 ≥20，Mode B 复跑/重做目标 ≥25。 |
 | **静默跳过 TTS** | v4.0 TTS 是 pipeline 步骤，不可达时标注但不得省略 |
 | **盲 `git commit -am`** | .env/缓存/API 原始响应一并推上 GitHub |
 | **反骑墙 grep 未跑** | "一方面/另一方面/可能/或许" 任一命中 = 骑墙分析 |

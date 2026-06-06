@@ -1,6 +1,8 @@
 ---
+
 name: grill-with-docs
 description: "Grills a plan or design against the Hermes multi-profile domain model — challenges against CONTEXT.md glossary, cross-references with code and configs, stress-tests with concrete scenarios, and updates documentation inline as decisions crystallise. Structured 4-phase flow: load domain → walk decision tree (one question at a time via clarify+choices) → evidence challenge (read code/docs before asking) → capture & summarize. Use when the user wants to stress-test a plan, review an edict, validate a design, or explicitly invokes 'grill me' / '拷打我' / 'challenge this' / '找漏洞'. DO NOT trigger on simple unambiguous instructions or pure execution tasks."
+type: routine
 version: 2.2.0
 author: Hermes Agent (v2.2 adds multi-agent bidirectional discussion mode; v2.1 adds source-code-only red flag + web-search-first evidence rule)
 license: MIT
@@ -9,6 +11,7 @@ metadata:
   hermes:
     tags: [grill, review, design-review, plan-validation, governance]
     related_skills: [web-research-router, github, docs-driven-design-review]
+
 ---
 
 # Grill With Docs — Hermes multi-profile 版 v2.0

@@ -1,10 +1,13 @@
 ---
+
 name: calendar-manager
 description: |
+type: routine
   管理 macOS Calendar.app 和 Apple Reminders 的智能助手。自动识别重复日程、智能判断日历归属（个人/工作/Naomi/Zelda）、医疗类日程特殊处理、网球课地点自动匹配、待办事项自动分流。
   
   触发场景：添加日历、日程、网球课、脱敏治疗、删除日程、改时间、这周安排、Naomi、Zelda
   DO NOT use for: 查询天气、设置闹钟、纯文档编辑、非日历类查询
+
 ---
 
 # Calendar Manager - 智能日历管理

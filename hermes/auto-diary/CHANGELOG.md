@@ -1,9 +1,5 @@
 # Auto-Diary Changelog
 
-## v3.6.1 (2026-06-05)
-- 🆕 **钉钉班级群消息采集**：新增数据源 `dingtalk_class_msgs`，`collect_data.py` 读取 `~/.hermes/data/dingtalk_class_msgs/YYYY-MM-DD.txt`（由 `dingtalk-class-monitor.sh` 每 30 分钟产出）。钉钉桌面端本地加密 SQLite → dingwave 解密 → 提取班级群消息 → 当日日记自动收录。
-- 🛠️ **配套监控 cron**：`458bec58ee72`，每 30 分钟运行，dingwave 解密 + 查 V3 DB + 写每日消息文件 + 有变更时 Telegram 推送通知。
-
 ## v3.6.0 (2026-06-05)
 - 🆕 **日记入记忆**：Workflow A 步骤 10 新增 `scripts/write_diary_to_supermemory.py`，日记校验 PASS + 写 vault 后，把日记写进 supermemory `hermes` 池，让小黄(default profile)能检索每日日记。
   - 背景：memory provider 的 `_write_enabled = agent_context not in {cron,flush,subagent}` 把 **cron session 的自动 capture 关了** → 日记 cron 内容从不进 supermemory(hermes 池此前只有对话写入)。本脚本直接用 SDK 绕过此限制。

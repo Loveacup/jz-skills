@@ -43,7 +43,7 @@ DEFAULT_CONFIG = {
     "alerts": {
         "cpu_threshold": 80,
         "memory_pressure_threshold": "high",
-        "swap_threshold_gb": 4,
+        "swap_threshold_gb": 8,
         "disk_threshold_percent": 10,
         "battery_health_threshold": 80
     },

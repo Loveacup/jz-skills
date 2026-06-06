@@ -1,6 +1,8 @@
 ---
+
 name: xhs-tech-writer
 description: "AI/科技领域的小红书短图文创作工作流。从选题评估、爆款拆解、风格融合到反AI味道检测，输出可直接发布的300-800字技术科普笔记。Use when: 用户要写AI/技术类小红书内容、需要科技选题评估、需要把技术话题转成小红书爆款、需要爆款笔记拆解、需要账号风格提取。DO NOT use for: 公众号长文（4000+字）、非AI/技术领域的小红书（穿搭/美妆/美食等）、爬取小红书数据（封号风险）、用户特定的飞书审稿管线。触发词：写小红书、小红书文案、XHS文案、AI技术内容、科技小红书、技术科普、AI小红书、技术选题评估、爆款拆解、风格提取。"
+type: routine
 version: 1.0.0
 author: Hermes Agent
 license: MIT
@@ -8,6 +10,7 @@ platforms: [linux, macos]
 metadata:
   hermes:
     tags: [xhs, redbook, content, ai, tech, writing, scoring, viral-breakdown, style-fusion]
+
 ---
 
 # 小红书 AI/科技短图文创作 · xhs-tech-writer

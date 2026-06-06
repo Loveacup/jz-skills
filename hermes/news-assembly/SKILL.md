@@ -1,6 +1,8 @@
 ---
+
 name: news-assembly
 description: |
+type: routine
   Use when assembling multi-source search results into a structured, deduplicated, importance-ranked briefing skeleton. Does: dedup + cross-source event-merge, continuity detection vs prior briefing, importance scoring + top-k, configurable section structuring, citation anchoring (fail-loud). 通用「简报编辑大脑」,被 morning-news-briefing 等简报 skill 复用。
   Triggers: assemble briefing, 简报汇编, 去重合并, 事件归并, 简报骨架.
   DO NOT use for: 搜索(用 web-research-router)、渲染 PDF(见 references/playwright-pdf-rendering.md)、分析层/前提推理结论格式化(调用方处理)、事实验证(用 source-verification)。
@@ -12,6 +14,7 @@ metadata:
   hermes:
     tags: [briefing, assembly, dedup, continuity, scoring, citation, reusable]
     related_skills: [web-research-router, morning-news-briefing, source-verification, pdf]
+
 ---
 
 # News Assembly v0.1 — 简报编辑大脑

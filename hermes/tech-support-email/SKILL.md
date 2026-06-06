@@ -1,6 +1,8 @@
 ---
+
 name: tech-support-email
 description: "Use when drafting a technical support email to a SaaS/API vendor about a service outage, data loss, or bug. Covers the full workflow: deep-dive investigation → config audit against official docs → multi-angle testing → evidence gathering → tone-calibrated bilingual (CN/EN) email drafting. Triggers on: 写技术支持邮件, 给XX发邮件, support email, 报bug给, 联系技术支持, vendor outage email, draft support ticket. DO NOT use for internal team emails, customer success outreach, or non-technical correspondence."
+type: routine
 version: 1.1.0
 author: Hermes Agent + Alex
 license: MIT
@@ -12,6 +14,7 @@ metadata:
       - "support-to-repro-pack (mshs01156) — structured evidence pipeline: facts → timeline → report"
       - "debug-runbook (UnCooe) — evidence-based decision engine with confidence scoring"
       - "customer-support (priyanshu9888) — tiered communication with vendor-type tone matrix"
+
 ---
 
 # Tech Support Email — Investigation-First Vendor Communication
