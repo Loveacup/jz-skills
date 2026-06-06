@@ -55,6 +55,7 @@ sync_hermes() {
   copy_skill_dir "$REPO_ROOT/hermes/news-assembly"                  "$base/productivity"
   copy_skill_dir "$REPO_ROOT/hermes/morning-news-briefing"           "$base/productivity"
   copy_skill_dir "$REPO_ROOT/hermes/telegram-topic-manager"         "$base/social-media"
+  copy_skill_dir "$REPO_ROOT/hermes/dingtalk-message-monitor"      "$base/social-media"
 
   # Sync to all profiles (skip profiles that use external_dirs to shared pool)
   echo "→ Syncing to profiles..."
@@ -88,6 +89,7 @@ sync_hermes() {
     copy_skill_dir "$REPO_ROOT/hermes/news-assembly"                  "$pd/productivity"
     copy_skill_dir "$REPO_ROOT/hermes/morning-news-briefing"           "$pd/productivity"
     copy_skill_dir "$REPO_ROOT/hermes/telegram-topic-manager"         "$pd/social-media"
+    copy_skill_dir "$REPO_ROOT/hermes/dingtalk-message-monitor"      "$pd/social-media"
   done
 
   echo "  ✅ Hermes ($(ls -d ~/.hermes/profiles/*/ 2>/dev/null | wc -l | tr -d ' ') profiles)"
