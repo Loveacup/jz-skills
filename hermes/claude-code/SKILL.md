@@ -2,7 +2,6 @@
 
 name: claude-code
 description: |
-type: routine
   Orchestrate Claude Code CLI from Hermes — tmux interactive + agent team (stability-first).
   Print mode is secondary and only used for connectivity smoke tests.
   
@@ -10,8 +9,9 @@ type: routine
   让claude, agent team, claude review
   DO NOT use for: simple single-tool calls (Hermes does those directly), grammar fixes,
   non-coding creative writing (use appropriate creative skills)
-version: 4.1.1
-author: Hermes Agent + Teknium (v4.1.1 三路合并去分叉 + CQI 诊断吸收：通用性声明 / read hook 防漂移 / 跨 skill 透传 / 记忆同步 / 磁盘校验 / 连续推进 / Pitfalls 修复)
+type: routine
+version: 4.1.2
+author: Hermes Agent + Teknium (v4.1.2 CQI type 强制映射 / 修复 CC 自造 event type 导致 degrade)
 license: MIT
 
 ---
@@ -531,6 +531,8 @@ sleep 3 && tmux send-keys -t <s> Down && tmux send-keys -t <s> Enter
 | ★39 | **CC 路线图/架构文档重写后，`❯` 输入行残留"下一步建议"** | 症状：CC 完成报告后，底部输入行预填了它建议的下一步（如"开始 P2 manifest 骨架"）。这不是用户授权，尤其当下一步会改代码/manifest。**修复**：最终 capture 后先检查残留输入；尝试 `C-u`/`Escape` 清空；若清不掉且阶段已完成，直接 kill 这个隔离 session。不要按 Enter。完整模式见 `references/jz-plugin-ecc-roadmap-pattern.md`。 |
 | ★40 | **Max-effort 思考循环：CC 持续"almost done thinking" >3min 且 token 冻结** 🆕 | 症状：max effort 任务（research/架构/审查等）中，CC 进入"almost done thinking with max effort"状态但 token 计数完全冻结 >3min，不 spawn agent、不写文件。本 session（2026-06-05）复现 4 次。**修复三阶**：(1) 🏆 首选 — 单行简短推动命令，如 `直接写文件，不要深度分析。Done 就 Write。`；(2) 若消息排队（"Press up to edit queued messages"）→ `Ctrl+C` 清队列 → 重发单行（≤120 字符）；(3) 仍循环 → `Ctrl+C` → 缩小到原子任务（"只 cat 合并 recon 文件，加决策推荐，Write final。"）。**根因**: max effort 在复杂 context 下容易进入分析瘫痪（analysis paralysis），单行短命令比长 context 更有效。**预防**: 连续多轮大任务后 `/clear` 清 context；每轮 agent team 后检查 token 膨胀。 |
 | ★40 | **CC 处于思考态时，send-keys 命令被排队而非执行** | 症状：CC 在 ✻ Flummoxing/✢ Nucleating 等思考态时，`send-keys` 送的命令出现在 `❯` 处但不执行，底部显示 "Press up to edit queued messages"。继续 send-keys 只会加长队列。**修复**：(1) `Ctrl+C` 打断思考 → 等待 "Interrupted · What should Claude do instead?"；(2) 再发**单行**简短命令；(3) 若需多行内容，用文件传递（写到 `/tmp/` 再 `Read`）。**预防**：CC 思考态下只发单行命令，不发多行/长命令。2026-06-05 复现 2 次。 |
+| ★41 | **「清理 CC 会话」被误执行为删除文件** 🆕 | 用户说清理 CC = 只杀进程（tmux kill-server + pkill worker daemon + pkill chroma MCP），绝不 rm -rf ~/.claude/ 下任何文件。CC 靠这些文件恢复会话。2026-06-05 误删 820MB。 |
+| ★42 | **CQI handoff type 枚举越界——用 audit/fix/writeback/constraint 而非 issue/evolution** 🆕 | 症状：memory-hub mem_ingest.py degrade 全部事件（\"invalid/missing type\"），CQI 审计文档收不到。根因：CC agent team 写 handoff 时自由发挥 type 值。**修复**：`type` 只取 `issue` 或 `evolution`。audit→issue，fix/writeback→evolution，constraint→issue。详见 `§CQI 事件吐出` type 强制映射表。2026-06-06 复现：11 个事件全部 degrade。 |
 
 ## 📦 References
 
@@ -619,10 +621,21 @@ sleep 3 && tmux send-keys -t <s> Down && tmux send-keys -t <s> Enter
 > `/tmp/cc-cqi-events-<session>.jsonl`（`<session>` = 当前 CC session 名）。一行一条 JSON。
 > 这是 fail-open 的旁路：写不写都不影响主任务交付，但写了能让 memory-hub 自动归集。
 
-- **字段（对齐 live 6 硬字段 + payload）**：`type`（`issue`|`evolution`）、`skill`（受影响技能名）、
+- **字段（对齐 live 6 硬字段 + payload）**：`type`（**只能 `issue` 或 `evolution`，禁自由发挥**）、`skill`（受影响技能名）、
   `source`（恒为 `"cc"`）、`evidence`（原话/trace 逐字，勿摘要）、`ts`（ISO-8601 带时区）；
   `id` 可省（归集时自动生成 `ISSUE-/EVO-<skill>-NNN`）。`payload` 可选：issue 填 `implicated_rule`/`change_type`；
   evolution 必填 `change_type`，可带 `validation_score`/`changelog_ref`。`session_id` 建议带上。
+- **🔴 type 枚举强制映射（v4.1.2）** ：`type` 只有两个合法值——`issue` 和 `evolution`。**禁止**使用 `audit`/`fix`/`writeback`/`constraint`/`improvement` 或任何其他自造词。如果不确定用哪个，按下表映射：
+
+  | 你想表达的含义 | 正确 type | 说明 |
+  |:---|:---|:---|
+  | 审计发现缺陷/规则未遵守 | `issue` | 发现问题是 issue，不是 audit |
+  | 本轮做了修复/改进 | `evolution` | 实际改动是 evolution，不是 fix |
+  | 回写了文件/内容 | `evolution` | writeback 是 evolution 的子类 |
+  | 识别了新约束/前置条件 | `issue` | 约束发现是 issue |
+  | 状态变更 | ✅ 不写 type | 状态机由 memory-hub 维护，CC 只吐事件 |
+  
+  **铁律**：`type` 只取 `issue` 或 `evolution`。写错 = memory-hub mem_ingest.py 校验拒收（degrade），事件永久丢失。
 - **CC 自判事件类型**：
   - `issue` —— 发现某技能的规则缺陷 / 指令未遵循 / 反复踩同一坑（trigger 多为 `runtime_failure` 或 `user_correction`）。
   - `evolution` —— 本轮实际改进了某技能正文/脚本/版本（trigger 多为 `manual_review`，带 `change_type`）。
