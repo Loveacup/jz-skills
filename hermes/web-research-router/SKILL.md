@@ -431,6 +431,7 @@ hermes mcp test searxng --query "claude 4.7 release notes"
 | **🆕 Sogou 微信搜索源**（搜索 + 解密 + 抓取完整链路 — weixin-search-mcp v0.2.1 + Scrapling CLI） | `references/sogou-wechat-source.md` |
 | **🆕 Sogou/微信搜索源（2026-06-02）**（weixin-search-mcp v0.2.1 — 搜索+解密+抓取完整链路，Scrapling CLI fallback） | `references/sogou-wechat-source.md` |
 | **🆕 新闻管线抓取断裂根因（2026-06-02）**（web_extract SSRF 守卫 → 伪引用 → 模型脑补 → 产出不可信 — 三省六部早新闻案例诊断） | `references/news-pipeline-extraction-failure.md` |
+| **Telegram 客户端差异排查**（PC 可见但 iOS 不可见的 topic typing indicator：先分离 API 正确性 vs 客户端渲染） | `references/telegram-client-specific-topic-typing.md` |
 
 ---
 
@@ -445,6 +446,7 @@ hermes mcp test searxng --query "claude 4.7 release notes"
 7. **GitHub `web_extract` trap.** `web_extract` 对所有 URL 均拦截（环境网络策略），不仅 GitHub。**已弃用** —— 抓取主力用 `mcp_exa_web_fetch_exa` 或 `mcp_tavily_tavily_extract`（`urls: string[]` 数组）；`mcp_searxng_web_url_read` 仅作两者失败时的备胎。
 8. **Exa 语义漂移。** Exa 语义搜索偶尔跑偏（"React release date" 召回 GTA 6）。对精确事实类 query 优先 `web_search`。
 9. **Cron job model pinning.** Always pin model explicitly in cron jobs — default model may be rate-limited.
+10. **Client-specific behavior ≠ backend failure.** If the user reports “works on PC/Desktop but not iOS/mobile” (or vice versa), immediately split the investigation into API/backend correctness vs client rendering/metadata behavior. Search with explicit client terms (`iOS`, `Android`, `Desktop`, version) and avoid declaring the server-side fix failed when one client already renders correctly. For Telegram topic/DM typing indicators, PC visibility plus iOS invisibility strongly suggests client-rendering limitations; keep native API calls as ground truth and treat visible placeholder fallbacks as opt-in only.
 
 Full pitfalls (33 items, 含 v3.4 新增 deep loop 质量 8 项): `references/common-pitfalls.md`
 

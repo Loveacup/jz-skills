@@ -2,7 +2,7 @@
 # 钉钉班级群消息监控 v6 — 图片 + 文件统一下载与内容提取
 set -euo pipefail
 
-DINGTALK_DIR="/Users/alexcai/Library/Containers/5ZSL2CJU2T.com.dingtalk.mac/Data/Library/Application Support/DingTalkMac/c42eb52018ab1e103951_v3"
+DINGTALK_DIR="~/Library/Containers/5ZSL2CJU2T.com.dingtalk.mac/Data/Library/Application Support/DingTalkMac/c42eb52018ab1e103951_v3"
 ENCRYPTED_DB="$DINGTALK_DIR/DBFiles/dingtalk.db"
 USER_CONFIG="$DINGTALK_DIR/user_config"
 USER_CONFIG_FALLBACK="$HOME/Desktop/user_config"

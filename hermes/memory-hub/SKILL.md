@@ -2,13 +2,13 @@
 
 name: memory-hub
 description: |
-type: routine
   Jz-Plugin v4.0 的记忆-日志回路内核：集中式单写入口 + 按 type 分片的 append-only JSONL（issue/evolution/status_event 三 shard）+
   共享 envelope schema + 纯 stdlib 校验。CC 自动归集管：CC handoff → mem_ingest → cqi_runtime → mem_merge → Obsidian CQI 持续审计。
   把技能的「问题/纠正」(issue) 与「演进/版本变更」(evolution) 沉淀为机器可审计的真相源，经 git 同步、按 issue id 关联 Obsidian CQI 文档。
   Use when: 记录技能问题/用户纠正/审计发现、登记技能演进、校验记忆日志、append CQI event、
   memory-hub write、validate logs、记忆回路、日志回路、CC 事件归集、CQI 自动 ack、合并审计文档。
   DO NOT use for: 通用长期记忆/向量检索（用 supermemory）、自主改写技能正文或评判技能质量。
+type: routine
 version: 0.2.1
 author: Hermes + Claude Code — Phase 1.5 收尾（mem_merge + 自动触发 + cron 兜底）
 license: MIT
@@ -89,6 +89,7 @@ python3 scripts/mem_merge.py --quiet     # cron/no_agent 模式：无事零 stdo
 - **cron `no_agent=true` + 脚本有 stdout = 噪音轰炸**：`no_agent=true` 模式下，非空 stdout 会作为消息投递给用户。`cqi_runtime.py` 和 `mem_merge.py` 在无事发生时默认打印 `✓ no new issues`、`→ waterline at` 等，导致每 tick 一条噪音。**解决方案：cron shell 脚本中加 `--quiet`，无事时零 stdout → 静默**。手工跑不加 `--quiet`（保留可读输出），只有 cron 模板加。
 - **`sync-all.sh` 部署后必须 `diff` 验证**：修改脚本后跑 `./deploy/sync-all.sh hermes`，部署端文件可能因 `rm -rf` + `cp -r` 时序问题未实际更新（2026-06-04 真实案例：源码加了 `--quiet` flag 并 commit，`sync-all.sh` 显示 `✅ Hermes (3 profiles)`，但部署端 `cqi_runtime.py` 和 `mem_merge.py` 仍是旧版无 `--quiet`，cron 继续每 30 分钟推送噪音）。**部署后必须验证：** `diff ~/code/jz-skills/hermes/memory-hub/scripts/cqi_runtime.py ~/.hermes/skills/governance/memory-hub/scripts/cqi_runtime.py` 等关键文件两端一致。不一致时手动 `cp` 补齐。
 - **Cron shell 脚本路径：profile 目录优先** 🆕：`cronjob()` 的 `script` 字段解析相对路径时走 `~/.hermes/profiles/<profile>/scripts/`，**不是** `~/.hermes/scripts/`。cron 兜底脚本必须落在 profile 目录下（如 `~/.hermes/profiles/regent/scripts/memory-hub-cqi-sweep.sh`），否则 cron scheduler 找不到脚本。多 profile 环境每个 profile 独立维护。2026-06-04 真实案例：脚本更新到 `~/.hermes/scripts/` 但 cron 实际执行 `~/.hermes/profiles/regent/scripts/` 下的旧版——cron 持续推送噪音直至发现并修复。
+- **Cron 实体不存在 — 静默故障** 🆕：Jz-Plugin doc 说每 30 分钟兜底但 cron 从未创建时，CC handoff 文件在 /tmp/ 堆积无声，88-审计/ 停更。部署后必须验证 cron 存在：cronjob list | grep memory-hub。2026-06-06：16 个 event 堆了 2 天，修复后建 cf4559e475c9。
 
 ## Git 同步回路
 

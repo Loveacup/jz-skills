@@ -12,8 +12,8 @@ description: |
 
   DO NOT use for: general note-taking, non-diary content generation, one-off research.
 type: routine
-version: 3.6.0
-author: Hermes Agent — v3.6.0 HERMES_HOME 硬编码 + 校验脚本三问深度检查 + cron prompt 精简
+version: 3.6.2
+author: Hermes Agent — v3.6.2 管线 stdout 混合文本 + set -euo pipefail 崩溃修复 · v3.6.0 HERMES_HOME 硬编码 + 校验脚本三问深度检查 + cron prompt 精简
 
 ---
 
@@ -36,6 +36,12 @@ author: Hermes Agent — v3.6.0 HERMES_HOME 硬编码 + 校验脚本三问深度
 > - 🔴 **HERMES_HOME 污染**：`_get_state_dbs()` 改用 `Path.home()/.hermes` 硬编码，不再依赖 `HERMES_HOME` 环境变量。修复 cron-worker profile 下只扫到 cron-worker 自己 state.db、漏掉 regent/default 会话的问题
 > - 🔴 **校验脚本假阳性**：新增三问答案深度检查——Q1/Q2/Q3 答案不足 20 字或仅占位符 `(无)` `(待补充)` 即判 FAIL
 > - 🔴 **Cron prompt 精简**：去掉内联指令，改为引用 skill，使用绝对路径
+> 
+> **v3.6.1 修复**:
+> - 🔴 **dingwave 超时**：DingTalk 班级群 cron (458bec58ee72) 报 120s timeout。改用 `-export-only -merged-out`，解密完即退出
+> 
+> **v3.6.2 修复 (2026-06-07)**:
+> - 🔴 **管线 stdout 混合文本崩溃**：`dingtalk-media-pipeline.py` 的状态日志和 JSON 数据混在 stdout，monitor 脚本用 `json.loads()` 解析混合文本炸了。`set -euo pipefail` 把非零退出放大成脚本级崩溃。修复：(1) 管线所有状态输出切到 stderr，stdout 只留纯 JSON；(2) monitor 脚本增加 `|| true` 防护 + 从混合文本里智能提取 JSON 数组
 
 ## 🚨 Red Flags: Don't Skip the Diary Rules
 
@@ -178,6 +184,7 @@ Key improvements history: see `CHANGELOG.md` (skill 根目录)。
 | **🔴 Cron 从 scheduler 消失** | **新一级的静默故障** (v3.5.1 发现)：config/cron-job.json 存在但 cron 实体已从 scheduler 删除。hermes cron list 不显示该 job。后果：日记彻底不生成。诊断：对比 hermes cron list 的输出与 config/cron-job.json 中的 job_id。修复：用 config/cron-job.json 的参数重建 cron。运行每日日记时自我检查：如果本次是 cron 触发且对应 job 在 scheduler 中不存在，在 final response 中报告。 |
 | 🔴 **Cron skills 数组为空** | **最危险的静默故障** (v3.5 发现)：cron job 的 skills: [] 为空时，cron 仍以 status ok 正常运行——但 agent 收不到 auto-diary skill 的任何指令。日记逐日退化，直到用户发现。诊断：cronjob list 看 Skills 列。修复：cronjob update 挂上 auto-diary skill。四个 cron 都必须挂 skill。 |
 | **dingwave 超时 (v3.6.1 修复)** | DingTalk 班级群 cron (458bec58ee72) 报 120s timeout。根因: `dingwave -o` 解密完起 HTTP server 不退→sleep+kill 不生效。v3.6.1 改用 `-export-only -merged-out`，解密完即退出。表变更: `createdAt→created_at`, `content→content_json`, `tbmsg_112→messages`。详见 `references/dingtalk-class-msgs.md`。 |
+| **🔴 管线 stdout 混合文本 + set -euo pipefail = 脚本崩溃 (v3.6.2 修复)** | `dingtalk-media-pipeline.py` 的 `print()` 状态日志和 `print(json.dumps())` 数据输出混在 stdout。Monitor 脚本的 `python3 -c "json.loads(...)"` 吃到混合文本抛 JSONDecodeError。`set -euo pipefail` 下非零退出被放大为脚本级 exit 1，cron 报 `Script exited with code 1`。修复：(1) 管线状态输出切 stderr；(2) monitor 脚本加 `\|\| true` + 从混合文本中提取 JSON 数组。 |
 | **🔴 HERMES_HOME 污染 (v3.6.0 修复)** | Cron 跑在 cron-worker profile 下时 `HERMES_HOME` 被设为 profile 私有路径。`extract_hermes_conversations.py` 的 `_get_state_dbs()` 使用 `HERMES_HOME` 来找 state.db，导致只扫 cron-worker 自己的会话，regent/default 的全部丢失。CC 和知识库不受影响（用 `Path.home()` 直读）。修复：`_get_state_dbs()` 硬编码 `Path.home()/.hermes`，不再读 `HERMES_HOME` 环境变量。 |
 
 ## ⚠️ Config Drift (Silent Failure)

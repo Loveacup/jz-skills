@@ -187,6 +187,7 @@ dws chat message list --conversation-id <cid>
 - **⚠️ 只搜 type=3100 忽略 type=0（文件附件）**: 当用户问"有图片吗"或"有文件吗"时，**必须同时检查所有 attachment type**——type=3100=富文本（含图片），type=0=文件（PDF/Excel 等），type=1202=通知。只搜一种 = 漏掉另一种。此坑 2026-06-06 真实触发：用户指出"昨天就有好几个 pdf"，因为只搜了 authMediaId。
 - **Binarycookies 解析只需 `strings`**：`strings Cookies.binarycookies | grep -E "dd_sid|token|XSRF|dt_s"` 即提取 cookie 名和值，无需 Python 二进制解析器。cookie 值紧跟在 cookie 名后的 `\x00` 分隔字符串中。
 - **Bash `$` 符号变量展开陷阱**：authMediaId 以 `$` 开头（如 `$iwEdAq...`），在 shell 双引号和裸字符串中会被 bash 当作变量展开。**修法**：curl 的 URL 参数用单引号包裹：`curl 'https://.../$iwEdAq...'`。或用 Python `urllib.request` 直接发请求绕过 shell。
+- **Python 管线 stdout 混日志 + `set -euo pipefail` = 静默崩溃**：数据管线 Python 脚本将状态日志（"Found N images"、"Done: N items"）和 JSON 数据都打印到 stdout。当 shell monitor 脚本用 `echo "$OUTPUT" | python3 -c "json.loads(...)"` 消费时，混合文本导致 JSON 解析失败。`set -euo pipefail` 下 pipe 返回 python3 的非零退出码，**整条 cron 脚本被 `set -e` 杀死**（exit 1 而非期望的 exit 0）。**两层修法**：① 管线侧 — 所有状态 `print()` 加 `file=sys.stderr`，stdout 仅保留纯 JSON；② 消费侧 — 从混合输出中括号匹配提取 JSON 数组（`raw.find('[')` + 括号深度计数），再 `json.loads()`，外加 `|| true` 兜底。**避免在线修复时只加 `|| true` 略过根因** — 应两边都修。
 
 ## 进阶①：图片离线下载（authMediaId → URL → curl）
 
@@ -249,7 +250,7 @@ authMediaId 有过期时间（推测 24h 内）。过期后 URL 仍返回 200 �
 
 ### 统一管线脚本（图片 + 文件）
 
-`scripts/dingtalk-media-pipeline.py` — 从 DB 自动提取所有图片和文件，统一下载+文字提取+缓存：
+`scripts/dingtalk-media-pipeline.py` — 从 DB 自动提取所有图片和文件，统一下载+文字提取+缓存。**stdout 约定**：仅输出纯 JSON 数组（`[{type, time, file, text}, ...]`），所有状态日志（"Found N images"/"[img]"/"[file]"/"Done"）走 stderr。消费侧只读 stdout 即可 `json.loads()` 无污染。
 
 ```
 解密 DB → 提取媒体

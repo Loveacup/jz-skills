@@ -10,7 +10,7 @@
 # 可能被 macOS TCC 沙箱拦截。若直接运行失败，可通过 cron-worker one-shot job 执行。
 set -e
 
-DINGTALK_DIR="/Users/alexcai/Library/Containers/5ZSL2CJU2T.com.dingtalk.mac/Data/Library/Application Support/DingTalkMac/c42eb52018ab1e103951_v3"
+DINGTALK_DIR="~/Library/Containers/5ZSL2CJU2T.com.dingtalk.mac/Data/Library/Application Support/DingTalkMac/c42eb52018ab1e103951_v3"
 CID="${1:-52993580719}"  # 班级群 cid，可通过参数覆盖
 ENCRYPTED_DB="$DINGTALK_DIR/DBFiles/dingtalk.db"
 USER_CONFIG="$DINGTALK_DIR/user_config"

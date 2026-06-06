@@ -1,5 +1,11 @@
 # Auto-Diary Changelog
 
+## v3.6.2 (2026-06-07)
+- 🔴 **管线 stdout 混合文本 + set -euo pipefail 崩溃修复**：`dingtalk-media-pipeline.py` 的 `print()` 状态日志和 `print(json.dumps())` 数据输出混在 stdout。Monitor 脚本 `json.loads()` 吃到混合文本抛 JSONDecodeError → `set -euo pipefail` 放大为 exit 1 → cron 报 `Script exited with code 1`。
+  - **管线修复**：所有状态输出（`Found N images/files`、`[skip img]`、`[img]`、`[skip file]`、`[file]`、`Done`）切到 `file=sys.stderr`，stdout 只留纯 JSON。
+  - **Monitor 脚本修复**：媒体提取段加 `|| true` 防护；新增智能 JSON 提取逻辑（从混合文本中找 JSON 数组、匹配括号深度），即使管线再出问题也不会炸。
+  - 已验证：手动跑脚本 exit 0，下一个 cron tick（05:45）正常。
+
 ## v3.6.0 (2026-06-05)
 - 🆕 **日记入记忆**：Workflow A 步骤 10 新增 `scripts/write_diary_to_supermemory.py`，日记校验 PASS + 写 vault 后，把日记写进 supermemory `hermes` 池，让小黄(default profile)能检索每日日记。
   - 背景：memory provider 的 `_write_enabled = agent_context not in {cron,flush,subagent}` 把 **cron session 的自动 capture 关了** → 日记 cron 内容从不进 supermemory(hermes 池此前只有对话写入)。本脚本直接用 SDK 绕过此限制。

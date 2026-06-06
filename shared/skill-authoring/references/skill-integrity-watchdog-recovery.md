@@ -38,6 +38,7 @@ Fix the *source of regeneration*, not just the visible shadow directory. In mult
 
 ## Pitfalls
 
+- **Updated wrong baseline file — deprecated `.skill_baseline.json` vs active `.skill-watchdog-baseline.json`** 🆕: The watchdog reads from `~/.hermes/.skill-watchdog-baseline.json` (line 90 of the script). An older deprecated file `cron-worker/scripts/.skill_baseline.json` exists but is NOT read by the watchdog. If you update the deprecated file, the watchdog will keep reporting the same alert. **Fix**: always use `--update-baseline` via the script itself: `HERMES_HOME=~/.hermes python3 .../skill-integrity-watchdog.py --update-baseline`. Alternatively, pass `--baseline /path/to/.skill-watchdog-baseline.json` to explicitly target the active file. Case: 2026-06-06 — `dingtalk-local-decrypt` reported 2x because `cron-worker/scripts/.skill_baseline.json` was patched instead of `~/.hermes/.skill-watchdog-baseline.json`.
 - **Repo fixed, runtime still stale**: Hermes may import `skills_sync.py` from the venv site-packages, not the repo checkout.
 - **Baseline update can hide data loss**: never update the baseline before checking whether a missing pool skill has recoverable copies elsewhere.
 - **Identical local duplicate still hurts**: even if a profile-local skill is byte-identical to the shared pool copy, it can break `skill_view()` by creating ambiguous skill names.
