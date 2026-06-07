@@ -248,6 +248,42 @@ def scan_vault_changes(vault_root,date_str):
         return changes
     except: return []
 
+def scan_vault_deletions(vault_root):
+    """Detect staged file deletions via git diff. 🔴 v3.7.0: find can't see deleted files."""
+    try:
+        r=subprocess.run(["git","-c","core.quotepath=false","-C",str(vault_root),"diff","--diff-filter=D","--name-only","HEAD"],
+                         capture_output=True,text=True,timeout=10)
+        if r.returncode!=0 or not r.stdout.strip(): return []
+        dels=[]
+        for fp in r.stdout.strip().split('\n'):
+            if not fp or not fp.endswith('.md'): continue
+            if any(d in fp for d in ("/01_日记/","/000_日记/","/88_event-bridge/","/99-System/")): continue
+            dels.append({"path":fp,"type":"删除(staged)","title":Path(fp).stem})
+        return dels
+    except: return []
+
+def scan_jzskills_commits(date_str):
+    """Scan jz-skills repo git log for commits on target date. 🔴 v3.7.0: skill commits are knowledge base changes."""
+    repo=_real_home()/"code"/"jz-skills"
+    if not (repo/".git").exists(): return []
+    try:
+        r=subprocess.run(["git","-C",str(repo),"log",
+                          f"--after={date_str}T00:00:00+08:00",
+                          f"--before={date_str}T23:59:59+08:00",
+                          "--format=%h%x00%s%x00%ai","--name-only"],
+                         capture_output=True,text=True,timeout=15)
+        if r.returncode!=0 or not r.stdout.strip(): return []
+        commits=[];current=None;files=[]
+        for line in r.stdout.strip().split('\n'):
+            if '\x00' in line:
+                if current: commits.append({**current,"files":files})
+                parts=line.split('\x00');current={"hash":parts[0],"message":parts[1],"date":parts[2][:10]};files=[]
+            elif line.strip() and current: files.append(line.strip())
+        if current: commits.append({**current,"files":files})
+        for c in commits: c["file_count"]=len(c["files"])
+        return commits
+    except: return []
+
 def sync_obsidian():
     sp=Path(__file__).parent;sys.path.insert(0,str(sp))
     try:
@@ -268,6 +304,8 @@ def collect_diary_data(date_str):
     return {"date":date_str,"weekday":get_weekday(date_str),"weather":get_weather(date_str),
             "ai_logs":get_ai_logs(date_str),"calendar_events":get_calendar_events(date_str),
             "existing_content":read_file_safe(dp),"vault_changes":scan_vault_changes(vr,date_str),
+            "vault_deletions":scan_vault_deletions(vr),
+            "jzskills_commits":scan_jzskills_commits(date_str),
             "obsidian_sync":sync_obsidian(),"dingtalk_class_msgs":get_dingtalk_class_msgs(date_str)}
 
 def main():

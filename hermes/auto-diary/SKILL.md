@@ -4,7 +4,7 @@ name: auto-diary
 description: |
   自动化日记生成和四层聚合（日/周/月/年）。cron 定时触发：每日日记(23:00)、每周周报(Mon 09:00)、
   每月月报(1号 09:30)、每年年报(1/1 10:00)。采集天气(Open-Meteo)、日历(icalBuddy)、
-  AI 对话(Hermes state.db + CC JSONL)、知识库变更(Obsidian vault)、钉钉班级群消息(dingwave 解密本地 DB)，经校验闭环交付。
+  AI 对话(Hermes state.db + CC JSONL)、知识库变更(Obsidian vault + jz-skills git commits)、钉钉班级群消息(dingwave 解密本地 DB)，经校验闭环交付。
   支持日历事件回填和日记清理。详见知识库 [[日记系统-三机架构与路线图]]。
 
   Use when: cron triggers or user manually requests
@@ -12,12 +12,12 @@ description: |
 
   DO NOT use for: general note-taking, non-diary content generation, one-off research.
 type: routine
-version: 3.6.3
-author: Hermes Agent — v3.6.3 pwd.getpwuid() 绕过 cron HOME 污染 · v3.6.2 管线 stdout 混合文本修复 · v3.6.0 HERMES_HOME 硬编码
+version: 3.7.0
+author: Hermes Agent — v3.7.0 git diff 扫 vault 删除 + git log 扫 jz-skills 提交 · v3.6.3 pwd.getpwuid() 绕过 cron HOME 污染
 
 ---
 
-# Auto-Diary v3.6
+# Auto-Diary v3.6.3
 
 自动化日记生成 + 四层聚合（日/周/月/年）。Cron 定时触发或手动调用。
 
@@ -42,6 +42,9 @@ author: Hermes Agent — v3.6.3 pwd.getpwuid() 绕过 cron HOME 污染 · v3.6.2
 > 
 > **v3.6.2 修复 (2026-06-07)**:
 > - 🔴 **管线 stdout 混合文本崩溃**：`dingtalk-media-pipeline.py` 的状态日志和 JSON 数据混在 stdout，monitor 脚本用 `json.loads()` 解析混合文本炸了。`set -euo pipefail` 把非零退出放大成脚本级崩溃。修复：(1) 管线所有状态输出切到 stderr，stdout 只留纯 JSON；(2) monitor 脚本增加 `|| true` 防护 + 从混合文本里智能提取 JSON 数组
+>
+> **v3.6.3 修复 (2026-06-07)**:
+> - 🔴 **Path.home() 被 cron HOME 环境变量污染**：v3.6.0 声称用 `Path.home()` 绕过 HERMES_HOME 污染，但 cron-worker profile 启动时 **同时覆盖 HOME 到 chroot**，`Path.home()` 返回 chroot 路径而非真实 HOME。chroot 内无 state.db、.claude、Documents，导致 Hermes/CC/Vault 三项数据全为 0。这是静默故障——cron status 'ok'，日记文件存在且格式完整，但数据全是空的。修复：`extract_hermes_conversations.py` 和 `collect_data.py` 新增 `_real_home()` 函数，使用 `pwd.getpwuid(os.getuid()).pw_dir` 读系统 passwd 数据库，彻底绕过所有环境变量。验证：6/6 日记从 2920 字节（Hermes=0/CC=0/Vault=0）重写为 7422 字节（Hermes=36/CC=5/Vault=1），校验 PASS。
 
 ## 🚨 Red Flags: Don't Skip the Diary Rules
 
@@ -78,19 +81,21 @@ Trigger received (cron or manual)?
 
 1. Determine target date (default today)
 2. Run: `python3 {baseDir}/scripts/collect_data.py diary YYYY-MM-DD`
+   - Returns: `vault_changes` (find-based), `vault_deletions` (git diff), `jzskills_commits` (git log), plus weather/ai_logs/calendar/dingtalk
 3. Check calendar with icalBuddy using calendars `个人1,工作1,Naomi1,Zelda1` (iCloud `<email redacted>`)
-4. Read format spec: `{baseDir}/references/diary-format.md`
-5. **🔴 Cron health check** (v3.5.1): Run `hermes --profile cron-worker cron list | grep 1ca6e7d692fa` and `hermes cron list | grep 1ca6e7d692fa`. If the daily diary cron job_id is absent from BOTH schedulers, note it in the diary's 临时笔记 section and report it in the final response. The config archive at `config/cron-job.json` still holds the correct parameters for reconstruction.
-6. Generate diary with 10 sections: 🎯每日总结(三问) → 🌤️概览(weather+mood) → ⏰时间线(calendar) → 🤖AI工作记录 → 📚知识库更新 → 📅日历事件(detailed table) → 🏠个人生活(placeholder) → ✅待办 → 📝临时笔记 → 💡tip 页脚
-7. **CRITICAL 合并安全**: `collect_data.py` 的 `existing_content` 恒为 `null`（已知限制,脚本不读已有日记）。所以写入前**必须先 `Read` 目标日记文件**;若已存在用户手写内容 → 合并,保留用户文字,只填空缺。不可盲目覆盖。
-8. **校验闭环**: 写完后运行 `python3 {baseDir}/scripts/verify_diary_compliance.py <写入的文件>`;若 FAIL,对照 `diary-format.md` 逐项重写,直到 PASS 再交付
-9. Write to Obsidian vault
-10. **日记入记忆** (v3.6): 校验 PASS 且写入 vault 后,把日记写进 supermemory `hermes` 池,让小黄(default profile)能检索每天的日记。
+4. **🔴 知识库双源** (v3.7.0): 日记的知识库部分必须同时呈现 Obsidian vault 变更（含 `vault_deletions`）和 jz-skills git commits。两者都做 AI 会话关联
+5. Read format spec: `{baseDir}/references/diary-format.md`
+6. **🔴 Cron health check** (v3.5.1): Run `hermes --profile cron-worker cron list | grep 1ca6e7d692fa` and `hermes cron list | grep 1ca6e7d692fa`. If the daily diary cron job_id is absent from BOTH schedulers, note it in the diary's 临时笔记 section and report it in the final response. The config archive at `config/cron-job.json` still holds the correct parameters for reconstruction.
+7. Generate diary with 10 sections: 🎯每日总结(三问) → 🌤️概览(weather+mood) → ⏰时间线(calendar) → 🤖AI工作记录 → 📚知识库更新（含 Obsidian vault + jz-skills git commits） → 📅日历事件(detailed table) → 🏠个人生活(placeholder) → ✅待办 → 📝临时笔记 → 💡tip 页脚
+8. **CRITICAL 合并安全**: `collect_data.py` 的 `existing_content` 恒为 `null`（已知限制,脚本不读已有日记）。所以写入前**必须先 `Read` 目标日记文件**;若已存在用户手写内容 → 合并,保留用户文字,只填空缺。不可盲目覆盖。
+9. **校验闭环**: 写完后运行 `python3 {baseDir}/scripts/verify_diary_compliance.py <写入的文件>`;若 FAIL,对照 `diary-format.md` 逐项重写,直到 PASS 再交付
+10. Write to Obsidian vault
+11. **日记入记忆** (v3.6): 校验 PASS 且写入 vault 后,把日记写进 supermemory `hermes` 池,让小黄(default profile)能检索每天的日记。
     `~/.hermes/hermes-agent/venv/bin/python {baseDir}/scripts/write_diary_to_supermemory.py <写入的日记文件绝对路径>`
     - ⚠️ **必须用 venv python 绝对路径**(系统 `python3` 缺 supermemory SDK 会 skip)。
     - 幂等(`custom_id=hermes-diary-<date>`,重跑覆盖不重复)、失败不阻塞交付、走 Surge 代理避开 fake-ip。
     - 这是绕过 memory provider 对 cron session 写入限制(`_write_enabled` 排除 cron)的唯一途径——日记 cron 不会自动 capture。
-11. Notify user (cron: via final response; manual: via Telegram)
+12. Notify user (cron: via final response; manual: via Telegram)
 
 See `references/diary-format.md` for weather codes, calendar table format, and section templates.
 
@@ -187,6 +192,8 @@ Key improvements history: see `CHANGELOG.md` (skill 根目录)。
 | **🔴 管线 stdout 混合文本 + set -euo pipefail = 脚本崩溃 (v3.6.2 修复)** | `dingtalk-media-pipeline.py` 的 `print()` 状态日志和 `print(json.dumps())` 数据输出混在 stdout。Monitor 脚本的 `python3 -c "json.loads(...)"` 吃到混合文本抛 JSONDecodeError。`set -euo pipefail` 下非零退出被放大为脚本级 exit 1，cron 报 `Script exited with code 1`。修复：(1) 管线状态输出切 stderr；(2) monitor 脚本加 `\|\| true` + 从混合文本中提取 JSON 数组。 |
 | **🔴 HERMES_HOME 污染 (v3.6.0 修复)** | Cron 跑在 cron-worker profile 下时 `HERMES_HOME` 被设为 profile 私有路径。`extract_hermes_conversations.py` 的 `_get_state_dbs()` 使用 `HERMES_HOME` 来找 state.db，导致只扫 cron-worker 自己的会话，regent/default 的全部丢失。CC 和知识库不受影响（用 `Path.home()` 直读）。修复：`_get_state_dbs()` 硬编码 `Path.home()/.hermes`，不再读 `HERMES_HOME` 环境变量。 |
 | **🔴 Path.home() 被 cron HOME 环境变量污染 (v3.6.3 修复)** | v3.6.0 的 `Path.home()` 修复是假的——cron-worker profile 启动时 **同时覆盖 HOME** 到 chroot（`~/.hermes/profiles/cron-worker/home/`），所以 `Path.home()` 返回的是 chroot 而非真实 HOME。后果：chroot 里没有 `state.db`、没有 `.claude/projects/`、没有 `Documents/Obsidian/`，导致 Hermes/CC/Vault 三项数据全部为 0。只有天气（curl）和日历（icalBuddy）不受影响。修复：`extract_hermes_conversations.py` 和 `collect_data.py` 都新增 `_real_home()` 函数，使用 `pwd.getpwuid(os.getuid()).pw_dir` 读取系统 passwd 数据库，彻底绕过所有环境变量污染。**这是静默故障——cron 状态 'ok'，日记文件存在且格式完整，但数据全空**。 |
+| **🔴 find 扫不到已删除文件 (v3.7.0 修复)** | `scan_vault_changes()` 用 `find -newermt` 扫描文件系统，**已删除的文件对 find 完全不可见**。6/6 的 vault 有 165 个 .md 文件被删除（三省六部退役 + 00-Inbox 清理），但 find 只扫到 1 个修改。修复：新增 `scan_vault_deletions()` 使用 `git -c core.quotepath=false diff --diff-filter=D --name-only HEAD` 检测所有 staged 删除。注意：git 默认 `core.quotepath=true` 会转义中文路径为八进制，必须加 `-c core.quotepath=false`。另外删除操作无法精确日期过滤——返回自上次 commit 以来所有 staged 删除。 |
+| **🔴 jz-skills repo 提交未被计入知识库 (v3.7.0 修复)** | 用户的「知识库」不仅包括 Obsidian vault，还包括 `~/code/jz-skills/`（60+ skill 的源码仓库）。6/6 的 jz-skills 有 5 个 commit、71 个文件变更、5,467+ 行新增——这些是实打实的知识产出，但 `collect_data.py` 完全不扫。修复：新增 `scan_jzskills_commits()` 使用 `git log --after/--before` 扫描当日所有 commit，返回 hash + message + file list。 |
 
 ## ⚠️ Config Drift (Silent Failure)
 
@@ -199,6 +206,8 @@ icalBuddy `-ic "cal1,cal2"` on mismatched names returns empty **without error**.
 **CC 内容展现偏薄** (v3.2 TODO): CC 段落目前只罗列 top-level 主题，没有 per-project 展开。待做：强制每个 CC 项目至少一条概括，和 Hermes 穷举覆盖同等粒度。
 
 **知识库 ↔ AI 会话未关联** (v3.1 TODO): 知识库变更（vault_changes）目前独立展示，未标注是由哪个 AI 会话推动的。待做：在日记写作阶段做语义匹配，标注每个 vault 文件的来源会话。
+
+**jz-skills git 扫描** (v3.6.4 新增): 日记现在同时扫描 Obsidian vault 和 jz-skills git commits。但 git 扫描目前是手动步骤（`git log`），尚未集成到 `collect_data.py`。且只扫描默认分支，不追踪 feature 分支。详见 `references/jz-skills-git-scanning.md`。
 
 ## Output Paths
 
@@ -218,7 +227,9 @@ icalBuddy `-ic "cal1,cal2"` on mismatched names returns empty **without error**.
 | Weather fails | `curl -s "https://api.open-meteo.com/v1/forecast?latitude=30.27&longitude=120.16&current_weather=true"` |
 | dataless files on read | Trigger Obsidian sync first; fallback to qmd index |
 | 🔴 **cron job 从 scheduler 消失** | `hermes cron list --profile cron-worker` 和 `hermes cron list` 中均无 `1ca6e7d692fa`。config 存档 `config/cron-job.json` 仍存在但 cron 实体已丢失。重建：`hermes --profile cron-worker cron create` 并从存档中拷贝参数。 |
-| 🔴 **日记质量逐日退化** (CC=0, 知识库=0, 裸模板) | ⭐ **先查 cron skills！** `cronjob list` 和 `hermes --profile cron-worker cron list` 看 Skills 字段是否为空。**再查 HERMES_HOME 污染**：如果只有 cron-worker 会话、regent 全部缺失，是 v3.6 之前的 HERMES_HOME 污染 bug，升级到 v3.6.0 即可修复。修复见 Common Pitfalls 最后两条。 |
+| 🔴 **日记质量逐日退化** (CC=0, 知识库=0, 裸模板) | ⭐ **先查 cron skills！** `cronjob list` 和 `hermes --profile cron-worker cron list` 看 Skills 字段是否为空。**再查 HERMES_HOME 污染**：如果只有 cron-worker 会话、regent 全部缺失，是 v3.6 之前的 HERMES_HOME 污染 bug。**再查 Path.home() chroot 污染 (v3.6.3)**：如果 Hermes/CC/Vault 三项全 0 但天气和日历正常，是 HOME 被 cron chroot 覆盖——升级到 v3.6.3 用 pwd.getpwuid() 修复。 |
+| 🔴 **vault 变更条目偏少** (find 扫不到已删文件) | `find -newermt` 只扫存在的文件。检查 staged 删除: `git -c core.quotepath=false -C ~/Documents/Obsidian/AlexCai diff --diff-filter=D --name-only HEAD | grep '\.md$'`。v3.7.0 的 `scan_vault_deletions()` 已自动检测。注意：必须加 `-c core.quotepath=false` 否则中文路径被转义导致 grep 失败。 |
+| 🔴 **知识库变更条目偏少** (只有 vault，缺 jz-skills commits) | v3.7.0 的 `scan_jzskills_commits()` 已自动扫描。手动检查: `git -C ~/code/jz-skills log --after="DATE" --before="DATE+1" --oneline`。问题通常是 jz-skills repo 不存在或 git 不可用。
 
 ## ✅ Verification Checklist
 

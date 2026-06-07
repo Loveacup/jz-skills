@@ -10,7 +10,7 @@ platforms: [macos, linux]
 metadata:
   hermes:
     tags: [grill, review, design-review, plan-validation, governance]
-    related_skills: [web-research-router, github, docs-driven-design-review]
+    related_skills: [web-research-router, github]
 
 ---
 

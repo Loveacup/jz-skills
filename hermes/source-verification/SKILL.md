@@ -10,7 +10,7 @@ platforms: [macos, linux, windows]
 metadata:
   hermes:
     tags: [fact-check, verification, claims, sources]
-    related_skills: [content-source-workflow, source-search, source-reader]
+    related_skills: [content-source-workflow]
 
 ---
 
@@ -36,7 +36,7 @@ Verify claims against sources. This generalizes the citation-verification discip
 
 1. Split text into atomic claims.
 2. Prioritize high-risk claims: numbers, dates, named entities, causality, medical/financial/legal claims, privacy/security claims, pricing/limits, and claims about local-only or end-to-end-encrypted processing.
-3. Find sources via `source-search` or available web tools.
+3. Find sources via `content-source-workflow` Step 1 or available web tools.
 4. Map each claim to evidence and source quality.
 5. Return corrections and safe wording.
 

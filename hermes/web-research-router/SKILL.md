@@ -10,7 +10,7 @@ platforms: [macos, linux, windows]
 metadata:
   hermes:
     tags: [search, research, router, searxng, exa, tavily, brave, academic, papers, citations, sources, mcp, deep-research, verbatim-quote, anti-refusal, wechat, sogou]
-    related_skills: [source-search, exa-research, source-reader, source-verification, content-source-workflow, qmd, obsidian, native-mcp, github, scrapling]
+    related_skills: [content-source-workflow, exa-research, source-verification, qmd, obsidian, native-mcp, github, scrapling]
 
 ---
 
