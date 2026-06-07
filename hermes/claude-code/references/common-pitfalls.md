@@ -391,3 +391,37 @@ tmux send-keys -t <s> "Stop deep thinking. Output X now in concise bullets. Use 
 - 并行 agent 的数量与互不重叠的耦合面成正比——接口越多，越要留一个 agent 做全局横切审查
 
 **2026-06-05 复现：** 4 agent 并行写计量/审计/检索/结晶四模块架构，发现 8 个 🔴 致命问题。做了一次对账后全部修复到 v2。CC 事后总结：8 个 🔴 是并行写各自脑补接口的必然产物——正是这次对账要抓的。
+
+---
+
+## 45. Background tmux send-keys 在 CC 冷启动时被静默丢弃 🆕
+
+**症状：** 用 background shell 启动 tmux + CC session 并 `send-keys` 发送任务后，`capture-pane` 确认 `❯` 提示符处空白——命令文本未出现在屏幕，也未排队。2026-06-07 复现。
+
+**根因：** CC splash screen 冷启动约需 6-8s（版权壁纸 → `❯` 就位）。background shell 的 `sleep 5 && send-keys` 在 CC socket 绑定完成前就送达了 tmux buffer，但 CC 进程尚未开始消费 stdin → 被 tmux 静默丢弃。
+
+**恢复（已验证，一次通过）：**
+```bash
+# 在 foreground 重发 send-keys + Enter
+tmux send-keys -t <s> "Read /tmp/context.md。任务描述..." Enter
+# 3s 后 capture-pane 确认命令文本已出现在 ❯ 上方
+```
+
+**预防：**
+```bash
+# ✅ 正确序列
+tmux new-session -d -s <name> "HOME=$REAL_HOME claude --model opus --effort xhigh"
+sleep 8                                          # 不 5s，不 3s
+capture_pane_has_prompt=$(tmux capture-pane -t <name> -p -S -3 | tail -1 | grep -c '❯')
+if [ "$capture_pane_has_prompt" -eq 1 ]; then
+    tmux send-keys -t <name> "任务..." Enter
+else
+    echo "❌ CC not ready — wait longer or investigate"
+fi
+```
+
+**不要做：**
+- `sleep 3-5` 作为硬编码等待（我们实测命中两次：需 6-8s）
+- 在 CC 思考态期间发 send-keys（排队不执行，见 Pitfall #20b）
+
+**2026-06-07 复现：** `hermes-cc-wrr-consolidation-072910` session 建好后 background shell 的 send-keys 未生效。Foreground 手动重发后 CC 立即开始处理。

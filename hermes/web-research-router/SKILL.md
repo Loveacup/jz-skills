@@ -432,6 +432,8 @@ hermes mcp test searxng --query "claude 4.7 release notes"
 | **🆕 Sogou/微信搜索源（2026-06-02）**（weixin-search-mcp v0.2.1 — 搜索+解密+抓取完整链路，Scrapling CLI fallback） | `references/sogou-wechat-source.md` |
 | **🆕 新闻管线抓取断裂根因（2026-06-02）**（web_extract SSRF 守卫 → 伪引用 → 模型脑补 → 产出不可信 — 三省六部早新闻案例诊断） | `references/news-pipeline-extraction-failure.md` |
 | **Telegram 客户端差异排查**（PC 可见但 iOS 不可见的 topic typing indicator：先分离 API 正确性 vs 客户端渲染） | `references/telegram-client-specific-topic-typing.md` |
+| **🆕 跨项目架构分析方法论**（四阶段：表层→源码→模式提取→反模式提取，含决策输出格式模板） | `references/cross-project-analysis-methodology.md` |
+| **🆕 MCP 合并 vs CLI 化分析**（CC Agent Team + 太子双视角，82进程/1.56GB实测，引擎 API curl 矩阵，三方向评分） | `references/mcp-consolidation-analysis.md` |
 
 ---
 

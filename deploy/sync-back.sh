@@ -65,6 +65,7 @@ PAIRS=(
   "hermes/calendar-manager|calendar-manager"
   "hermes/de-slop|de-slop"
   "hermes/claude-code|autonomous-ai-agents/claude-code"
+  "hermes/cqi-plan-writer|governance/cqi-plan-writer"
   "hermes/supermemory-hermes|governance/supermemory-hermes"
   "hermes/memory-hub|governance/memory-hub"
   "hermes/mac-doctor|apple/mac-doctor"
