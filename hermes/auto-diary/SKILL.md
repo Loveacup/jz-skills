@@ -12,8 +12,8 @@ description: |
 
   DO NOT use for: general note-taking, non-diary content generation, one-off research.
 type: routine
-version: 3.6.2
-author: Hermes Agent — v3.6.2 管线 stdout 混合文本 + set -euo pipefail 崩溃修复 · v3.6.0 HERMES_HOME 硬编码 + 校验脚本三问深度检查 + cron prompt 精简
+version: 3.6.3
+author: Hermes Agent — v3.6.3 pwd.getpwuid() 绕过 cron HOME 污染 · v3.6.2 管线 stdout 混合文本修复 · v3.6.0 HERMES_HOME 硬编码
 
 ---
 
@@ -186,6 +186,7 @@ Key improvements history: see `CHANGELOG.md` (skill 根目录)。
 | **dingwave 超时 (v3.6.1 修复)** | DingTalk 班级群 cron (458bec58ee72) 报 120s timeout。根因: `dingwave -o` 解密完起 HTTP server 不退→sleep+kill 不生效。v3.6.1 改用 `-export-only -merged-out`，解密完即退出。表变更: `createdAt→created_at`, `content→content_json`, `tbmsg_112→messages`。详见 `references/dingtalk-class-msgs.md`。 |
 | **🔴 管线 stdout 混合文本 + set -euo pipefail = 脚本崩溃 (v3.6.2 修复)** | `dingtalk-media-pipeline.py` 的 `print()` 状态日志和 `print(json.dumps())` 数据输出混在 stdout。Monitor 脚本的 `python3 -c "json.loads(...)"` 吃到混合文本抛 JSONDecodeError。`set -euo pipefail` 下非零退出被放大为脚本级 exit 1，cron 报 `Script exited with code 1`。修复：(1) 管线状态输出切 stderr；(2) monitor 脚本加 `\|\| true` + 从混合文本中提取 JSON 数组。 |
 | **🔴 HERMES_HOME 污染 (v3.6.0 修复)** | Cron 跑在 cron-worker profile 下时 `HERMES_HOME` 被设为 profile 私有路径。`extract_hermes_conversations.py` 的 `_get_state_dbs()` 使用 `HERMES_HOME` 来找 state.db，导致只扫 cron-worker 自己的会话，regent/default 的全部丢失。CC 和知识库不受影响（用 `Path.home()` 直读）。修复：`_get_state_dbs()` 硬编码 `Path.home()/.hermes`，不再读 `HERMES_HOME` 环境变量。 |
+| **🔴 Path.home() 被 cron HOME 环境变量污染 (v3.6.3 修复)** | v3.6.0 的 `Path.home()` 修复是假的——cron-worker profile 启动时 **同时覆盖 HOME** 到 chroot（`~/.hermes/profiles/cron-worker/home/`），所以 `Path.home()` 返回的是 chroot 而非真实 HOME。后果：chroot 里没有 `state.db`、没有 `.claude/projects/`、没有 `Documents/Obsidian/`，导致 Hermes/CC/Vault 三项数据全部为 0。只有天气（curl）和日历（icalBuddy）不受影响。修复：`extract_hermes_conversations.py` 和 `collect_data.py` 都新增 `_real_home()` 函数，使用 `pwd.getpwuid(os.getuid()).pw_dir` 读取系统 passwd 数据库，彻底绕过所有环境变量污染。**这是静默故障——cron 状态 'ok'，日记文件存在且格式完整，但数据全空**。 |
 
 ## ⚠️ Config Drift (Silent Failure)
 

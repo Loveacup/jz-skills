@@ -2,13 +2,18 @@
 """Auto-Diary Data Collector v3.2 — CC: entrypoint+parentUuid 三分类.
 Source of truth: ~/code/jz-skills/hermes/auto-diary/scripts/collect_data.py
 """
-import ast, json, os, sys, subprocess, signal
+import ast, json, os, pwd, sys, subprocess, signal
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 from zoneinfo import ZoneInfo
 
 WEEKDAY_CN = ["周一","周二","周三","周四","周五","周六","周日"]
+
+def _real_home() -> Path:
+    """Return the real user home directory from passwd DB, bypassing env vars.
+    🔴 v3.6.3: Path.home() reads HOME env var, which cron-worker profile overrides."""
+    return Path(pwd.getpwuid(os.getuid()).pw_dir)
 
 def timeout_handler(signum, frame):
     raise TimeoutError("Operation timed out")
@@ -89,7 +94,7 @@ def _extract_cc_text(content):
 def extract_cc_summary(date_str):
     """Extract CC session summaries. Classifies via entrypoint + parentUuid + subagent detection."""
     shanghai=ZoneInfo("Asia/Shanghai");target_date=datetime.strptime(date_str,"%Y-%m-%d").date()
-    cc_projects=Path.home()/".claude"/"projects"
+    cc_projects=_real_home()/".claude"/"projects"
     if not cc_projects.exists(): return []
     try:
         r=subprocess.run(["find",str(cc_projects),"-name","*.jsonl","-newermt",f"{date_str} 00:00","!","-newermt",f"{date_str} 23:59","-type","f"],capture_output=True,text=True,timeout=10)
@@ -251,15 +256,15 @@ def sync_obsidian():
 
 def get_dingtalk_class_msgs(date_str):
     """读取钉钉班级群每日消息文件"""
-    p=Path.home()/f".hermes/data/dingtalk_class_msgs/{date_str}.txt"
+    p=_real_home()/f".hermes/data/dingtalk_class_msgs/{date_str}.txt"
     content=read_file_safe(p)
     if content and len(content.strip())>50:
         return {"status":"ok","content":content,"path":str(p)}
     return {"status":"empty"}
 
 def collect_diary_data(date_str):
-    dp=Path.home()/"Documents/Obsidian/AlexCai/50-Self/01_日记"/f"{date_str}.md"
-    vr=Path.home()/"Documents/Obsidian/AlexCai"
+    dp=_real_home()/"Documents/Obsidian/AlexCai/50-Self/01_日记"/f"{date_str}.md"
+    vr=_real_home()/"Documents/Obsidian/AlexCai"
     return {"date":date_str,"weekday":get_weekday(date_str),"weather":get_weather(date_str),
             "ai_logs":get_ai_logs(date_str),"calendar_events":get_calendar_events(date_str),
             "existing_content":read_file_safe(dp),"vault_changes":scan_vault_changes(vr,date_str),

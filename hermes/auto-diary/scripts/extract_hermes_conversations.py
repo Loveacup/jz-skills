@@ -5,11 +5,21 @@ Queries Hermes state.db SQLite databases (main + profiles) for sessions.
 v2.0: migrated from JSON file reading to SQLite (JSON files deprecated May 2026).
 """
 
-import sqlite3
+import os, pwd, sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 from zoneinfo import ZoneInfo
+
+
+def _real_home() -> Path:
+    """Return the real user home directory from passwd DB, bypassing env vars.
+
+    🔴 v3.6.3: Path.home() reads the HOME env var, which cron-worker profile
+    overrides to its chroot (~/.hermes/profiles/cron-worker/home/).
+    pwd.getpwuid() always returns the OS-level home directory.
+    """
+    return Path(pwd.getpwuid(os.getuid()).pw_dir)
 
 
 def _get_state_dbs() -> list[tuple[str, Path]]:
@@ -17,12 +27,11 @@ def _get_state_dbs() -> list[tuple[str, Path]]:
 
     Main DB = "default". Profile DBs are named after the profile directory.
     """
-    # 🔴 v3.5.2: 硬编码 Path.home()/.hermes，不依赖 HERMES_HOME。
-    # Cron 跑在 cron-worker profile 下时 HERMES_HOME 被设为 profile 私有路径，
-    # 导致 _get_state_dbs() 只扫 cron-worker 的 state.db，漏掉 regent 和 default。
-    # Path.home() 读 OS 级 HOME，不受 HERMES_HOME 环境影响。
-    hermes_home = str(Path.home() / ".hermes")
-    hermes_home = Path(hermes_home)
+    # 🔴 v3.6.3: 使用 _real_home() 代替 Path.home()。
+    # v3.6.0 的 Path.home() 修复在 cron 场景下仍然失败：cron-worker profile
+    # 启动时 HOME 环境变量被覆盖为 chroot 路径，Path.home() 返回错误路径。
+    # pwd.getpwuid() 读取系统 passwd 数据库，绕过所有环境变量污染。
+    hermes_home = _real_home() / ".hermes"
     dbs: list[tuple[str, Path]] = []
 
     # Main state.db

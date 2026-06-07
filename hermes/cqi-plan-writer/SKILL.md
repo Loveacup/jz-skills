@@ -176,11 +176,12 @@ CQI 是 skill 改进的输入：`cqi-plan-writer`（写CQI）→ `skill-authorin
 |------|-------------|
 | Writing architecture instead of problems | CQI reads like system docs, not improvement plan |
 | Fake metrics (~90%) without measurement | Can't verify, can't track, trust destroyed |
+| 14-section template bloat | Agent fills garbage in empty sections |
 | **Overwriting old CQI** ★ | User's historical observations lost permanently |
 | No source attribution | Can't tell what was user-found vs agent-found |
-| **过度压缩** ★ | 丢失关键上下文，用户纠正返工 |
-| **行号污染** ★ | YAML frontmatter解析失败，文件永久损坏 |
-| **归档目录放错** ★ | `02-Plan&CQI/` 堆杂物，研究产物应放 `40-Archives/` |
+| No verification per issue | "Fixed" but no way to prove it |
+| P0 code issues treated same as P2 wishlist | Data pipeline stays broken while docs get polished |
+| **`platforms` field in YAML frontmatter** 🆕 | Even whitelisted values (`macos`, `linux`) can cause `skill_view` to return `readiness_status: unsupported`. The field triggers platform checks that may fail on valid platforms. **Fix**: omit `platforms:` entirely unless the skill genuinely cannot run on some OSes. If removed and skill still fails to load, check the skill directory is in a category subdirectory (not `skills/` top-level). |
 
 ---
 
