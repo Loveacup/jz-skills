@@ -5,13 +5,13 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-38-blue" alt="38 skills">
+  <img src="https://img.shields.io/badge/skills-39-blue" alt="39 skills">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
   <img src="https://img.shields.io/badge/license-MIT-brightgreen" alt="MIT license">
 </p>
 
-> 🤖 **Hermes + Claude Code + pi 三端 AI agent 技能仓库 — 39 skills, 四层结构, 双向同步。**
+> 🤖 **Hermes + Claude Code + pi 三端 AI agent 技能仓库 — 40 skills, 四层结构, 双向同步。**
 >
 > Skills authored, audited, and evolved by AI agents following [skill-authoring](shared/skill-authoring/). Deployed to a Hermes, Claude Code, and pi (Windows).
 >
@@ -24,7 +24,7 @@
 ```
 jz-skills/
 ├── shared/   🌐 跨平台 · Cross-platform (16)
-├── hermes/   ⚙️ Hermes (17)
+├── hermes/   ⚙️ Hermes (18)
 ├── pi/       🪟 Pi / Windows (6)
 └── _archived-hermes-3S6M-profiles/ 🗄️ 三省六部 · 已归档 (23)
 ```
@@ -32,7 +32,7 @@ jz-skills/
 | Layer | Directory | Skills | Scope · 范围 |
 |:---|:---|:---:|:---|
 | 🌐 | `shared/` | 16 | All 3 platforms · 三端同步 |
-| ⚙️ | `hermes/` | 17 | Hermes platform · 平台通用 |
+| ⚙️ | `hermes/` | 18 | Hermes platform · 平台通用 |
 | 🪟 | `pi/` | 6 | Pi (Windows), self-authored · Pi 自创作 |
 
 <details>
@@ -57,12 +57,13 @@ jz-skills/
 │   ├── xiaohongshu-cards/         # 文章→小红书图文卡片
 │   ├── xhs-tech-writer/           # 小红书 AI 科技短图文
 │   └── _archived-*/               # [已归档]
-├── hermes/                        # ⚙️ Hermes 平台 (17)
+├── hermes/                        # ⚙️ Hermes 平台 (18)
 │   ├── web-research-router/       # v3.9 · 5 引擎深度研究
 │   ├── auto-diary/                # v3.5.1 · 日/周/月/年金字塔聚合
 │   ├── mac-doctor/                # v2.4.1 · macOS 六级巡检
 │   ├── cron-worker/               # v1.0 · 定时任务 + 四种心跳
 │   ├── claude-code/               # v4.1.1 · CC 编排+双向拷问+自治团队
+│   ├── cqi-plan-writer/            # v1.2 · CQI 计划写作（重构回写+硬证据+附录）
 │   ├── memory-hub/                # v0.2.1 · CC×CQI 自动归集回路
 │   ├── tts-manager/               # TTS 聚合管理
 │   ├── tech-support-email/        # v1.1 · 技术支持邮件
@@ -251,7 +252,7 @@ General reference for Supermemory — long-term memory infrastructure shared acr
 | 🎴 [`xiaohongshu-cards`](shared/xiaohongshu-cards/) | Article→RED card images / 小红书图文卡片 |
 | ✍️ [`xhs-tech-writer`](shared/xhs-tech-writer/) | RED AI/tech short-form content / 小红书科技短图文 |
 
-### ⚙️ hermes/ — Hermes platform (17)
+### ⚙️ hermes/ — Hermes platform (18)
 
 | Skill | Purpose · 用途 |
 |:---|:---|
@@ -260,6 +261,7 @@ General reference for Supermemory — long-term memory infrastructure shared acr
 | 🩺 [`mac-doctor`](hermes/mac-doctor/) | macOS 6-tier health v2.4.1 — [§active](#-mac-doctor--macos-巡检-v241) |
 | 🕐 [`cron-worker`](hermes/cron-worker/) | Cron profile v1.0 + pool watchdog — [§active](#-cron-worker--定时任务-agent-v10) |
 | 🤖 [`claude-code`](hermes/claude-code/) | CC orchestration v4.1.1 — [§active](#-claude-code--cc-编排-v411) |
+| 📝 [`cqi-plan-writer`](hermes/cqi-plan-writer/) | v1.2 · Signal-driven CQI writing (restructure+evidence+appendix) / CQI 计划写作 |
 | 🧠 [`memory-hub`](hermes/memory-hub/) | v0.2.1 · CC→CQI auto-ingest loop / CC×CQI 自动归集回路 |
 | 🧠 [`supermemory-hermes`](hermes/supermemory-hermes/) | Hermes Supermemory setup + multi-profile |
 | 🎤 [`tts-manager`](hermes/tts-manager/) | TTS provider registry + voice testing |
