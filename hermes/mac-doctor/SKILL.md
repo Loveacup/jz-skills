@@ -8,7 +8,7 @@ type: routine
   系统评分, 健康检查, 磁盘空间, 内存压力, swap, 清理缓存, brew/npm/uv cache,
   CPU 大户, 安全检查, 电池健康, 网络配置审计, 历史趋势, 异常检测, 臃肿/隐私扫描。
   Do NOT use for: GUI 操作, 实时网络诊断 (ping/traceroute), 清理孤儿 App 数据。
-version: 2.4.1
+version: 2.5.0
 author: Hermes Agent
 platforms: [macos]
 metadata:
@@ -333,6 +333,7 @@ SQLite 数据库 `~/.hermes/inspection/history.db`，10 分钟/次快照（~5MB/
 |------|:---:|------|
 | CPU >80% 持续 5min / 内存 critical / 磁盘 <10% | 🔴 | `references/tier5-smart-alerts.md` |
 | Swap >4GB / 电池 <80% / 异常触发（σ=3.0，纯异常不推送） | 🟡 | 同上 |
+| MCP 孤儿进程积压（>20 个 orphan npx/node 残留） | 🟡 | 自动清理，只在大量堆积时推送 |
 
 通过 LaunchAgent 或 Hermes Cron Job 调度。
 

@@ -79,21 +79,25 @@ rm ~/Library/LaunchAgents/com.hermes.inspection-collector.plist
 
 | Job ID | 频率 | 模式 | 说明 |
 |--------|:--:|:--:|------|
-| `mac-doctor-quick` | 30min | 🔇 Watchdog | 静默看门狗 — 问题才推送，0 tokens |
+| `mac-doctor-quick` | 30min | 🔇 Watchdog | **统一看门狗** — 六检合一：系统快照(CPU+Mem+Swap+Disk) + Kanban 完整性 + 僵尸进程 + MCP 孤儿清理。问题才推送，0 tokens |
 | `check-skill-copies` | 1h | 🔇 Watchdog | cron-worker 本地副本扫描 — 残留才推送 |
-| `system-health-watchdog` | 1h | 🔇 Watchdog | 三检合一看门狗：Kanban 完整性 + 僵尸进程 + SWAP 防崩 |
 | `mac-doctor-deep` | 每日 03:00 | 🤖 LLM | Tier 2 全量审计（安全+硬件+网络） |
 | `mac-doctor-weekly` | 周一 09:00 | 🤖 LLM | 周报 + history.db 趋势分析 |
 
-#### system-health-watchdog 三检
+> **v2.5 合并说明**：原 `system-health-watchdog` (1h) 已合并到 `mac-doctor-quick` (30min)。合并后统一覆盖：系统快照 / Kanban / 僵尸 / MCP。消除了 swap 重复检查，频率从 60min 提升到 30min。
+
+#### mac-doctor-quick 六检 (v2.5)
 
 | 检查项 | 方法 | 阈值 | 来源 |
 |--------|------|------|------|
+| 系统快照 | collector-daemon.py --json | CPU/Mem/Swap/Disk 阈值告警 | collector 配置 |
 | Kanban 完整性 | `sqlite3 PRAGMA integrity_check` | ≠ `ok` 报警 | Kanban 损坏根因报告 |
-| 僵尸进程 | `ps aux` 查 `Z` 状态 | >0 报警 | A2A BUG-006 / P2-12 |
-| SWAP 防崩 | `sysctl vm.swapusage` | >5GB 或 >80% | Swap 危机事件报告 05-30 |
+| 僵尸进程 | `ps aux` 查 `Z` 状态 | >4 报警 | A2A BUG-006 / P2-12 |
+| MCP 孤儿清理 | 祖先链回溯 → SIGTERM | 自动清理，>20 残留才推送 | MCP 孤儿堆积 25-06-07 |
 
-脚本：`~/.hermes/profiles/cron-worker/scripts/system-health-watchdog.py`
+**MCP 孤儿检测** (v2.5)：每小时检测所有 npx/node MCP 进程，回溯祖先链到 Hermes gateway 或 CC TMUX 会话——不在合法树上的自动 SIGTERM。解决 gateway 重启/CC 会话结束后 MCP 进程无法回收的问题（曾积压 ~125 进程占 ~2GB 内存，清理后降至 11 进程 246MB）。
+
+脚本：`~/.hermes/profiles/cron-worker/scripts/mac-doctor-watchdog.py`（已合并原 system-health-watchdog.py 的全部功能）
 
 ### 静默看门狗模式 (v2.3) 🆕
 
