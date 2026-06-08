@@ -19,11 +19,13 @@
 
 ### Phase 2：CC Agent Team 深度分析（strategic-insight-longform）
 
-1. 写 context 文件到 `~/.hermes/tmp/`，包含：
+1. 写 context 文件到 `~/.hermes/tmp/` 或 `/tmp/`，包含：
    - Phase 1 的输出摘要
    - 关键事实和数据点
    - 待验证的 claim（特别标注"第一/最/突破"等话术）
    - 原始报告完整路径
+   - **本地知识库检索计划**：当源材料来自 Obsidian、公司内部资料、会议纪要或用户明确说“参考 OB/qmd”时，必须把 qmd collection、必跑 query、候选 OB 文件路径写进 context。不要只交给 CC“自己找”。
+   - **本地事实锚点**：把 Hermes 已发现的 qmd hits（文件路径 + 1 行 relevance）列入 context；要求 CC 读原文件或 qmd 命中片段，并在最终文档列“本地知识库参考”。
 
 2. 启动 CC tmux 长会话，加载 `strategic-insight-longform` skill
 
@@ -56,3 +58,22 @@
 - 凡涉及"深度评估/战略洞察"的任务，Phase 1 完成后必须进入 Phase 2
 - CC 的 CoV（Chain of Verification）+ 并行 Worker 是质量跃升的关键杠杆
 - Context 文件中必须写 worker timeout 规则，否则可能无限等待
+- **OB/qmd 不是可选背景**：如果用户要求“调阅 OB / 使用 qmd / 参考本地艾大力资料”，Hermes 必须先查 qmd collection 并把多轮 query 与命中文件路径写入 CC context。单个复合 query 无结果不等于本地无资料；要拆成实体词、平台词、业务词多轮检索。
+
+## qmd/Obsidian 本地知识注入模板
+
+在 CC context 中加入如下块，替换 query 与路径：
+
+```markdown
+## Local Obsidian/qmd requirement
+
+- qmd collection: `alexcai-vault`
+- 必跑检索：
+  - `HOME=/Users/alexcai qmd search "<公司/项目名>" --collection alexcai-vault`
+  - `HOME=/Users/alexcai qmd search "<平台/能力词>" --collection alexcai-vault`
+  - `HOME=/Users/alexcai qmd query "<公司> <业务域> <平台> <目标>" --collection alexcai-vault`
+- Hermes 已发现的候选 OB 文件：
+  - `<relative/path/to/note.md>` — `<why relevant>`
+- CC 必须读取这些 OB 文件或 qmd 命中片段，并在最终文档列出“本地知识库参考”。
+- 单 query 未命中时不得停止；拆成实体词/平台词/业务词继续检索。
+```

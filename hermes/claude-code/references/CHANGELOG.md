@@ -4,6 +4,32 @@
 
 ---
 
+## v4.2.0 (2026-06-08) — Salience slim：主体 685→446 行，长表/树/规格下沉 references/
+
+> 根因：SKILL.md 膨胀到 685 行，healthcheck T2（≤450 行 salience 门）持续 FAIL——主体被完整坑表、红旗反驳表、Core Rules 全文、ASCII 决策树、60+ 条 References 目录、CQI 完整规格撑爆，高频规则被淹没。本版按 progressive-disclosure 把 block 正文下沉到 references/，主体只留高频骨架 + 指针。**纯结构搬移，零行为变更、零内容丢失。**
+
+### Changed（下沉，主体只留指针 + 高频骨架）
+- **⚠️ Critical Pitfalls** — 完整 39 条坑表 → `references/critical-pitfalls-table.md`，主体留最高频 3 坑（#1/#2/#7）
+- **🚨 Red Flags** — 完整 16 条「借口→反驳」表 → `references/red-flags-table.md`，主体留 3 条
+- **⚡ Core Rules** — 完整 #0–#12 → `references/core-rules-detail.md`，主体留高频骨架（#0/#1/#2/#4/#9/#11/#12）
+- **🔀 Decision Tree** — 三棵 ASCII 树 + 单CC/Team/并行对照表 → `references/decision-trees.md`，主体留选型口诀
+- **🤝 占用检测脚本** — `for s in ...` 扫描脚本 → `references/occupancy-scan.sh`（唯一权威），主体留调用
+- **📦 References** — 60+ 条目录 → `references/index.md`，主体留最常用入口
+- **§CQI 事件吐出** — 完整规格（字段/自判/三步链/cron）→ `references/cqi-event-emission.md`，主体留 type 枚举铁律
+- **📡 Progress Reporting** — 三段冗余 blockquote 压缩为 2 段（红线① 复述 + 磁盘验证/输出定位指针）
+- **🔌 MCP Bridges** — Claude Octopus + tmux-bridge 两小节合并为一节
+
+### Added
+- 7 个新 reference 文件（上述下沉目标）+ `references/index.md` 总索引
+- `references/healthcheck-tdd-loop.md` 从运行端导回源仓库（DP1 de-fork，消除 T5 孤儿）
+
+### Metrics
+- SKILL.md 685 → 446 行（−239，−35%），healthcheck T2 由 FAIL → PASS
+- healthcheck 7/7 自动测试全绿（T1 md5 / T5 file-set 经 `cp` 同步后一致，70 文件两端相同）
+- 红线①/②、Gate Stamp、§0、canonical 段（patrol / Final Input-Line Gate / tmux-bridge / drift hook）全部保留在主体
+
+---
+
 ## v4.1.1 (2026-06-04) — 三路合并去分叉 + CQI 诊断吸收（Phase 0）
 
 > 根因：v4.1.0 红线宪法 commit 进源仓库却**从未部署到运行端**——源(524)/运行(647)双向分叉、同标 `4.1.0` 但 md5 不一致（CQI 事件 #3）。2026-06-04 的监控违规实为**加载端缺红线①**，非 CC 不听话。本版三路合并去分叉 + 落地 CQI 诊断改进。

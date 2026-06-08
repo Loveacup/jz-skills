@@ -20,32 +20,18 @@ Use when the user complains that CC status was not monitored or forwarded.
    - First send `Enter`/`C-m` once.
    - If no `●` or thinking state appears, send `Escape`, then retype a short English instruction and `C-m`.
    - Verify with `capture-pane` that a thinking/tool state (`✢/✻/●`) appeared.
-5. **Install a short-lived watchdog if the task is still running**. This avoids relying on the agent remembering to poll.
+5. **Resume manual Hermes patrol in the current conversation** if the task is still running. The recovery is not complete until the agent itself keeps doing `capture-pane → visible 📡 block` every 30–60s in the active thread.
 
-## Short-lived watchdog pattern
+## Manual patrol only — no watchdog unless explicitly requested
 
-Create a profile-local script in the active profile's `scripts/` directory that prints nothing when no CC session needs attention and prints the strict `📡 CC Agent Team [...]` block when a session is active, thinking, or waiting on input.
+The user correction from 2026-06-08 is definitive: when they say “轮巡/持续监控”, they mean **the current Hermes agent must patrol manually**. Do **not** create a script, cron job, watchdog, helper process, or background automation as a substitute.
 
-Then create a no-agent cron job:
+Allowed:
+- `capture-pane` now → immediately send strict `📡 CC Agent Team [...]` block.
+- Continue the conversation loop with another `capture-pane` within 30–60s, then another visible `📡` block.
+- If CC finishes, do disk verification and stop patrol.
 
-```python
-cronjob(
-    action="create",
-    confirmed_by_user=True,  # if kanban gate asks for explicit confirmation
-    name="cc-status-watchdog-<profile>",
-    schedule="every 2m",      # avoid high-frequency 1m unless explicitly confirmed
-    repeat=30,                # short-lived, do not spam forever
-    deliver="origin",
-    no_agent=True,
-    profile="<active-profile>",
-    script="cc-status-watchdog.py",  # relative filename, not absolute path
-)
-```
-
-Important details:
-- Cron `script` must be the relative filename under the profile's scripts directory; absolute paths are rejected.
-- Prefer `every 2m` + limited repeats unless the user explicitly demands tighter polling.
-- `no_agent=True` means stdout is sent verbatim; empty stdout is silent.
+Only create a script/cron/watchdog if the user explicitly asks for automation/background monitoring, e.g. “建 watchdog”, “用 cron 自动巡”, or “后台自动报”. Otherwise, doing so is an execution lapse and violates the user’s low-noise preference.
 
 ## What not to do
 
