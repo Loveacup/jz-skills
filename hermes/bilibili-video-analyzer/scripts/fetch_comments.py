@@ -12,8 +12,12 @@
 import sys
 import os
 
-# 添加依赖路径
-sys.path.insert(0, '~/Library/Python/3.9/lib/python/site-packages')
+# 依赖兜底：append 真实属主的用户级 site-packages。
+# 原写法 sys.path.insert(0, '~/...') 双重 bug：字面量 '~' 从不展开 + insert(0)。
+# Hermes profile 会改写 $HOME，故用 pwd.getpwuid。详见 bili_env.py。
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from bili_env import ensure_user_site
+ensure_user_site()
 
 import requests
 import json

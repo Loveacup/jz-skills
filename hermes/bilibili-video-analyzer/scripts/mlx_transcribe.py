@@ -18,10 +18,20 @@ import glob
 import os
 import sys
 
-# 本地 mlx-whisper 模型 snapshot 根目录
+# 依赖兜底：mlx_whisper 装在真实属主的 ~/Library/Python/3.9 user-site。
+# Python 默认按 $HOME 推断 user-site，Hermes profile 改写 $HOME 后会指向
+# profile home（无 mlx_whisper），故必须显式 append 真实属主的 site-packages。
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from bili_env import ensure_user_site, real_home
+ensure_user_site()
+
+# 本地 mlx-whisper 模型 snapshot 根目录（基于真实家目录，非 $HOME）
 MODEL_REPO = "mlx-community/whisper-large-v3-turbo"
-SNAPSHOTS_DIR = os.path.expanduser(
-    f"~/.cache/huggingface/hub/models--{MODEL_REPO.replace('/', '--')}/snapshots"
+SNAPSHOTS_DIR = os.path.join(
+    real_home(),
+    ".cache/huggingface/hub",
+    f"models--{MODEL_REPO.replace('/', '--')}",
+    "snapshots",
 )
 
 

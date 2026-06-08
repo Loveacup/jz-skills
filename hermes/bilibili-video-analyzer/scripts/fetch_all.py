@@ -13,8 +13,12 @@ Bilibili 视频全自动化获取 - 集成脚本
 import sys
 import os
 
-# 依赖兜底路径：append 到末尾（不能 insert(0)，否则 3.9 编译的扩展会遮蔽当前解释器 stdlib）。
-sys.path.append(os.path.expanduser('~/Library/Python/3.9/lib/python/site-packages'))
+# 依赖兜底：把真实属主的用户级 site-packages 追加到 sys.path。
+# 不能用 expanduser('~')——Hermes profile 会改写 $HOME，导致路径指向 profile home
+# 而非真实家目录，requests 等依赖找不到。详见 bili_env.py。
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from bili_env import ensure_user_site
+ensure_user_site()
 
 import json
 import subprocess

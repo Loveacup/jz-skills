@@ -22,7 +22,11 @@ import subprocess
 import tempfile
 import json
 
-sys.path.insert(0, '~/Library/Python/3.9/lib/python/site-packages')
+# 依赖兜底：append 真实属主的用户级 site-packages（原写法字面量 '~' 从不展开，
+# 且 Hermes profile 会改写 $HOME）。详见 bili_env.py。
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from bili_env import ensure_user_site
+ensure_user_site()
 
 from bilibili_api import video, Credential
 
@@ -136,7 +140,9 @@ def transcribe_audio(wav_file, output_dir, language="zh"):
     print(f"   工具: mlx-whisper (本地推理)")
     print(f"   注意: 首次使用需要下载模型，请耐心等待...")
     
-    whisper_path = "~/Library/Python/3.9/bin/mlx_whisper"
+    # 基于真实属主家目录解析（字面量 '~' 不会展开，且 $HOME 在 Hermes 下不可信）。
+    from bili_env import real_home
+    whisper_path = os.path.join(real_home(), "Library/Python/3.9/bin/mlx_whisper")
     
     # 输出文件前缀
     output_prefix = os.path.basename(wav_file).replace("_audio.wav", "")

@@ -12,9 +12,12 @@
 import sys
 import os
 
-# 依赖兜底路径：append 到末尾（不能 insert(0)，否则 3.9 编译的 xml/pyexpat 会遮蔽
-# 当前解释器的 stdlib，导致 ET.fromstring 崩在 "No module named expat"）。
-sys.path.append(os.path.expanduser('~/Library/Python/3.9/lib/python/site-packages'))
+# 依赖兜底：append 真实属主的用户级 site-packages（不能用 expanduser('~')，
+# Hermes profile 会改写 $HOME）。ensure_user_site 内部用 append（非 insert(0)），
+# 避免 3.9 编译的 xml/pyexpat 遮蔽当前解释器 stdlib。详见 bili_env.py。
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from bili_env import ensure_user_site
+ensure_user_site()
 
 import requests
 import xml.etree.ElementTree as ET

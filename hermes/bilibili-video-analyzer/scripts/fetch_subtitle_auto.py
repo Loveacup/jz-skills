@@ -13,8 +13,11 @@
 import sys
 import os
 
-# 依赖兜底路径：append 到末尾（不能 insert(0)，否则 3.9 编译的扩展会遮蔽当前解释器 stdlib）。
-sys.path.append(os.path.expanduser('~/Library/Python/3.9/lib/python/site-packages'))
+# 依赖兜底：把真实属主的用户级 site-packages 追加到 sys.path。
+# 不能用 expanduser('~')——Hermes profile 会改写 $HOME。详见 bili_env.py。
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from bili_env import ensure_user_site, build_ytdlp_audio_cmd, real_home
+ensure_user_site()
 
 import json
 import requests
@@ -116,15 +119,10 @@ def try_official_subtitle(bvid, cid):
 def download_audio(bvid, output_path):
     """下载视频音频"""
     try:
-        # 使用 yt-dlp 下载音频
-        cmd = [
-            'yt-dlp',
-            '-f', 'bestaudio[ext=m4a]/bestaudio',
-            '-o', output_path,
-            '--no-playlist',
-            '--progress',
-            f'https://www.bilibili.com/video/{bvid}/'
-        ]
+        # 使用 yt-dlp 下载音频。
+        # 关键：必须带 User-Agent + Referer，否则 Bilibili 返回 HTTP 412
+        # Precondition Failed（这是导致字幕降级到音频转录时整体失败的根因）。
+        cmd = build_ytdlp_audio_cmd(bvid, output_path)
         
         print(f"   ⏱️  下载超时设置: {CONFIG['download_timeout']}秒")
         
@@ -175,9 +173,11 @@ def transcribe_audio(audio_path, output_txt_path):
         print(f"   ⏱️  预估转录时间: {est_time//60}分{est_time%60}秒")
     
     # 优先尝试 whisper.cpp (使用 VoiceInk 的模型)
-    # 注意: 必须 expanduser，否则 os.path.exists("~/...") 恒为 False，whisper.cpp 分支永不执行
-    whisper_model = os.path.expanduser(
-        "~/Library/Application Support/com.prakashjoshipax.VoiceInk/WhisperModels/ggml-large-v3-turbo.bin"
+    # 注意: 用 real_home() 而非 expanduser('~')——Hermes profile 会改写 $HOME，
+    # 导致路径指向 profile home，VoiceInk 模型恒找不到，whisper.cpp 分支永不执行。
+    whisper_model = os.path.join(
+        real_home(),
+        "Library/Application Support/com.prakashjoshipax.VoiceInk/WhisperModels/ggml-large-v3-turbo.bin"
     )
 
     if os.path.exists(whisper_model):
