@@ -12,8 +12,9 @@
 import sys
 import os
 
-# 添加依赖路径
-sys.path.insert(0, '~/Library/Python/3.9/lib/python/site-packages')
+# 依赖兜底路径：append 到末尾（不能 insert(0)，否则 3.9 编译的 xml/pyexpat 会遮蔽
+# 当前解释器的 stdlib，导致 ET.fromstring 崩在 "No module named expat"）。
+sys.path.append(os.path.expanduser('~/Library/Python/3.9/lib/python/site-packages'))
 
 import requests
 import xml.etree.ElementTree as ET
@@ -50,8 +51,8 @@ def get_cid_from_bvid(bvid):
         return None, None
 
 
-def fetch_danmaku(cid, sessdata=None, max_danmaku=200):
-    """获取弹幕"""
+def fetch_danmaku(cid, sessdata=None, max_danmaku=200, bvid=None):
+    """获取弹幕。bvid 提供时，落盘文件名使用 BV 前缀，便于与其它产物（评论/字幕）对齐。"""
     
     headers = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -119,10 +120,11 @@ def fetch_danmaku(cid, sessdata=None, max_danmaku=200):
                     "color": color
                 })
         
-        # 保存 JSON
-        output_path = f"/tmp/cid_{cid}_danmaku.json"
+        # 保存 JSON（优先 BV 前缀，纯 CID 输入时回退旧命名）
+        output_path = f"/tmp/{bvid}_danmaku.json" if bvid else f"/tmp/cid_{cid}_danmaku.json"
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump({
+                "bvid": bvid,
                 "cid": cid,
                 "total": total,
                 "sampled": len(data),
@@ -160,8 +162,9 @@ def main():
     input_id = sys.argv[1]
     sessdata = sys.argv[2] if len(sys.argv) > 2 else None
     max_count = int(sys.argv[3]) if len(sys.argv) > 3 else 200
-    
+
     video_info = None
+    bvid = input_id if is_bvid(input_id) else None
     
     # 判断输入类型
     if is_bvid(input_id):
@@ -186,7 +189,7 @@ def main():
             sys.exit(1)
     
     # 获取弹幕
-    result = fetch_danmaku(cid, sessdata, max_count)
+    result = fetch_danmaku(cid, sessdata, max_count, bvid=bvid)
     
     if result:
         print(f"\n✅ 弹幕获取完成!")

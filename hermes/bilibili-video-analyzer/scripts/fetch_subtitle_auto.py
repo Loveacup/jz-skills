@@ -13,8 +13,8 @@
 import sys
 import os
 
-# 添加依赖路径
-sys.path.insert(0, '~/Library/Python/3.9/lib/python/site-packages')
+# 依赖兜底路径：append 到末尾（不能 insert(0)，否则 3.9 编译的扩展会遮蔽当前解释器 stdlib）。
+sys.path.append(os.path.expanduser('~/Library/Python/3.9/lib/python/site-packages'))
 
 import json
 import requests
@@ -175,8 +175,11 @@ def transcribe_audio(audio_path, output_txt_path):
         print(f"   ⏱️  预估转录时间: {est_time//60}分{est_time%60}秒")
     
     # 优先尝试 whisper.cpp (使用 VoiceInk 的模型)
-    whisper_model = "~/Library/Application Support/com.prakashjoshipax.VoiceInk/WhisperModels/ggml-large-v3-turbo.bin"
-    
+    # 注意: 必须 expanduser，否则 os.path.exists("~/...") 恒为 False，whisper.cpp 分支永不执行
+    whisper_model = os.path.expanduser(
+        "~/Library/Application Support/com.prakashjoshipax.VoiceInk/WhisperModels/ggml-large-v3-turbo.bin"
+    )
+
     if os.path.exists(whisper_model):
         print("   🎯 使用 whisper.cpp 转录...")
         try:
@@ -217,18 +220,20 @@ def transcribe_audio(audio_path, output_txt_path):
                 # 查找生成的 txt 文件
                 generated_txt = os.path.join(tmp_output_dir, f"{base_name}.txt")
                 if os.path.exists(generated_txt):
-                    # 复制到目标位置
-                    shutil.copy2(generated_txt, output_txt_path)
+                    # 复制到目标位置（若已是同一文件则跳过，避免 SameFileError）
+                    if os.path.abspath(generated_txt) != os.path.abspath(output_txt_path):
+                        shutil.copy2(generated_txt, output_txt_path)
                     print(f"   ✅ 转录文件已保存: {output_txt_path}")
-                    return True
+                    return 'whisper.cpp'
                 else:
                     # 尝试找任何 txt 文件
                     for f in os.listdir(tmp_output_dir):
                         if f.endswith('.txt'):
                             src = os.path.join(tmp_output_dir, f)
-                            shutil.copy2(src, output_txt_path)
+                            if os.path.abspath(src) != os.path.abspath(output_txt_path):
+                                shutil.copy2(src, output_txt_path)
                             print(f"   ✅ 转录文件已保存: {output_txt_path}")
-                            return True
+                            return 'whisper.cpp'
             else:
                 print(f"   ❌ whisper-cli 错误: {result.stderr[:300]}")
                 
@@ -240,40 +245,43 @@ def transcribe_audio(audio_path, output_txt_path):
     else:
         print(f"   ⚠️  未找到 whisper 模型: {whisper_model}")
     
-    # 备选: mlx-whisper
-    print("   🔄 尝试 mlx-whisper...")
+    # 备选: mlx-whisper（Python API，指向本地 snapshot，离线转录）
+    print("   🔄 尝试 mlx-whisper (Python API)...")
     try:
+        # mlx_whisper 仅在 /usr/bin/python3（CommandLineTools 3.9 + user site-packages）可用，
+        # 默认 python3.12 没有该模块，因此固定用该解释器调用 helper。
+        helper = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mlx_transcribe.py')
         cmd = [
-            '~/Library/Python/3.9/bin/mlx_whisper',
+            '/usr/bin/python3',
+            helper,
             audio_path,
-            '--language', 'Chinese',
-            '--output_format', 'txt',
-            '--output_dir', os.path.dirname(output_txt_path)
+            output_txt_path,
+            'zh',
         ]
-        
+
+        print(f"   📝 开始转录（超时: {CONFIG['transcribe_timeout']}秒）...")
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
             timeout=CONFIG['transcribe_timeout']
         )
-        
-        if result.returncode == 0:
-            # 查找生成的文件
-            output_dir = os.path.dirname(output_txt_path)
-            base = os.path.basename(audio_path).replace('.m4a', '')
-            expected = os.path.join(output_dir, f"{base}.txt")
-            if os.path.exists(expected):
-                shutil.move(expected, output_txt_path)
-                return True
+
+        if result.stderr:
+            # helper 的进度/诊断信息走 stderr，原样透出
+            print(result.stderr.rstrip())
+
+        if result.returncode == 0 and os.path.exists(output_txt_path):
+            print(f"   ✅ 转录文件已保存: {output_txt_path}")
+            return 'mlx-whisper'
         else:
-            print(f"   ❌ mlx-whisper 错误: {result.stderr[:300]}")
-        
+            print(f"   ❌ mlx-whisper 失败 (returncode={result.returncode})")
+
     except subprocess.TimeoutExpired:
         print(f"   ⏱️  mlx-whisper 超时（超过{CONFIG['transcribe_timeout']}秒）")
     except Exception as e:
         print(f"   ❌ mlx-whisper 失败: {e}")
-    
+
     return False
 
 def main():
@@ -378,18 +386,19 @@ def main():
                 print(f"   ✅ 音频下载成功")
                 
                 print("   🎯 开始转录...")
-                if transcribe_audio(audio_path, txt_path):
-                    print(f"   ✅ 转录完成")
-                    
+                engine = transcribe_audio(audio_path, txt_path)
+                if engine:
+                    print(f"   ✅ 转录完成 (引擎: {engine})")
+
                     # 验证文件
                     if os.path.exists(txt_path):
                         size = os.path.getsize(txt_path)
                         print(f"   💾 TXT: {txt_path} ({size} bytes)")
-                        
+
                         result = {
                             'bvid': bvid,
                             'title': title,
-                            'method': 'whisper',
+                            'method': engine,
                             'txt_path': txt_path
                         }
                     else:

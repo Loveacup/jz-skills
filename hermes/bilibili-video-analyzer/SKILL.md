@@ -9,11 +9,11 @@ description: >
   Use when: user provides Bilibili video link (BV号 or full URL), or says 解析B站视频 / analyze bilibili video / bilibili summary / 视频总结 / 弹幕分析 / 分析这个视频.
 
   DO NOT use for: non-Bilibili videos, general video editing, one-off transcript requests without analysis.
-version: 2.3.0
-author: "Hermes Agent (v2.3: danmaku path fix, subtitle-null guard, dominant-entity auto-detect)"
+version: 2.4.0
+author: "Hermes Agent (v2.4: auto fallback chain official→yt-dlp→whisper.cpp→mlx + BV-prefixed danmaku + no null-masking + Depth Quality Gates rubric + verify_report.py)"
 ---
 
-# Bilibili 视频深度解析器 v2.2
+# Bilibili 视频深度解析器 v2.4
 
 Transform Bilibili videos into structured, searchable, actionable knowledge assets for Obsidian.
 
@@ -27,12 +27,13 @@ Transform Bilibili videos into structured, searchable, actionable knowledge asse
 | "Subtitles failed, I'll just summarize from memory" | Fallback chain: `yt-dlp --cookies-from-browser chrome` → whisper.cpp → mlx-whisper. Exhaust fallbacks before summarizing. |
 | "I'll write the Logic Chain as narrative prose with every quote" ★ | Logic Chain is a **structural overview**, not a transcript retelling. Use **tables (narrative arcs) + Mermaid flowcharts** — keep it under 100 lines. Move verbatim quotes and detailed analysis to Deep Dive / Key Insights. Bloated prose in §1 makes the report unreadable. |
 | "I'll skip adding YAML frontmatter, it's just metadata" | Obsidian CLAUDE.md requires frontmatter. Missing = broken knowledge graph. |
+| "Report looks thorough, I'll save without running verify_report.py" ★ | Phase 4 STEP 0 is a **blocking gate**. Run `scripts/verify_report.py <草稿>` before saving — "looks thorough" is exactly the judgment the gate exists to catch. Save only on exit 0. |
 | "User didn't ask for full analysis, but I'll do it anyway" | **Check first.** Present metadata + ask the user which depth they want. Never assume. |
 | "User said to just do it but I showed metadata anyway" ★ | When the user explicitly tells you what to do (整理文档 / 直接分析 / 用bilibili skill 帮我...), skip Phase 0 confirmation. Asking again when they already gave instructions is wasteful. Infer mode from video duration: <20min → 精简版, >=30min → 全量版, unknown → 精简版 (safe default). |
-| "Full version report is done at 10KB" ★ | 全量版 target is **30KB+** (not 20-25KB as older versions stated). A 10KB report is missing deep analysis. Each Deep Dive module should be 500-1000 words with verbatim quotes, diagrams, and cross-references. If the report feels thin, go back and expand — the user expects thoroughness. |
+| "Full version report is done at 10KB" ★ | Size is **not** the bar — **Depth Quality Gates** are. 全量版 must pass G3 (≥3 insights × ≥200 字), G4 (≥3 modules × ≥500 字), G5 (≥5 金句), G7 (≥3 价值 + ≥2 局限 + ≥3 行动). A thin report fails gates regardless of KB. Run `scripts/verify_report.py` to check; if a gate fails, expand that section. |
 | "Deep Dive modules are fixed at 3" ★ | Deep Dive modules are **extensible** — user can request additional modules (e.g. "加一个板块着重研究Codex"). Each module needs: concept definition, architectural context, multi-angle analysis, a Mermaid diagram where applicable, and explicit linkage to the user's own stack where relevant. |
-| "I'll assume danmaku is at /tmp/BV*_danmaku.json" ★ | `fetch_all.py` saves danmaku to `/tmp/cid_{数字}_danmaku.json` — cid-prefixed, not BV-prefixed. Always search for the actual file before `read_file`. |
-| "fetch_subtitle_auto.py returned null — I'll skip transcription" ★ | The fallback chain is NOT automatic. When `fetch_subtitle_auto.py` returns `null`, you MUST manually download audio and run mlx-whisper. |
+| "I'll guess the danmaku file path" ★ | As of **v2.4** `fetch_danmaku_v2.py`/`fetch_all.py` save danmaku to **`/tmp/{BV号}_danmaku.json`** (BV-prefixed, aligned with comments/subtitle artifacts). Pure-CID input falls back to `/tmp/cid_{数字}_danmaku.json`. The RESULT_JSON `path` field is authoritative — read it, don't guess. |
+| "Subtitle step failed — I'll just summarize from memory" ★ | As of **v2.4** the fallback chain (official → yt-dlp → whisper.cpp → mlx-whisper) runs **automatically inside** `fetch_subtitle_auto.py`, and `fetch_all.py` no longer masks failure as `null` — a failed step is `{"status":"failed","error":...}`. If subtitle status is `failed`, read the `error` (often bilibili **HTTP 412** → use `yt-dlp --cookies-from-browser chrome`) before summarizing from memory. |
 
 ## 🔀 Decision Tree
 
@@ -58,7 +59,7 @@ Received Bilibili URL(s)?
 │   └── Depth: 全量版 vs 精简版 (see below)
 ├── Phase 3: Generate report (adaptive sections)
 │   └── 🆕 Merged report: per-video Meta tables, interleaved analysis, unified Insights/Deep Dive
-└── Phase 4: Save to Obsidian 00-Inbox + cleanup temp files
+└── Phase 4: 🚦 verify_report.py depth gate (blocking) → Save to Obsidian 00-Inbox + cleanup temp files
 ```
 
 ### Output Mode Selection
@@ -77,15 +78,17 @@ After Phase 0 metadata is shown, user picks one. If they don't specify, default 
 - §5 (Highlights): reduce to 2-3 quotes max
 - §6 (Knowledge Graph): keep only the core concept table, skip cultural references
 - Still include: YAML frontmatter, §0 Meta, §1 Logic Chain (shortened), §3 Key Insights, §7 Critical Review & Action, §8 Appendix
-- Report target: 8-12KB (vs 全量版 20-25KB)
+- Quality bar: **Depth Quality Gates 精简版列** (G3 ≥2×150字, G4 2-3模块, G5 2-3, G7 full). Verify with `verify_report.py --mode condensed`. No KB target — size follows content.
 
-**🆕 合并版 rules**:
+**🆕 合并版 rules** (thresholds = Depth Quality Gates 合并版列):
 - §0 Meta: per-video tables, then merged summary
-- §1 Logic Chain: one flowchart per video, then a "两篇的逻辑关系" comparison
+- §1 Logic Chain: one flowchart per video (**G1: each ≤100 行**), then a "两篇的逻辑关系" comparison
 - §2/2.5: per-video danmaku/comment analysis with data-sparsity guard
-- §3 Key Insights: unified across both videos
-- §4 Deep Dive: modules draw from both videos' content
-- §7 Critical Review & Action: unified assessment
+- §3 Key Insights: **G3: ≥3 unified insights** spanning both videos (not 3-per-video)
+- §4 Deep Dive: **G4: ≥3 modules**, each drawing material from both videos where relevant
+- §5 Highlights: **G5: ≥5 金句** pooled across videos
+- §7 Critical Review & Action: **G7: ≥3 价值 + ≥2 局限 + ≥3 行动** (unified assessment)
+- Verify: `verify_report.py <merged.md>` (full mode) treats the merged file as one report — unified §3/§4/§5/§7 clear full-版 gates directly; keep the combined §1 (all per-video arcs + comparison) within G1's ≤100 行.
 - Filename: `B站笔记_[系列主题]_YYYYMMDD.md`
 
 ## Phase 1: Data Collection
@@ -102,8 +105,8 @@ python3 scripts/fetch_subtitle_auto.py BV1ut6YByEZq  # Subtitles (auto-fallback)
 
 See `references/execution-guide.md` for dependencies (yt-dlp, whisper.cpp) and troubleshooting.
 
-> [!warning] 🪤 Danmaku file path mismatch
-> `fetch_all.py` saves danmaku to `/tmp/cid_{数字}_danmaku.json` (cid-prefixed), NOT `/tmp/BV*_danmaku.json`. After running `fetch_all.py`, search for the actual file with `search_files /tmp pattern='*danmaku*'` instead of assuming a BV-prefixed path. The RESULT_JSON output prints the path — check it before attempting `read_file`.
+> [!note] 弹幕文件路径（v2.4 起 BV 前缀）
+> `fetch_all.py`/`fetch_danmaku_v2.py` 现保存到 **`/tmp/{BV号}_danmaku.json`**（BV 前缀，与评论/字幕产物对齐）；纯 CID 输入时回退 `/tmp/cid_{数字}_danmaku.json`。无论哪种，RESULT_JSON 的 `path` 字段都是权威来源——直接读它，别猜路径。
 
 ## Phase 2: Deep Analysis
 
@@ -118,23 +121,39 @@ Full analysis framework: `references/v3-detailed-prompt.md`
 
 ## Phase 3: Output (Adaptive — See 全量版/精简版 Mode Selection Above)
 
+### 📏 Depth Quality Gates (深度质量门槛 — 取代 KB 体量目标)
+
+> 报告质量按**结构充实度**衡量，不按文件大小。KB 数是深度的副产物，不是目标——
+> 不要为了凑 KB 注水，也不要因为"到了 30KB"就停。用下表门槛自检，或运行
+> `python3 scripts/verify_report.py <报告.md>`（`--mode condensed` 校验精简版）。
+
+| Gate | 章节 | 全量版 | 精简版 | 合并版 |
+|:---|:---|:---|:---|:---|
+| **G1** | §1 逻辑链 | ≤100 行（含 Mermaid） | ≤100 行 | ≤100 行/视频 |
+| **G3** | §3 核心洞察 | ≥3 洞察 × 每条 ≥200 字 | ≥2 洞察 × ≥150 字 | ≥3 洞察（跨视频统一） |
+| **G4** | §4 Deep Dive | ≥3 模块 × 每个 ≥500 字 | 2–3 模块 × ≤300 字 | ≥3 模块（取材双视频） |
+| **G5** | §5 高光时刻 | ≥5 条金句 | 2–3 条 | ≥5 条 |
+| **G7** | §7 批判与行动 | ≥3 价值点 + ≥2 局限 + ≥3 行动项 | 同全量版（教程最高价值区，不削减） | ≥3 + ≥2 + ≥3（统一评估） |
+
+> [!tip] 门槛是**下限**不是上限。访谈/演讲常超出 G3/G4，按内容自然展开；`verify_report.py` 只拦截"不足"。
+
 ### 全量版 (All 8 Sections)
 
 | # | Section | Requirement |
 |---|---------|------------|
 | **YAML** | Frontmatter | 必填：status/type/priority/aliases/tags/created/modified（遵循 Obsidian CLAUDE.md） |
 | 0 | Meta | Video title, UP主, play count, CID, duration |
-| 1 | Logic Chain | **Tables (narrative arcs) + Mermaid flowcharts** — structural overview, NOT prose retelling. ≤100 lines. Verbose quotes → Deep Dive. |
+| 1 | Logic Chain | **G1**: Tables (narrative arcs) + Mermaid flowcharts — structural overview, NOT prose retelling. **≤100 lines**. Verbose quotes → Deep Dive. |
 | 2 | Danmaku Intelligence | Emotion quantification, meme analysis |
 | 2.5 | Comments Analysis | Hot comments curation, opinion clustering |
-| 3 | Key Insights | ≥3 insights, each 200-400 words with verbatim support |
-| 4 | Deep Dive | ≥3 modules (extensible on user request), 500-1000 words each, Mermaid diagram per module where applicable |
-| 5 | Highlights & Quotes | Memorable moments with timestamps |
+| 3 | Key Insights | **G3**: ≥3 insights, each ≥200 字 with verbatim support |
+| 4 | Deep Dive | **G4**: ≥3 modules (extensible on user request), each ≥500 字, Mermaid diagram per module where applicable |
+| 5 | Highlights & Quotes | **G5**: ≥5 金句 (视频金句 + 弹幕金句) with timestamps |
 | 6 | Knowledge Graph | Concept map, cross-references, linkage to user's own stack |
-| 7 | Critical Review & Action | Validity assessment, actionable takeaways |
+| 7 | Critical Review & Action | **G7**: ≥3 价值点 + ≥2 局限/偏见 + ≥3 行动项 |
 | 8 | Appendix | Data sources, tools used, full quotes, timestamp index |
 
-**全量版 report target: 30KB+** (previously 20-25KB — too thin for thorough analysis).
+**全量版 quality bar: 满足 Depth Quality Gates (G1/G3/G4/G5/G7) above.** 体量是副产物——别盯 KB 数，跑 `verify_report.py` 验门槛。
 
 ### 精简版 (Condensed)
 
@@ -142,16 +161,16 @@ Full analysis framework: `references/v3-detailed-prompt.md`
 |---|---------|------------|
 | **YAML** | Frontmatter | Same as 全量版 |
 | 0 | Meta | Same as 全量版 |
-| 1 | Logic Chain | Tables + flowchart — same structure as 全量版, just fewer detail rows |
+| 1 | Logic Chain | **G1**: ≤100 lines — same structure as 全量版, just fewer detail rows |
 | 2 | Danmaku/Comments | **Minimal**: ≤50 words if sparse. Write "数据不足" and move on — do NOT inflate. |
-| 3 | Key Insights | 2-3 insights, tighter than 全量版 |
-| 4 | Deep Dive | **2-3 modules max**, each ≤300 words |
-| 5 | Highlights | **2-3 quotes max** |
+| 3 | Key Insights | **G3 (relaxed)**: ≥2 insights × ≥150 字 |
+| 4 | Deep Dive | **G4 (relaxed)**: 2-3 modules max, each ≤300 字 |
+| 5 | Highlights | **G5 (relaxed)**: 2-3 quotes |
 | 6 | Knowledge Graph | Core concept table only. Skip cultural/meme analysis. |
-| 7 | Critical Review & Action | Full — this is the highest-value section for tutorials |
+| 7 | Critical Review & Action | **G7 (full)**: ≥3 价值点 + ≥2 局限 + ≥3 行动项 — 教程最高价值区，不削减 |
 | 8 | Appendix | Sources + version, skip extended reading |
 
-**精简版 report target: 8-12KB** (unchanged).
+**精简版 quality bar: 满足 Depth Quality Gates 精简版列.** Verify with `verify_report.py --mode condensed`. 体量随内容，不设 KB 目标。
 
 **Timestamp formula**: Bilibili `?t={total_seconds}`. `02:30` → 150 seconds → `?t=150` (NOT `?t=230`!).
 
@@ -159,21 +178,38 @@ Full template: `references/output-template.md`
 
 ## Phase 4: Save & Cleanup
 
+**🚦 STEP 0 — Depth gate (blocking, run BEFORE saving):**
+
+```bash
+# 先把草稿写到 /tmp，验门通过才落库
+python3 scripts/verify_report.py /tmp/报告草稿.md            # 全量版
+python3 scripts/verify_report.py /tmp/报告草稿.md --mode condensed   # 精简版
+```
+
+- ❌ **Any gate FAIL (exit 1) → do NOT save.** Go back, expand the named section (G3/G4/G5/G7), re-run until ✅ OVERALL PASS (exit 0).
+- ✅ Gates green → proceed to save below. This is the same rubric as the §3 Depth Quality Gates — the script just enforces it mechanically so a thin report can't slip through.
+
+**Then save:**
+
 - ✅ Save to: `~/Documents/Obsidian/AlexCai/00-Inbox/B站笔记_[主题简述]_YYYYMMDD.md`
 - ⚠️ **Filename convention**: follow the vault's CLAUDE.md — for this vault it's `B站笔记_主题简述_YYYYMMDD.md` (NOT `视频解析_...`). Check the target vault's CLAUDE.md for its actual convention.
 - ✅ Must include YAML frontmatter（status/type/priority/aliases/tags/created/modified）
-- ✅ Clean temp files: `rm -f /tmp/bili_hermes* /tmp/BV* /tmp/cid_*`
+- ✅ Clean temp files: `rm -f /tmp/bili_hermes* /tmp/BV* /tmp/cid_* /tmp/报告草稿.md`
 - ❌ Never save to: `~/clawd/00-Inbox/` or vault root
 
 ## Script Reference
 
 | Script | Function | Dependency |
 |:---|:---|:---|
-| `fetch_all.py` ⭐ | One-shot: danmaku + comments + subtitles | yt-dlp, whisper-cli |
-| `fetch_danmaku_v2.py` | Danmaku (BV号 direct) | requests |
+| `fetch_all.py` ⭐ | One-shot: danmaku + comments + subtitles (dispatches sub-scripts via `/usr/bin/python3`; failures reported, not masked) | yt-dlp, mlx-whisper/whisper-cli |
+| `fetch_danmaku_v2.py` | Danmaku (BV号 direct, BV-prefixed output) | requests |
 | `fetch_comments.py` | Comments (top 50 hot) | requests |
-| `fetch_subtitle_auto.py` | Subtitles (auto-fallback chain) | yt-dlp, whisper-cli |
+| `fetch_subtitle_auto.py` | Subtitles (auto-fallback: official→yt-dlp→whisper.cpp→mlx) | yt-dlp, whisper.cpp, mlx-whisper |
+| `mlx_transcribe.py` | mlx-whisper Python-API transcription (local snapshot, offline) | mlx-whisper (`/usr/bin/python3`) |
+| `verify_report.py` 🆕 | Static Depth-Quality-Gate checker for a report `.md` | stdlib only |
 | `transcribe_whisper_cpp.sh` | Audio transcription | whisper-cli, ffmpeg |
+
+> [!note] 解释器要求：弹幕/评论/字幕子脚本需可用的 `requests` + 可用的 `xml/pyexpat`，请用 **`/usr/bin/python3`**（CommandLineTools 3.9 + `~/Library/Python/3.9` user site）运行；本机 homebrew python3.12 的 `pyexpat` 损坏，无法解析弹幕 XML。`fetch_all.py` 已内置该选择。
 
 ## Known Limitations
 
@@ -181,7 +217,7 @@ Full template: `references/output-template.md`
 - ⚠️ Comment API returns max 3-5 hot comments for new videos (<24h)
 - ⚠️ whisper.cpp: ~68-85s per 19-minute video (Apple M4 GPU) — only use as last resort when yt-dlp+cookie fails
 - ⚠️ Fallback chain: `yt-dlp --cookies-from-browser chrome` → mlx-whisper (preferred on Apple Silicon, ~60s per 7-min video) → whisper.cpp → summarize from context
-- ⚠️ **`fetch_subtitle_auto.py` may return `null` silently** — when a video has no subtitles (only `danmaku xml`), the script returns `null` without triggering the audio download+transcription fallback. If `fetch_subtitle_auto.py` outputs `null`, do NOT stop — proceed to the mlx-whisper transcription path manually (download audio → transcribe → read transcript).
+- ✅ **Fallback chain is automatic (v2.4)** — `fetch_subtitle_auto.py` runs official → yt-dlp(download) → whisper.cpp → mlx-whisper **in-process** and reports the engine that actually succeeded in the `method` field. `fetch_all.py` surfaces failures as `{"status":"failed","returncode":N,"error":...}` (no more silent `null`). When every transcription path fails (commonly bilibili **HTTP 412** on yt-dlp, which needs a login cookie), fall back to the `yt-dlp --cookies-from-browser chrome` method documented below.
 - ⚠️ Multi-video merge: when user provides multiple B站 URLs from the same creator/series, offer to merge into a single unified report. Collect all data first, then interleave analysis with per-video Meta tables.
 - ⚠️ Tutorial/How-to videos <20min: use **精简版** — full 8-section analysis is overkill
 - ⚠️ New videos (<24h, <500 views): expect 0-3 comments and 0-10 danmaku. Don't force analysis on empty data.
@@ -271,16 +307,17 @@ Changelog: `references/changelog.md` — timeout optimization, multi-P video sup
 
 ## ✅ Verification Checklist
 
-- [ ] Danmaku file path verified (search `/tmp/*danmaku*` — cid-prefixed, NOT BV-prefixed)?
+- [ ] Danmaku file read from RESULT_JSON `path` (v2.4: `/tmp/{BV号}_danmaku.json`, BV-prefixed)?
 - [ ] Subtitles extracted via `yt-dlp --cookies-from-browser chrome` first (not whisper unless cookie method failed)?
-- [ ] If `fetch_subtitle_auto.py` returned `null`, mlx-whisper transcription run manually (the fallback is NOT automatic)?
+- [ ] Subtitle step: if status `failed`, checked the `error` field (e.g. 412 → cookies) before manual fallback?
 - [ ] If yt-dlp subtitles unavailable, mlx-whisper used with local cache path (not HF repo ID)?
 - [ ] Output mode selected? (全量版 or 精简版 — user chose explicitly?)
 - [ ] 🆕 Multi-video merge: per-video Meta tables + interleaved analysis?
 - [ ] YAML frontmatter present? (status/type/priority/aliases/tags/created/modified)
 - [ ] Timestamp links use correct `?t={seconds}` formula (NOT `?t=minutes*100+seconds`)?
-- [ ] 精简版: report ≤12KB? Sections 2/4/5/6 appropriately condensed?
-- [ ] 全量版: all 8 sections present? ≥3 Key Insights + ≥3 Deep Dive modules?
+- [ ] **Depth Quality Gates pass?** Run `python3 scripts/verify_report.py <报告.md>` (全量版) or `--mode condensed` (精简版) — G1/G3/G4/G5/G7 all ✅?
+- [ ] 全量版: all 8 sections present, G3 (≥3×200字) + G4 (≥3×500字) + G5 (≥5) + G7 (≥3+2+3) met?
+- [ ] 精简版: sections 2/4/5/6 condensed, G7 kept full (≥3+2+3)?
 - [ ] Dominant entities scanned? (tools/APIs/characters referenced in ≥3 sections → extra Deep Dive module?)
 - [ ] Sparse danmaku/comments handled with ≤50 words, not inflated into full analysis?
 - [ ] Output saved to Obsidian `00-Inbox/` (NOT clawd path or vault root)?
