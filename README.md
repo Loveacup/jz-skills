@@ -5,13 +5,13 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-39-blue" alt="39 skills">
+  <img src="https://img.shields.io/badge/skills-43-blue" alt="43 skills">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
   <img src="https://img.shields.io/badge/license-MIT-brightgreen" alt="MIT license">
 </p>
 
-> 🤖 **Hermes + Claude Code + pi 三端 AI agent 技能仓库 — 40 skills, 四层结构, 双向同步。**
+> 🤖 **Hermes + Claude Code + pi 三端 AI agent 技能仓库 — 43 skills, 四层结构, 双向同步。**
 >
 > Skills authored, audited, and evolved by AI agents following [skill-authoring](shared/skill-authoring/). Deployed to a Hermes, Claude Code, and pi (Windows).
 >
@@ -23,16 +23,16 @@
 
 ```
 jz-skills/
-├── shared/   🌐 跨平台 · Cross-platform (16)
-├── hermes/   ⚙️ Hermes (18)
+├── shared/   🌐 跨平台 · Cross-platform (15)
+├── hermes/   ⚙️ Hermes (22)
 ├── pi/       🪟 Pi / Windows (6)
 └── _archived-hermes-3S6M-profiles/ 🗄️ 三省六部 · 已归档 (23)
 ```
 
 | Layer | Directory | Skills | Scope · 范围 |
 |:---|:---|:---:|:---|
-| 🌐 | `shared/` | 16 | All 3 platforms · 三端同步 |
-| ⚙️ | `hermes/` | 18 | Hermes platform · 平台通用 |
+| 🌐 | `shared/` | 15 | All 3 platforms · 三端同步 |
+| ⚙️ | `hermes/` | 22 | Hermes platform · 平台通用 |
 | 🪟 | `pi/` | 6 | Pi (Windows), self-authored · Pi 自创作 |
 
 <details>
@@ -40,7 +40,7 @@ jz-skills/
 
 ```
 jz-skills/
-├── shared/                        # 🌐 Cross-platform · 跨平台 (16)
+├── shared/                        # 🌐 Cross-platform · 跨平台 (15)
 │   ├── github/                    # GitHub 全操作
 │   ├── grill-with-docs/           # 设计审查
 │   ├── skill-authoring/           # 合规创作 (11-step, 7-dim scoring)
@@ -57,12 +57,12 @@ jz-skills/
 │   ├── xiaohongshu-cards/         # 文章→小红书图文卡片
 │   ├── xhs-tech-writer/           # 小红书 AI 科技短图文
 │   └── _archived-*/               # [已归档]
-├── hermes/                        # ⚙️ Hermes 平台 (18)
-│   ├── web-research-router/       # v3.9 · 5 引擎深度研究
-│   ├── auto-diary/                # v3.5.1 · 日/周/月/年金字塔聚合
+├── hermes/                        # ⚙️ Hermes 平台 (22)
+│   ├── web-research-router/       # v3.9 · 6 引擎深度研究
+│   ├── auto-diary/                # v3.6.2 · 日/周/月/年金字塔聚合
 │   ├── mac-doctor/                # v2.4.1 · macOS 六级巡检
 │   ├── cron-worker/               # v1.0 · 定时任务 + 四种心跳
-│   ├── claude-code/               # v4.1.1 · CC 编排+双向拷问+自治团队
+│   ├── claude-code/               # v4.2.1 · CC 编排+双向拷问+自治团队
 │   ├── cqi-plan-writer/            # v1.2 · CQI 计划写作（重构回写+硬证据+附录）
 │   ├── memory-hub/                # v0.2.1 · CC×CQI 自动归集回路
 │   ├── tts-manager/               # TTS 聚合管理
@@ -99,7 +99,7 @@ Skills ranked by total commit count across the full repository history — refle
 
 ### ✍️ skill-authoring · 合规创作 v3.0
 
-> **18 commits** — the most iterated skill in the repo · 仓库中迭代最多的技能
+> **24 commits** — the most iterated skill in the repo · 仓库中迭代最多的技能
 
 11-step compliance-first skill authoring workflow with 7-dimension scoring. Absorbed SkillEvolver + EmbodiSkill (2026-05) for deployment-driven skill evolution.
 11 步合规创作工作流 + 七维评分。吸收 SkillEvolver + EmbodiSkill 实现部署驱动的技能进化。
@@ -112,9 +112,9 @@ Skills ranked by total commit count across the full repository history — refle
 
 ---
 
-### 📔 auto-diary · 自动化日记 v3.6.1
+### 📔 auto-diary · 自动化日记 v3.6.2
 
-> **17 commits** — evolved through seven major versions (v2.0 → v3.6.1) · 历经七个大版本迭代
+> **23 commits** — evolved through seven major versions (v2.0 → v3.6.1) · 历经七个大版本迭代
 
 Automated daily diary + weekly/monthly/yearly report generation from cron. v3.6.1 adds DingTalk class group message ingestion — decrypt local DingTalk SQLite → extract teacher messages → auto-include in daily diary.
 从 cron 触发的日记生成到金字塔聚合的年报体系。v3.6.1 新增钉钉班级群消息采集——解密本地加密 SQLite → 提取老师消息 → 自动写入当日日记。
@@ -133,7 +133,7 @@ Automated daily diary + weekly/monthly/yearly report generation from cron. v3.6.
 
 ### 🔍 web-research-router · 检索总控 v3.9
 
-> **15 commits** — 6 major versions (v3.1→v3.9), 22 reference files · 22 个引用文件
+> **19 commits** — 6 major versions (v3.1→v3.9), 22 reference files · 22 个引用文件
 
 Multi-engine search router with deep research loop. The most architecturally complex skill in the repo, evolved through six versions each adding a distinct capability layer.
 六引擎搜索路由 + 深度研究循环。仓库中架构最复杂的技能，六个版本各叠加一层能力。
@@ -149,20 +149,22 @@ Multi-engine search router with deep research loop. The most architecturally com
 
 ---
 
-### 🤖 claude-code · CC 编排 v4.1.1
+### 🤖 claude-code · CC 编排 v4.2.1
 
-> **16 commits** — 8 versions (v3.0→v4.1.1) · 29 reference files · Hermes↔CC 双向拷问 + 自治团队编排
+> **23 commits** — 9 versions (v3.0→v4.2.1) · 70 reference files · Hermes↔CC 双向拷问 + 自治团队编排
 
-Hermes-to-Claude Code orchestration bridge with bidirectional grilling protocol and autonomous agent team coordination. v4.1 adds constitutional red lines + Gate Stamp discipline — a correctness layer before execution.
-从 Hermes 编排 Claude Code，v4.1 新增红线宪法 + Gate Stamp 执行前签章。
+Hermes-to-Claude Code orchestration bridge with bidirectional grilling protocol and autonomous agent team coordination. v4.2 completed a major salience slim (685→446 lines, -35%) — 7 reference tables/trees/patterns moved to references/ while preserving 2 constitutional red lines + Gate Stamp discipline + 7/7 automated healthcheck.
+从 Hermes 编排 Claude Code，v4.2 完成大幅瘦身（685→446 行，-35%）—— 7 张参考表/树/规格下沉 references/，保留 2 条红线宪法 + Gate Stamp 签章 + 7/7 自动化健康检查。
 
-- **v4.1.0 — Constitutional red lines · 红线宪法:** 2 条铁律红线（📡 capture↔report 1:1 成对 + 讨论协议=不执行）+ 4 项 Gate Stamp（方案审定/effort/占用检测/session 时间戳）+ effort 路由下沉到 references/；红线上限→立即标记+补做禁下轮改
+- **v4.2.0 — Salience slim · 瘦身下沉:** 685→446 行（-35%），7 张完整表/树（Critical Pitfalls·Red Flags·Core Rules·Decision Trees·CQI Events·References·Occupancy Scan）下沉到 references/，主体仅留高频骨架+指针。新增 `cc-skill-healthcheck.sh`（T1-T8 自动化验收）+ `drift-check.sh`（fail-open 漂移校验）。7/7 healthcheck 全绿。
+- **v4.2.1 — CQI audit · CQI 审计:** `cqi-plan-writer` v1.2 重构回写 CQI 文档，发现并修复 `effort-routing.md` 两端内容分叉（healthcheck T6 FAIL→PASS）。运行端追加「机械任务用 max → 分析瘫痪」反模式段，已三路合并回源端 + CC 最终审查通过。
+- **v4.1.0 — Constitutional red lines · 红线宪法:** 2 条铁律红线（📡 capture↔report 1:1 成对 + 讨论协议=不执行）+ 5 项 Gate Stamp（方案审定/effort/占用检测/session 隔离/该调 CC）+ effort 路由下沉到 references/；红线上限→立即标记+补做禁下轮改
 - **Discussion protocol · 讨论协议:** Hermes↔CC 双向拷问 — grill pattern（逐问/带推荐答案/先查事实）+ 多轮辩证 + 共识终止条件 + 讨论简报模板。吸收 `mattpocock/skills` grill-me + Du et al. 2023 multiagent debate
 - **Session architecture · 会话架构:** 默认每次新建独立 session `hermes-cc-{agent}-{ts}`（废除共享 longterm），跨会话上下文走 `/tmp/cc-context-{task}.md`
 - **v3.5.x — Stability fixes · 稳定性修复:** Smart effort routing（5 级，signal-based）+ Pitfall #24 假空闲检测 + #25 会话劫持 + #26 权限表单不可靠 + #27 自动恢复旧会话
 - **v4.0.0 — Debt cleanup · 清债:** Pitfall 编号重排（#18–#27 连续无重复）、3 个 detail 补全、2 个坏链修复、6 个孤儿 reference 收编、共享 longterm 策略矛盾消除
 - **Progress reporting · 进度汇报:** 强制 15s 首检 → 30-60s 轮询 → emoji 状态模板；沉默 >2min = 异常
-- **v4.1.1 — CQI 诊断闭环:** 通用性声明（任意 Hermes agent 加载）+ read hook 防漂移（源↔部署端 hash 校验）+ Gate Stamp 补「该调 CC」项 + CC×CQI 三步自动链（mem_ingest→cqi_runtime→mem_merge）+ cron 兜底 / tri-merge anti-drift + CC×CQI auto-trigger chain
+- **v4.1.2 — 艾大力回写:** 监控事故复盘 + manual-patrol-after-report 机制 + 收尾输入行安全门（Final Input-Line Gate）+ CC×CQI 三步自动链（mem_ingest→cqi_runtime→mem_merge）+ cron 兜底
 
 → [`hermes/claude-code/`](hermes/claude-code/)
 
@@ -170,7 +172,7 @@ Hermes-to-Claude Code orchestration bridge with bidirectional grilling protocol 
 
 ### 🧠 memory-hub · CC×CQI 自动归集回路 v0.2.1
 
-> **4 commits** — 3 versions in single day (v0.1.0→v0.2.1) · Jz-Plugin v4.0 内核
+> **9 commits** — 3 versions (v0.1.0→v0.2.1) · Jz-Plugin v4.0 内核
 
 Append-only JSONL event log with 3-shard schema (issue/evolution/status_event) + CC handoff auto-ingest + CQI runtime auto-acknowledge + mem_merge auto-documentation + cron fallback. The first Jz-Plugin component to reach full automated CQI closed loop.
 
@@ -185,7 +187,7 @@ Jz-Plugin v4.0 的内核——append-only 三 shard JSONL 真相源 + CC 自动�
 
 ### 🩺 mac-doctor · macOS 巡检 v2.4.1
 
-> **11 commits** — 19 files, 2,135 lines · 仓库中最全面的系统运维技能
+> **15 commits** — 19 files, 2,135 lines · 仓库中最全面的系统运维技能
 
 Six-tier macOS system health monitoring with root-cause diagnosis and dual cron scheduling. Sustained iteration fixing edge cases and adding diagnostic depth.
 六级 macOS 健康巡检，含根因诊断和双 cron 调度。持续迭代修复边界情况和增强诊断深度。
@@ -232,7 +234,7 @@ General reference for Supermemory — long-term memory infrastructure shared acr
 
 ## 📋 Full Catalog · 完整目录
 
-### 🌐 shared/ — Cross-platform · 跨平台 (16)
+### 🌐 shared/ — Cross-platform · 跨平台 (15)
 
 | Skill | Purpose · 用途 |
 |:---|:---|
@@ -252,7 +254,7 @@ General reference for Supermemory — long-term memory infrastructure shared acr
 | 🎴 [`xiaohongshu-cards`](shared/xiaohongshu-cards/) | Article→RED card images / 小红书图文卡片 |
 | ✍️ [`xhs-tech-writer`](shared/xhs-tech-writer/) | RED AI/tech short-form content / 小红书科技短图文 |
 
-### ⚙️ hermes/ — Hermes platform (18)
+### ⚙️ hermes/ — Hermes platform (22)
 
 | Skill | Purpose · 用途 |
 |:---|:---|
@@ -260,7 +262,7 @@ General reference for Supermemory — long-term memory infrastructure shared acr
 | 📔 [`auto-diary`](hermes/auto-diary/) | Daily→yearly diary — [§active](#-auto-diary--自动化日记-v351) |
 | 🩺 [`mac-doctor`](hermes/mac-doctor/) | macOS 6-tier health v2.4.1 — [§active](#-mac-doctor--macos-巡检-v241) |
 | 🕐 [`cron-worker`](hermes/cron-worker/) | Cron profile v1.0 + pool watchdog — [§active](#-cron-worker--定时任务-agent-v10) |
-| 🤖 [`claude-code`](hermes/claude-code/) | CC orchestration v4.1.1 — [§active](#-claude-code--cc-编排-v411) |
+| 🤖 [`claude-code`](hermes/claude-code/) | CC orchestration v4.2.1 — [§active](#-claude-code--cc-编排-v421) |
 | 📝 [`cqi-plan-writer`](hermes/cqi-plan-writer/) | v1.2 · Signal-driven CQI writing (restructure+evidence+appendix) / CQI 计划写作 |
 | 🧠 [`memory-hub`](hermes/memory-hub/) | v0.2.1 · CC→CQI auto-ingest loop / CC×CQI 自动归集回路 |
 | 🧠 [`supermemory-hermes`](hermes/supermemory-hermes/) | Hermes Supermemory setup + multi-profile |
@@ -274,6 +276,10 @@ General reference for Supermemory — long-term memory infrastructure shared acr
 | 📅 [`calendar-manager`](hermes/calendar-manager/) | Smart calendar + reminders / 智能日历 |
 | 📰 [`morning-news-briefing`](hermes/morning-news-briefing/) | Daily news briefing / 早新闻简报 |
 | 💬 [`telegram-topic-manager`](hermes/telegram-topic-manager/) | v2.0 · Telegram Topic CRUD + Hermes /topic / 话题管理 |
+| 📄 [`arxiv`](hermes/arxiv/) | arXiv + Semantic Scholar paper search / 论文检索 |
+| 💬 [`dingtalk-message-monitor`](hermes/dingtalk-message-monitor/) | Decrypt + monitor DingTalk local DB / 钉钉消息解密监控 |
+| 🧠 [`llm-wiki`](hermes/llm-wiki/) | Karpathy's LLM Wiki knowledge base / LLM Wiki 知识库 |
+| 🔗 [`reply-context-retrieval`](hermes/reply-context-retrieval/) | Telegram reply context retrieval / 回复上下文检索 |
 
 ### 🏯 hermes-3S6M-profiles/ — 三省六部 (23)
 
