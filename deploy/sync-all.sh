@@ -6,6 +6,16 @@
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
+# Hermes profile runs may rewrite $HOME to
+# ~/.hermes/profiles/<profile>/home. Deployment targets must use the real
+# macOS user home, otherwise sync-all silently copies into a profile-home
+# shadow tree and the live shared skill pool is left stale.
+REAL_HOME="$(python3 - <<'PY'
+import os, pwd
+print(pwd.getpwuid(os.getuid()).pw_dir)
+PY
+)"
+
 copy_skill_dir() {
   local src="$1"
   local dst="$2"
@@ -21,7 +31,7 @@ copy_skill_dir() {
 
 # === Hermes ===
 sync_hermes() {
-  local base=~/.hermes/skills
+  local base="$REAL_HOME/.hermes/skills"
   echo "→ Syncing to Hermes..."
 
   # Shared (cross-platform) skills
@@ -60,17 +70,17 @@ sync_hermes() {
 
   # Sync to all profiles (skip profiles that use external_dirs to shared pool)
   echo "→ Syncing to profiles..."
-  for prof in $(ls -d ~/.hermes/profiles/*/ 2>/dev/null | xargs -n1 basename); do
+  for prof in $(ls -d "$REAL_HOME"/.hermes/profiles/*/ 2>/dev/null | xargs -n1 basename); do
     # Skip profiles that already get skills via external_dirs — don't create
     # redundant local copies that shadow the shared pool.
-    local cfg=~/.hermes/profiles/$prof/config.yaml
+    local cfg="$REAL_HOME/.hermes/profiles/$prof/config.yaml"
     if [ -f "$cfg" ] && grep -q 'external_dirs:' "$cfg" 2>/dev/null; then
       if grep -A2 'external_dirs:' "$cfg" 2>/dev/null | grep -qv '\[\]'; then
         echo "  ⏭️  $prof (uses external_dirs)"
         continue
       fi
     fi
-    local pd=~/.hermes/profiles/$prof/skills
+    local pd="$REAL_HOME/.hermes/profiles/$prof/skills"
     mkdir -p "$pd/research" "$pd/github" "$pd/governance" "$pd/productivity" "$pd/autonomous-ai-agents" "$pd/apple" "$pd/hermes" "$pd/social-media"
     copy_skill_dir "$REPO_ROOT/shared/grill-with-docs"        "$pd/governance"
     copy_skill_dir "$REPO_ROOT/shared/skill-authoring"        "$pd/governance"
@@ -94,12 +104,12 @@ sync_hermes() {
     copy_skill_dir "$REPO_ROOT/hermes/dingtalk-message-monitor"      "$pd/social-media"
   done
 
-  echo "  ✅ Hermes ($(ls -d ~/.hermes/profiles/*/ 2>/dev/null | wc -l | tr -d ' ') profiles)"
+  echo "  ✅ Hermes ($(ls -d "$REAL_HOME"/.hermes/profiles/*/ 2>/dev/null | wc -l | tr -d ' ') profiles)"
 }
 
 # === Claude Code ===
 sync_cc() {
-  local base=~/.claude/skills
+  local base="$REAL_HOME/.claude/skills"
   mkdir -p "$base"
   echo "→ Syncing to Claude Code..."
 
@@ -118,7 +128,7 @@ sync_cc() {
 
 # === pi ===
 sync_pi() {
-  local base="${PI_SKILLS_DIR:-~/.pi/skills}"
+  local base="${PI_SKILLS_DIR:-$REAL_HOME/.pi/skills}"
   mkdir -p "$base"
   echo "→ Syncing to pi ($base)..."
 
