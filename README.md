@@ -5,13 +5,13 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-44-blue" alt="44 skills">
+  <img src="https://img.shields.io/badge/skills-43-blue" alt="43 skills">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
   <img src="https://img.shields.io/badge/license-MIT-brightgreen" alt="MIT license">
 </p>
 
-> 🤖 **Hermes + Claude Code + pi 三端 AI agent 技能仓库 — 44 skills, 四层结构, 双向同步。**
+> 🤖 **Hermes + Claude Code + pi 三端 AI agent 技能仓库 — 43 skills, 四层结构, 双向同步。**
 >
 > Skills authored, audited, and evolved by AI agents following [skill-authoring](shared/skill-authoring/). Deployed to a Hermes, Claude Code, and pi (Windows).
 >
@@ -25,7 +25,6 @@
 jz-skills/
 ├── shared/   🌐 跨平台 · Cross-platform (15)
 ├── hermes/   ⚙️ Hermes (22)
-├── cc/       🤖 Claude Code · CC 原生 (1)
 ├── pi/       🪟 Pi / Windows (6)
 └── _archived-hermes-3S6M-profiles/ 🗄️ 三省六部 · 已归档 (23)
 ```
@@ -34,7 +33,6 @@ jz-skills/
 |:---|:---|:---:|:---|
 | 🌐 | `shared/` | 15 | All 3 platforms · 三端同步 |
 | ⚙️ | `hermes/` | 22 | Hermes platform · 平台通用 |
-| 🤖 | `cc/` | 1 | Claude Code native, soft-orchestrated · CC 原生软编排 |
 | 🪟 | `pi/` | 6 | Pi (Windows), self-authored · Pi 自创作 |
 
 <details>
