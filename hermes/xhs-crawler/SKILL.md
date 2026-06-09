@@ -1,10 +1,10 @@
 ---
 
 name: xhs-crawler
-description: |
-type: routine
-  小红书内容提取与深度分析。支持链接提取、关键词搜索、创作者主页爬取。
-  通过 CDP 自动化提取正文、评论、轮播图 OCR，生成结构化知识资产报告。
+description: >-
+  type: routine
+  小红书内容提取与深度分析。主力后端：XHS-Downloader（免登录，库直调子进程），备选：CDP 浏览器自动化 + xhshow 签名。
+  支持链接提取、关键词搜索、创作者主页爬取。提取后生成 7 章节结构化知识资产报告。
   Triggers: 小红书, xhs, rednote, xiaohongshu, 获取小红书, 解析小红书, extract xhs, analyze xhs
 metadata:
   {
@@ -20,15 +20,19 @@ metadata:
 
 ---
 
-# 小红书内容提取器 v5
+# 小红书内容提取器 v6
 
-小红书（XiaoHongShu/RedNote）全功能内容提取技能。支持三种模式：
+小红书（XiaoHongShu/RedNote）全功能内容提取技能。**主力后端为 XHS-Downloader**（第三方开源工具，免登录提取），以**直接库调用 + 子进程**形式集成（非 HTTP API、非 MCP），原有 CDP/xhshow 方案隔离保留为备选兜底。
 
-1. **链接提取** — 发送小红书链接，通过 CDP 自动提取正文、评论、轮播图 OCR，输出结构化 JSON
-2. **关键词搜索** — 通过 API 按关键词搜索笔记列表
-3. **创作者分析** — 获取创作者主页信息和笔记列表
+支持三种提取路径：
+
+1. **XHS-Downloader 库直调（⭐ 主力）** — 经 `scripts/xhs_backend.py` 调用跑在独立 Python 3.12 venv 里的 runner 子进程，免 Cookie 提取作品元数据、统计、标签、图片 URL
+2. **CDP 浏览器自动化（备选，`scripts/legacy/`）** — 需 Chrome CDP + 登录态，可补齐完整正文 + 评论 + 轮播图 OCR
+3. **关键词搜索 + 创作者分析** — 通过 xhshow 签名 API（需 Cookie）
 
 提取后由 agent 自身 LLM 能力按 `references/xhs-report-prompt.md` 模板生成知识资产报告。
+
+> **架构**：skill 胶水层跑在 Hermes 默认 `python3`（3.9）；XHS-Downloader 因要求 ≥3.12 且依赖重，被隔离进自己的 uv venv，经子进程（stdin=url / stdout=JSON）调用。详见 `claude.md`。
 
 ## P0 约束（严格遵守）
 
@@ -44,12 +48,16 @@ metadata:
 
 ### 数据获取 Fallback 策略
 
-**链接提取失败时的降级链：**
-1. **CDP 提取失败** → 尝试 API 模式（`xhs_api.py`）获取基础数据
-2. **API 模式失败** → 返回错误 + 已获取的部分数据（不中断流程）
-3. **评论加载失败** → 标注"[评论数据不可用]"，保留其他章节
-4. **OCR 失败** → 跳过 OCR，保留正文和评论文本内容
-5. **轮播图为 0** → 分析无轮播图原因（单图笔记或提取失败）
+**链接提取时的降级链（按优先级）：**
+
+1. **XHS-Downloader 库直调（首选）** — `python3 scripts/xhs_backend.py <链接>`（或 `from xhs_backend import fetch_note`），免 Cookie 即可获取标题/描述/标签/互动数据/图片 URL。**关键：胶水层永远显式传 `cookie=""` 空字符串触发免登录路径，传 null 或不传会失败（已固化在 `build_command` 里）。**
+2. **XHS-Downloader 失败** → 尝试 CDP 模式补齐评论/OCR（`scripts/legacy/`，需 Chrome CDP + 登录态）
+3. **CDP 模式失败** → 尝试纯 xhshow 签名 API（搜索/创作者，需 Cookie）
+4. **全部失败** → 返回错误 + 已获取的部分数据（不中断流程）
+5. **IP 风控（300012）** — 任何一步触发此错误，**立即止损**：停止所有尝试，向用户汇报已穷尽方案，提供三个选项：(A) 提供 Cookie 换 API 模式 (B) 换代理 IP (C) 手动复制内容。禁止继续轮换其他方案，每多试一次都是浪费 token。
+6. **评论加载失败** → 标注"[评论数据不可用]"，保留其他章节
+7. **OCR 失败** → 跳过 OCR，保留正文和评论文本内容
+8. **轮播图为 0** → 分析无轮播图原因（单图笔记或提取失败）
 
 **通用浏览器/爬虫工具定位：**
 - 不要用 Crawl4AI、普通 web_extract、通用 browser-agent 替代本 skill 作为小红书主力；这些工具通常缺少小红书专用登录态、评论加载、轮播图 OCR、报告结构和数据完整性检查。
@@ -178,9 +186,22 @@ completeness_check = {
 
 ## 前置要求
 
-### 安装检查清单
+### ⭐ 主力前置：bootstrap XHS-Downloader（一次性）
 
-首次使用或遇到问题时，按此顺序检查：
+```bash
+# 幂等：自动 clone 到 .xhs-downloader/ 并用 uv 同步出 Python 3.12 venv（含全部依赖）
+python3 {baseDir}/scripts/xhs_bootstrap.py
+
+# 自检后端是否就绪
+python3 {baseDir}/scripts/xhs_bootstrap.py doctor
+```
+
+依赖 `uv`（`brew install uv`）与可用的 Python 3.12（如 `/opt/homebrew/bin/python3.12`）。
+clone 落点 `.xhs-downloader/` 已 gitignore，不入库；`git pull` 即可更新上游。
+
+### legacy 前置（仅 CDP 兜底链路需要）
+
+以下仅在需要评论 / 轮播图 OCR、启用 `scripts/legacy/` CDP 链路时才配置：
 
 1. **xhshow 库已安装**：
    ```bash
@@ -234,7 +255,7 @@ pip3 install -e .
 ### Cookie（API 模式必需）
 
 ```bash
-python3 {baseDir}/scripts/cookie_manager.py save 'web_session=xxx;a1=xxx'
+python3 {baseDir}/scripts/legacy/cookie_manager.py save 'web_session=xxx;a1=xxx'
 ```
 从浏览器 DevTools → Application → Cookies 获取 `web_session` 和 `a1` 字段。
 
@@ -249,54 +270,71 @@ python3 {baseDir}/scripts/cookie_manager.py save 'web_session=xxx;a1=xxx'
 
 ## 使用方法
 
-### 推荐：完整提取（含OCR和自动清理）
+### ⭐ 主力方案：XHS-Downloader 库直调（免 Cookie 提取）
 
-**一键提取所有内容（正文+评论+完整OCR+自动清理）：**
+**适用场景：** 快速获取笔记标题、描述、标签、互动数据、图片 URL。不需要登录态、Chrome CDP、Cookie。
 
-```bash
-python3 {baseDir}/scripts/xhs_full_extractor.py "<小红书链接>"
-```
-
-**示例：**
-```bash
-python3 {baseDir}/scripts/xhs_full_extractor.py "http://xhslink.com/xxxxx"
-```
-
-**功能：**
-- ✅ 基础数据提取（标题、作者、正文、标签）
-- ✅ 评论区滚动加载和去重
-- ✅ **完整轮播图OCR**（12张图全部识别）
-- ✅ **即时清理**（每完成一张OCR立即删除截图）
-- ✅ 生成 JSON + 文本格式输出
-- ✅ 最终临时文件清理
-
-**打印检查清单：**
-```bash
-python3 {baseDir}/scripts/xhs_full_extractor.py --checklist
-```
-
----
-
-### 模式 1：链接提取（CDP - 基础版）
-
-**触发：** 直接发送小红书分享链接
-
-```
-http://xhslink.com/xxxxx
-```
-
-**流程：**
-1. CDP 连接 Chrome → 导航到笔记页面（继承登录态）
-2. 滚动加载评论区（5 次滚动）
-3. JS 注入提取正文、评论、标签、图片 URL、互动数据
-4. 轮播图逐张截图 → Qwen3-VL OCR（可通过 `--no-ocr` 跳过）
-5. 输出 JSON 数据到 stdout
+**一次性准备**见上文「主力前置：bootstrap」。准备好后**无需启动任何服务器**，直接调用：
 
 **命令行：**
 ```bash
-python3 {baseDir}/scripts/xhs_extractor.py "<小红书链接>"
-python3 {baseDir}/scripts/xhs_extractor.py "<小红书链接>" --no-ocr
+python3 {baseDir}/scripts/xhs_backend.py "<小红书链接>"
+# 输出报告输入契约 JSON：{status, report_input, message, stop_loss, url}
 ```
+
+**库调用（推荐，便于 agent 编排）：**
+```python
+import sys; sys.path.insert(0, "{baseDir}/scripts")
+from xhs_backend import fetch_note
+
+out = fetch_note("<小红书链接>")        # cookie 默认 ""（免登录）
+if out["status"] == "ok":
+    data = out["report_input"]         # 已适配成报告模板输入契约
+    # data["title"] / ["author"] / ["tags"] / ["content"] /
+    # data["comments"](标注) / ["ocr_content"](标注) / ["stats"] / ["needs_cdp_fallback"]
+```
+
+**支持的链接格式（优先用带 `xsec_token` 的分享链 / 短链，免风控）：**
+- `https://www.xiaohongshu.com/explore/<note_id>?xsec_token=...`
+- `https://www.xiaohongshu.com/discovery/item/<note_id>?xsec_token=...`
+- `https://xhslink.com/<short_code>`（短链，由后端自动解析）
+- ⚠️ **裸 `explore/<note_id>`（无 token）易触发风控**——`prepare_url` 会原样保留 token，绝不削成裸 id。
+
+**`fetch_note` 返回 `status` 分类：**
+
+| status | 含义 | 处理 |
+|---|---|---|
+| `ok` | 成功，`report_input` 为适配后数据 | 进入报告生成 |
+| `failed` | 后端未提取到数据 | 换带 token 的新链接 / 上 CDP 兜底 |
+| `ip_risk` | IP 风控（300012），`stop_loss=True` | **立即止损**，按下方 Q7 上报用户 |
+| `timeout` | runner 子进程超时 | 重试一次，仍失败则上报 |
+| `invalid_url` | 非小红书链接 | 提示用户检查链接 |
+| `error` | runner 异常 / 坏 JSON | 跑 `xhs_bootstrap.py doctor` 查后端是否就绪 |
+
+**⚠️ 关键陷阱：`cookie` 必须是空字符串**
+- `cookie=""`（空字符串）= 免登录提取成功 ✅
+- `cookie=None` 或不传 = 失败 ❌
+- 已固化在 `build_command`：胶水层永远显式传 `""`，无需手动处理。
+
+**局限性（vs CDP 模式）——适配器一律输出标准标注而非杜撰：**
+- ❌ 不能提取评论 → `[评论数据不足：...评论总数 N 条]`
+- ❌ 不能提取轮播图 OCR → `[图片OCR不可用：...共 N 张...]`
+- ❌ 图文正文常嵌在图里、可能不完整 → 正文后标注 `[正文可能不完整...]`
+- ✅ 元信息/标签/互动数据足够；`report_input["needs_cdp_fallback"]` 为 True 时建议上 CDP 补评论/OCR
+
+---
+
+### 备选方案：CDP 兜底（评论 + 轮播图 OCR）
+
+仅当 XHS-Downloader 主力路径已拿到元数据、但报告**必须**补齐评论或图文 OCR 时启用。
+前提：Chrome CDP（端口 19222）+ 小红书登录态。详见 `scripts/legacy/README.md`。
+
+```bash
+python3 {baseDir}/scripts/legacy/xhs_extractor_v2.py "<小红书链接>"
+python3 {baseDir}/scripts/legacy/xhs_extractor_v2.py "<小红书链接>" --no-ocr
+```
+
+**流程：** CDP 连接 Chrome（继承登录态）→ 滚动加载评论 → JS 注入提取正文/评论/标签/图片/互动 → 轮播图逐张截图 → Qwen3-VL OCR → 输出 JSON。
 
 **输出 JSON 结构：**
 ```json
@@ -421,20 +459,44 @@ python3 {baseDir}/scripts/xhs_api.py creator "<用户ID>"
 
 ## 脚本清单
 
-| 脚本 | 用途 | 用法 | 推荐度 |
-|------|------|------|:------:|
-| `xhs_extractor_v2.py` | CDP 提取器（修复版） | `python3 {baseDir}/scripts/xhs_extractor_v2.py <url>` | ⭐⭐⭐ |
-| `xhs_full_extractor.py` | 完整提取（含OCR+清理） | `python3 {baseDir}/scripts/xhs_full_extractor.py <url>` | ⭐⭐⭐ |
-| `xhs_extractor.py` | CDP 提取器（原版） | `python3 {baseDir}/scripts/xhs_extractor.py <url>` | ⭐⭐ |
-| `xhs_api.py` | 纯 API 客户端 | `python3 {baseDir}/scripts/xhs_api.py <url>` | ⭐⭐ |
-| `xhs_carousel_ocr.py` | 轮播图 OCR | 由 xhs_extractor 调用 | - |
-| `cookie_manager.py` | Cookie 管理 | `python3 {baseDir}/scripts/cookie_manager.py show` | - |
-| `parse_xhs_url.py` | URL 解析 | `python3 {baseDir}/scripts/parse_xhs_url.py <url>` | - |
-| `extractors.js` | 浏览器端 JS | 由 xhs_extractor 注入 | - |
+**主力链路（XHS-Downloader 库直调）：**
+
+| 脚本 | 用途 | 用法 |
+|------|------|------|
+| `xhs_bootstrap.py` | 幂等准备 3.12 后端（clone + uv sync）/ doctor 自检 | `python3 {baseDir}/scripts/xhs_bootstrap.py [doctor]` |
+| `xhs_backend.py` | 后端胶水：URL 规范化 + 子进程调用 + 分类 + 适配 | `python3 {baseDir}/scripts/xhs_backend.py <url>` |
+| `xhs_downloader_runner.py` | 薄 runner（跑在 .venv 3.12，输出纯 JSON） | 由 `xhs_backend` 子进程调用 |
+| `xhs_adapter.py` | 返回数据 → 报告模板输入契约（纯函数） | 由 `xhs_backend` 调用 |
+| `parse_xhs_url.py` | URL 规范化 / 保留 xsec_token / note_id 提取 | 由 `xhs_backend` 调用 |
+
+**搜索 / 创作者（xhshow 签名，需 Cookie）：**
+
+| 脚本 | 用途 | 用法 |
+|------|------|------|
+| `xhs_api.py` | 关键词搜索 / 创作者分析 | `python3 {baseDir}/scripts/xhs_api.py <search\|creator> <arg>` |
+
+**兜底（CDP，评论 + OCR）：** 见 `scripts/legacy/README.md`。
+
+**测试：** `python3 -m pytest {baseDir}/tests/`（联网金丝雀默认跳过，`XHS_LIVE_TEST=1` 才跑）。
 
 ## 故障排除
 
 ### 常见问题速查 (FAQ)
+
+#### Q0: XHS-Downloader 提取失败（`status=failed` / `error`）？
+
+**排查步骤：**
+1. **后端是否就绪** — `python3 {baseDir}/scripts/xhs_bootstrap.py doctor`；`ready:false` 则先跑 `xhs_bootstrap.py`
+2. **链接是否带 token** — 优先用短链或带 `xsec_token` 的分享链；裸 `explore/<id>` 易被风控失败
+3. **链接格式** — 确认是 `explore/`、`discovery/item/` 或 `xhslink.com/`
+4. **IP 是否被封** — `status=ip_risk`（300012）见 Q7，**立即止损**
+5. **更新上游** — `cd {baseDir}/.xhs-downloader && git pull && uv sync --no-dev`
+
+**cookie 陷阱：** 胶水层已固化 `cookie=""`（`build_command`）；若手改 runner/backend 传了 `None` 会失败。
+
+**Python 版本：** XHS-Downloader 需 ≥3.12，由 `.xhs-downloader/.venv`（uv 管理）满足，与 skill 胶水层的 `python3`(3.9) 互不影响。`uv` 未装则 `brew install uv`。
+
+---
 
 #### Q1: CDP 连接失败怎么办？
 **症状：** `🔌 连接 Chrome CDP...` 后报错或超时
@@ -509,7 +571,7 @@ python3 -c "from xhshow import Xhshow; print('xhshow OK')"
 1. 脚本已内置 5 次滚动，如仍不足可手动增加：
    ```bash
    # 修改 xhs_extractor.py 中的 scroll_times 参数
-   python3 scripts/xhs_extractor.py "<url>" --scroll-times 10
+   python3 scripts/legacy/xhs_extractor_v2.py "<url>" --scroll-times 10
    ```
 2. 检查 Chrome 中是否已登录小红书
 3. 如 DOM 结构变化，需更新 `extractors.js`（⚠️ 谨慎操作）
@@ -534,7 +596,7 @@ python3 -c "from xhshow import Xhshow; print('xhshow OK')"
    ```
 3. 跳过 OCR 快速验证：
    ```bash
-   python3 scripts/xhs_extractor.py "<url>" --no-ocr
+   python3 scripts/legacy/xhs_extractor_v2.py "<url>" --no-ocr
    ```
 
 **优化建议：**
@@ -552,11 +614,28 @@ python3 -c "from xhshow import Xhshow; print('xhshow OK')"
 3. 复制 `web_session` 和 `a1` 字段的值
 4. 更新 Cookie：
    ```bash
-   python3 scripts/cookie_manager.py save 'web_session=xxx;a1=xxx'
+   python3 scripts/legacy/cookie_manager.py save 'web_session=xxx;a1=xxx'
    ```
 
 **自动化方案：**
 - 使用 CDP 模式继承浏览器登录态，无需手动管理 Cookie
+
+---
+
+#### Q7: IP 被小红书封锁（错误 300012）？
+**症状：** 浏览器导航到小红书后显示"安全限制"页面，错误码 300012，`error_msg=IP at risk`
+
+**根因：** 小红书对非住宅代理 IP、数据中心 IP、或频繁访问的 IP 实施风控封锁。CDP 和 API 模式都会同时被封。
+
+**处理流程（严格遵守）：**
+1. ❌ **不要尝试换方案** — web_extract / browser_navigate / Tavily / CDP / API 全都会被同一个 IP 封锁，切换只是浪费 token
+2. ✅ **立即止损** — 确认错误后直接向用户汇报，附上已穷尽的方案列表
+3. ✅ **提供三个选项** — (A) 提供 Cookie（`web_session` + `a1`）用 API 模式 (B) 换代理 IP (C) 手动复制内容发过来
+4. ⚠️ **禁止**手动写 CDP WebSocket 脚本、浏览器截图 OCR、或搜索笔记 ID 跨平台转载 — 这些都已验证无效
+
+**预防措施：**
+- 提前配置 Cookie 可绕过 IP 风控（API 模式对登录用户更宽松）
+- 使用住宅代理（如 Bright Data / Oxylabs）
 
 ---
 
@@ -578,7 +657,7 @@ python3 -c "from xhshow import Xhshow; print('xhshow OK')"
 **自定义路径：**
 ```bash
 export XHS_OUTPUT_DIR="~/Documents/MyReports"
-python3 scripts/xhs_extractor.py "<url>"
+python3 scripts/legacy/xhs_extractor_v2.py "<url>"
 ```
 
 **自动检测逻辑：**
@@ -598,6 +677,8 @@ python3 scripts/xhs_extractor.py "<url>"
 | `OCR Service Unavailable` | Qwen3-VL 未启动 | 启动 OCR 服务或使用 `--no-ocr` |
 | `Cookie Expired` | 登录态失效 | 更新 Cookie 或使用 CDP 模式 |
 | `Rate Limited` | 请求过快 | 增加延迟，降低并发 |
+| `IP at risk (300012)` | 当前 IP 被小红书风控封锁 | 见 Fallback 策略：立即止损上报用户，禁止继续尝试其他方案。不要换方案魔改 CDP WebSocket 手写脚本。直接用 XHS-Downloader + `cookie:""` 重试 |
+| `XHS-Downloader 失败 (empty cookie)` | cookie 参数传了 null 或未传 | 改为 `"cookie":""` 显式传空字符串 |
 
 ---
 
@@ -605,7 +686,7 @@ python3 scripts/xhs_extractor.py "<url>"
 
 **1. 查看详细日志：**
 ```bash
-python3 scripts/xhs_extractor.py "<url>" --verbose
+python3 scripts/legacy/xhs_extractor_v2.py "<url>" --verbose
 ```
 
 **2. 手动验证 CDP：**
@@ -633,6 +714,7 @@ rm -f /tmp/xhs_*.json /tmp/xhs_*.png /tmp/xhs_*.txt
 
 | 文档 | 用途 | 加载时机 |
 |:---|:---|:---|
+| `references/xhs-downloader-integration.md` | XHS-Downloader 部署手册、已验证工作流、样本数据 | 首次使用 XHS-Downloader 或遇到问题 |
 | `references/execution-guide.md` | 详细执行步骤、依赖配置 | 首次使用或遇到问题 |
 | `references/xhs-report-prompt.md` | 报告生成 LLM 模板 | 报告生成阶段 |
 | `references/ARCHITECTURE.md` | 技术架构、错误处理工作流 | 调试/开发时 |
@@ -646,9 +728,45 @@ rm -f /tmp/xhs_*.json /tmp/xhs_*.png /tmp/xhs_*.txt
 
 ---
 
+## 已知问题
+
+- XHS-Downloader 免登录模式**拿不到评论与轮播图 OCR**（架构限制，非 bug）；需要这两类数据时用 `scripts/legacy/` CDP 兜底。
+- 裸 `explore/<note_id>`（无 `xsec_token`）易触发风控；优先用短链或带 token 的分享链。
+- `scripts/legacy/xhs_extractor_v2.py` CDP 模式在无登录态时超时（120s+），仅在有 Cookie 时作兜底。
+- xhshow 库的签名算法依赖小红书前端加密逻辑，需定期更新。
+
+---
+
 ## 更新日志
 
-### 2026-05-14 v5.4.0 Hermes 迁移修复版
+### 2026-06-10 v6.0.0 XHS-Downloader 库直调 TDD 重构版
+
+**架构变更：**
+- ✅ **主力后端改为「库直调 + 子进程」** — 弃用 HTTP API 模式，经 `xhs_backend.fetch_note` 调用跑在独立 Python 3.12 venv 的 runner 子进程（stdin=url / stdout=JSON）
+- ✅ **双解释器模型** — skill 胶水层 3.9 兼容；XHS-Downloader 隔离进 uv venv(3.12)。子进程边界同时是版本隔离层与测试 mock 缝
+- ✅ **幂等 bootstrap** — `xhs_bootstrap.py` 自动 clone 到 gitignored `.xhs-downloader/` 并 uv sync，含 doctor 自检
+- ✅ **数据适配器** — `xhs_adapter.py` 映射返回数据为报告模板输入契约；缺失的评论/OCR 输出标准标注而非杜撰（P0）
+- ✅ **URL 规范化保留 xsec_token** — `prepare_url` 绝不把带 token 的链接削成裸 id
+
+**TDD：**
+- ✅ 77 个单元测试（adapter / url / backend / bootstrap），严格先红后绿
+- ✅ 联网金丝雀 `XHS_LIVE_TEST=1`（已验证笔记 `6a116dd8...`），默认跳过
+- ✅ 实跑暴露并修复「库进度信息污染 stdout」bug（runner 重定向 stdout→stderr + classify 末行解析）
+
+**旧代码：**
+- ✅ CDP 链路（v2 + OCR + cookie_manager + extractors.js）隔离到 `scripts/legacy/`，留作评论/OCR 兜底
+- ✅ 删除 `xhs_full_extractor.py`（语法错误）、`xhs_extractor.py`（v1，被 v2 取代）
+- ✅ `claude.md` 从 v5 拉齐到双解释器架构
+
+### 2026-06-10 v5.5.0 XHS-Downloader 集成版
+
+**重大更新：**
+- ✅ **XHS-Downloader 成为主力后端** — 免 Cookie 提取元数据、标签、互动数据、图片 URL
+- ✅ **`cookie:""` 工作记录** — XHS-Downloader 传空字符串才能触发无登录路径
+- ✅ **uv sync 作为安装方案** — 比 pip+venv 更可靠（解决 Python 3.12 venv ensurepip 问题）
+- ✅ **Fallback 策略重排** — XHS-Downloader API → CDP → xhshow API
+- ✅ **IP 风控处理文档** — 遇到 300012 立即止损，不要再轮换方案
+- ✅ **已知问题记录** — xhs_full_extractor.py 语法错误、xhs_extractor_v2 超时
 
 **修复问题：**
 - ✅ **移除 OpenClaw 引用** - 更新为原生 Chrome CDP（端口 19222）

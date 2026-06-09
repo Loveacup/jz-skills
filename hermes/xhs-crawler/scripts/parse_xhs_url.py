@@ -14,6 +14,43 @@ import re
 import requests
 
 
+# 交接给 XHS-Downloader 后端用：识别合法小红书链接并**原样保留 xsec_token**。
+# tail 字符类排除空白和 CJK 标点，这样紧贴 URL 后的「。」「，」等不会被吞进链接。
+_URL_TAIL = r'[^\s"<>\\^`{|}，。；！？、【】《》（）]'
+_PREPARE_RE = re.compile(
+    r'(?:https?://)?(?:'
+    r'www\.xiaohongshu\.com/(?:explore|discovery/item|user/profile)/' + _URL_TAIL + r'+'
+    r'|xhslink\.com/' + _URL_TAIL + r'+'
+    r'|xhs\.cn/' + _URL_TAIL + r'+'
+    r')'
+)
+_NOTE_ID_RE = re.compile(r'^[0-9a-f]{24}$')
+
+
+def prepare_url(raw):
+    """规范化用户输入，交给 XHS-Downloader 后端。
+
+    - 合法链接（explore / discovery/item / user/profile / xhslink / xhs.cn）→ 原样返回，
+      **保留 xsec_token 与全部 query**（免风控关键）；短链不在此解析，透传给后端。
+    - 夹在文本中的链接 → 抽取，且不吞掉后续中文。
+    - 裸 24 位十六进制笔记 ID → 重建 explore 链接（无 token，尽力而为）。
+    - 非小红书链接 / 空 → None。
+
+    纯函数、不联网。
+    """
+    if not raw or not isinstance(raw, str):
+        return None
+    raw = raw.strip()
+    if not raw:
+        return None
+    if _NOTE_ID_RE.match(raw):
+        return "https://www.xiaohongshu.com/explore/%s" % raw
+    m = _PREPARE_RE.search(raw)
+    if m:
+        return m.group(0)
+    return None
+
+
 def extract_note_id(url_or_id):
     """从各种格式的小红书链接中提取笔记ID"""
     
