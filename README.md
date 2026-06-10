@@ -5,13 +5,13 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-43-blue" alt="43 skills">
+  <img src="https://img.shields.io/badge/skills-45-blue" alt="45 skills">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
   <img src="https://img.shields.io/badge/license-MIT-brightgreen" alt="MIT license">
 </p>
 
-> 🤖 **Hermes + Claude Code + pi 三端 AI agent 技能仓库 — 43 skills, 四层结构, 双向同步。**
+> 🤖 **Hermes + Claude Code + pi 三端 AI agent 技能仓库 — 45 skills, 四层结构, 双向同步。**
 >
 > Skills authored, audited, and evolved by AI agents following [skill-authoring](shared/skill-authoring/). Deployed to a Hermes, Claude Code, and pi (Windows).
 >
@@ -24,7 +24,7 @@
 ```
 jz-skills/
 ├── shared/   🌐 跨平台 · Cross-platform (15)
-├── hermes/   ⚙️ Hermes (22)
+├── hermes/   ⚙️ Hermes (24)
 ├── pi/       🪟 Pi / Windows (6)
 └── _archived-hermes-3S6M-profiles/ 🗄️ 三省六部 · 已归档 (23)
 ```
@@ -32,7 +32,7 @@ jz-skills/
 | Layer | Directory | Skills | Scope · 范围 |
 |:---|:---|:---:|:---|
 | 🌐 | `shared/` | 15 | All 3 platforms · 三端同步 |
-| ⚙️ | `hermes/` | 22 | Hermes platform · 平台通用 |
+| ⚙️ | `hermes/` | 24 | Hermes platform · 平台通用 |
 | 🪟 | `pi/` | 6 | Pi (Windows), self-authored · Pi 自创作 |
 
 <details>
@@ -76,6 +76,9 @@ jz-skills/
 │   ├── calendar-manager/          # 智能日历
 │   ├── morning-news-briefing/     # 早新闻 · 每日新闻简报
 │   ├── telegram-topic-manager/     # v2.0 · Telegram Topic 管理 + Hermes /topic
+│   ├── surge-gateway/              # v2.5.2 · Surge 家庭代理网关
+│   ├── openwrt-router/             # v1.1.0 · OpenWrt/iStoreOS 路由器运维
+│   ├── unifi-ops/                  # v1.3.2 · UniFi AP/交换机/Controller 运维
 └── pi/                            # 🪟 Pi / Windows (6)
     ├── web-research-router/       # TS SDK 检索总控
     ├── pi-web-research/           # v3.4 多引擎深度研究

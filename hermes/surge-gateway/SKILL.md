@@ -2,15 +2,15 @@
 
 name: surge-gateway
 description: >-
-type: routine
   Control and troubleshoot the user's household Surge for Mac gateway via surge-cli.
   Use when the user asks about Surge, proxy mode/group/selection, network routing,
   DNS/cache, node latency, recent requests, household device identification, waking
   or SSH-ing into LAN Macs, or split-routing config. Do NOT use for general networking
   questions unrelated to Surge.
-version: 2.5.1
+type: routine
+version: 2.5.2
 tags: [surge, proxy, network, routing, dns, gateway]
-related_skills: [unifi-ops]
+related_skills: [unifi-ops, openwrt-router]
 ---
 
 # Surge Gateway
@@ -52,9 +52,9 @@ Network/routing/proxy/DNS/device task?
 └── NO → General networking? → Don't load
 ```
 
-## 🔗 与 `unifi-ops` 的交叉引用
+## 🔗 与 `unifi-ops` / `openwrt-router` 的交叉引用
 
-本 skill 管理网关/代理层（Surge for Mac, 192.168.2.252），`unifi-ops` 管理物理网络层（AP/交换机/Controller）。二者互补：
+本 skill 管理代理网关层（Surge for Mac, <internal IP redacted>），`unifi-ops` 管理物理网络层（AP/交换机/Controller），`openwrt-router` 管理 OpenWrt/iStoreOS 路由器层（WAN/LAN、DHCP、DNSMasq、NAT/firewall、UCI/opkg）。三者互补：
 
 | 场景 | 先用 | 原因 |
 |------|------|------|
@@ -63,8 +63,11 @@ Network/routing/proxy/DNS/device task?
 | 设备物理位置定位 | unifi-ops | 查该设备连到哪个 AP |
 | 新设备接入识别（MAC OUI） | unifi-ops | UniFi Controller 有完整设备清单 |
 | 上传带宽跑满 | unifi-ops | 交换机端口流量统计 |
+| 默认网关/DHCP/NAT/firewall 异常 | openwrt-router | Surge 位于代理层，不能修路由器底层服务 |
+| LuCI/Dropbear/opkg/iStoreOS 插件问题 | openwrt-router | OpenWrt/iStoreOS 系统与包管理 |
+| 设备无法联网（全链路） | unifi-ops → openwrt-router → surge-gateway | 先物理关联，再 DHCP/网关，最后代理规则 |
 
-> Controller IP 192.168.2.151，交换机 192.168.2.169，AP 192.168.2.137-141/98/140
+> Surge 网关 IP <internal IP redacted>，OpenWrt/iStoreOS 网关常见 IP <internal IP redacted>，Controller IP <internal IP redacted>
 
 ## Context
 
@@ -82,7 +85,7 @@ Config locations (check both — user may use iCloud sync):
 
 When the active config isn't in the expected location, search: `find ~/Library/Mobile\ Documents -name "*.conf"`
 
-> **Surge.app built-in skill**: Surge for Mac ships its own agent skill at `/Applications/Surge.app/Contents/Resources/Skills/surge/` (SKILL.md + `references/command-reference.md` + `agents/openai.yaml`). The `agents/openai.yaml` defines Surge's native OpenAI-compatible agent interface. This skill (`surge-gateway`) is the household-gateway-specific superset — it extends the built-in command reference with safety posture, device inventory, config auditing, and domain-specific diagnostic workflows.
+> **Surge.app built-in skill**: Surge for Mac ships its own agent skill at `/Applications/Surge.app/Contents/Resources/Skills/surge/` (including `/Applications/Surge.app/Contents/Resources/Skills/surge/SKILL.md`, `/Applications/Surge.app/Contents/Resources/Skills/surge/references/command-reference.md`, and `/Applications/Surge.app/Contents/Resources/Skills/surge/agents/openai.yaml`). The `agents/openai.yaml` defines Surge's native OpenAI-compatible agent interface. This skill (`surge-gateway`) is the household-gateway-specific superset — it extends the built-in command reference with safety posture, device inventory, config auditing, and domain-specific diagnostic workflows.
 
 ## Safety Posture
 
@@ -271,6 +274,7 @@ Full diagnostic workflow: `references/game-download-speed-diagnosis.md`
 | `references/adapter-keepalive-fix.md` | Fixing Hermes adapter layer for TLS-unstable proxy paths — reduce connect timeout, extend keepalive, enable HTTP/2 |
 | `references/domain-based-routing-detection.md` | Detecting domain-based traffic splitting on nodes — test against target domain, ipquality.sh for geo assessment, colo vs physical location |
 | `references/cross-skill-unifi.md` | When to escalate from Surge to UniFi layer: AP/signal issue, switch port mapping, device MAC OUI via Controller |
+| `references/cross-skill-openwrt.md` | When to escalate from Surge to OpenWrt/iStoreOS router layer: DHCP/DNSMasq/NAT/firewall/LuCI/opkg |
 
 ## ✅ Verification Checklist (RUN BEFORE RETURNING RESULTS)
 

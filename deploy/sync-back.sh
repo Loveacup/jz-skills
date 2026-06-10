@@ -77,6 +77,8 @@ PAIRS=(
   "hermes/telegram-topic-manager|social-media/telegram-topic-manager"
   "hermes/dingtalk-message-monitor|social-media/dingtalk-message-monitor"
   "hermes/surge-gateway|devops/surge-gateway"
+  "hermes/openwrt-router|smart-home/openwrt-router"
+  "hermes/unifi-ops|smart-home/unifi-ops"
 )
 
 for pair in "${PAIRS[@]}"; do

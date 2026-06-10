@@ -11,7 +11,7 @@ Use when the user asks whether a sleeping Mac/MacBook on the household LAN can b
 ## Reachability Probe
 
 ```bash
-IP=192.168.2.109
+IP=<internal IP redacted>
 MAC=5c:9b:a6:7e:e3:e1
 ping -c 1 -W 1000 "$IP" || true
 nc -vz -G 2 "$IP" 22 || true
@@ -63,8 +63,8 @@ Send magic packets from the local Mac (bind to actual LAN IP):
 ```bash
 LOCAL_IP=$(ipconfig getifaddr en0)
 TARGET_MAC="5c:9b:a6:7e:e3:e1"
-TARGET_IP="192.168.2.109"
-BCAST="192.168.2.255"
+TARGET_IP="<internal IP redacted>"
+BCAST="<internal IP redacted>"
 
 python3 - <<PY
 import socket, binascii, time, os
