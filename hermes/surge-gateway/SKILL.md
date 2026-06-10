@@ -8,7 +8,7 @@ type: routine
   DNS/cache, node latency, recent requests, household device identification, waking
   or SSH-ing into LAN Macs, or split-routing config. Do NOT use for general networking
   questions unrelated to Surge.
-version: 2.5.0
+version: 2.5.1
 tags: [surge, proxy, network, routing, dns, gateway]
 related_skills: [unifi-ops]
 ---
@@ -24,6 +24,8 @@ related_skills: [unifi-ops]
 | "I'll test all the nodes to find the fastest" | `test-all-policies` floods the network. Use targeted `test-policy` or `test-group`. |
 | "The inventory is stale, I'll skip refreshing it" | Stale IPs/MACs lead to wrong device targeting (wrong Mac for WoL, wrong DHCP lease). Refresh when it matters. |
 | "I see RULE-SET errors in `dump event`, the config must be broken" | 🔴 **Event logs are historical — they may reflect an old config that has since been updated.** Always cross-reference with the actual config file first. `grep` the relevant RULE-SET URL in the active profile, then test the URL with `curl -sI`. Only report a config issue if the CURRENT config's URLs fail. The event log alone is not a reliable indicator of the active config's health. |
+| "The group isn't in `mine.conf`, so it doesn't exist" | 🔴 **Wrong for policy-path profiles.** The local profile can be a short/stale base profile; remote policy groups are injected into the live effective profile. Always check `dump profile effective` before declaring a group/rule missing. |
+| "DIP should fix ChatGPT, so if it fails the config must be wrong" | 🔴 **DIP is not magic.** Dedicated IP, Akamai, and shared/premium nodes must be tested against the actual target domain (`chatgpt.com`/Codex), not generic probes. Cloudflare can drop target TLS for one node while another works. |
 
 ## 🔀 Decision Tree
 
@@ -41,6 +43,8 @@ Network/routing/proxy/DNS/device task?
 │   ├── Smart group behavior questions? → references/smart-group-nuances.md
 │   ├── API intermittently fails through proxy (some succeed, some time out)?
 │   │   → references/tls-connectivity-diagnostics.md — systematic multi-region TLS sweep
+│   ├── ChatGPT/Codex OAuth TLS fails (`SSL_ERROR_SYSCALL`, `UNEXPECTED_EOF`, HTTP 000)?
+│   │   → references/chatgpt-codex-tls-diagnosis.md — effective profile + actual target-domain route + candidate-node comparison
 │   ├── Need to fix Hermes adapter for unstable proxy TLS? → references/adapter-keepalive-fix.md
 │   ├── Node label says "USA-Boston" but `colo=NRT`? Geo discrepancy?
 │   │   → references/domain-based-routing-detection.md — domain-based splitting, ipquality.sh
@@ -206,7 +210,7 @@ When the user asks to review their Surge configuration for issues:
 
 Full checklist: `references/config-audit-checklist.md`
 
-### 10. Intermittent API TLS Failures (Cloudflare Rate-Limiting)
+### 9. Intermittent API TLS Failures (Cloudflare Rate-Limiting)
 
 When an API behind Cloudflare intermittently times out through the proxy (sometimes works, sometimes doesn't):
 
@@ -220,7 +224,20 @@ When an API behind Cloudflare intermittently times out through the proxy (someti
 
 Full diagnostic workflow and case study: `references/cloudflare-tls-rate-limiting.md`.
 
-### 9. Game Download Speed Diagnosis
+### 10. ChatGPT/Codex OAuth TLS failures
+
+When `chatgpt.com/backend-api/codex`, `hermes auth add openai-codex`, or ChatGPT endpoints fail with `SSL_ERROR_SYSCALL`, `UNEXPECTED_EOF`, or HTTP `000` through Surge:
+
+1. **Do not use generic IP checkers as proof of target exit.** `ipinfo.io`/`ifconfig.me` may route through a different policy than `chatgpt.com`.
+2. **Read the live effective profile, not just local `mine.conf`:** `dump profile effective` may include remote `policy-path` groups missing from the local base file.
+3. **Use target-domain evidence:** test `https://chatgpt.com/cdn-cgi/trace` and inspect `dump request --raw` notes for `Policy decision path`, `policyName`, `remoteAddress`, `outBytes/inBytes`, and TLS/socket timing.
+4. **Separate proxy TLS from target TLS:** `Proxy TLS handshake completed` only proves Surge reached the proxy server; `outBytes > 0` and `inBytes = 0` to `chatgpt.com` means target TLS is hung/dropped.
+5. **Compare candidate nodes against `chatgpt.com` itself** (DIP 08/09, Akamai, etc.). DIP is not automatically superior; Akamai may work when DIP is dropped by Cloudflare.
+6. **Respect mutation safety:** switching `ProxyGroupSelection.*` for tests is a mutation — ask for explicit confirmation and restore the original selection afterward.
+
+Full case study and command sequence: `references/chatgpt-codex-tls-diagnosis.md`.
+
+### 11. Game Download Speed Diagnosis
 
 When game downloads (Steam, Epic, Battle.net) are slow:
 
@@ -250,6 +267,7 @@ Full diagnostic workflow: `references/game-download-speed-diagnosis.md`
 | `references/cloudflare-tls-throttling.md` | Diagnosing intermittent TLS handshake timeouts through proxy (Cloudflare DDoS throttling of proxy exit IPs) |
 | `references/smart-group-nuances.md` | Understanding Smart group behavior vs url-test/fallback, `update-interval` impact |
 | `references/cloudflare-tls-rate-limiting.md` | API intermittently times out through proxy — Cloudflare rate-limiting proxy exit IPs |
+| `references/chatgpt-codex-tls-diagnosis.md` | ChatGPT/Codex OAuth TLS failures — verify effective profile, real policy path, target-domain exit, DIP vs Akamai candidates |
 | `references/adapter-keepalive-fix.md` | Fixing Hermes adapter layer for TLS-unstable proxy paths — reduce connect timeout, extend keepalive, enable HTTP/2 |
 | `references/domain-based-routing-detection.md` | Detecting domain-based traffic splitting on nodes — test against target domain, ipquality.sh for geo assessment, colo vs physical location |
 | `references/cross-skill-unifi.md` | When to escalate from Surge to UniFi layer: AP/signal issue, switch port mapping, device MAC OUI via Controller |
@@ -263,6 +281,8 @@ Full diagnostic workflow: `references/game-download-speed-diagnosis.md`
 - [ ] Did I use targeted `test-policy`/`test-group` instead of `test-all-policies`?
 - [ ] 🔴 **Before reporting a config/RULE-SET issue based on `dump event`**: did I cross-reference with the actual config file and test the URLs? Event logs are historical — the current config may have already been fixed.
 - [ ] 🔴 **Verifying node exit IP**: Did I use `curl -x proxy + ipinfo.io` to check a node's exit IP? **This is unreliable when Surge has domain-based rules.** `ipinfo.io` traffic may match a different rule than the target domain under investigation. If the target (e.g., `chatgpt.com`) routes through `✴️ Ai → DIP` but `ipinfo.io` matches `🐟 漏网之鱼 → shared proxy`, the reported IP is from the wrong node. **Correct method**: check `dump request --raw` or `dump active` for the ACTUAL domain's `OutboundIP`, or test the target domain itself and read `CF-RAY` / response headers for geo/colo info. For a full guide on detecting domain-based routing and verifying actual exit colocation: `references/domain-based-routing-detection.md`.
+- [ ] 🔴 **Before saying a group/rule is missing**: did I check `dump profile effective`, not just local `mine.conf`? Remote `policy-path` groups can exist only in the effective profile.
+- [ ] 🔴 **Before recommending DIP/shared/Akamai**: did I test each candidate against the ACTUAL target domain (`chatgpt.com`/Codex), and separate proxy-layer TLS success from target-domain TLS success?
 
 ### 🧠 Smart Group Detection Blind Spot
 
@@ -324,8 +344,10 @@ For full DNS audit workflow, see `references/dns-review.md`.
 ## 🔄 Deployment & Sync
 
 **Local:** `~/.hermes/skills/devops/surge-gateway/`
-**GitHub:** `jz-skills/hermes-profiles/gongbu/surge-gateway/`
+**GitHub:** `jz-skills/hermes/surge-gateway/`
 **Sync:** `deploy/sync-all.sh` (forward) + `deploy/sync-back.sh` (reverse)
+
+**⚠️ sync-back.sh HOME-override pitfall**: When running under a Hermes profile with `$HOME` redirected (e.g., `~/.hermes/profiles/regent/home`), `sync-back.sh` resolves `$HERMES_BASE` to the profile's home, not the real macOS home. This causes it to read from an empty/wrong source directory, silently **deleting files from the repo** that exist in the real shared pool but not the profile-local snapshot. Unlike `sync-all.sh` which uses `REAL_HOME`, `sync-back.sh` uses bare `$HOME`. **Mitigation**: after running sync-back from a profile session, always `git diff --stat` to verify no files were deleted. If deletions occurred: `git checkout HEAD -- <skill-dir>/` to restore. This is a known bug in `sync-back.sh` — fix by adding `REAL_HOME` resolution (same as `sync-all.sh`).
 
 **Profiles consuming this skill:**
 - `default` (小黄) — primary household assistant
