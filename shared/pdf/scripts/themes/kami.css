@@ -1,0 +1,104 @@
+/*
+[theme]
+name = kami
+description = Warm parchment long-form theme: cream paper background, serif headings, generous line-height for morning briefings and deep-dive articles (A4)
+hljs_theme = atom-one-light
+*/
+
+/* kami — 仿 html-anything doc-kami-parchment：温暖羊皮纸质感，
+   衬线标题 + 大行距正文，适合 A4 晨报 / 深度长文 */
+
+body {
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua",
+               Palatino, Georgia, "Songti SC", "Noto Serif SC",
+               "Source Han Serif CN", "PingFang SC", "Hiragino Sans GB",
+               "Noto Sans SC", "Microsoft YaHei", serif;
+  font-size: 14px; line-height: 1.95; color: #36302a;
+  background: #faf6ee;
+  max-width: 720px; margin: 0 auto; padding: 8px 12px;
+  -webkit-text-size-adjust: 100%;
+}
+
+h1, h2, h3, h4 {
+  font-family: Georgia, "Iowan Old Style", "Palatino Linotype", Palatino,
+               "Songti SC", "Noto Serif SC", serif;
+  break-after: avoid;
+}
+h1 {
+  color: #3a2f24; font-size: 28px; font-weight: 700;
+  border-bottom: 2px solid #b08442; letter-spacing: 0.4px;
+  padding-bottom: 10px; margin: 0 0 18px 0; line-height: 1.35;
+}
+h2 {
+  color: #7a5524; font-size: 21px; font-weight: 600;
+  border-bottom: 1px solid #ddc9a6;
+  padding-bottom: 5px; margin: 28px 0 12px 0; line-height: 1.4;
+}
+h3 { color: #4a3c2c; font-size: 17px; font-weight: 600; margin: 22px 0 8px 0; }
+h4 { color: #6b5a44; font-size: 15px; font-weight: 600; margin: 18px 0 6px 0; }
+
+p { margin: 10px 0; text-align: justify; orphans: 2; widows: 2; }
+strong { color: #7a5524; font-weight: 700; }
+em { color: #6b5a44; font-style: italic; }
+mark { background: #fbecc2; padding: 1px 4px; border-radius: 3px; }
+a { color: #9a6a2c; text-decoration: underline; text-underline-offset: 2px; }
+
+blockquote {
+  border-left: 3px solid #b08442; background: #f3ebda;
+  color: #5a4a36; padding: 12px 18px; margin: 16px 0;
+  border-radius: 0 6px 6px 0; font-style: italic;
+}
+blockquote p { margin: 6px 0; }
+
+hr { border: none; border-top: 1px solid #ddc9a6; margin: 24px 0; }
+
+table {
+  border-collapse: collapse; width: 100%;
+  margin: 16px 0; font-size: 13px; line-height: 1.65;
+  page-break-inside: auto;
+}
+th {
+  background: #b08442; color: #faf6ee; font-weight: 600;
+  padding: 8px 10px; text-align: left; border: 1px solid #b08442;
+}
+td {
+  padding: 7px 10px; border: 1px solid #ddc9a6;
+  vertical-align: top; overflow-wrap: break-word;
+}
+tr:nth-child(even) td { background: #f3ebda; }
+tr { page-break-inside: avoid; }
+
+ul, ol { margin: 10px 0; padding-left: 24px; }
+li { margin: 5px 0; }
+li ul, li ol { margin: 3px 0; }
+
+code {
+  font-family: "SF Mono", "Fira Code", "Menlo", monospace;
+  background: #efe6d3; color: #8a5a24;
+  padding: 1px 5px; border-radius: 3px; font-size: 12.5px;
+}
+pre {
+  background: #f4ecdb; border: 1px solid #ddc9a6; border-radius: 6px;
+  padding: 14px 16px; margin: 16px 0;
+  font-size: 12.5px; line-height: 1.65; overflow-x: auto;
+}
+pre code, pre code.hljs {
+  background: transparent !important; color: #36302a !important; padding: 0;
+}
+
+/* 标注卡片：通用样式适配全部 26 种 callout 类型 */
+.callout {
+  margin: 16px 0; padding: 12px 16px;
+  border-left: 4px solid #b08442; background: #f3ebda;
+  border-radius: 0 6px 6px 0;
+}
+.callout-title {
+  font-weight: 700; color: #7a5524; margin-bottom: 6px;
+  font-family: Georgia, "Songti SC", serif;
+}
+.callout-content { color: #4a3c2c; }
+.callout-content p:first-child { margin-top: 0; }
+.callout-content p:last-child { margin-bottom: 0; }
+
+.mermaid { margin: 18px auto; text-align: center; }
+img { max-width: 100%; height: auto; border-radius: 4px; }

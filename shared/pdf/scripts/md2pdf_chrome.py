@@ -11,6 +11,9 @@ import markdown
 from pathlib import Path
 from themes import load_theme, list_themes
 
+# 支持的输出格式
+VALID_FORMATS = ("pdf", "png", "html", "wechat")
+
 # All Obsidian callout types
 CALLOUT_STYLES = {
     "note": {"emoji": "&#x1F4DD;", "color": "#2c3e50", "bg": "#eaecee"},
@@ -985,45 +988,193 @@ def add_pdf_bookmarks(pdf_path, md_path):
     print(f"  \U0001F516 {len(headings)} bookmarks added")
 
 
-if __name__ == "__main__":
-    # Parse directives from args
+def parse_cli_args(argv):
+    """解析命令行参数（argv 不含程序名），返回 dict。
+
+    复用已有的 --sm/--xs/--sm-after/--xs-after、--theme、--page-size 解析逻辑，
+    并新增 --format。无效 format 抛 ValueError（便于单元测试），由 __main__ 捕获退出。
+    """
     directives = []
     positional = []
     theme = "blue"
     page_size = "A4"
-    i = 1
-    while i < len(sys.argv):
-        arg = sys.argv[i]
-        if arg in ("--sm", "--xs", "--sm-after", "--xs-after") and i + 1 < len(
-            sys.argv
-        ):
+    fmt = "pdf"
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg in ("--sm", "--xs", "--sm-after", "--xs-after") and i + 1 < len(argv):
             css = "text-sm" if "sm" in arg else "text-xs"
             mode = "after" if arg.endswith("-after") else "heading"
-            directives.append((sys.argv[i + 1], css, mode))
+            directives.append((argv[i + 1], css, mode))
             i += 2
-        elif arg == "--theme" and i + 1 < len(sys.argv):
-            theme = sys.argv[i + 1]
+        elif arg == "--theme" and i + 1 < len(argv):
+            theme = argv[i + 1]
             if theme not in list_themes():
                 print(f"Unknown theme '{theme}'. Available: {', '.join(list_themes())}")
                 sys.exit(1)
             i += 2
-        elif arg == "--page-size" and i + 1 < len(sys.argv):
-            page_size = sys.argv[i + 1]
+        elif arg == "--page-size" and i + 1 < len(argv):
+            page_size = argv[i + 1]
+            i += 2
+        elif arg == "--format" and i + 1 < len(argv):
+            fmt = argv[i + 1]
+            if fmt not in VALID_FORMATS:
+                raise ValueError(
+                    f"Unknown format '{fmt}'. Available: {', '.join(VALID_FORMATS)}"
+                )
             i += 2
         else:
-            positional.append(sys.argv[i])
+            positional.append(arg)
             i += 1
 
+    return {
+        "positional": positional,
+        "theme": theme,
+        "page_size": page_size,
+        "format": fmt,
+        "directives": directives,
+    }
+
+
+def output_path_for(md_path, fmt, out_path=None):
+    """根据格式推导输出路径。指定 out_path 时直接使用。"""
+    if out_path:
+        return Path(out_path)
+    md_path = Path(md_path)
+    ext = {
+        "pdf": ".pdf",
+        "png": ".png",
+        "html": ".html",
+        "wechat": ".wechat.html",
+    }[fmt]
+    return md_path.with_name(md_path.stem + ext)
+
+
+def inline_css(html):
+    """将 <style> 中的 CSS 内联到元素 style 属性，便于微信粘贴。"""
+    import css_inline  # 延迟导入，缺失时不影响模块导入
+
+    return css_inline.inline(html)
+
+
+def _render_playwright_output(html_path, out_path, fmt, page_size="A4"):
+    """渲染 png/html/wechat（非 pdf）。沿用 _render_playwright 的 node/NODE_PATH/Mermaid 等待模式。"""
+    html_path = Path(html_path)
+    out_path = Path(out_path)
+    has_mermaid = 'class="mermaid"' in html_path.read_text(encoding="utf-8")
+    wait_timeout = 60000 if has_mermaid else 10000
+
+    # png 视口宽度：自定义 page_size 'WxH' 取 W，A4 取合理默认值
+    if page_size == "A4":
+        view_w = 794
+    else:
+        view_w = int(page_size.split("x")[0])
+
+    # 等待 Mermaid SVG 渲染完成的公共片段
+    common_wait = f"""
+  await page.waitForFunction(() => {{
+    const m = document.querySelectorAll('.mermaid');
+    return m.length === 0 || Array.from(m).every(el => el.querySelector('svg') !== null);
+  }}, {{ timeout: {wait_timeout} }}).catch(() => console.error('Mermaid wait timeout, proceeding'));
+  await page.waitForTimeout(2000);"""
+
+    if fmt == "png":
+        action = f"""
+  await page.setViewportSize({{ width: {view_w}, height: 1000 }});
+  await page.screenshot({{ path: '{out_path}', fullPage: true, type: 'png' }});"""
+    else:
+        # html / wechat：取完整渲染后的 DOM，写到 stdout（base64）由 Python 落盘
+        action = """
+  const content = await page.content();
+  process.stdout.write('__HTML_START__' + Buffer.from(content).toString('base64') + '__HTML_END__');"""
+
+    script = f"""
+const {{ chromium }} = require('playwright');
+(async () => {{
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+  await page.goto('file://{html_path}', {{ waitUntil: 'networkidle', timeout: 120000 }});
+{common_wait}
+{action}
+  await browser.close();
+}})();
+"""
+    script_path = Path("/tmp") / "pw_render_output.js"
+    script_path.write_text(script, encoding="utf-8")
+
+    import os
+    env = dict(os.environ)
+    node_paths = [Path.home() / "node_modules", Path("/usr/local/lib/node_modules")]
+    extra = ":".join(str(p) for p in node_paths if p.exists())
+    if extra:
+        env["NODE_PATH"] = extra
+
+    result = subprocess.run(
+        ["node", str(script_path)],
+        capture_output=True, text=True, timeout=180, env=env,
+    )
+
+    if fmt in ("html", "wechat"):
+        out = result.stdout
+        if "__HTML_START__" in out and "__HTML_END__" in out:
+            b64 = out.split("__HTML_START__", 1)[1].split("__HTML_END__", 1)[0]
+            content = base64.b64decode(b64).decode("utf-8")
+            if fmt == "wechat":
+                content = inline_css(content)
+            out_path.write_text(content, encoding="utf-8")
+        else:
+            raise RuntimeError(f"Playwright render failed: {result.stderr}")
+
+    if not out_path.exists() or out_path.stat().st_size == 0:
+        raise RuntimeError(f"Playwright {fmt} generation failed: {result.stderr}")
+
+
+def md_to_output(md_path, out_path=None, fmt="pdf", header_text=None,
+                 directives=None, theme="blue", page_size="A4"):
+    """按格式分发。pdf 走原有 md_to_pdf 路径，其余渲染 png/html/wechat。"""
+    md_path = Path(md_path)
+    if fmt == "pdf":
+        md_to_pdf(md_path, out_path, header_text, directives,
+                  theme=theme, page_size=page_size)
+        return
+
+    header_text = header_text or md_path.stem
+    html = build_html(md_path, header_text, directives, theme=theme, page_size=page_size)
+
+    # 本地化 Mermaid JS 以支持 file:// 渲染
+    if 'class="mermaid"' in html:
+        html = _localize_mermaid_src(html)
+
+    html_path = Path("/tmp") / f"{md_path.stem}.html"
+    html_path.write_text(html, encoding="utf-8")
+
+    out = output_path_for(md_path, fmt, out_path)
+    _render_playwright_output(html_path, out, fmt, page_size=page_size)
+
+    size_kb = out.stat().st_size / 1024
+    print(f"✅ {out.name} ({size_kb:.0f} KB)")
+
+
+if __name__ == "__main__":
+    try:
+        args = parse_cli_args(sys.argv[1:])
+    except ValueError as e:
+        print(e)
+        sys.exit(1)
+
+    positional = args["positional"]
     if not positional:
         print(
-            "Usage: python md2pdf_chrome.py <md_file> [pdf_file] [header_text] [--theme blue|dark|academic|newsletter|minimalist|warm-academic] [--page-size A4|430x932] [--sm PATTERN] [--xs PATTERN] [--sm-after PATTERN] [--xs-after PATTERN]"
+            "Usage: python md2pdf_chrome.py <md_file> [out_file] [header_text] [--format pdf|png|html|wechat] [--theme blue|dark|academic|newsletter|minimalist|warm-academic] [--page-size A4|430x932] [--sm PATTERN] [--xs PATTERN] [--sm-after PATTERN] [--xs-after PATTERN]"
         )
         sys.exit(1)
-    md_to_pdf(
+
+    md_to_output(
         positional[0],
         positional[1] if len(positional) > 1 else None,
-        positional[2] if len(positional) > 2 else None,
-        directives or None,
-        theme=theme,
-        page_size=page_size,
+        fmt=args["format"],
+        header_text=positional[2] if len(positional) > 2 else None,
+        directives=args["directives"] or None,
+        theme=args["theme"],
+        page_size=args["page_size"],
     )
