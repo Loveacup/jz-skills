@@ -76,6 +76,7 @@ PAIRS=(
   "hermes/morning-news-briefing|productivity/morning-news-briefing"
   "hermes/telegram-topic-manager|social-media/telegram-topic-manager"
   "hermes/dingtalk-message-monitor|social-media/dingtalk-message-monitor"
+  "hermes/surge-gateway|devops/surge-gateway"
 )
 
 for pair in "${PAIRS[@]}"; do

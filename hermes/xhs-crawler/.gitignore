@@ -2,3 +2,7 @@
 __pycache__/
 Download/
 *.pyc
+.DS_Store
+.pytest_cache/
+# XHS-Downloader 主力后端：bootstrap 自动 clone + uv venv，不入库（见 scripts/xhs_bootstrap.py）
+.xhs-downloader/
