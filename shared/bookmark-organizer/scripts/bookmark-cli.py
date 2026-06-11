@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """bookmark-cli.py — Hermes bookmark-organizer 管线 CLI（stdlib-only）
 
-管线: parse → classify(L1) → [agent 做 L2] → merge → render
+管线: parse → classify(L1) → [agent 做 L2] → merge → render / timeline
 
   parse <输入>           Netscape HTML / Chrome 原生 JSON → bookmarks.json（格式自动嗅探）
   classify <bookmarks>   L1 规则打分 → classified.json + unmatched.json；--dry-run 仅打印统计
   merge <classified> <patch>  回灌 L2 分类补丁（宽容解析 LLM 输出，幂等可增量）
   render <classified>    → Netscape HTML（可重导入）+ Markdown 索引（Obsidian 格式）
+  timeline <classified>  → 书签时光机 Markdown（URL 去重取最早 add_date，按年份归档，
+                           迁移批次检测）；--stats-json 输出统计供 agent 写地层叙事
 """
 import argparse
 import hashlib
@@ -367,6 +369,193 @@ def cmd_render(args):
     print(f"render: {len(items)} 条 → {args.output}" + (f" + {args.md}" if args.md else ""))
 
 
+# ---------- timeline ----------
+
+IMPORT_BATCH_MIN = 30   # 同一分钟内 ≥N 个唯一 URL 判定为导入/同步批次
+YEAR_FLOOR = 2000       # 早于此年的 add_date 视为时间戳异常 → 年份未知
+
+
+def cmd_timeline(args):
+    rules = load_rules(args.rules)
+    name_of = {c["id"]: c["name"] for c in rules["categories"]} | BUILTIN_NAMES
+    doc = json.loads(Path(args.classified).read_text(encoding="utf-8"))
+    items = doc["items"]
+    skip = () if args.include_internal else ("browser-internal", "bookmarklet")
+    pool = [i for i in items if i["category"] not in skip]
+
+    def ts_of(it):
+        ad = it.get("add_date")
+        return ad if isinstance(ad, int) and ad > 0 else None
+
+    # URL 去重：保留首见条目的分类/标题，add_date 取同 URL 最早值 → first_added_at
+    best = {}
+    for it in pool:
+        cur = best.get(it["url"])
+        if cur is None:
+            best[it["url"]] = dict(it)
+        else:
+            a, b = ts_of(it), ts_of(cur)
+            if a is not None and (b is None or a < b):
+                cur["add_date"] = a
+    uniq = list(best.values())
+
+    now = datetime.now()
+    years, unknown = {}, []
+    for it in uniq:
+        ad = ts_of(it)
+        y = datetime.fromtimestamp(ad).year if ad else None
+        if y is None or y < YEAR_FLOOR or y > now.year:
+            unknown.append(it)
+            continue
+        it["first_added_at"], it["year"] = ad, y
+        years.setdefault(y, []).append(it)
+
+    # 迁移批次：同一分钟 ≥IMPORT_BATCH_MIN 个唯一 URL；该时间戳只是下界，真实收藏可能更早
+    by_minute = {}
+    for rows in years.values():
+        for it in rows:
+            m = datetime.fromtimestamp(it["first_added_at"]).strftime("%Y-%m-%d %H:%M")
+            by_minute.setdefault(m, []).append(it)
+    batches = {m: rows for m, rows in sorted(by_minute.items()) if len(rows) >= IMPORT_BATCH_MIN}
+    for m, rows in batches.items():
+        for it in rows:
+            it["import_batch"] = m
+
+    def domain(u):
+        d = urlparse(u).netloc.lower()
+        return d[4:] if d.startswith("www.") else d
+
+    def md_link(it):
+        t = it["title"].replace("[", "［").replace("]", "］")
+        u = it["url"]
+        if any(c in u for c in "() <>"):
+            u = f"<{u}>"
+        return f"[{t}]({u})"
+
+    def top_cats(rows, k):
+        return Counter(name_of.get(i["category"], i["category"]) for i in rows).most_common(k)
+
+    def top_doms(rows, k):
+        return Counter(domain(i["url"]) for i in rows).most_common(k)
+
+    def reps(rows, k=8):
+        """代表书签：类内按时间升序，跨 Top 分类轮转取样，避免被单一大类刷屏。"""
+        by_cat = {}
+        for it in sorted(rows, key=lambda i: i["first_added_at"]):
+            by_cat.setdefault(it["category"], []).append(it)
+        order = sorted(by_cat, key=lambda c: -len(by_cat[c]))
+        out, idx = [], 0
+        while len(out) < k:
+            grabbed = False
+            for c in order:
+                if idx < len(by_cat[c]):
+                    out.append(by_cat[c][idx])
+                    grabbed = True
+                    if len(out) >= k:
+                        break
+            if not grabbed:
+                break
+            idx += 1
+        return out
+
+    source = args.source_name
+    stamp = now.strftime("%Y%m%d")
+    out_path = Path(args.output) if args.output else Path(f"书签时光机_{source}_{stamp}.md")
+    ymin, ymax = (min(years), max(years)) if years else (None, None)
+    span = f"{ymin}–{ymax}" if years else "无有效年份"
+    n_batched = sum(len(r) for r in batches.values())
+    gen = now.strftime("%Y-%m-%d %H:%M")
+
+    md = ["---", "status: 种子", "type: 报告", "priority: 正常",
+          f"aliases: [Bookmark Timeline {source}]",
+          "tags: [bookmark, type/报告, src/工具]",
+          f"created: {gen}", f"modified: {gen}", "---", "",
+          f"# 书签时光机 · {source}（{len(uniq)} 个唯一网址，{span}）", "",
+          "> [!abstract] 📊 总览",
+          f"> 唯一网址 **{len(uniq)}**（去重前 {len(pool)} 条）｜ 时间跨度 **{span}**"
+          f"（{len(years)} 个年份）｜ 年份未知 **{len(unknown)}**",
+          f"> 迁移批次 **{len(batches)}** 个（影响 {n_batched} 个书签）｜ "
+          f"生成时间 {gen} ｜ 工具 bookmark-organizer timeline", ""]
+    if batches:
+        md += ["> [!warning] ⚠️ 迁移批次说明",
+               f"> 以下时间点在同一分钟内出现 ≥{IMPORT_BATCH_MIN} 个新书签，"
+               "判定为导入/同步批次；批内时间戳只是下界，真实收藏时间可能更早："]
+        md += [f"> - {m} — {len(rows)} 个" for m, rows in batches.items()]
+        md.append("")
+
+    md += ["## 年代总览", "", "| 年份 | 数量 | 占比 | Top 分类 | Top 域名 |",
+           "|---|---|---|---|---|"]
+    n_dated = sum(len(r) for r in years.values()) or 1
+    for y in sorted(years):
+        rows = years[y]
+        flag = " ⚠️" if any("import_batch" in i for i in rows) else ""
+        cats = " · ".join(f"{c} {n}" for c, n in top_cats(rows, 2))
+        doms = " · ".join(f"{d} {n}" for d, n in top_doms(rows, 2))
+        md.append(f"| {y}{flag} | {len(rows)} | {len(rows) / n_dated:.1%} | {cats} | {doms} |")
+    if unknown:
+        md.append(f"| 年份未知 | {len(unknown)} | — | — | — |")
+    md.append("")
+
+    for y in sorted(years):
+        rows = years[y]
+        y_batches = sorted({i["import_batch"] for i in rows if "import_batch" in i})
+        warn = " ⚠️ 含迁移批次" if y_batches else ""
+        md += [f"## {y} 年（{len(rows)} 个）{warn}", ""]
+        if y_batches:
+            for m in y_batches:
+                n_b = sum(1 for i in rows if i.get("import_batch") == m)
+                md.append(f"> [!warning] {m} 同分钟导入 {n_b} 个，真实收藏时间可能早于 {y} 年")
+            md.append("")
+        md.append("- **Top 分类**: " + " · ".join(f"{c} ({n})" for c, n in top_cats(rows, 3)))
+        md.append("- **Top 域名**: " + " · ".join(f"{d} ({n})" for d, n in top_doms(rows, 5)))
+        md += ["- **代表书签**:"]
+        for it in reps(rows):
+            cat = name_of.get(it["category"], it["category"])
+            sub = f"/{it['subcategory']}" if it.get("subcategory") else ""
+            md.append(f"  - {md_link(it)} · {cat}{sub}")
+        md.append("")
+
+    if unknown:
+        md += [f"## 年份未知（{len(unknown)} 个）", "",
+               f"add_date 缺失或异常（早于 {YEAR_FLOOR} 年 / 晚于当前年份）：", ""]
+        md += [f"- {md_link(it)}" for it in unknown[:50]]
+        if len(unknown) > 50:
+            md.append(f"- …… 其余 {len(unknown) - 50} 个略")
+        md.append("")
+
+    out_path.write_text("\n".join(md), encoding="utf-8")
+
+    if args.stats_json:
+        stats = {"generated_at": gen, "source": source, "items_total": len(items),
+                 "pool_after_exclude": len(pool), "unique_urls": len(uniq),
+                 "year_min": ymin, "year_max": ymax, "unknown_year": len(unknown),
+                 "import_batch_min": IMPORT_BATCH_MIN,
+                 "import_batches": [
+                     {"minute": m, "count": len(rows),
+                      "top_categories": top_cats(rows, 5), "top_domains": top_doms(rows, 8)}
+                     for m, rows in batches.items()],
+                 "years": {str(y): {
+                     "count": len(years[y]),
+                     "batched": sum(1 for i in years[y] if "import_batch" in i),
+                     "categories": dict(top_cats(years[y], 100)),
+                     "domains": dict(top_doms(years[y], 15)),
+                     "representatives": [
+                         {"title": i["title"], "url": i["url"],
+                          "category": name_of.get(i["category"], i["category"]),
+                          "subcategory": i.get("subcategory"),
+                          "folder_path": i["folder_path"], "source": i["source"],
+                          "first_added_at": datetime.fromtimestamp(
+                              i["first_added_at"]).strftime("%Y-%m-%d")}
+                         for i in reps(years[y], 12)]} for y in sorted(years)}}
+        Path(args.stats_json).write_text(json.dumps(stats, ensure_ascii=False, indent=1),
+                                         encoding="utf-8")
+
+    print(f"timeline: 唯一网址 {len(uniq)}（排除内部页/脚本后 {len(pool)} 条去重）| "
+          f"年份 {span}（{len(years)} 个）| 年份未知 {len(unknown)} | "
+          f"迁移批次 {len(batches)} 个（{n_batched} 条）→ {out_path}"
+          + (f" + {args.stats_json}" if args.stats_json else ""))
+
+
 # ---------- main ----------
 
 def main():
@@ -399,6 +588,18 @@ def main():
     p.add_argument("--md", default=None, help="Markdown 索引输出路径")
     p.add_argument("--rules", default=str(DEFAULT_RULES))
     p.set_defaults(fn=cmd_render)
+
+    p = sub.add_parser("timeline", help="书签时光机：URL 去重取最早 add_date，按年份归档")
+    p.add_argument("classified")
+    p.add_argument("--source-name", default="书签", help="来源名，用于标题与默认文件名")
+    p.add_argument("-o", "--output", default=None,
+                   help="输出路径（默认 书签时光机_<来源>_YYYYMMDD.md）")
+    p.add_argument("--include-internal", action="store_true",
+                   help="包含 browser-internal / bookmarklet（默认排除）")
+    p.add_argument("--stats-json", default=None,
+                   help="另输出年份×分类×域名统计 JSON（P3 地层叙事的数据底座）")
+    p.add_argument("--rules", default=str(DEFAULT_RULES))
+    p.set_defaults(fn=cmd_timeline)
 
     args = ap.parse_args()
     args.fn(args)

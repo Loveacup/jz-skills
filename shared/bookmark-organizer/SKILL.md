@@ -22,6 +22,8 @@ CLI 负责一切确定性工作，你负责语义判断与用户交互。
 | "分类体系我现编一套更贴合" | 类别清单唯一来源是 references/classification-rules.json；现编 = 类别爆炸 + merge 校验全部打回 |
 | "未命中的我一条条分类" | 必须批量：每批 30–50 条一次性输出 JSON 补丁，逐条 = 百倍调用浪费 |
 | "用户没给文件，我去读浏览器配置" | 先问用户要导出文件路径；Chrome 本机 `Bookmarks`/`Bookmarks.bak` 仅在用户明确同意后读取 |
+| "按年份直接用原始 add_date 分组就行" | 同步/导入会污染时间戳；年份考古必须 URL 去重取最早 `add_date`、检测迁移批次——`timeline` 已内置该口径，直接用它 |
+| "常用/点击排序书签导出里应该有" | 书签导出不含点击数据；必须另读 Chromium History，且需单独隐私授权、快照只读、覆盖率诚实报告（P2，暂缓未实现） |
 | "dry-run 跳过直接全量跑" | dry-run 是用户确认 LLM 成本前的刹车点，默认必经 |
 
 ## 工作流程（4 步）
@@ -29,6 +31,10 @@ CLI 负责一切确定性工作，你负责语义判断与用户交互。
 ```
 1. 定位输入 → 2. dry-run 预览（用户确认）→ 3. 分类执行（L1 + L2 回灌）→ 4. 渲染产出
 ```
+
+> 📌 年份归档/书签考古已实现（`timeline`，见「书签时光机」一节）；常用/点击排序（usage）
+> 仍是规划，需 History 隐私授权，暂缓——不要把它报告为可用命令。
+> 设计细节见 `references/timeline-and-usage-design.md`。
 
 ### Step 1: 定位输入
 
@@ -71,6 +77,26 @@ python3 $SKILL_DIR/scripts/bookmark-cli.py render classified.json -o organized.h
 向用户汇报产物路径 + 最终统计。若 obsidian 能力可用且用户需要入库：MD 索引放入
 vault 的 `00-Inbox/`（两阶段收件箱工作流），不要直接写终目录。
 
+## 扩展工作流：书签时光机（年份归档 / 考古）
+
+触发：按年份归档、书签时光机、书签考古、地层报告。输入是走完 L1/L2 的 classified.json。
+
+```bash
+python3 $SKILL_DIR/scripts/bookmark-cli.py timeline classified.json \
+  --source-name Chrome -o 书签时光机_Chrome_YYYYMMDD.md --stats-json timeline-stats.json
+```
+
+口径已内置，勿手工绕过：URL 去重取最早 `add_date` → `first_added_at`/`year`；默认排除
+`browser-internal`/`bookmarklet`（`--include-internal` 可含）；同一分钟 ≥30 个唯一 URL
+判定为迁移批次（批内时间戳只是下界）；年份 <2000 或晚于当前年份 → 「年份未知」桶。
+
+- **产物 1（确定性）**：时光机 MD —— frontmatter + 总览 callout + 迁移批次警告 +
+  年代总览表 + 逐年节（Top 分类/域名 + 代表书签）。入库放 vault `00-Inbox/`。
+- **产物 2（你来写，可选）**：地层报告 —— 读 `--stats-json` 的年份×分类×域名统计，
+  按「地层」写考古叙事。每个数字必须来自统计 JSON，禁止编造年份/数量；
+  对批内条目只说「进入本库的时间」，不声称原始收藏年份。
+- 默认不输出 HTML 时光机（重导入会复制书签）；用户明确要求再考虑。
+
 ## L2 语义分类约定（你的职责）
 
 1. 读 `unmatched.json`，**每批 30–50 条**
@@ -94,6 +120,10 @@ vault 的 `00-Inbox/`（两阶段收件箱工作流），不要直接写终目�
 | `classify` | bookmarks.json → classified.json + unmatched.json | L1 打分；`--dry-run` 仅统计；unmatched 按唯一 URL 去重 |
 | `merge` | classified.json + 补丁 → 更新 classified.json | 宽容解析 LLM 输出；幂等增量；同 URL 重复条目一并应用 |
 | `render` | classified.json → HTML + MD 索引 | HTML 可重导入 Chrome/Edge；MD 未分类置顶、🤖 标记 LLM 条目 |
+| `timeline` | classified.json → 时光机 MD（+ 统计 JSON） | URL 去重取最早 add_date；迁移批次检测；`--stats-json` 供地层叙事 |
+
+> 规划中的 `usage` / `render --sort usage`（P2 点击排序）见
+> `references/timeline-and-usage-design.md`；代码未实现，且需 History 隐私授权，暂缓。
 
 内置桶（不占用规则）：`browser-internal`（chrome:// 等内部页）、`bookmarklet`（javascript: 脚本）、
 `uncategorized`（未分类）。
