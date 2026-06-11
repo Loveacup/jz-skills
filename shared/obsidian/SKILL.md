@@ -1,6 +1,9 @@
 ---
 name: obsidian
-description: Read, search, create, and edit notes in the Obsidian vault. Also covers Obsidian CLI interaction, plugin development, Obsidian Bases (.base files for database-like views), and web content extraction via Defuddle. Use when the user mentions vault operations, notes, Obsidian CLI, bases, .base files, Obsidian plugin development, defuddle, or web page extraction to vault. Do NOT use for Obsidian Flavored Markdown formatting or Mermaid diagrams — those are in obsidian-md-ac.
+description: Read, search, create, edit, sync, and link notes in an Obsidian vault. Use when the task needs vault path resolution, file IO, Obsidian CLI, Bases (.base files), plugin development, Defuddle web extraction, or qmd indexing. Pair with obsidian-md-ac when writing rich Obsidian Markdown, Mermaid diagrams, or Canvas content. Do NOT use as the formatting authority for Obsidian syntax or diagrams.
+version: 1.1.0
+author: Hermes Agent
+license: MIT
 platforms: [linux, macos, windows]
 metadata:
   hermes:
@@ -10,7 +13,7 @@ metadata:
 
 # Obsidian Vault
 
-Use this skill for Obsidian vault work: reading, listing, searching, creating notes, appending content, wikilinks, CLI interaction, plugin development, Bases (.base files), and web content extraction.
+Use this skill for Obsidian vault work: reading, listing, searching, creating notes, appending content, vault sync, CLI interaction, plugin development, Bases (.base files), and web content extraction. Use `obsidian-md-ac` for the content rules when a note needs Obsidian-specific formatting, wikilinks, callouts, Mermaid, or Canvas.
 
 ## 🚨 Red Flags: DO NOT SKIP THIS SKILL
 
@@ -20,6 +23,16 @@ Use this skill for Obsidian vault work: reading, listing, searching, creating no
 | "The file is empty" | Check for iCloud dataless placeholder before concluding empty |
 | "I'll read the file with cat" | Use `read_file` — line numbers, pagination, fallback suggestions |
 | "I know where this note lives" | Context may be stale. Always verify with `search_files` before writing |
+| "obsidian-md-ac can create the note by itself" | It defines content syntax; this skill owns vault path, IO, sync, and links |
+
+## Boundary Decision
+
+| User asks for... | Load |
+|---|---|
+| Find/read/write/append notes, resolve vault path, sync, qmd refresh | `obsidian` |
+| Obsidian Markdown syntax, callouts, wikilinks, Mermaid, Canvas, note beautification | `obsidian-md-ac` |
+| Save a polished note into the vault | Both: draft/format with `obsidian-md-ac`, write/verify with `obsidian` |
+| Generic Markdown not intended for Obsidian | Neither unless the user mentions a vault or Obsidian syntax |
 
 ## Vault path
 
@@ -61,7 +74,7 @@ Use `search_files` for both filename and content searches. Prefer this over `gre
 
 ## Create a note
 
-Use `write_file` with the resolved absolute path and the full markdown content.
+Use `write_file` with the resolved absolute path and the full markdown content. If the content needs Obsidian syntax, callouts, wikilinks, Mermaid, Canvas, or beautification, load `obsidian-md-ac` first for formatting decisions, then use this skill for the vault write and verification.
 
 ### ⚠️ Verify path before writing — do NOT trust memory or context alone
 
