@@ -1,0 +1,1052 @@
+{
+  "version": 1,
+  "threshold": 15,
+  "scoring": {
+    "title_exact": 20,
+    "title_partial": 10,
+    "domain_keyword": 5,
+    "url_pattern": 15
+  },
+  "fallback_category": "uncategorized",
+  "fallback_name": "未分类",
+  "categories": [
+    {
+      "id": "dev-code-hosting",
+      "name": "开源与代码托管",
+      "hint": "代码仓库托管平台、开源项目主页",
+      "priority": 10,
+      "keywords": [
+        "github",
+        "gitlab",
+        "gitee",
+        "开源",
+        "仓库",
+        "repo"
+      ],
+      "url_patterns": [
+        "github.com",
+        "gitlab.com",
+        "gitee.com",
+        "bitbucket.org",
+        "sourceforge.net",
+        "codeberg.org"
+      ]
+    },
+    {
+      "id": "dev-docs",
+      "name": "开发文档与API",
+      "hint": "官方开发文档、API 参考、语法手册",
+      "priority": 9,
+      "keywords": [
+        "docs",
+        "documentation",
+        "api reference",
+        "手册",
+        "文档",
+        "教程站"
+      ],
+      "url_patterns": [
+        "developer.mozilla.org",
+        "devdocs.io",
+        "readthedocs.io",
+        "w3schools.com",
+        "runoob.com",
+        "docs.python.org",
+        "learn.microsoft.com"
+      ]
+    },
+    {
+      "id": "frontend-frameworks",
+      "name": "前端框架",
+      "hint": "前端框架与构建工具官网",
+      "priority": 8,
+      "keywords": [
+        "react",
+        "vue",
+        "angular",
+        "svelte",
+        "前端",
+        "tailwind",
+        "vite",
+        "webpack"
+      ],
+      "url_patterns": [
+        "react.dev",
+        "vuejs.org",
+        "angular.io",
+        "svelte.dev",
+        "nextjs.org",
+        "nuxt.com",
+        "vitejs.dev",
+        "tailwindcss.com"
+      ]
+    },
+    {
+      "id": "backend-frameworks",
+      "name": "后端框架",
+      "hint": "后端框架与服务端运行时官网",
+      "priority": 8,
+      "keywords": [
+        "spring",
+        "django",
+        "flask",
+        "fastapi",
+        "express",
+        "后端",
+        "nodejs"
+      ],
+      "url_patterns": [
+        "spring.io",
+        "djangoproject.com",
+        "flask.palletsprojects.com",
+        "fastapi.tiangolo.com",
+        "expressjs.com",
+        "nodejs.org",
+        "laravel.com",
+        "rubyonrails.org"
+      ]
+    },
+    {
+      "id": "cloud-devops",
+      "name": "云服务与DevOps",
+      "hint": "云厂商控制台、容器编排、CI/CD、部署平台",
+      "priority": 8,
+      "keywords": [
+        "aws",
+        "azure",
+        "阿里云",
+        "腾讯云",
+        "docker",
+        "kubernetes",
+        "k8s",
+        "devops",
+        "云服务器",
+        "cdn"
+      ],
+      "url_patterns": [
+        "aws.amazon.com",
+        "console.aliyun.com",
+        "aliyun.com",
+        "cloud.tencent.com",
+        "azure.com",
+        "docker.com",
+        "kubernetes.io",
+        "vercel.com",
+        "netlify.com",
+        "cloudflare.com",
+        "huaweicloud.com"
+      ]
+    },
+    {
+      "id": "databases",
+      "name": "数据库与数据",
+      "hint": "数据库官网、托管数据库服务",
+      "priority": 7,
+      "keywords": [
+        "mysql",
+        "postgresql",
+        "postgres",
+        "mongodb",
+        "redis",
+        "数据库",
+        "sql"
+      ],
+      "url_patterns": [
+        "mysql.com",
+        "postgresql.org",
+        "mongodb.com",
+        "redis.io",
+        "sqlite.org",
+        "supabase.com",
+        "planetscale.com",
+        "clickhouse.com"
+      ]
+    },
+    {
+      "id": "data-science",
+      "name": "数据科学与分析",
+      "hint": "数据分析、可视化、数据竞赛平台",
+      "priority": 7,
+      "keywords": [
+        "kaggle",
+        "jupyter",
+        "pandas",
+        "数据分析",
+        "可视化",
+        "tableau",
+        "bi"
+      ],
+      "url_patterns": [
+        "kaggle.com",
+        "jupyter.org",
+        "pandas.pydata.org",
+        "tableau.com",
+        "powerbi.microsoft.com",
+        "echarts.apache.org"
+      ]
+    },
+    {
+      "id": "api-tools",
+      "name": "API测试与开发",
+      "hint": "API 调试、Mock、接口管理工具",
+      "priority": 7,
+      "keywords": [
+        "postman",
+        "apifox",
+        "swagger",
+        "接口测试",
+        "mock"
+      ],
+      "url_patterns": [
+        "postman.com",
+        "apifox.com",
+        "swagger.io",
+        "insomnia.rest",
+        "hoppscotch.io"
+      ]
+    },
+    {
+      "id": "ai-ml",
+      "name": "AI与机器学习",
+      "hint": "大模型对话、AI 工具、模型社区、机器学习框架",
+      "priority": 9,
+      "keywords": [
+        "chatgpt",
+        "claude",
+        "gemini",
+        "openai",
+        "ai",
+        "大模型",
+        "llm",
+        "机器学习",
+        "深度学习",
+        "midjourney",
+        "stable diffusion",
+        "agent",
+        "提示词",
+        "prompt"
+      ],
+      "url_patterns": [
+        "openai.com",
+        "chatgpt.com",
+        "claude.ai",
+        "anthropic.com",
+        "gemini.google.com",
+        "huggingface.co",
+        "ollama.com",
+        "midjourney.com",
+        "civitai.com",
+        "modelscope.cn",
+        "deepseek.com",
+        "moonshot.cn",
+        "perplexity.ai",
+        "poe.com",
+        "genspark.ai"
+      ]
+    },
+    {
+      "id": "product-design",
+      "name": "产品设计",
+      "hint": "UI/UX 设计工具、原型设计平台",
+      "priority": 7,
+      "keywords": [
+        "figma",
+        "sketch",
+        "axure",
+        "原型",
+        "ui设计",
+        "ux"
+      ],
+      "url_patterns": [
+        "figma.com",
+        "sketch.com",
+        "axure.com",
+        "modao.cc",
+        "lanhuapp.com",
+        "mastergo.com",
+        "js.design"
+      ]
+    },
+    {
+      "id": "design-assets",
+      "name": "设计资源与素材",
+      "hint": "图标、字体、配色、设计灵感与素材站",
+      "priority": 6,
+      "keywords": [
+        "素材",
+        "图标",
+        "字体",
+        "配色",
+        "icon",
+        "font",
+        "设计灵感"
+      ],
+      "url_patterns": [
+        "dribbble.com",
+        "behance.net",
+        "iconfont.cn",
+        "unsplash.com",
+        "pexels.com",
+        "iconify.design",
+        "fontawesome.com",
+        "zcool.com.cn",
+        "uisdc.com",
+        "graphicriver.net",
+        "envato.com",
+        "envatomarket"
+      ]
+    },
+    {
+      "id": "learning",
+      "name": "学习教程与课程",
+      "hint": "在线课程平台、系统化学习网站",
+      "priority": 6,
+      "keywords": [
+        "课程",
+        "教程",
+        "慕课",
+        "学习",
+        "course",
+        "tutorial",
+        "训练营"
+      ],
+      "url_patterns": [
+        "coursera.org",
+        "udemy.com",
+        "edx.org",
+        "imooc.com",
+        "study.163.com",
+        "xuetangx.com",
+        "khanacademy.org",
+        "freecodecamp.org"
+      ]
+    },
+    {
+      "id": "tech-community",
+      "name": "技术博客与社区",
+      "hint": "程序员问答、技术社区、个人技术博客",
+      "priority": 6,
+      "keywords": [
+        "stackoverflow",
+        "博客",
+        "blog",
+        "技术社区",
+        "论坛",
+        "csdn",
+        "掘金"
+      ],
+      "url_patterns": [
+        "stackoverflow.com",
+        "csdn.net",
+        "juejin.cn",
+        "cnblogs.com",
+        "segmentfault.com",
+        "v2ex.com",
+        "news.ycombinator.com",
+        "infoq.cn",
+        "oschina.net",
+        "51cto.com",
+        "bbs.weiphone.com",
+        "chiphell.com",
+        "right.com.cn"
+      ]
+    },
+    {
+      "id": "news-media",
+      "name": "新闻资讯与媒体",
+      "hint": "新闻门户、科技媒体、资讯聚合",
+      "priority": 5,
+      "keywords": [
+        "新闻",
+        "资讯",
+        "news",
+        "日报",
+        "头条"
+      ],
+      "url_patterns": [
+        "36kr.com",
+        "huxiu.com",
+        "sina.com.cn",
+        "news.163.com",
+        "thepaper.cn",
+        "bbc.com",
+        "cnn.com",
+        "reuters.com",
+        "ithome.com",
+        "sspai.com"
+      ]
+    },
+    {
+      "id": "online-tools",
+      "name": "在线工具与服务",
+      "hint": "免安装的在线小工具：转换、压缩、生成器",
+      "priority": 4,
+      "keywords": [
+        "在线工具",
+        "转换",
+        "生成器",
+        "tool",
+        "converter",
+        "压缩"
+      ],
+      "url_patterns": [
+        "tinypng.com",
+        "remove.bg",
+        "convertio.co",
+        "tool.lu",
+        "uutool.cn",
+        "67tool.com",
+        "ilovepdf.com",
+        "smallpdf.com"
+      ]
+    },
+    {
+      "id": "selfhosted-nas",
+      "name": "自托管与NAS",
+      "hint": "NAS 系统、自托管服务、家庭服务器面板与软路由",
+      "priority": 7,
+      "keywords": [
+        "nas",
+        "群晖",
+        "synology",
+        "unraid",
+        "自托管",
+        "selfhosted",
+        "self-hosted",
+        "openwrt",
+        "软路由",
+        "homelab",
+        "docker compose",
+        "面板"
+      ],
+      "url_patterns": [
+        "synology.com",
+        "unraid.net",
+        "truenas.com",
+        "openwrt.org",
+        "istoreos.com",
+        "selfh.st",
+        "awesome-selfhosted",
+        "portainer.io",
+        "homarr.dev",
+        "casaos.io",
+        "fnnas.com"
+      ]
+    },
+    {
+      "id": "downloads",
+      "name": "下载与资源",
+      "hint": "下载站、PT/BT 资源、网盘",
+      "priority": 5,
+      "keywords": [
+        "下载",
+        "download",
+        "torrent",
+        "magnet",
+        "pt站",
+        "tracker",
+        "网盘",
+        "资源站",
+        "破解"
+      ],
+      "url_patterns": [
+        "pan.baidu.com",
+        "pan.quark.cn",
+        "alist",
+        "115.com",
+        "aliyundrive.com",
+        "123pan.com",
+        "m-team",
+        "pthome",
+        "hdsky",
+        "chdbits",
+        "ourbits",
+        "nexusphp"
+      ]
+    },
+    {
+      "id": "video-music",
+      "name": "视频与音乐",
+      "hint": "视频网站、流媒体、音乐平台",
+      "priority": 6,
+      "keywords": [
+        "视频",
+        "音乐",
+        "video",
+        "music",
+        "动漫",
+        "番剧",
+        "直播"
+      ],
+      "url_patterns": [
+        "youtube.com",
+        "bilibili.com",
+        "netflix.com",
+        "youku.com",
+        "iqiyi.com",
+        "v.qq.com",
+        "spotify.com",
+        "music.163.com",
+        "y.qq.com",
+        "twitch.tv",
+        "douyu.com"
+      ]
+    },
+    {
+      "id": "games",
+      "name": "游戏与娱乐",
+      "hint": "游戏平台、游戏论坛、游戏资讯与攻略",
+      "priority": 5,
+      "keywords": [
+        "游戏",
+        "game",
+        "steam",
+        "攻略",
+        "主机",
+        "switch",
+        "魔兽",
+        "原神"
+      ],
+      "url_patterns": [
+        "store.steampowered.com",
+        "epicgames.com",
+        "taptap.cn",
+        "nintendo.com",
+        "playstation.com",
+        "3dmgame.com",
+        "gamersky.com",
+        "ali213.net",
+        "nga.cn",
+        "ngacn.cc",
+        "nga.178.com",
+        "mihoyo.com",
+        "pathofexile.com",
+        "wowhead.com",
+        "mcbbs.net",
+        "bbs.eve-china.com",
+        "bbs.mountblade.com.cn",
+        "minecraft.net"
+      ]
+    },
+    {
+      "id": "3d-printing",
+      "name": "3D打印与模型",
+      "hint": "3D 打印模型库、切片软件、打印机厂商与建模",
+      "priority": 7,
+      "keywords": [
+        "3d打印",
+        "3d printing",
+        "模型下载",
+        "切片",
+        "stl",
+        "拓竹",
+        "建模"
+      ],
+      "url_patterns": [
+        "printables.com",
+        "thingiverse.com",
+        "thangs.com",
+        "makerworld.com",
+        "cults3d.com",
+        "bambulab.com",
+        "creality.com",
+        "prusa3d.com",
+        "myminifactory.com"
+      ]
+    },
+    {
+      "id": "shopping",
+      "name": "购物电商",
+      "hint": "电商平台、比价与优惠",
+      "priority": 5,
+      "keywords": [
+        "淘宝",
+        "京东",
+        "购物",
+        "电商",
+        "优惠",
+        "比价"
+      ],
+      "url_patterns": [
+        "taobao.com",
+        "jd.com",
+        "tmall.com",
+        "pinduoduo.com",
+        "amazon.",
+        "xianyu",
+        "goofish.com",
+        "1688.com",
+        "suning.com"
+      ]
+    },
+    {
+      "id": "social",
+      "name": "社交媒体",
+      "hint": "社交平台、短视频、即时社区",
+      "priority": 5,
+      "keywords": [
+        "微博",
+        "推特",
+        "twitter",
+        "社交",
+        "小红书",
+        "抖音",
+        "知乎"
+      ],
+      "url_patterns": [
+        "weibo.com",
+        "twitter.com",
+        "x.com",
+        "facebook.com",
+        "instagram.com",
+        "xiaohongshu.com",
+        "douyin.com",
+        "tiktok.com",
+        "zhihu.com",
+        "t.me",
+        "discord.com",
+        "reddit.com",
+        "tieba.baidu.com",
+        "douban.com",
+        "tianya.cn",
+        "zhidao.baidu.com"
+      ]
+    },
+    {
+      "id": "office-collab",
+      "name": "办公与协作",
+      "hint": "在线办公套件、视频会议、团队协作",
+      "priority": 6,
+      "keywords": [
+        "飞书",
+        "钉钉",
+        "在线文档",
+        "协作",
+        "会议",
+        "office"
+      ],
+      "url_patterns": [
+        "feishu.cn",
+        "larksuite.com",
+        "dingtalk.com",
+        "docs.google.com",
+        "office.com",
+        "slack.com",
+        "zoom.us",
+        "meeting.tencent.com",
+        "docs.qq.com",
+        "kdocs.cn",
+        "shimo.im"
+      ]
+    },
+    {
+      "id": "notes-pkm",
+      "name": "笔记与知识库",
+      "hint": "笔记应用、个人知识管理、文档库",
+      "priority": 7,
+      "keywords": [
+        "notion",
+        "obsidian",
+        "笔记",
+        "知识库",
+        "语雀",
+        "flomo",
+        "memo"
+      ],
+      "url_patterns": [
+        "notion.so",
+        "obsidian.md",
+        "yuque.com",
+        "evernote.com",
+        "yinxiang.com",
+        "flomoapp.com",
+        "wolai.com",
+        "logseq.com",
+        "roamresearch.com",
+        "appflowy.io"
+      ]
+    },
+    {
+      "id": "project-mgmt",
+      "name": "项目与任务管理",
+      "hint": "项目管理、任务看板、issue 跟踪",
+      "priority": 6,
+      "keywords": [
+        "jira",
+        "看板",
+        "项目管理",
+        "任务管理",
+        "todo",
+        "scrum"
+      ],
+      "url_patterns": [
+        "atlassian.com",
+        "trello.com",
+        "asana.com",
+        "teambition.com",
+        "tower.im",
+        "linear.app",
+        "monday.com",
+        "tapd.cn"
+      ]
+    },
+    {
+      "id": "maps",
+      "name": "地图与导航",
+      "hint": "地图服务、路线规划、位置查询",
+      "priority": 5,
+      "keywords": [
+        "地图",
+        "导航",
+        "map",
+        "路线"
+      ],
+      "url_patterns": [
+        "amap.com",
+        "map.baidu.com",
+        "maps.google.com",
+        "map.qq.com",
+        "openstreetmap.org"
+      ]
+    },
+    {
+      "id": "blog-cms",
+      "name": "博客平台与CMS",
+      "hint": "博客托管平台、静态站生成器、内容管理系统",
+      "priority": 5,
+      "keywords": [
+        "wordpress",
+        "博客平台",
+        "hexo",
+        "hugo",
+        "建站",
+        "cms"
+      ],
+      "url_patterns": [
+        "wordpress.org",
+        "wordpress.com",
+        "ghost.org",
+        "hexo.io",
+        "gohugo.io",
+        "medium.com",
+        "typecho.org",
+        "halo.run",
+        "jianshu.com"
+      ]
+    },
+    {
+      "id": "email-im",
+      "name": "邮件与通讯",
+      "hint": "邮箱服务、邮件客户端",
+      "priority": 5,
+      "keywords": [
+        "邮箱",
+        "邮件",
+        "mail",
+        "gmail",
+        "outlook"
+      ],
+      "url_patterns": [
+        "mail.google.com",
+        "outlook.com",
+        "mail.qq.com",
+        "mail.163.com",
+        "protonmail.com",
+        "mail.aliyun.com"
+      ]
+    },
+    {
+      "id": "jobs",
+      "name": "求职与招聘",
+      "hint": "招聘平台、职业社交、简历工具",
+      "priority": 5,
+      "keywords": [
+        "招聘",
+        "求职",
+        "简历",
+        "面试",
+        "boss直聘"
+      ],
+      "url_patterns": [
+        "zhipin.com",
+        "lagou.com",
+        "liepin.com",
+        "linkedin.com",
+        "zhaopin.com",
+        "51job.com",
+        "nowcoder.com"
+      ]
+    },
+    {
+      "id": "finance",
+      "name": "金融与理财",
+      "hint": "证券行情、基金理财、银行、加密货币",
+      "priority": 5,
+      "keywords": [
+        "股票",
+        "基金",
+        "理财",
+        "银行",
+        "证券",
+        "行情",
+        "加密",
+        "crypto"
+      ],
+      "url_patterns": [
+        "xueqiu.com",
+        "eastmoney.com",
+        "10jqka.com.cn",
+        "fund.eastmoney.com",
+        "binance.com",
+        "okx.com",
+        "coinmarketcap.com",
+        "tradingview.com",
+        "icbc.com.cn",
+        "cmbchina.com"
+      ]
+    },
+    {
+      "id": "life-services",
+      "name": "生活服务",
+      "hint": "外卖点评、出行旅游、票务政务",
+      "priority": 4,
+      "keywords": [
+        "美团",
+        "外卖",
+        "点评",
+        "旅游",
+        "酒店",
+        "机票",
+        "火车票",
+        "政务"
+      ],
+      "url_patterns": [
+        "meituan.com",
+        "dianping.com",
+        "ele.me",
+        "ctrip.com",
+        "12306.cn",
+        "qunar.com",
+        "airbnb.",
+        "booking.com",
+        "gov.cn"
+      ]
+    },
+    {
+      "id": "reading",
+      "name": "阅读与电子书",
+      "hint": "电子书库、网络文学、读书社区",
+      "priority": 5,
+      "keywords": [
+        "电子书",
+        "小说",
+        "阅读",
+        "epub",
+        "kindle",
+        "读书"
+      ],
+      "url_patterns": [
+        "weread.qq.com",
+        "douban.com/book",
+        "book.douban.com",
+        "z-lib",
+        "zlibrary",
+        "qidian.com",
+        "jjwxc.net",
+        "gutenberg.org",
+        "annas-archive.org"
+      ]
+    },
+    {
+      "id": "academic",
+      "name": "科研与论文",
+      "hint": "论文检索、学术数据库、文献管理",
+      "priority": 7,
+      "keywords": [
+        "论文",
+        "文献",
+        "学术",
+        "期刊",
+        "arxiv",
+        "scholar"
+      ],
+      "url_patterns": [
+        "arxiv.org",
+        "cnki.net",
+        "scholar.google.com",
+        "ieee.org",
+        "springer.com",
+        "sciencedirect.com",
+        "semanticscholar.org",
+        "sci-hub",
+        "zotero.org",
+        "connectedpapers.com"
+      ]
+    },
+    {
+      "id": "browser-ext",
+      "name": "浏览器与扩展",
+      "hint": "浏览器扩展商店、油猴脚本",
+      "priority": 6,
+      "keywords": [
+        "扩展",
+        "插件",
+        "extension",
+        "油猴",
+        "userscript",
+        "脚本"
+      ],
+      "url_patterns": [
+        "chromewebstore.google.com",
+        "chrome.google.com/webstore",
+        "addons.mozilla.org",
+        "greasyfork.org",
+        "tampermonkey.net",
+        "crxsoso.com"
+      ]
+    },
+    {
+      "id": "photography",
+      "name": "摄影与照片",
+      "hint": "摄影作品社区、照片分享",
+      "priority": 5,
+      "keywords": [
+        "摄影",
+        "photography",
+        "照片",
+        "图集"
+      ],
+      "url_patterns": [
+        "500px.com",
+        "flickr.com",
+        "tuchong.com",
+        "1x.com",
+        "magnumphotos.com"
+      ]
+    },
+    {
+      "id": "photo-editing",
+      "name": "图片处理与修图",
+      "hint": "修图软件、在线图片编辑",
+      "priority": 5,
+      "keywords": [
+        "修图",
+        "photoshop",
+        "lightroom",
+        "图片编辑",
+        "抠图",
+        "美化"
+      ],
+      "url_patterns": [
+        "adobe.com/products/photoshop",
+        "photopea.com",
+        "canva.com",
+        "gaoding.com",
+        "fotor.com",
+        "pixlr.com",
+        "meitu.com"
+      ]
+    },
+    {
+      "id": "gear-reviews",
+      "name": "器材与评测",
+      "hint": "摄影器材、数码产品评测与资讯",
+      "priority": 4,
+      "keywords": [
+        "评测",
+        "器材",
+        "测评",
+        "开箱",
+        "review",
+        "什么值得买"
+      ],
+      "url_patterns": [
+        "dpreview.com",
+        "smzdm.com",
+        "zol.com.cn",
+        "petapixel.com/reviews",
+        "xitek.com"
+      ]
+    },
+    {
+      "id": "image-hosting",
+      "name": "图片托管与分享",
+      "hint": "图床服务、图片外链托管",
+      "priority": 5,
+      "keywords": [
+        "图床",
+        "imgur",
+        "图片托管",
+        "外链"
+      ],
+      "url_patterns": [
+        "imgur.com",
+        "sm.ms",
+        "imgbb.com",
+        "postimages.org",
+        "imgse.com"
+      ]
+    },
+    {
+      "id": "camera-brands",
+      "name": "摄影品牌与官网",
+      "hint": "相机、镜头、无人机品牌官网",
+      "priority": 4,
+      "keywords": [
+        "佳能",
+        "尼康",
+        "索尼相机",
+        "富士",
+        "徕卡",
+        "大疆"
+      ],
+      "url_patterns": [
+        "canon.com.cn",
+        "nikon.com.cn",
+        "sony.com.cn",
+        "fujifilm.com.cn",
+        "leica-camera.com",
+        "dji.com",
+        "hasselblad.com"
+      ]
+    },
+    {
+      "id": "stock-media",
+      "name": "版权素材与购买",
+      "hint": "正版图片视频素材交易",
+      "priority": 4,
+      "keywords": [
+        "版权图片",
+        "正版素材",
+        "stock",
+        "图库"
+      ],
+      "url_patterns": [
+        "shutterstock.com",
+        "gettyimages.com",
+        "vcg.com",
+        "stock.adobe.com",
+        "istockphoto.com",
+        "veer.com"
+      ]
+    },
+    {
+      "id": "photo-tutorials",
+      "name": "摄影教程与灵感",
+      "hint": "摄影技巧教学、构图用光教程",
+      "priority": 4,
+      "keywords": [
+        "摄影教程",
+        "摄影技巧",
+        "构图",
+        "用光",
+        "后期教程"
+      ],
+      "url_patterns": [
+        "petapixel.com",
+        "fstoppers.com",
+        "shejidaren.com"
+      ]
+    }
+  ]
+}
