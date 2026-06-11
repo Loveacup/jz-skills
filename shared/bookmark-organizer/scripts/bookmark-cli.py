@@ -245,14 +245,23 @@ def cmd_merge(args):
     patch = clean_and_parse(Path(args.patch).read_text(encoding="utf-8"))
     if isinstance(patch, dict):
         patch = patch.get("results", patch.get("items", []))
-    applied = invalid_cat = unknown_id = protected = 0
+    applied = invalid_cat = unknown_id = protected = retitled = 0
     for p in patch:
         ref = by_id.get(p.get("id"))
         if ref is None:
             unknown_id += 1
             continue
-        cid = p.get("category_id", "")
+        cid = p.get("category_id")
+        new_title = p.get("title")
         for it in by_url[ref["url"]]:  # 同 URL 重复条目一并应用
+            if new_title and new_title != it["title"]:
+                it.setdefault("orig_title", it["title"])  # 标题优化不受分类保护限制
+                it["title"] = new_title
+                retitled += 1
+            if p.get("subcategory"):
+                it["subcategory"] = p["subcategory"]  # 二级文件夹，render 时呈现
+            if cid is None:
+                continue  # title-only 补丁
             if it["source"] not in ("none", "llm", "llm-invalid"):
                 protected += 1  # 规则/手工分类受保护，补丁只作用于待分类池
                 continue
@@ -263,7 +272,8 @@ def cmd_merge(args):
             it.update(category=cid, source="llm")
             applied += 1
     Path(args.classified).write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(f"merge: 应用 {applied} | 非法类别→未分类 {invalid_cat} | 未知 id 跳过 {unknown_id} | 受保护跳过 {protected}")
+    print(f"merge: 应用 {applied} | 改名 {retitled} | 非法类别→未分类 {invalid_cat} | "
+          f"未知 id 跳过 {unknown_id} | 受保护跳过 {protected}")
 
 
 # ---------- render ----------
@@ -280,17 +290,36 @@ def cmd_render(args):
     def esc(s):
         return html_mod.escape(s, quote=True)
 
-    # Netscape HTML：分类 = 一级文件夹；类内保持原始顺序；透传 ADD_DATE；不回填 ICON
+    def split_subcats(rows):
+        """子分类分组：子文件夹按条数降序在前，无子分类散条目在后。"""
+        subs, loose = {}, []
+        for it in rows:
+            sc = it.get("subcategory")
+            if sc:
+                subs.setdefault(sc, []).append(it)
+            else:
+                loose.append(it)
+        return sorted(subs.items(), key=lambda kv: -len(kv[1])), loose
+
+    def a_line(it, indent):
+        ad = f' ADD_DATE="{it["add_date"]}"' if it.get("add_date") else ""
+        return f'{indent}<DT><A HREF="{esc(it["url"])}"{ad}>{esc(it["title"])}</A>'
+
+    # Netscape HTML：分类 = 一级文件夹，子分类 = 二级文件夹；类内保持原始顺序；不回填 ICON
     out = ["<!DOCTYPE NETSCAPE-Bookmark-file-1>",
            '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">',
            "<TITLE>Bookmarks</TITLE>", "<H1>Bookmarks</H1>", "<DL><p>"]
     order = sorted(by_cat, key=lambda c: -len(by_cat[c]))
     for cid in order:
+        subs, loose = split_subcats(by_cat[cid])
         out.append(f"    <DT><H3>{esc(name_of.get(cid, cid))}</H3>")
         out.append("    <DL><p>")
-        for it in by_cat[cid]:
-            ad = f' ADD_DATE="{it["add_date"]}"' if it.get("add_date") else ""
-            out.append(f'        <DT><A HREF="{esc(it["url"])}"{ad}>{esc(it["title"])}</A>')
+        for sub, rows in subs:
+            out.append(f"        <DT><H3>{esc(sub)}</H3>")
+            out.append("        <DL><p>")
+            out.extend(a_line(it, "            ") for it in rows)
+            out.append("        </DL><p>")
+        out.extend(a_line(it, "        ") for it in loose)
         out.append("    </DL><p>")
     out.append("</DL><p>")
     Path(args.output).write_text("\n".join(out), encoding="utf-8")
@@ -312,19 +341,28 @@ def cmd_render(args):
         md_order = (["uncategorized"] if "uncategorized" in by_cat else []) + \
                    [c for c in order if c not in ("uncategorized", "bookmarklet")] + \
                    (["bookmarklet"] if "bookmarklet" in by_cat else [])
+        def md_line(it):
+            t = it["title"].replace("[", "［").replace("]", "］")
+            mark = " 🤖" if it["source"] == "llm" else ""
+            path = f" · `{'/'.join(it['folder_path'])}`" if it["folder_path"] else ""
+            u = it["url"]
+            if any(c in u for c in "() <>"):
+                u = f"<{u}>"  # 括号/空格破坏 MD 链接语法
+            return f"- [{t}]({u}){mark}{path}"
+
         for cid in md_order:
             rows = by_cat[cid]
+            subs, loose = split_subcats(rows)
             md.append(f"## {name_of.get(cid, cid)} ({len(rows)})")
             md.append("")
-            for it in rows:
-                t = it["title"].replace("[", "［").replace("]", "］")
-                mark = " 🤖" if it["source"] == "llm" else ""
-                path = f" · `{'/'.join(it['folder_path'])}`" if it["folder_path"] else ""
-                u = it["url"]
-                if any(c in u for c in "() <>"):
-                    u = f"<{u}>"  # 括号/空格破坏 MD 链接语法
-                md.append(f"- [{t}]({u}){mark}{path}")
-            md.append("")
+            if loose:
+                md.extend(md_line(it) for it in loose)
+                md.append("")
+            for sub, srows in subs:
+                md.append(f"### {sub} ({len(srows)})")
+                md.append("")
+                md.extend(md_line(it) for it in srows)
+                md.append("")
         Path(args.md).write_text("\n".join(md), encoding="utf-8")
     print(f"render: {len(items)} 条 → {args.output}" + (f" + {args.md}" if args.md else ""))
 

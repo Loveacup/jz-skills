@@ -77,9 +77,14 @@ vault 的 `00-Inbox/`（两阶段收件箱工作流），不要直接写终目�
 2. 类别清单**从规则文件生成**：读 `references/classification-rules.json` 的
    `categories[].{id, name, hint}`，放进 prompt；只允许返回清单内的 `id`
 3. 利用条目的 `title` + `url` 判断；不确定的条目宁可不输出（留在未分类），不要硬猜
-4. 每批输出纯 JSON 补丁文件：`[{"id": "<条目id>", "category_id": "<类别id>"}]`
+4. 每批输出纯 JSON 补丁文件：`[{"id": "<条目id>", "category_id": "<类别id>"}]`。
+   可选字段：`"title"`（顺便精简冗余标题，原标题自动存入 `orig_title`）、
+   `"subcategory"`（二级文件夹名，render 自动呈现为子文件夹 / MD 三级标题）
 5. `merge` 会做 6 层 fallback 解析 + 类别合法性校验：非法类别自动打回未分类并计数；
-   规则/手工分类的条目受保护，补丁无法覆盖
+   规则/手工分类的条目受保护，补丁无法改其分类（title/subcategory 不受此限制）
+6. **大类拆分（L3）**：某分类 >60 条时，按域名/主题制定子分类映射（LLM 定规则、
+   脚本批量打标），通过补丁的 `subcategory` 字段回灌；标题批量清洗同理
+   （双语重复、站点尾缀等规律性冗余走规则脚本，无意义标题逐条 LLM 改名）
 
 ## CLI 子命令速查
 
