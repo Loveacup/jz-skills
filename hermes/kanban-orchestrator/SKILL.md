@@ -8,7 +8,7 @@ platforms: [linux, macos, windows]
 metadata:
   hermes:
     tags: [kanban, multi-agent, orchestration, routing]
-    related_skills: [kanban-worker]
+    related_skills: [kanban-worker, kanban-codex-lane]
 
 ---
 
@@ -232,6 +232,7 @@ Key rules:
 - `references/adversarial-review-gate.md` — Producer≠reviewer enforcement: adversarial prompt field (always-on) + heterogeneous verification gate (for critical changes). Load when creating review child cards — especially for implementation cards that touch system-critical config or lane infrastructure.
 - `references/phase2-mvp-pattern.md` — Phase 2 MVP pattern: transitioning from smoke tests to real vault tasks, two-card structure (implementation + adversarial review), substrate selection for real work, value-acceptance criteria, anti-patterns, and D19 evidence. Load when planning the first real Kanban + CC lane task after smoke validation completes.
 - `references/cross-substrate-audit-review-loop.md` — Cross-substrate production audit pattern: implementation on one substrate, adversarial review on another, request-changes follow-up, scope-fork checks, parser/category false-confidence checks, and assignee skill-visibility preflight. Load when creating or reviewing real audit/documentation cards across `cccmux/cmux`, `claude-code/tmux`, or direct Hermes execution.
+- `references/kanban-codex-lane.md` — Codex lane skill reference: load when a Kanban worker needs to run Codex CLI as an isolated implementation lane.
 
 ## Pitfalls
 
