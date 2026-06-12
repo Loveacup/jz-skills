@@ -208,6 +208,8 @@ sleep 15 → 首次 polling → 立即向用户汇报 📡 状态
 
 ```bash
 HOME=/Users/alexcai claude --model claude-opus-4-8 --effort high   # 地板；xhigh / max 按上面路由往上抬
+
+> 💰 **Cheap lane（杂活专用）：** 当 Kanban 卡 `metadata.model=cheap` 时，改用 `--model claude-sonnet-4`。Sonnet 额度充裕，适合机械性任务：frontmatter 修复、标签规范化、模板填充、简单文件操作。cheap lane 产出必须通过 L0 机器校验（schema/git diff/tag scan）才能进入人工审查。详见 `kanban-orchestrator/references/lane-model-routing.md`。
 ```
 
 > 🧠 **思考保护：** `✻ 思考态` 且 token 在增长 = 深度推理活跃，**勿因静默打断**；只有 token 冻结 >3min 才算卡死（详见讨论协议 #7 + Pitfall #7/#36）。
