@@ -1,8 +1,6 @@
 ---
-
 name: arxiv
 description: "Search arXiv papers by keyword, author, category, or ID."
-type: routine
 version: 1.0.0
 author: Hermes Agent
 license: MIT
@@ -11,12 +9,20 @@ metadata:
   hermes:
     tags: [Research, Arxiv, Papers, Academic, Science, API]
     related_skills: [ocr-and-documents]
-
 ---
 
 # arXiv Research
 
 Search and retrieve academic papers from arXiv via their free REST API. No API key, no dependencies — just curl.
+
+### 🚨 Red Flags: DO NOT SKIP THE RATE LIMIT OR MISATTRIBUTE PAPERS
+
+| Excuse your brain will make | Why it's wrong |
+|------------------------------|----------------|
+| "Let me retry, arXiv probably just had a hiccup" | arXiv rate-limits aggressively (~1 req / 3s). Retrying makes it worse. Fall back to Semantic Scholar. |
+| "This paper is on arXiv, so it's peer-reviewed" | arXiv is a preprint server. Label venue/review status separately. |
+| "I'll just cite the latest version" | Versions can differ substantially. Cite the specific version you actually read (e.g., v2, not v7). |
+| "10 results is plenty, I'll stop here" | For surveys/SOTA, you may need 50-100 results. Use pagination (`start` parameter). |
 
 ## Quick Reference
 
@@ -246,7 +252,7 @@ curl -s "https://api.semanticscholar.org/graph/v1/author/search?query=Yann+LeCun
 
 ## Complete Research Workflow
 
-1. **Discover**: `python scripts/search_arxiv.py "your topic" --sort date --max 10`
+1. **Discover**: `python scripts/search_arxiv.py "your topic" --sort date --max 10` — if arXiv 429s, fall back to Semantic Scholar paper search (same topic, returns JSON with arXiv IDs).
 2. **Assess impact**: `curl -s "https://api.semanticscholar.org/graph/v1/paper/arXiv:ID?fields=citationCount,influentialCitationCount"`
 3. **Read abstract**: `web_extract(urls=["https://arxiv.org/abs/ID"])`
 4. **Read full paper**: `web_extract(urls=["https://arxiv.org/pdf/ID"])`
@@ -260,6 +266,14 @@ curl -s "https://api.semanticscholar.org/graph/v1/author/search?query=Yann+LeCun
 |-----|------|------|
 | arXiv | ~1 req / 3 seconds | None needed |
 | Semantic Scholar | 1 req / second | None (100/sec with API key) |
+
+**Rate-limit handling:** arXiv aggressively 429s on bursts — even two rapid queries can trigger it. When the API returns `429 Too Many Requests` or `Rate exceeded`, do not retry immediately. Instead:
+
+1. **Switch to Semantic Scholar** for paper discovery — its search endpoint returns JSON and covers most AI/ML/CS papers with arXiv IDs in `externalIds`.
+2. If you need fresh arXiv-specific results, wait ≥5 seconds and retry once.
+3. If the topic is CS/AI/ML, Semantic Scholar alone usually suffices for the discovery phase; cross-reference arXiv IDs after.
+
+This pattern was confirmed in the GRPO academic-lane test: arXiv returned 429 on the first curl, Semantic Scholar returned 188k papers instantly, and Exa filled in the original paper PDF link.
 
 ## Notes
 
@@ -283,3 +297,37 @@ Papers can be withdrawn after submission. When this happens:
 - The `<summary>` field contains a withdrawal notice (look for "withdrawn" or "retracted")
 - Metadata fields may be incomplete
 - Always check the summary before treating a result as a valid paper
+
+## Common Pitfalls
+
+1. **Blindly retrying arXiv after 429.** arXiv rate-limits aggressively (even two calls in <3s can trigger it). Do not retry in a loop — switch to Semantic Scholar for discovery instead. The Semantic Scholar paper search endpoint handles the same topics with no auth needed and returns arXiv IDs in `externalIds`.
+
+2. **Assuming Semantic Scholar citation counts are canonical.** Counts differ across Semantic Scholar, OpenAlex, and Google Scholar. Use them for relative signal ("this paper has orders of magnitude more citations than that one"), not as precise metrics. For formal bibliometrics, cross-check with OpenAlex.
+
+---
+
+## ✅ Verification Checklist (RUN BEFORE RETURNING RESULTS)
+
+- [ ] Did I respect arXiv rate limits (≥3s between requests)?
+- [ ] Did I label papers as "preprint" if on arXiv, not "peer-reviewed"?
+- [ ] Did I preserve the specific version suffix I read?
+- [ ] Did I check for withdrawn/retracted papers in the summary field?
+- [ ] For SOTA/first-paper claims: did I cross-check with Semantic Scholar?
+
+**If any box is unchecked, go back.**
+
+---
+
+## Deployment & Sync
+
+After ANY update to this SKILL.md:
+1. Sync to ALL Hermes profiles (dynamic discovery):
+   ```bash
+   for prof in $(ls -d ~/.hermes/profiles/*/ 2>/dev/null | xargs -n1 basename); do
+     dst=~/.hermes/profiles/$prof/skills/research/arxiv
+     [ -d "$dst" ] && cp -r "$dst" ~/.hermes/profiles/$prof/backups/arxiv-$(date +%Y%m%d_%H%M%S)
+     rm -rf "$dst"
+     cp -r ~/.hermes/skills/research/arxiv "$dst"
+   done
+   ```
+2. `qmd update`

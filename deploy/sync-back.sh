@@ -51,6 +51,7 @@ PAIRS=(
   "shared/pdf|productivity/pdf"
   "shared/strategic-insight-longform|productivity/strategic-insight-longform"
   "shared/voice-to-markdown-workflow|productivity/voice-to-markdown-workflow"
+  "shared/bookmark-organizer|bookmark-organizer"
   "shared/github|github"
   "shared/xhs-tech-writer|hermes/xhs-tech-writer"
 

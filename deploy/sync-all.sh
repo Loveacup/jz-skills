@@ -51,6 +51,26 @@ copy_hermes_ops_skill() {
   fi
 }
 
+# Deploy a shared (cross-platform) skill through .agents/shared, then
+# repoint the Hermes runtime entry to that pool.
+copy_shared_skill() {
+  local src="$1"
+  local runtime_dst="$2"
+  local name="$(basename "$src")"
+  local pool_base="$REAL_HOME/.agents/shared"
+  local pool_target="$pool_base/$name"
+  local runtime_target="$runtime_dst/$name"
+  if [ -d "$src" ]; then
+    mkdir -p "$pool_base" "$runtime_dst"
+    rm -rf "$pool_target"
+    cp -r "$src" "$pool_base/"
+    rm -rf "$runtime_target"
+    ln -s "$pool_target" "$runtime_target"
+  else
+    echo "  ⚠️  skip missing: ${src#$REPO_ROOT/}"
+  fi
+}
+
 # === Hermes ===
 sync_hermes() {
   local base="$REAL_HOME/.hermes/skills"
@@ -63,6 +83,7 @@ sync_hermes() {
   copy_skill_dir "$REPO_ROOT/shared/pdf"                    "$base/productivity"
   copy_skill_dir "$REPO_ROOT/shared/strategic-insight-longform"  "$base/productivity"
   copy_skill_dir "$REPO_ROOT/shared/voice-to-markdown-workflow"  "$base/productivity"
+  copy_shared_skill "$REPO_ROOT/shared/bookmark-organizer"     "$base"
   copy_skill_dir "$REPO_ROOT/shared/github"                   "$base"
   copy_skill_dir "$REPO_ROOT/shared/xhs-tech-writer"    "$base/hermes"
 
@@ -70,7 +91,8 @@ sync_hermes() {
   mkdir -p "$base/research" "$base/productivity" "$base/governance" "$base/autonomous-ai-agents" "$base/devops" "$base/smart-home" "$base/apple" "$base/hermes" "$base/social-media"
   copy_skill_dir "$REPO_ROOT/hermes/web-research-router"             "$base/research"
   copy_skill_dir "$REPO_ROOT/hermes/source-verification"            "$base/research"
-  copy_skill_dir "$REPO_ROOT/hermes/tradingagents"                   "$base/research"
+  copy_shared_skill "$REPO_ROOT/hermes/tradingagents"              "$base/research"
+  copy_shared_skill "$REPO_ROOT/hermes/arxiv"                       "$base/research"
 
   copy_skill_dir "$REPO_ROOT/hermes/auto-diary"                      "$base"
   copy_skill_dir "$REPO_ROOT/hermes/bilibili-video-analyzer"         "$base"
@@ -114,9 +136,11 @@ sync_hermes() {
     copy_skill_dir "$REPO_ROOT/shared/skill-authoring"        "$pd/governance"
     copy_skill_dir "$REPO_ROOT/shared/github"                "$pd"
     copy_skill_dir "$REPO_ROOT/shared/xhs-tech-writer"        "$pd/hermes"
+    copy_shared_skill "$REPO_ROOT/shared/bookmark-organizer"     "$pd"
     copy_skill_dir "$REPO_ROOT/hermes/web-research-router"             "$pd/research"
     copy_skill_dir "$REPO_ROOT/hermes/source-verification"            "$pd/research"
-    copy_skill_dir "$REPO_ROOT/hermes/tradingagents"                   "$pd/research"
+    copy_shared_skill "$REPO_ROOT/hermes/tradingagents"              "$pd/research"
+    copy_shared_skill "$REPO_ROOT/hermes/arxiv"                       "$pd/research"
     copy_skill_dir "$REPO_ROOT/hermes/calendar-manager"               "$pd"
     copy_skill_dir "$REPO_ROOT/hermes/cron-worker"                    "$pd"
     copy_skill_dir "$REPO_ROOT/hermes/de-slop"                        "$pd"
