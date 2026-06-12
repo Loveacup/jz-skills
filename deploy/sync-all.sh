@@ -29,6 +29,28 @@ copy_skill_dir() {
   fi
 }
 
+# Deploy a Hermes-ops skill through the centralized canonical pool, then
+# repoint the Hermes runtime entry to that pool. This preserves the
+# Agent Skills centralization invariant: runtime loads symlinks to
+# .agents/pools/* instead of real dirs copied directly from jz-skills.
+copy_hermes_ops_skill() {
+  local src="$1"
+  local runtime_dst="$2"
+  local name="$(basename "$src")"
+  local pool_base="$REAL_HOME/.agents/pools/hermes-ops"
+  local pool_target="$pool_base/$name"
+  local runtime_target="$runtime_dst/$name"
+  if [ -d "$src" ]; then
+    mkdir -p "$pool_base" "$runtime_dst"
+    rm -rf "$pool_target"
+    cp -r "$src" "$pool_base/"
+    rm -rf "$runtime_target"
+    ln -s "$pool_target" "$runtime_target"
+  else
+    echo "  ⚠️  skip missing: ${src#$REPO_ROOT/}"
+  fi
+}
+
 # === Hermes ===
 sync_hermes() {
   local base="$REAL_HOME/.hermes/skills"
@@ -56,7 +78,9 @@ sync_hermes() {
   copy_skill_dir "$REPO_ROOT/hermes/calendar-manager"               "$base"
   copy_skill_dir "$REPO_ROOT/hermes/cron-worker"                    "$base"
   copy_skill_dir "$REPO_ROOT/hermes/de-slop"                        "$base"
-  copy_skill_dir "$REPO_ROOT/hermes/claude-code"                    "$base/autonomous-ai-agents"
+  copy_hermes_ops_skill "$REPO_ROOT/hermes/claude-code"             "$base/autonomous-ai-agents"
+  copy_hermes_ops_skill "$REPO_ROOT/hermes/kanban-orchestrator"     "$base/devops"
+  copy_hermes_ops_skill "$REPO_ROOT/hermes/kanban-codex-lane"       "$base/autonomous-ai-agents"
   copy_skill_dir "$REPO_ROOT/hermes/cccmux"                         "$base/hermes"
   copy_skill_dir "$REPO_ROOT/hermes/cqi-plan-writer"                "$base/governance"
   copy_skill_dir "$REPO_ROOT/hermes/supermemory-hermes"              "$base/governance"
@@ -96,7 +120,9 @@ sync_hermes() {
     copy_skill_dir "$REPO_ROOT/hermes/calendar-manager"               "$pd"
     copy_skill_dir "$REPO_ROOT/hermes/cron-worker"                    "$pd"
     copy_skill_dir "$REPO_ROOT/hermes/de-slop"                        "$pd"
-    copy_skill_dir "$REPO_ROOT/hermes/claude-code"                    "$pd/autonomous-ai-agents"
+    copy_hermes_ops_skill "$REPO_ROOT/hermes/claude-code"             "$pd/autonomous-ai-agents"
+    copy_hermes_ops_skill "$REPO_ROOT/hermes/kanban-orchestrator"     "$pd/devops"
+    copy_hermes_ops_skill "$REPO_ROOT/hermes/kanban-codex-lane"       "$pd/autonomous-ai-agents"
     copy_skill_dir "$REPO_ROOT/hermes/cccmux"                         "$pd/hermes"
     copy_skill_dir "$REPO_ROOT/hermes/cqi-plan-writer"                "$pd/governance"
     copy_skill_dir "$REPO_ROOT/hermes/supermemory-hermes"              "$pd/governance"

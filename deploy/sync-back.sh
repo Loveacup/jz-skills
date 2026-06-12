@@ -66,6 +66,8 @@ PAIRS=(
   "hermes/calendar-manager|calendar-manager"
   "hermes/de-slop|de-slop"
   "hermes/claude-code|autonomous-ai-agents/claude-code"
+  "hermes/kanban-orchestrator|devops/kanban-orchestrator"
+  "hermes/kanban-codex-lane|autonomous-ai-agents/kanban-codex-lane"
   "hermes/cccmux|hermes/cccmux"
   "hermes/cqi-plan-writer|governance/cqi-plan-writer"
   "hermes/supermemory-hermes|governance/supermemory-hermes"
