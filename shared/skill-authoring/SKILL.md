@@ -1,7 +1,7 @@
 ---
 
 name: skill-authoring
-description: "Creates, audits, and improves Agent Skills with a compliance-first approach. 11-step flow: capture → grill → progressive disclosure → anti-rationalization → rule positioning → checklist → 7-dim compliance scoring → test cases → deployment-grounded audit → failure classification (DISCOVERY/OPTIMIZATION/SKILL DEFECT/EXECUTION LAPSE) → targeted revision → deploy. v3.0 absorbs SkillEvolver + EmbodiSkill (2026-05) for deployment-driven skill evolution. Use when creating, auditing, restructuring, or adding compliance elements to skills. Triggers on: 制作skill, 写skill, 优化skill, 审查skill, skill太长了, agent不遵循skill, create/improve/audit skill. DO NOT use for general documentation or one-off tasks."
+description: "Creates, audits, imports, and improves Agent Skills with a compliance-first approach. Also routes centralized SkillHub operations so agents do not read the full Obsidian governance project by default. 11-step flow: capture → grill → progressive disclosure → anti-rationalization → rule positioning → checklist → 7-dim compliance scoring → test cases → deployment-grounded audit → failure classification → targeted revision → deploy. Use when creating, auditing, importing GitHub skills, restructuring skills, updating SkillHub metadata, or adding compliance elements to skills. Triggers on: 制作skill, 写skill, 优化skill, 审查skill, 导入skill, skill太长了, agent不遵循skill, create/improve/audit/import skill. DO NOT use for general documentation or one-off tasks."
 type: routine
 version: 3.0.0
 author: Hermes Agent (v3.0 absorbs SkillEvolver + EmbodiSkill insights)
@@ -47,7 +47,8 @@ User requests skill-related operation?
 
 1. **First-time skill author:** Load Anthropic `skill-creator` for basic YAML/progressive disclosure/description authoring. Then apply this compliance layer.
 2. **Auditing an existing skill:** Skip Anthropic skill-creator. Jump to Progressive Disclosure Audit (Step 3) and Compliance Scorecard (Step 7).
-3. **Full design→build (recommended):** Load `grill-with-docs` to clarify scope → research existing solutions → build with this compliance layer.
+3. **Centralized SkillHub operation:** Do not read the full Obsidian project. Read `references/agent-skillhub-context-map.md`, then only the task-specific files it names. Use `references/agent-skillhub-workflow.md` for new skill, GitHub import, pool classification, runtime exposure, or Obsidian writeback.
+4. **Full design→build (recommended):** Load `grill-with-docs` to clarify scope → research existing solutions → build with this compliance layer.
 
 ---
 
@@ -190,13 +191,14 @@ When the user says "把这个 skill 推到 GitHub" or "审查后入库" for an e
 3. **Slim if needed**: move verbose sections to `references/`, add missing compliance elements
 4. **Run 7-dimension scorecard with line-position evidence**: show Red Flags%, decision tree%, checklist lines-from-bottom. Present this to the user before pushing. The scorecard IS the proof that review happened. Example scorecard format above in Step 7.
 5. **Sanitize**: run `sync-back.sh` (replaces home paths, emails, private IPs, API keys) → then run the full 28-pattern manual audit from `references/desensitization-audit.md` to catch what sync-back.sh misses (vault names, personal names in content, cron IDs, app instance IDs, ports).
-6. **Copy to jz-skills**: `cp ~/.hermes/skills/<skill> jz-skills/<category>/<skill>/`
-7. **Update both sync scripts**: `deploy/sync-all.sh` (forward deploy) AND `deploy/sync-back.sh` (reverse sync pairs). Missing either = broken sync.
-8. **Update README badge**: increment skill count
-9. **Commit**: `feat: add <skill> (compliance-reviewed, slimmed from X→Y lines)`
-10. **Push**
-11. **Sync to all active Hermes profiles**: after push, immediately sync to regent and other profiles. `rsync -av --delete ~/.hermes/skills/<path>/ ~/.hermes/profiles/<prof>/skills/<path>/`. Don't wait for the user to remind you.
-12. **Verify no stale references**: grep for old names across all skills.: if this skill absorbed/deleted old skills, run `grep -rn "<old-skill-name>" ~/.hermes/skills/ --include="*.md" | grep -v "replaces:" | grep -v "consolidation-case-study"` to catch every remaining reference. Fix ALL before declaring done. Also check jz-skills repo: `grep -rn "<old-name>" ~/code/jz-skills/ --include="*.md"`.
+6. **Profile-local source check**: if the source skill lives under `~/.hermes/profiles/<profile>/skills/`, `sync-back.sh` may not see it because it reads default `~/.hermes/skills`. Use the profile-local import + staged-only audit pattern in `references/repo-import-profile-local-and-staged-audit.md`; do not mutate the live profile just to make sync-back convenient.
+7. **Copy to jz-skills**: `cp ~/.hermes/skills/<skill> jz-skills/<category>/<skill>/` OR `rsync -a --delete <actual-profile-skill-dir>/ jz-skills/<layer>/<skill>/` for profile-local sources.
+8. **Update both sync scripts**: `deploy/sync-all.sh` (forward deploy) AND `deploy/sync-back.sh` (reverse sync pairs). Missing either = broken sync.
+9. **Update README badge/tree**: increment skill count and add any newly visible skill rows.
+10. **Commit carefully**: if the repo has unrelated dirty files, stage explicit paths only and audit `git diff --cached --name-status` before committing. Use a bilingual conventional commit such as `feat: add <skill> / 新增 <skill>`.
+11. **Push**
+12. **Sync to all active Hermes profiles**: after push, immediately sync to regent and other profiles. `rsync -av --delete ~/.hermes/skills/<path>/ ~/.hermes/profiles/<prof>/skills/<path>/`. Don't wait for the user to remind you.
+13. **Verify no stale references**: grep for old names across all skills.: if this skill absorbed/deleted old skills, run `grep -rn "<old-skill-name>" ~/.hermes/skills/ --include="*.md" | grep -v "replaces:" | grep -v "consolidation-case-study"` to catch every remaining reference. Fix ALL before declaring done. Also check jz-skills repo: `grep -rn "<old-name>" ~/code/jz-skills/ --include="*.md"`.
 
 Case studies: `references/slimming-case-studies.md` — strategic-insight-longform (513→130), voice-to-markdown (349→133), xhs-crawler (813→124), auto-diary (324→139).
 
@@ -250,6 +252,7 @@ Case studies: `references/slimming-case-studies.md` — strategic-insight-longfo
 | **platforms field causes unsupported even with whitelisted values** 🆕 | Hermes PLATFORM_MAP hardcodes macos/linux/windows. Non-whitelist values (cron, telegram) always fail. BUT even whitelisted values can trigger unsupported on valid platforms (2026-06-07: platforms: [macos, linux] on macOS → skill_view returned unsupported). Safer fix: omit platforms: entirely unless the skill genuinely cannot run on some OSes. | → skill permanently unsupported** 🆕 | Hermes `agent/skill_utils.py` hardcodes `PLATFORM_MAP = {"macos": "darwin", "linux": "linux", "windows": "win32"}`. Any other value (e.g., `cron`, `telegram`) is NOT mapped — compared raw against `sys.platform` → always FAILS → `readiness_status: unsupported`. **Fix**: only use `macos`, `linux`, or `windows` in the `platforms:` frontmatter field. Never invent values like `cron` or `telegram`. |
 | **Trusted `.bundled_manifest` as source of truth for skill origins** 🆕 | `.bundled_manifest` is a local snapshot — can be stale, incomplete, or out of sync with installed Hermes version. Always compare against `~/.hermes/hermes-agent/skills/` + `optional-skills/`. See `references/skill-origin-classification.md`. Case: 2026-06-07 audit — manifest had 60 entries, but Hermes core ships 74. |
 | **Skill deployed to `skills/` top-level directory → never indexed** 🆕 | Hermes skill indexer scans ONLY category subdirectories (e.g., `productivity/`, `devops/`). A skill directory placed directly under `skills/` (no parent category) is invisible — `skill_view` returns "not found" even though files exist on disk. **Fix**: always deploy skills into a category subdirectory. For cross-profile symlinks: `ln -s ~/.hermes/skills/<category>/<name> ~/.hermes/profiles/<prof>/skills/<category>/<name>` — NOT to the profile's `skills/` top level. Case: morning-news-briefing 2026-06-03 P0 fix. |
+| **User says “find/pull a skill from GitHub” but repo has untracked local skill dir** 🆕 | In a local skill hub repo, `git pull` can be up to date while the requested skill exists only as `?? <layer>/<skill>/` in the working tree. GitHub code search and `origin/main` will show nothing, but the usable source is still present locally. **Fix**: check three planes separately before concluding: (1) remote tracked tree (`git ls-tree origin/main`, remote branches, `gh search code --repo ...`); (2) local working tree including untracked dirs (`git status --porcelain`, path scan); (3) deployed Hermes index (`skill_view`). If deploying from an untracked local draft, say it is “deployed from local working tree, not pulled from remote”, rsync to `~/.hermes/skills/<category>/<skill>/`, then verify with `skill_view`. If the user wants it truly on GitHub, follow repo import workflow: sync mapping + README + audit + commit/push. |
 
 ---
 
@@ -306,7 +309,10 @@ Case studies: `references/slimming-case-studies.md` — strategic-insight-longfo
 | `references/skill-crystallization-roadmap.md` | 🆕 Skill 自动结晶路线：Obsidian 文档索引 + 四条路线概要 + 可运行系统（2026-06-05） |
 | `references/muse-autoskill-insights.md` | 🆕 MUSE-Autoskill paper analysis (2026-06-04): per-skill memory, test gating, skill bank health — three actionable takeaways for Hermes skill system |
 | `references/desensitization-audit.md` | 🆕 Comprehensive 28-pattern repo desensitization audit methodology — covers what sync-back.sh misses (vault names, personal names, cron IDs, app instance IDs, ports). Use before pushing skills to public repos. |
+| `references/repo-import-profile-local-and-staged-audit.md` | Profile-local skill import + staged-only audit pattern for jz-skills pushes: copy from actual profile source, patch both sync directions, stage explicit paths, and whitelist VCS SSH remotes like `git@github.com`. |
 | `references/skill-origin-classification.md` | 🆕 How to classify skills by origin (official vs self-made vs auto-generated): compare Hermes source repo, not `.bundled_manifest`. Case study: 2026-06-07 audit. |
+| `references/agent-skillhub-context-map.md` | 🆕 Minimal context router for centralized SkillHub work: which config, ledger, audit, and Obsidian files to read by task. |
+| `references/agent-skillhub-workflow.md` | 🆕 Centralized SkillHub workflows for creating, importing, modifying, exposing, and writing back skills without loading the full governance vault. |
 
 ## ✅ Author Verification Checklist (RUN BEFORE DEPLOYING)
 
@@ -321,6 +327,7 @@ Case studies: `references/slimming-case-studies.md` — strategic-insight-longfo
 - [ ] Did I deploy to a FRESH agent and verify the skill was actually INVOKED (Step 9)?
 - [ ] Did I classify deployment failures using the 4-type system (Step 9a)?
 - [ ] Did I accumulate ≥3 reflections before consolidating and revising (Step 10)?
+- [ ] If this touched centralized SkillHub state, did I follow `references/agent-skillhub-context-map.md` and avoid reading the full Obsidian project unless required?
 - [ ] If multi-profile: are Deployment & Sync rules embedded?
 
 **Every box must honestly pass before deploying. If unchecked, fix it.**
