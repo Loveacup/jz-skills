@@ -19,8 +19,8 @@ tags: [type/日记, status/闪念, src/对话]
 > [!abstract] 📋 今日速览
 > - 🌤️ {天气}
 > - 📅 {N} 个日历事件
-> - 🐴 Hermes {N} 会话 · 💻 CC {N} 会话（🤝协作 N + 💻独立 N + 🤖程序 N）
-> - 📚 {N} 个知识库变更
+> - 🐴 Hermes {N} 会话 · 🤖 Codex {N} 会话（💻独立 A + 🤝Guardian B + 🤖程序 C）· 💻 CC {N} 会话（🤝协作 N + 💻独立 N + 🤖程序 N）
+> - 📚 {N} 个知识库变更 · 📦 jz-skills {N} 个 commit
 ```
 
 - abstract callout 默认展开
@@ -104,6 +104,30 @@ tags: [type/日记, status/闪念, src/对话]
 ##### 📋 流程审计与优化
 - ...
 ```
+
+#### 🤖 Codex
+
+```markdown
+### 🤖 Codex
+
+> [!info] 📊 数据概览
+> - 会话: {N} · 💻 独立 {N} + 🤝 Guardian {N} + 🤖 程序 {N}
+
+##### 💻 独立对话（{N} 会话）
+- **项目名**: 主题概括
+
+##### 🤝 Guardian/Subagent（{N} 会话）
+- 审批/监控会话简述
+
+##### 🤖 程序/CLI调用（{N} 会话）
+- 主题概括
+```
+
+- Codex 分三组：💻 独立对话 / 🤝 Guardian/Subagent / 🤖 程序/CLI调用
+- 分类来自 Codex `source` 元数据（vscode / subagent / exec/cli）
+- 数据来自 `codex_sessions.sessions`，来源表 `~/.codex/state_5.sqlite` → threads
+- 独立对话优先，Guardian 第二（审批链路），程序调用最后
+- 若无 Codex 会话则写 `> 今日无 Codex 会话`
 
 #### 💻 Claude Code
 

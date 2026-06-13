@@ -301,8 +301,11 @@ def get_dingtalk_class_msgs(date_str):
 def collect_diary_data(date_str):
     dp=_real_home()/"Documents/Obsidian/AlexCai/50-Self/01_日记"/f"{date_str}.md"
     vr=_real_home()/"Documents/Obsidian/AlexCai"
+    sp=Path(__file__).parent;sys.path.insert(0,str(sp))
+    from extract_codex_conversations import get_codex_overview
     return {"date":date_str,"weekday":get_weekday(date_str),"weather":get_weather(date_str),
             "ai_logs":get_ai_logs(date_str),"calendar_events":get_calendar_events(date_str),
+            "codex_sessions":get_codex_overview(date_str),
             "existing_content":read_file_safe(dp),"vault_changes":scan_vault_changes(vr,date_str),
             "vault_deletions":scan_vault_deletions(vr),
             "jzskills_commits":scan_jzskills_commits(date_str),

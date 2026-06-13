@@ -12,12 +12,12 @@ description: |
 
   DO NOT use for: general note-taking, non-diary content generation, one-off research.
 type: routine
-version: 3.7.0
-author: Hermes Agent — v3.7.0 git diff 扫 vault 删除 + git log 扫 jz-skills 提交 · v3.6.3 pwd.getpwuid() 绕过 cron HOME 污染
+version: 3.8.0
+author: Hermes Agent — v3.8.0 新增 Codex 会话采集 + 去重 cron ID + 文档漂移修复 · v3.7.0 git diff 扫 vault 删除 + git log 扫 jz-skills 提交 · v3.6.3 pwd.getpwuid() 绕过 cron HOME 污染
 
 ---
 
-# Auto-Diary v3.6.3
+# Auto-Diary v3.8.0
 
 自动化日记生成 + 四层聚合（日/周/月/年）。Cron 定时触发或手动调用。
 
@@ -25,7 +25,7 @@ author: Hermes Agent — v3.7.0 git diff 扫 vault 删除 + git log 扫 jz-skill
 > 
 > | job_id | 任务 | schedule | scheduler | 聚合源 | 状态 |
 > |--------|------|----------|-----------|--------|------|
-> | `1ca6e7d692fa` | 每日日记草稿 | `0 23 * * *` | 根 scheduler | 当日 Hermes+CC+vault+cal | ✅ |
+> | `a68f4f81b3ee` | 每日日记草稿 | `0 23 * * *` | cron-worker | 当日 Hermes+CC+Codex+vault+cal | ✅ |
 > | `4f5b5607912d` | 每周周报 | `0 9 * * 1` | cron-worker | 上周 7 篇日记 | ✅ |
 > | `59a992daaa55` | 每月月报 | `30 9 1 * *` | cron-worker | 当月日记 | ✅ |
 > | `b6659cd1c94c` | 每年年报 | `0 10 1 1 * *` | cron-worker | 去年 12 篇月报 | ✅ |
@@ -58,7 +58,8 @@ author: Hermes Agent — v3.7.0 git diff 扫 vault 删除 + git log 扫 jz-skill
 | "I'll just pick the top 2-3 topics, the rest are noise" | 🔴 **Exhaustive coverage** (v3.0): EVERY topic in `ai_logs.*.topics` must appear in the diary. List all first, cluster by category (📖知识输入/🔍技术调研/📝文档管线 etc.), then write. Cross-check raw session data if overview seems thin. Busy days (10+ streams) → at least 3-4总结项. |
 | "🦞 is Claude Code, I'll use that emoji" | 🔴 **🦞 = OpenClaw, NOT Claude Code**. CC has no fixed emoji; diary uses 💻 for CC. Hermes = 🐴. Mixing these up frustrated user. |
 | "Callouts look cleaner folded, I'll use `> [!info]-`" | 🔴 **No folding callouts** (v3.0): user rejected `-` suffix. All callouts MUST be expanded — `> [!abstract]`, `> [!info]`, `> [!tip]`, `> [!note]`. Never use `> [!xxx]-`. |
-| "CC sessions are all the same, I'll list them flat" | 🔴 **CC three-type split** (v3.2): 🤝 Agent Team 协作 / 💻 独立对话 / 🤖 程序调用。Group by type THEN by project, per-project topics. Data in `claude_overview.agent_team`, `.standalone`, `.program_call`. Classification uses CC native metadata (entrypoint + parentUuid), not text matching. |
+| \"CC sessions are all the same, I'll list them flat\" | 🔴 **CC three-type split** (v3.2): 🤝 Agent Team 协作 / 💻 独立对话 / 🤖 程序调用。Group by type THEN by project, per-project topics. Data in `claude_overview.agent_team`, `.standalone`, `.program_call`. Classification uses CC native metadata (entrypoint + parentUuid), not text matching. |
+| \"Codex sessions are all guardian noise, I'll skip them\" | 🔴 **Codex blind spot** (v3.8.0): Codex sessions were completely absent from diaries before v3.8.0. Data source: `~/.codex/state_5.sqlite` → threads table (Unix timestamps). Three-type split: 💻 独立 (vscode) / 🤝 Guardian (subagent) / 🤖 程序 (exec/cli). Guardian 会话虽多是审批 noise，但也有实质性运维会话（如 skill 中心化治理）。不能整体跳过。 |
 | "Knowledge base changes are independent" | 🔴 **KB ↔ AI linking** (v3.1): Every vault change was produced by an AI session. Cross-reference `vault_changes` paths/titles with session topics. Group by source system (🐴/🏛️/💻). Unreliable matches → mark `(推断)`. |
 | "I'll batch-generate all 31 diaries with a Python loop, it'll be fast" | 🔴 **批量生成 = 垃圾** (v3.2): 用户明确拒绝模板填充式批量生成。正确做法：逐条处理，用 cron 输出摘要的叙事做底子，三问必须有洞察力。详见 `references/batch-generation-pitfall.md`。 |
 | "I've written diaries before, I know the format — no need to load diary-format.md" | 🔴 **NEVER write from memory** (v3.3): 凭记忆写日记导致 2026-06-02 全月重写——用户发现缺失 info callout、段落合并、三问缩写、CC 未按三组拆分、底部分段拍扁、tip 格式错误。教训：写或重写任何日记之前，**必须** `skill_view(name='auto-diary', file_path='references/diary-format.md')` 加载格式 spec，逐段对照写。记忆不可信。 |
@@ -85,14 +86,14 @@ Trigger received (cron or manual)?
 3. Check calendar with icalBuddy using calendars `个人1,工作1,Naomi1,Zelda1` (iCloud `<email redacted>`)
 4. **🔴 知识库双源** (v3.7.0): 日记的知识库部分必须同时呈现 Obsidian vault 变更（含 `vault_deletions`）和 jz-skills git commits。两者都做 AI 会话关联
 5. Read format spec: `{baseDir}/references/diary-format.md`
-6. **🔴 Cron health check** (v3.5.1): Run `hermes --profile cron-worker cron list | grep 1ca6e7d692fa` and `hermes cron list | grep 1ca6e7d692fa`. If the daily diary cron job_id is absent from BOTH schedulers, note it in the diary's 临时笔记 section and report it in the final response. The config archive at `config/cron-job.json` still holds the correct parameters for reconstruction.
-7. Generate diary with 10 sections: 🎯每日总结(三问) → 🌤️概览(weather+mood) → ⏰时间线(calendar) → 🤖AI工作记录 → 📚知识库更新（含 Obsidian vault + jz-skills git commits） → 📅日历事件(detailed table) → 🏠个人生活(placeholder) → ✅待办 → 📝临时笔记 → 💡tip 页脚
+6. **🔴 Cron health check** (v3.8.0): Run `hermes --profile cron-worker cron list | grep a68f4f81b3ee`. If the daily diary cron job_id is absent from the cron-worker scheduler, note it in the diary's 临时笔记 section and report it in the final response. The config archive at `config/cron-job.json` still holds the correct parameters for reconstruction.
+7. Generate diary with 10 sections: 🎯每日总结(三问) → 🌤️概览(weather+mood) → ⏰时间线(calendar) → 🤖AI工作记录（🐴助理体系 → 🏛️治理体系 → 🤖Codex → 💻CC） → 📚知识库更新（含 Obsidian vault + jz-skills git commits） → 📅日历事件(detailed table) → 🏠个人生活(placeholder) → ✅待办 → 📝临时笔记 → 💡tip 页脚
 8. **CRITICAL 合并安全**: `collect_data.py` 的 `existing_content` 恒为 `null`（已知限制,脚本不读已有日记）。所以写入前**必须先 `Read` 目标日记文件**;若已存在用户手写内容 → 合并,保留用户文字,只填空缺。不可盲目覆盖。
 9. **校验闭环**: 写完后运行 `python3 {baseDir}/scripts/verify_diary_compliance.py <写入的文件>`;若 FAIL,对照 `diary-format.md` 逐项重写,直到 PASS 再交付
 10. Write to Obsidian vault
 11. **日记入记忆** (v3.6): 校验 PASS 且写入 vault 后,把日记写进 supermemory `hermes` 池,让小黄(default profile)能检索每天的日记。
-    `~/.hermes/hermes-agent/venv/bin/python {baseDir}/scripts/write_diary_to_supermemory.py <写入的日记文件绝对路径>`
-    - ⚠️ **必须用 venv python 绝对路径**(系统 `python3` 缺 supermemory SDK 会 skip)。
+    `/Users/alexcai/.hermes/hermes-agent/venv/bin/python {baseDir}/scripts/write_diary_to_supermemory.py <写入的日记文件绝对路径>`
+    - ⚠️ **必须用 venv python 绝对路径**(系统 `python3` 缺 supermemory SDK 会 skip)。**不要用 `~/.hermes/...`**——cron-worker profile 下 `~` 会解析到 chroot (`~/.hermes/profiles/cron-worker/home/`)，venv python 根本不存在。必须用 `/Users/alexcai/.hermes/hermes-agent/venv/bin/python` 硬编码全路径。
     - 幂等(`custom_id=hermes-diary-<date>`,重跑覆盖不重复)、失败不阻塞交付、走 Surge 代理避开 fake-ip。
     - 这是绕过 memory provider 对 cron session 写入限制(`_write_enabled` 排除 cron)的唯一途径——日记 cron 不会自动 capture。
 12. Notify user (cron: via final response; manual: via Telegram)
@@ -207,7 +208,9 @@ icalBuddy `-ic "cal1,cal2"` on mismatched names returns empty **without error**.
 
 **知识库 ↔ AI 会话未关联** (v3.1 TODO): 知识库变更（vault_changes）目前独立展示，未标注是由哪个 AI 会话推动的。待做：在日记写作阶段做语义匹配，标注每个 vault 文件的来源会话。
 
-**jz-skills git 扫描** (v3.6.4 新增): 日记现在同时扫描 Obsidian vault 和 jz-skills git commits。但 git 扫描目前是手动步骤（`git log`），尚未集成到 `collect_data.py`。且只扫描默认分支，不追踪 feature 分支。详见 `references/jz-skills-git-scanning.md`。
+**Codex 内容展现偏薄** (v3.8.0): Codex session titles 来自 `threads.title` 字段（首条用户消息），可能很长或含 markdown，需要在日记中 LLM 加工成可读概括。Guardian 类 session 的 title 通常是被审批的原始消息，需要额外提取真正主题。
+
+**jz-skills git 扫描** (v3.7.0 已集成): 日记现在同时扫描 Obsidian vault 和 jz-skills git commits，**二者均已集成到 `collect_data.py`**（`scan_jzskills_commits()`）。返回 `jzskills_commits` 数组：hash + message + date + files + file_count。只扫描默认分支（main），不追踪 feature 分支。当日如果 jz-skills 有 commit，日记的 📚 知识库章节必须按来源体系分组展示。详见 `references/jz-skills-git-scanning.md`。
 
 ## Output Paths
 
@@ -226,10 +229,11 @@ icalBuddy `-ic "cal1,cal2"` on mismatched names returns empty **without error**.
 | CC logs empty | Check `find ~/.claude/projects/ -name "*.jsonl" -newermt "YYYY-MM-DD"`; verify JSONL files exist for target date |
 | Weather fails | `curl -s "https://api.open-meteo.com/v1/forecast?latitude=30.27&longitude=120.16&current_weather=true"` |
 | dataless files on read | Trigger Obsidian sync first; fallback to qmd index |
-| 🔴 **cron job 从 scheduler 消失** | `hermes cron list --profile cron-worker` 和 `hermes cron list` 中均无 `1ca6e7d692fa`。config 存档 `config/cron-job.json` 仍存在但 cron 实体已丢失。重建：`hermes --profile cron-worker cron create` 并从存档中拷贝参数。 |
+| 🔴 **cron job 从 scheduler 消失** | `hermes cron list --profile cron-worker` 和 `hermes cron list` 中均无 `a68f4f81b3ee`。config 存档 `config/cron-job.json` 仍存在但 cron 实体已丢失。重建：`hermes --profile cron-worker cron create` 并从存档中拷贝参数。 |
 | 🔴 **日记质量逐日退化** (CC=0, 知识库=0, 裸模板) | ⭐ **先查 cron skills！** `cronjob list` 和 `hermes --profile cron-worker cron list` 看 Skills 字段是否为空。**再查 HERMES_HOME 污染**：如果只有 cron-worker 会话、regent 全部缺失，是 v3.6 之前的 HERMES_HOME 污染 bug。**再查 Path.home() chroot 污染 (v3.6.3)**：如果 Hermes/CC/Vault 三项全 0 但天气和日历正常，是 HOME 被 cron chroot 覆盖——升级到 v3.6.3 用 pwd.getpwuid() 修复。 |
 | 🔴 **vault 变更条目偏少** (find 扫不到已删文件) | `find -newermt` 只扫存在的文件。检查 staged 删除: `git -c core.quotepath=false -C ~/Documents/Obsidian/AlexCai diff --diff-filter=D --name-only HEAD | grep '\.md$'`。v3.7.0 的 `scan_vault_deletions()` 已自动检测。注意：必须加 `-c core.quotepath=false` 否则中文路径被转义导致 grep 失败。 |
 | 🔴 **知识库变更条目偏少** (只有 vault，缺 jz-skills commits) | v3.7.0 的 `scan_jzskills_commits()` 已自动扫描。手动检查: `git -C ~/code/jz-skills log --after="DATE" --before="DATE+1" --oneline`。问题通常是 jz-skills repo 不存在或 git 不可用。
+| 🔴 **Codex 会话缺失** (v3.8.0 新增采集) | `collect_data.py` 的 `codex_sessions` 字段为空或全零。手动检查: `python3 /Users/alexcai/.hermes/skills/auto-diary/scripts/extract_codex_conversations.py 2026-06-12`。问题可能是 `~/.codex/state_5.sqlite` 不存在（Codex 未安装或从未使用）、threads 表为空（当天无 Codex 会话）、或 created_at Unix 时间戳时区计算有误。 |
 
 ## ✅ Verification Checklist
 
@@ -244,8 +248,10 @@ Manual checklist:
 - [ ] If existing_content: user-written sections preserved, only gaps filled?
 - [ ] 🔴 NO raw user messages quoted — all AI topics summarized?
 - [ ] 🔴 All topics from `ai_logs.*.topics` covered? Busy days (10+ streams) cross-checked against raw sessions?
-- [ ] 🔴 Emoji correct? 🐴=助理体系 · 🏛️=治理体系 · 💻=CC · 🦞 NEVER appears?
-- [ ] v3.2 format: inverted pyramid (三问 at top) / frontmatter / abstract callout / info callouts / --- dividers / tip callout / no folding?
+- [ ] 🔴 Emoji correct? 🐴=助理体系 · 🏛️=治理体系 · 🤖=Codex · 💻=CC · 🦞 NEVER appears?
+- [ ] v3.8.0 format: inverted pyramid (三问 at top) / frontmatter / abstract callout / info callouts / --- dividers / tip callout / no folding?
+- [ ] Hermes split into 🐴助理体系 and 🏛️治理体系? Profiles correctly assigned?
+- [ ] 🤖 Codex section present? Three-type split: 💻独立 / 🤝Guardian / 🤖程序?
 - [ ] CC split into 🤝 协作 / 💻 独立 / 🤖 程序 三组? Per-project topics shown? Priority order correct?
 - [ ] 📚 知识库按来源体系分组（🐴/🏛️/💻）? 关联标注正确? 不可靠匹配标 `(推断)`?
 - [ ] All 10 required sections present? (或直接跑 `verify_diary_compliance.py <file>` 自动校验)
@@ -257,10 +263,10 @@ Manual checklist:
 Cron job 配置存档于 `config/cron-job.json`，包含完整 prompt + schedule + model。每次更新 prompt 后应同步更新此文件。
 
 - Current: 每天 23:00, cron-worker profile, deepseek-v4-flash
-- Job ID: `1ca6e7d692fa`
-- **四个 cron 全部在 cron-worker profile**。日记 cron 虽在根 `cronjob list` 可见（`profile: cron-worker`），但以 cron-worker 身份运行。周/月/年报 cron 必须在 cron-worker profile scheduler 查看（`hermes cron list --profile cron-worker`）。
+- Job ID: `a68f4f81b3ee`
+- **四个 cron 全部在 cron-worker profile**。日记 cron 以 cron-worker 身份运行（独立 gateway `ai.hermes.gateway-cron-worker`）。周/月/年报 cron 在 cron-worker profile scheduler（`hermes --profile cron-worker cron list`）。
 - v3.5.1: **🔴 四个 cron 的 skills 必须非空**。2026-06-02~04 日记崩塌根因：skills 空数组导致裸跑。诊断：`cronjob list` 看 Skills 列；修复：`cronjob update`（根可见）/ `hermes --profile cron-worker cron edit --skill auto-diary`（cron-worker）。
-- v3.5.1 hotfix: **🔴 每日日记 cron 已从 scheduler 消失**。2026-06-04 发现：`1ca6e7d692fa` 在根和 cron-worker profile 的 scheduler 中均不存在，仅 `config/cron-job.json` 存档残留。这是独立于 empty-skills 的故障模式。对策：每次运行 Workflow A 时先做 cron health check（步骤 5），若缺失则在 final response 中报告。修复：`hermes --profile cron-worker cron create` + 从存档中拷贝参数。
+- v3.5.1 hotfix: **🔴 每日日记 cron 已从 scheduler 消失**。2026-06-04 发现：`a68f4f81b3ee` 在根和 cron-worker profile 的 scheduler 中均不存在，仅 `config/cron-job.json` 存档残留。这是独立于 empty-skills 的故障模式。对策：每次运行 Workflow A 时先做 cron health check（步骤 5），若缺失则在 final response 中报告。修复：`hermes --profile cron-worker cron create` + 从存档中拷贝参数。
 - v3.4 prompt 闭环: 写日记前先 `Read` 已有文件(合并安全) → 写入 → 跑 `verify_diary_compliance.py` → FAIL 则对照 spec 重写直到 PASS → 交付。
 - CC 数据真实路径: `ai_logs.claude_overview.{agent_team,standalone,program_call}`(注意 `ai_logs.` 前缀)。
 
