@@ -1,12 +1,13 @@
 ---
 name: obsidian-md-ac
 description: "Obsidian Markdown/content authority: Obsidian-specific syntax (wikilinks, embeds, callouts, frontmatter, properties, tags, LaTeX, footnotes, comments), Mermaid diagrams, JSON Canvas, and note beautification. Use when drafting or formatting content for an Obsidian note, diagram, model, architecture, database schema, flowchart, canvas, or .canvas file. Pair with obsidian for vault path resolution, file IO, sync, CLI, Bases, Defuddle, or qmd indexing. DO NOT use as the vault-operation skill."
-version: 1.1.0
+version: 1.2.0
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos]
 metadata:
   hermes:
+    related_skills: [obsidian]
     tags: [obsidian, markdown, mermaid, diagram, note-taking, visualization, canvas]
 ---
 
@@ -262,13 +263,87 @@ stateDiagram-v2
 
 ## JSON Canvas（.canvas 画布）
 
-创建 Obsidian Canvas 文件——节点（text/file/link/group）、边（箭头+标签）、分组、颜色。
+创建 Obsidian Canvas 文件——节点（text/file/link/group）、边（箭头+标签）、分组、颜色。基于 [JSON Canvas Spec 1.0](https://jsoncanvas.org/spec/1.0/)。
 
-流程：创建 `{"nodes":[],"edges":[]}` → 生成 16 字符 hex ID → 添加节点（id/type/x/y/width/height）→ 添加边（fromNode/toNode）→ 验证（JSON 有效 + 边引用存在 + ID 唯一）。
+### ① 4 步工作流
 
-> 🪤 JSON 换行用 `\n`，不用字面 `\\n`。坐标可为负。
+1. **create** — 新建 `.canvas`，基础结构 `{"nodes": [], "edges": []}`；每个 node/edge 生成唯一 16 字符小写 hex ID（如 `"6f0ad84f44ce9c17"`）
+2. **add node** — 追加节点到 `nodes`，必填 `id`/`type`/`x`/`y`/`width`/`height`
+3. **connect** — 追加边到 `edges`，设 `fromNode`/`toNode` 引用已存在节点 ID
+4. **edit / validate** — 读取并解析现有文件再改；落盘前过校验清单（见 ⑥）
 
-完整 schema、节点类型、边属性、颜色预设、布局指南、验证清单：`references/json-canvas.md`
+### ② 4 种 node type 速查
+
+| type | 必填属性 | 可选属性 |
+|------|---------|---------|
+| `text` | `text`（支持 Markdown）| `color` |
+| `file` | `file`（vault 内路径）| `subpath`（`#标题`/`#^块`）、`color` |
+| `link` | `url`（外部链接）| `color` |
+| `group` | —（仅通用字段）| `label`、`background`、`backgroundStyle`（`cover`/`ratio`/`repeat`）、`color` |
+
+```json
+{ "id": "6f0ad84f44ce9c17", "type": "text", "x": 0, "y": 0,
+  "width": 400, "height": 200, "text": "# 标题\n\n**Markdown** 正文" }
+```
+
+```json
+{ "id": "d4e5f6789012345a", "type": "group", "x": -50, "y": -50,
+  "width": 1000, "height": 600, "label": "Project Overview", "color": "4" }
+```
+
+> 🪤 JSON 换行用 `\n`，不用字面 `\\n`。坐标可为负（x 向右增、y 向下增，canvas 无限延伸）。
+
+### ③ edge 属性速查
+
+| 属性 | 必需 | 默认 | 取值 |
+|------|:--:|------|------|
+| `fromNode` | ✅ | - | 源节点 ID |
+| `toNode` | ✅ | - | 目标节点 ID |
+| `fromSide` / `toSide` | ❌ | - | `top` / `right` / `bottom` / `left` |
+| `fromEnd` | ❌ | `none` | `none` / `arrow` |
+| `toEnd` | ❌ | `arrow` | `none` / `arrow` |
+| `color` | ❌ | - | 预设 `"1"`-`"6"` 或 hex |
+| `label` | ❌ | - | 边上文字 |
+
+```json
+{ "id": "0123456789abcdef", "fromNode": "6f0ad84f44ce9c17", "fromSide": "right",
+  "toNode": "a1b2c3d4e5f67890", "toSide": "left", "toEnd": "arrow", "label": "leads to" }
+```
+
+### ④ 6 色预设
+
+| `"1"` | `"2"` | `"3"` | `"4"` | `"5"` | `"6"` |
+|:--:|:--:|:--:|:--:|:--:|:--:|
+| 红 | 橙 | 黄 | 绿 | 青 | 紫 |
+
+预设值有意未定义——应用用各自品牌色渲染。也可直接写 hex（如 `"#FF0000"`）。node 与 edge 都支持 `color`。
+
+### ⑤ 布局指南
+
+- 节点间距 **50–100px**；分组内边距 **20–50px**；子节点放在 group 边界内
+- 对齐网格（坐标取 **10 / 20 的倍数**）更整洁；`x` 向右增、`y` 向下增，坐标可为负
+- `nodes` 数组顺序决定 z-index（第一个=底层，最后一个=顶层）
+
+| 节点类型 | 推荐宽 | 推荐高 |
+|---------|------|------|
+| 小文本 | 200–300 | 80–150 |
+| 中文本 | 300–450 | 150–300 |
+| 大文本 | 400–600 | 300–500 |
+| 文件预览 | 300–500 | 200–400 |
+| 链接预览 | 250–400 | 100–200 |
+
+### ⑥ 校验清单（落盘前必过）
+
+- [ ] 所有 `id`（nodes + edges）唯一
+- [ ] 每个 `fromNode` / `toNode` 引用的节点存在
+- [ ] 各 type 必填字段完整（text→`text`、file→`file`、link→`url`）
+- [ ] `type` ∈ `text` / `file` / `link` / `group`
+- [ ] `fromSide` / `toSide` ∈ `top` / `right` / `bottom` / `left`
+- [ ] `fromEnd` / `toEnd` ∈ `none` / `arrow`
+- [ ] `color` 为 `"1"`-`"6"` 或合法 hex
+- [ ] JSON 可解析
+
+> 完整 schema、ID 生成、逐节点示例与字段细节：`references/json-canvas.md`
 
 ## 生态协作
 
@@ -277,6 +352,11 @@ stateDiagram-v2
 - **上游**：`voice-to-markdown-workflow`（产出转录文本）→ 本 skill（格式化为 Obsidian 笔记）
 - **下游执行**：`obsidian`（vault 路径、文件写入、同步、Bases、CLI）、`pdf`（导出）
 - **联动**：收到 voice-to-markdown 产出时，优先做结构美化和 Callout 标注
+
+> [!important] 🤝 `obsidian-md-ac` ↔ `obsidian` 职责分工
+> - **`obsidian-md-ac`（本 skill）= 内容/格式权威**：Obsidian 语法、Callout、wikilinks、frontmatter、Mermaid、JSON Canvas、美化决策。
+> - **`obsidian` = vault 操作权威**：路径解析、文件 IO、同步、CLI、Bases（.base）、Defuddle、qmd 索引。
+> - **联用顺序**：先用 `obsidian-md-ac` 定内容与格式 → 再用 `obsidian` 执行写入 / 同步 / 验证。
 
 ---
 

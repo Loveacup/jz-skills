@@ -1,7 +1,7 @@
 ---
 name: obsidian
 description: Read, search, create, edit, sync, and link notes in an Obsidian vault. Use when the task needs vault path resolution, file IO, Obsidian CLI, Bases (.base files), plugin development, Defuddle web extraction, or qmd indexing. Pair with obsidian-md-ac when writing rich Obsidian Markdown, Mermaid diagrams, or Canvas content. Do NOT use as the formatting authority for Obsidian syntax or diagrams.
-version: 1.1.0
+version: 1.2.0
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -139,6 +139,23 @@ obsidian tasks daily todo
 obsidian backlinks file="My Note"
 ```
 
+**Targeting a note — `file=` vs `path=`:**
+
+- `file=` — resolved like a wikilink: pass just the note name, no folder or extension, e.g. `file="My Note"`.
+- `path=` — exact path from the vault root, including extension, e.g. `path="folder/note.md"`.
+
+**Targeting a vault** — add `vault=` to run against a specific vault:
+
+```bash
+obsidian vault="My Vault" search query="test"
+```
+
+**Common flags:**
+
+- `--copy` — copy the command output to the clipboard.
+- `silent` — prevent the file from opening in Obsidian (used above in `create`).
+- `total` — return a count instead of the full list (for list-style commands).
+
 For plugin development (reload → errors → screenshot → console):
 
 ```bash
@@ -146,6 +163,15 @@ obsidian plugin:reload id=my-plugin
 obsidian dev:errors
 obsidian dev:screenshot path=screenshot.png
 obsidian dev:console level=error
+```
+
+Inspect the live DOM/CSS, simulate mobile, and run JS in the app context:
+
+```bash
+obsidian dev:dom selector=".workspace-leaf" text          # get DOM element text
+obsidian dev:css selector=".workspace-leaf" prop=background-color   # get computed CSS property
+obsidian dev:mobile on                                     # toggle mobile emulation
+obsidian eval code="app.vault.getFiles().length"          # run JS in the app context
 ```
 
 Full reference: `references/obsidian-cli.md`
