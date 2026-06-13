@@ -3,12 +3,22 @@
 
 import sys
 import re
-import subprocess
+import os
+import glob
+import shutil
+import tempfile
 import base64
 import json
+import importlib.util
 import mimetypes
-import markdown
+import subprocess
 from pathlib import Path
+
+try:
+    import markdown
+except ImportError:  # 允许在缺依赖的解释器上仍能跑 --preflight 给出友好提示
+    markdown = None
+
 from themes import load_theme, list_themes
 
 # 支持的输出格式
@@ -782,8 +792,93 @@ def _localize_mermaid_src(html):
     return html
 
 
-def _render_playwright(html_path, pdf_path, page_size="A4"):
-    """Render PDF using Playwright. Reliable for all documents including large Mermaid."""
+# ===== 浏览器选择 / 健康检查 helper（803/1094 共用，杜绝再改源码切浏览器） =====
+
+
+class _NeedPandoc(Exception):
+    """信号：playwright 与系统 chrome 均不可用，PDF 场景应转 pandoc 救生艇。"""
+
+
+def _node_env():
+    """803/1094 重复的 NODE_PATH 拼装，去重。"""
+    env = dict(os.environ)
+    extra = ":".join(
+        str(p) for p in [Path.home() / "node_modules", Path("/usr/local/lib/node_modules")]
+        if p.exists()
+    )
+    if extra:
+        env["NODE_PATH"] = extra
+    return env
+
+
+def _find_system_chrome():
+    """跨平台探测系统 Chrome/Chromium 可执行文件，找不到返回 None。"""
+    candidates = [
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    for n in ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "chrome"):
+        p = shutil.which(n)
+        if p:
+            return p
+    return None
+
+
+def _bundled_launchable():
+    """比 require 更接近能否 launch：能拿到存在的 executablePath 才算 OK。"""
+    if not (glob.glob(str(Path.home() / "Library/Caches/ms-playwright/chromium-*"))
+            or glob.glob(str(Path.home() / ".cache/ms-playwright/chromium-*"))):
+        return False
+    try:
+        r = subprocess.run(
+            ["node", "-e",
+             "const p=require('playwright').chromium.executablePath();"
+             "require('fs').accessSync(p);process.stdout.write(p)"],
+            capture_output=True, text=True, env=_node_env(), timeout=20,
+        )
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
+def _launch_plan(browser):
+    """返回按序尝试的 [(launch_expr, engine, exe)]。launch_expr 是注入 node 的 chromium.launch(...) 表达式。
+
+    - playwright：强制 bundled（不前置探测，运行失败由调用方决定）
+    - chrome：    系统 chrome，缺失即 raise
+    - auto：      bundled(可探测) → 系统 chrome(存在)，逐个运行尝试；都没有抛 _NeedPandoc
+    """
+    bundled = ("chromium.launch()", "playwright-chromium", "bundled")
+    if browser == "playwright":
+        return [bundled]
+    if browser == "chrome":
+        exe = _find_system_chrome()
+        if not exe:
+            raise RuntimeError("--browser chrome 但未找到系统 Chrome；先跑 --preflight 检查")
+        return [(f"chromium.launch({{ executablePath: {json.dumps(exe)} }})", "system-chrome", exe)]
+    if browser == "auto":
+        plan = []
+        if _bundled_launchable():
+            plan.append(bundled)
+        exe = _find_system_chrome()
+        if exe:
+            plan.append((f"chromium.launch({{ executablePath: {json.dumps(exe)} }})", "system-chrome", exe))
+        if not plan:
+            raise _NeedPandoc("bundled chromium 与系统 chrome 均不可用")
+        return plan
+    raise ValueError(f"Unknown browser '{browser}'")
+
+
+def _render_playwright(html_path, pdf_path, page_size="A4", browser="playwright"):
+    """Render PDF via Playwright/Chrome. browser ∈ {playwright,chrome,auto}。
+
+    auto 逐个尝试 plan 中的引擎：即使前置探测通过、运行时崩溃（如 6-13 的 launch 崩）
+    也会继续降级系统 chrome；全部失败抛 _NeedPandoc，交上层转 pandoc。
+    """
     has_mermaid = 'class="mermaid"' in html_path.read_text(encoding="utf-8")
     wait_timeout = 60000 if has_mermaid else 10000
 
@@ -797,10 +892,14 @@ def _render_playwright(html_path, pdf_path, page_size="A4"):
 
     pdf_margin = "top: '8mm', bottom: '8mm', left: '8mm', right: '8mm'" if page_size != "A4" else "top: '15mm', bottom: '15mm', left: '15mm', right: '15mm'"
 
-    script = f"""
+    plan = _launch_plan(browser)
+    last_err = ""
+    for idx, (launch_expr, engine, exe) in enumerate(plan):
+        print(f"  \U0001F5A5  engine={engine} executable={exe}", file=sys.stderr)
+        script = f"""
 const {{ chromium }} = require('playwright');
 (async () => {{
-  const browser = await chromium.launch();
+  const browser = await {launch_expr};
   const page = await browser.newPage();
   await page.goto('file://{html_path}', {{ waitUntil: 'networkidle', timeout: 120000 }});
   // Wait for Mermaid SVG rendering
@@ -822,27 +921,27 @@ const {{ chromium }} = require('playwright');
   console.log('OK');
 }})();
 """
-    script_path = Path("/tmp") / "pw_render.js"
-    script_path.write_text(script, encoding="utf-8")
+        script_path = Path("/tmp") / "pw_render.js"
+        script_path.write_text(script, encoding="utf-8")
+        result = subprocess.run(
+            ["node", str(script_path)],
+            capture_output=True, text=True, timeout=180, env=_node_env(),
+        )
+        if pdf_path.exists() and pdf_path.stat().st_size >= 1024:
+            return
+        last_err = result.stderr
+        if idx < len(plan) - 1:
+            print(f"  ⚠️  {engine} 渲染失败，降级下一引擎", file=sys.stderr)
 
-    import os
-    env = dict(os.environ)
-    node_paths = [Path.home() / "node_modules", Path("/usr/local/lib/node_modules")]
-    extra = ":".join(str(p) for p in node_paths if p.exists())
-    if extra:
-        env["NODE_PATH"] = extra
-
-    result = subprocess.run(
-        ["node", str(script_path)],
-        capture_output=True, text=True, timeout=180, env=env,
-    )
-
-    if not pdf_path.exists() or pdf_path.stat().st_size < 1024:
-        print(f"  Playwright stderr: {result.stderr}", file=sys.stderr)
-        raise RuntimeError("Playwright PDF generation failed")
+    print(f"  Playwright/Chrome stderr: {last_err}", file=sys.stderr)
+    if browser == "auto":
+        raise _NeedPandoc("playwright 与系统 chrome 渲染均失败")
+    raise RuntimeError("Playwright PDF generation failed")
 
 
-def md_to_pdf(md_path, pdf_path=None, header_text=None, directives=None, theme="blue", page_size="A4"):
+def md_to_pdf(md_path, pdf_path=None, header_text=None, directives=None,
+              theme="blue", page_size="A4", browser="playwright",
+              fallback=None, write_metadata=True):
     md_path = Path(md_path)
     pdf_path = Path(pdf_path) if pdf_path else md_path.with_suffix(".pdf")
     header_text = header_text or md_path.stem
@@ -856,7 +955,14 @@ def md_to_pdf(md_path, pdf_path=None, header_text=None, directives=None, theme="
     html_path = Path("/tmp") / f"{md_path.stem}.html"
     html_path.write_text(html, encoding="utf-8")
 
-    _render_playwright(html_path, pdf_path, page_size=page_size)
+    if fallback == "pandoc":
+        _render_pandoc_fallback(md_path, pdf_path, theme=theme, page_size=page_size)
+    else:
+        try:
+            _render_playwright(html_path, pdf_path, page_size=page_size, browser=browser)
+        except _NeedPandoc as e:
+            print(f"  ⚠️  {e} → 转 pandoc 救生艇", file=sys.stderr)
+            _render_pandoc_fallback(md_path, pdf_path, theme=theme, page_size=page_size)
 
     # Remove blank/near-empty pages
     removed = remove_blank_pages(pdf_path)
@@ -865,6 +971,10 @@ def md_to_pdf(md_path, pdf_path=None, header_text=None, directives=None, theme="
 
     # Add PDF bookmarks from heading hierarchy
     add_pdf_bookmarks(pdf_path, md_path)
+
+    # 源笔记 frontmatter → PDF metadata（独立一步，无标题文档也写）
+    if write_metadata:
+        add_pdf_metadata(pdf_path, md_path)
 
     size_kb = pdf_path.stat().st_size / 1024
     print(f"\u2705 {pdf_path.name} ({size_kb:.0f} KB)")
@@ -988,6 +1098,190 @@ def add_pdf_bookmarks(pdf_path, md_path):
     print(f"  \U0001F516 {len(headings)} bookmarks added")
 
 
+# ===== Frontmatter → PDF metadata =====
+
+
+def _parse_frontmatter(md_path):
+    """读原始 md（preprocess strip 之前）提取 YAML frontmatter dict；无则 {}。"""
+    try:
+        text = Path(md_path).read_text(encoding="utf-8")
+    except Exception:
+        return {}
+    m = re.match(r"^---\n(.*?)\n---\n", text, flags=re.DOTALL)
+    if not m:
+        return {}
+    try:
+        import yaml
+        data = yaml.safe_load(m.group(1))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _to_pdf_date(val):
+    """'YYYY-MM-DD[ HH:MM]' → PDF 'D:YYYYMMDDHHmmSS'；失败返回 None。"""
+    if not val:
+        return None
+    m = re.match(r"(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?", str(val))
+    if not m:
+        return None
+    y, mo, d = m.group(1), m.group(2), m.group(3)
+    hh, mm = m.group(4) or "00", m.group(5) or "00"
+    return f"D:{y}{mo}{d}{hh}{mm}00"
+
+
+def add_pdf_metadata(pdf_path, md_path):
+    """源笔记 frontmatter → PDF metadata。独立一步，无标题文档也写。
+
+    /Author 仅在 frontmatter 显式声明时写（避免把 vault 私有信息/邮箱泄露到外发 PDF）。
+    pypdf 缺失则静默跳过。
+    """
+    try:
+        from pypdf import PdfReader, PdfWriter
+    except ImportError:
+        return
+    fm = _parse_frontmatter(md_path)
+    pdf_path = Path(pdf_path)
+    al = fm.get("aliases") or []
+    al = [al] if isinstance(al, str) else list(al)
+    tags = fm.get("tags") or []
+    tags = [tags] if isinstance(tags, str) else list(tags)
+    meta = {
+        "/Title": str(fm.get("title") or (al[0] if al else Path(md_path).stem)),
+        "/Subject": str(fm.get("description") or fm.get("type") or ""),
+        "/Keywords": "; ".join(str(x) for x in (tags + al)),
+    }
+    if fm.get("author"):
+        meta["/Author"] = str(fm["author"])
+    cd = _to_pdf_date(fm.get("created"))
+    md_mod = _to_pdf_date(fm.get("modified"))
+    if cd:
+        meta["/CreationDate"] = cd
+    if md_mod:
+        meta["/ModDate"] = md_mod
+    meta = {k: v for k, v in meta.items() if v}
+    if not meta:
+        return
+    try:
+        reader = PdfReader(str(pdf_path))
+        writer = PdfWriter()
+        writer.append(reader)
+        writer.add_metadata(meta)
+        tmp = pdf_path.with_suffix(".meta.pdf")
+        with open(tmp, "wb") as f:
+            writer.write(f)
+        tmp.replace(pdf_path)
+        print(f"  \U0001F3F7  PDF metadata: {', '.join(k[1:] for k in meta)}")
+    except Exception as e:
+        print(f"  ⚠️  metadata 写入跳过: {e}", file=sys.stderr)
+
+
+# ===== pandoc 救生艇（第三路 fallback） =====
+
+
+def _render_pandoc_fallback(md_path, pdf_path, theme="blue", page_size="A4"):
+    """pandoc → standalone HTML（注入主题 CSS）→ 系统 chrome --print-to-pdf。
+
+    丢弃自研管线（callout/section/自适应字号/Mermaid），仅 A4，绝不静默（调用处已告警）。
+    """
+    md_path = Path(md_path)
+    pdf_path = Path(pdf_path)
+    chrome = _find_system_chrome()
+    pandoc = shutil.which("pandoc")
+    print("  ⚠️  pandoc 救生艇：样式不保真，Mermaid 不渲染", file=sys.stderr)
+    if not chrome:
+        raise RuntimeError("pandoc fallback 需系统 Chrome 做 print-to-pdf（未找到）")
+    if not pandoc:
+        raise RuntimeError("pandoc fallback 需 pandoc（brew install pandoc）")
+    if page_size != "A4":
+        print("  ⚠️  救生艇仅 A4，忽略自定义 page-size", file=sys.stderr)
+    tmp = Path(tempfile.mkdtemp(prefix="md2pdf_fb_"))
+    try:
+        css = tmp / "theme.css"
+        try:
+            css.write_text(load_theme(theme).css, encoding="utf-8")
+        except Exception:
+            css.write_text("", encoding="utf-8")
+        html = tmp / (md_path.stem + ".html")
+        subprocess.run(
+            [pandoc, str(md_path), "-f", "gfm+footnotes", "-t", "html5",
+             "--standalone", "--embed-resources", "--highlight-style=tango",
+             "--css", str(css), "-o", str(html)],
+            check=True, timeout=120,
+        )
+        subprocess.run(
+            [chrome, "--headless=new", "--disable-gpu", "--no-sandbox",
+             f"--user-data-dir={tmp}/profile", "--no-pdf-header-footer",
+             f"--print-to-pdf={pdf_path}", f"file://{html}"],
+            check=True, timeout=180, capture_output=True,
+        )
+        if not pdf_path.exists() or pdf_path.stat().st_size < 1024:
+            raise RuntimeError("pandoc fallback 产物为空")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+# ===== preflight 健康检查 =====
+
+
+def run_preflight(md_path=None, want_format="pdf", as_json=False):
+    """渲染前依赖/环境健康检查。退出码：0 可用(或仅 WARN)，1 致命 FAIL，2 指定 md 不存在。"""
+    checks = []
+
+    def chk(name, status, hint=""):
+        checks.append({"name": name, "status": status, "hint": hint})
+
+    def okfail(cond):
+        return "ok" if cond else "fail"
+
+    def okwarn(cond):
+        return "ok" if cond else "warn"
+
+    # interpreter（blocker#1）：当前解释器能否 import markdown——缺则脚本根本起不来
+    chk("interpreter:markdown", okfail(importlib.util.find_spec("markdown") is not None),
+        f"当前解释器 {sys.executable} 缺 markdown；pip install markdown 或换装齐依赖的 venv")
+    chk("pypdf", okwarn(importlib.util.find_spec("pypdf") is not None),
+        "pip install pypdf（缺则跳过去空白页/书签/metadata）")
+    chk("css_inline", okwarn(importlib.util.find_spec("css_inline") is not None),
+        "pip install css_inline（--format wechat 需要）")
+    chk("playwright:bundled", okwarn(_bundled_launchable()),
+        "npx playwright install chromium（缺则 auto 降级系统 chrome）")
+    chk("system-chrome", okwarn(_find_system_chrome() is not None),
+        "安装 Google Chrome（--browser chrome / auto 第二路 / pandoc 救生艇需要）")
+    chk("pandoc", okwarn(shutil.which("pandoc") is not None),
+        "brew install pandoc（pandoc 救生艇需要）")
+    chk("mermaid-cache", okwarn(Path("/tmp/mermaid.min.js").exists()),
+        "首次转含 Mermaid 文档需联网下载 mermaid.min.js")
+
+    code = 0
+    if md_path is not None:
+        p = Path(md_path)
+        if not p.exists():
+            chk("doc:exists", "fail", f"源文档不存在: {md_path}")
+            code = 2
+        else:
+            text = p.read_text(encoding="utf-8", errors="ignore")
+            chk("doc:lines", "info", f"{len(text.splitlines())} 行")
+            chk("doc:mermaid", "info", "含 Mermaid" if "```mermaid" in text else "无 Mermaid")
+            chk("doc:frontmatter", "info",
+                "有 frontmatter" if re.match(r"^---\n", text) else "无 frontmatter（PDF metadata 用文件名兜底）")
+
+    fatal = any(c["status"] == "fail" for c in checks)
+    has_warn = any(c["status"] == "warn" for c in checks)
+    if as_json:
+        overall = "fail" if fatal else ("degraded" if has_warn else "ok")
+        print(json.dumps({"checks": checks, "overall": overall}, ensure_ascii=False))
+    else:
+        marks = {"ok": "✅", "warn": "⚠️ ", "fail": "❌", "info": "ℹ️ "}
+        for c in checks:
+            tail = f"  {c['hint']}" if c["status"] != "ok" else ""
+            print(f"  {marks.get(c['status'], '  ')} {c['name']:22}{tail}")
+        print(f"  === overall: {'FAIL' if fatal else ('DEGRADED' if has_warn else 'OK')} ===")
+    if code == 2:
+        return 2
+    return 1 if fatal else 0
+
+
 def parse_cli_args(argv):
     """解析命令行参数（argv 不含程序名），返回 dict。
 
@@ -999,6 +1293,12 @@ def parse_cli_args(argv):
     theme = "blue"
     page_size = "A4"
     fmt = "pdf"
+    browser = "playwright"
+    preflight = False
+    fallback = None
+    write_metadata = True
+    as_json = False
+    verify = False
     i = 0
     while i < len(argv):
         arg = argv[i]
@@ -1015,6 +1315,10 @@ def parse_cli_args(argv):
             i += 2
         elif arg == "--page-size" and i + 1 < len(argv):
             page_size = argv[i + 1]
+            if page_size != "A4" and not re.match(r"^\d+x\d+$", page_size):
+                raise ValueError(
+                    f"Unknown page-size '{page_size}'. Use 'A4' or 'WxH' (e.g. 430x932)"
+                )
             i += 2
         elif arg == "--format" and i + 1 < len(argv):
             fmt = argv[i + 1]
@@ -1023,6 +1327,30 @@ def parse_cli_args(argv):
                     f"Unknown format '{fmt}'. Available: {', '.join(VALID_FORMATS)}"
                 )
             i += 2
+        elif arg == "--browser" and i + 1 < len(argv):
+            browser = argv[i + 1]
+            if browser not in ("playwright", "chrome", "auto"):
+                raise ValueError(
+                    f"Unknown browser '{browser}'. Use playwright|chrome|auto"
+                )
+            i += 2
+        elif arg == "--fallback" and i + 1 < len(argv):
+            fallback = argv[i + 1]
+            if fallback not in ("pandoc",):
+                raise ValueError(f"Unknown fallback '{fallback}'. Only 'pandoc' supported")
+            i += 2
+        elif arg == "--preflight":
+            preflight = True
+            i += 1
+        elif arg == "--no-metadata":
+            write_metadata = False
+            i += 1
+        elif arg == "--json":
+            as_json = True
+            i += 1
+        elif arg == "--verify":
+            verify = True
+            i += 1
         else:
             positional.append(arg)
             i += 1
@@ -1033,6 +1361,12 @@ def parse_cli_args(argv):
         "page_size": page_size,
         "format": fmt,
         "directives": directives,
+        "browser": browser,
+        "preflight": preflight,
+        "fallback": fallback,
+        "write_metadata": write_metadata,
+        "as_json": as_json,
+        "verify": verify,
     }
 
 
@@ -1057,8 +1391,8 @@ def inline_css(html):
     return css_inline.inline(html)
 
 
-def _render_playwright_output(html_path, out_path, fmt, page_size="A4"):
-    """渲染 png/html/wechat（非 pdf）。沿用 _render_playwright 的 node/NODE_PATH/Mermaid 等待模式。"""
+def _render_playwright_output(html_path, out_path, fmt, page_size="A4", browser="playwright"):
+    """渲染 png/html/wechat（非 pdf）。逐引擎尝试；非 pdf 无 pandoc 兜底。"""
     html_path = Path(html_path)
     out_path = Path(out_path)
     has_mermaid = 'class="mermaid"' in html_path.read_text(encoding="utf-8")
@@ -1088,10 +1422,18 @@ def _render_playwright_output(html_path, out_path, fmt, page_size="A4"):
   const content = await page.content();
   process.stdout.write('__HTML_START__' + Buffer.from(content).toString('base64') + '__HTML_END__');"""
 
-    script = f"""
+    try:
+        plan = _launch_plan(browser)
+    except _NeedPandoc:
+        raise RuntimeError(f"{fmt} 渲染需 playwright 或系统 chrome，均不可用；先跑 --preflight")
+
+    last_err = ""
+    for idx, (launch_expr, engine, exe) in enumerate(plan):
+        print(f"  \U0001F5A5  engine={engine} executable={exe}", file=sys.stderr)
+        script = f"""
 const {{ chromium }} = require('playwright');
 (async () => {{
-  const browser = await chromium.launch();
+  const browser = await {launch_expr};
   const page = await browser.newPage();
   await page.goto('file://{html_path}', {{ waitUntil: 'networkidle', timeout: 120000 }});
 {common_wait}
@@ -1099,43 +1441,40 @@ const {{ chromium }} = require('playwright');
   await browser.close();
 }})();
 """
-    script_path = Path("/tmp") / "pw_render_output.js"
-    script_path.write_text(script, encoding="utf-8")
+        script_path = Path("/tmp") / "pw_render_output.js"
+        script_path.write_text(script, encoding="utf-8")
+        result = subprocess.run(
+            ["node", str(script_path)],
+            capture_output=True, text=True, timeout=180, env=_node_env(),
+        )
 
-    import os
-    env = dict(os.environ)
-    node_paths = [Path.home() / "node_modules", Path("/usr/local/lib/node_modules")]
-    extra = ":".join(str(p) for p in node_paths if p.exists())
-    if extra:
-        env["NODE_PATH"] = extra
+        if fmt in ("html", "wechat"):
+            out = result.stdout
+            if "__HTML_START__" in out and "__HTML_END__" in out:
+                b64 = out.split("__HTML_START__", 1)[1].split("__HTML_END__", 1)[0]
+                content = base64.b64decode(b64).decode("utf-8")
+                if fmt == "wechat":
+                    content = inline_css(content)
+                out_path.write_text(content, encoding="utf-8")
 
-    result = subprocess.run(
-        ["node", str(script_path)],
-        capture_output=True, text=True, timeout=180, env=env,
-    )
+        if out_path.exists() and out_path.stat().st_size > 0:
+            return
+        last_err = result.stderr
+        if idx < len(plan) - 1:
+            print(f"  ⚠️  {engine} 渲染失败，降级下一引擎", file=sys.stderr)
 
-    if fmt in ("html", "wechat"):
-        out = result.stdout
-        if "__HTML_START__" in out and "__HTML_END__" in out:
-            b64 = out.split("__HTML_START__", 1)[1].split("__HTML_END__", 1)[0]
-            content = base64.b64decode(b64).decode("utf-8")
-            if fmt == "wechat":
-                content = inline_css(content)
-            out_path.write_text(content, encoding="utf-8")
-        else:
-            raise RuntimeError(f"Playwright render failed: {result.stderr}")
-
-    if not out_path.exists() or out_path.stat().st_size == 0:
-        raise RuntimeError(f"Playwright {fmt} generation failed: {result.stderr}")
+    raise RuntimeError(f"Playwright {fmt} generation failed: {last_err}")
 
 
 def md_to_output(md_path, out_path=None, fmt="pdf", header_text=None,
-                 directives=None, theme="blue", page_size="A4"):
+                 directives=None, theme="blue", page_size="A4",
+                 browser="playwright", fallback=None, write_metadata=True):
     """按格式分发。pdf 走原有 md_to_pdf 路径，其余渲染 png/html/wechat。"""
     md_path = Path(md_path)
     if fmt == "pdf":
         md_to_pdf(md_path, out_path, header_text, directives,
-                  theme=theme, page_size=page_size)
+                  theme=theme, page_size=page_size, browser=browser,
+                  fallback=fallback, write_metadata=write_metadata)
         return
 
     header_text = header_text or md_path.stem
@@ -1149,7 +1488,7 @@ def md_to_output(md_path, out_path=None, fmt="pdf", header_text=None,
     html_path.write_text(html, encoding="utf-8")
 
     out = output_path_for(md_path, fmt, out_path)
-    _render_playwright_output(html_path, out, fmt, page_size=page_size)
+    _render_playwright_output(html_path, out, fmt, page_size=page_size, browser=browser)
 
     size_kb = out.stat().st_size / 1024
     print(f"✅ {out.name} ({size_kb:.0f} KB)")
@@ -1163,9 +1502,31 @@ if __name__ == "__main__":
         sys.exit(1)
 
     positional = args["positional"]
+
+    # --preflight：依赖/环境自检，可独立运行或对指定 md 体检；本身不依赖 markdown
+    if args["preflight"]:
+        sys.exit(run_preflight(
+            md_path=positional[0] if positional else None,
+            want_format=args["format"],
+            as_json=args["as_json"],
+        ))
+
     if not positional:
         print(
-            "Usage: python md2pdf_chrome.py <md_file> [out_file] [header_text] [--format pdf|png|html|wechat] [--theme blue|dark|academic|newsletter|minimalist|warm-academic] [--page-size A4|430x932] [--sm PATTERN] [--xs PATTERN] [--sm-after PATTERN] [--xs-after PATTERN]"
+            "Usage: python md2pdf_chrome.py <md_file> [out_file] [header_text] "
+            "[--format pdf|png|html|wechat] [--browser playwright|chrome|auto] "
+            "[--fallback pandoc] [--preflight [--json]] [--no-metadata] "
+            "[--theme NAME (auto-discovered from scripts/themes/*.css)] "
+            "[--page-size A4|430x932] [--sm PATTERN] [--xs PATTERN] "
+            "[--sm-after PATTERN] [--xs-after PATTERN]"
+        )
+        sys.exit(1)
+
+    if markdown is None:
+        print(
+            "❌ 当前解释器缺 markdown 包，无法渲染。请 pip install markdown，"
+            "或改用装齐依赖的 venv；可先跑 `--preflight` 自查。",
+            file=sys.stderr,
         )
         sys.exit(1)
 
@@ -1177,4 +1538,18 @@ if __name__ == "__main__":
         directives=args["directives"] or None,
         theme=args["theme"],
         page_size=args["page_size"],
+        browser=args["browser"],
+        fallback=args["fallback"],
+        write_metadata=args["write_metadata"],
     )
+
+    if args["verify"] and args["format"] == "pdf":
+        try:
+            from verify_pdf import verify as _verify_pdf, render_report as _render_vr
+            out_resolved = output_path_for(
+                positional[0], args["format"],
+                positional[1] if len(positional) > 1 else None,
+            )
+            _render_vr(_verify_pdf(out_resolved, positional[0]))
+        except Exception as e:
+            print(f"  ⚠️  verify 跳过: {e}", file=sys.stderr)

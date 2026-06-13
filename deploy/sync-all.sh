@@ -71,6 +71,37 @@ copy_shared_skill() {
   fi
 }
 
+# Deploy a cross-CLI shared skill through .agents/shared (canonical), then
+# repoint EVERY active runtime (claude/codex/cursor/hermes) to that pool via
+# symlink. Fixes blocker#2: pdf-class skills consumed by multiple CLIs must live
+# in the canonical pool with one symlink per runtime — not a single physical
+# shadow under one runtime's productivity/ dir.
+deploy_shared_multi() {
+  local src="$1"
+  local name="$(basename "$src")"
+  local pool_base="$REAL_HOME/.agents/shared"
+  local target="$pool_base/$name"
+  if [ ! -d "$src" ]; then
+    echo "  ⚠️  skip missing: ${src#$REPO_ROOT/}"
+    return
+  fi
+  mkdir -p "$pool_base"
+  rm -rf "$target"
+  cp -r "$src" "$pool_base/"
+  # 部署产物不保留 python 缓存
+  find "$target" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
+  find "$target" -name .pytest_cache -type d -prune -exec rm -rf {} + 2>/dev/null || true
+  local n=0 rt
+  for rt in "$REAL_HOME/.claude/skills" "$REAL_HOME/.codex/skills" \
+            "$REAL_HOME/.cursor/skills" "$REAL_HOME/.hermes/skills"; do
+    [ -d "$rt" ] || continue
+    rm -rf "$rt/$name"
+    ln -s "$target" "$rt/$name"
+    n=$((n + 1))
+  done
+  echo "  🔗 $name → .agents/shared + $n runtime symlink(s)"
+}
+
 # === Hermes ===
 sync_hermes() {
   local base="$REAL_HOME/.hermes/skills"
@@ -80,7 +111,7 @@ sync_hermes() {
   mkdir -p "$base/governance" "$base/productivity"
   copy_skill_dir "$REPO_ROOT/shared/grill-with-docs"        "$base/governance"
   copy_skill_dir "$REPO_ROOT/shared/skill-authoring"        "$base/governance"
-  copy_skill_dir "$REPO_ROOT/shared/pdf"                    "$base/productivity"
+  deploy_shared_multi "$REPO_ROOT/shared/pdf"   # blocker#2: canonical + 4-runtime symlinks（不再造 productivity/pdf 影子）
   copy_skill_dir "$REPO_ROOT/shared/strategic-insight-longform"  "$base/productivity"
   copy_skill_dir "$REPO_ROOT/shared/voice-to-markdown-workflow"  "$base/productivity"
   copy_shared_skill "$REPO_ROOT/shared/bookmark-organizer"     "$base"
