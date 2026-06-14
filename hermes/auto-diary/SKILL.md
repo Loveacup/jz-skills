@@ -212,7 +212,9 @@ icalBuddy `-ic "cal1,cal2"` on mismatched names returns empty **without error**.
 
 **知识库 ↔ AI 会话未关联** (v3.1 TODO): 知识库变更（vault_changes）目前独立展示，未标注是由哪个 AI 会话推动的。待做：在日记写作阶段做语义匹配，标注每个 vault 文件的来源会话。
 
-**Codex 内容展现偏薄** (v3.8.1): Codex session titles 来自 `threads.title` (SQLite) 或 JSONL 第一条用户消息。Guardian 类 session 的 title 通常是 guardian 系统 prompt（"You are judging..."），需要额外从 parent thread 获取真正主题（待做）。Automation 类 session 的标题前缀 "Automation:" 可以识别为定时任务。JSONL 来源的 session 需跳过 AGENTS.md 注入行（`# AGENTS.md instructions` 开头）和 guardian prompt 行（`The following is the Codex agent history` 开头）。
+**Codex 内容展现偏薄** (v3.8.2): Codex session titles 来自 `threads.title` (SQLite) 或 JSONL 第一条用户消息。Guardian 类 session 的 title 通常是 guardian 系统 prompt（"You are judging..."），需要额外从 parent thread 获取真正主题（待做）。Automation 类 session 的标题前缀 "Automation:" 可以识别为定时任务。JSONL 来源的 session 需跳过 AGENTS.md 注入行。v3.8.2: CC-Teammate 通信（`<teammate-message>`）和 Claude-Mem Observer（"memory agent"）已自动识别并单列，不再混入独立对话。
+
+**🔗跨运行时主线为 agent 推断** (v3.8.2): `🔗跨运行时协作主线` 的端到端链路（如"🐴 Hermes 发起 → 🤖 Codex 审计 → 💻 CC 执行"）由 agent 基于三段会话数据综合推断生成，**非数据层 join 产出**。`_detect_cross_runtime()` 仅做 cwd 字符串匹配。agent 必须穷举覆盖 + 不凭记忆杜撰。未来待做：`collect_data.py` 三方任务线 join。
 
 **jz-skills git 扫描** (v3.7.0 已集成): 日记现在同时扫描 Obsidian vault 和 jz-skills git commits，**二者均已集成到 `collect_data.py`**（`scan_jzskills_commits()`）。返回 `jzskills_commits` 数组：hash + message + date + files + file_count。只扫描默认分支（main），不追踪 feature 分支。当日如果 jz-skills 有 commit，日记的 📚 知识库章节必须按来源体系分组展示。详见 `references/jz-skills-git-scanning.md`。
 

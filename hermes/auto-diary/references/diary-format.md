@@ -101,6 +101,7 @@ tags: [type/日记, status/闪念, src/对话]
 - 按 `→` 展示端到端链路：发起方 → 审计/中转 → 执行方 → 交付物
 - 最多 4-5 条主线，按重要性排序
 - Codex=0 时标注 `（Codex 接入前夜）`，只展示 Hermes↔CC 协作
+- ⚠️ **🔗主线为 agent 综合推断**（`_detect_cross_runtime` 仅做 cwd 字符串匹配）。diary-format 和 SKILL.md 的 Red Flags 均要求穷举覆盖+不凭记忆写——agent 必须基于会话数据做端到端链路推断，**不得凭记忆杜撰**。未来待做：在 `collect_data.py` 做真正的三方任务线 join 给数据支撑。
 
 #### 🐴 助理体系
 
@@ -153,7 +154,7 @@ tags: [type/日记, status/闪念, src/对话]
 - 自动化会话标注 `automation_id`
 - 无独立对话时写 `> 今日无 Codex 独立对话`
 
-#### 💻 Claude Code
+#### 💻 Claude Code（v3.3 🔗联动标注）
 
 ```markdown
 ### 💻 Claude Code
@@ -163,11 +164,11 @@ tags: [type/日记, status/闪念, src/对话]
 
 #### 🤝 Agent Team 协作（{N} 会话）
 - **项目名** ({N}): 主题概括
-- **项目名** ({N}): 主题概括
+- **项目名** ({N}): 🔗 联动标注——与 🤖 Codex / 🐴 Hermes 协同说明
 
 #### 💻 独立对话（{N} 会话）
-- **项目名** ({N}): 主题概括
-
+- **项目名** ({N}): 🔗 主题概括——联动其他运行时说明
+```
 #### 🤖 程序调用（{N} 会话）
 - **项目名** ({N}): 主题概括
 ```

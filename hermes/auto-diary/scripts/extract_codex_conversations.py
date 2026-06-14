@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Extract Codex conversation summaries for auto-diary.
-v2.1: rich per-session detail — message counts, user turns, automation IDs,
+v2.2: topic-aware classification — CC teammate + Claude-Mem observer detection.
       full topic extraction, assistant action summaries, guardian outcomes.
 v2.0: dual-source — SQLite threads table + JSONL session files.
 """
@@ -25,14 +25,23 @@ def _parse_source(src_val) -> str:
     return str(src_val or "")
 
 
-def _classify_source(source_str: str) -> dict:
+def _classify_source(source_str: str, title: str = "", user_topics: list = None) -> dict:
+    """Classify a Codex session into diary category. v2.2: + teammate + observer."""
     source_str = (source_str or "").strip()
+
     if "subagent" in source_str or "guardian" in source_str:
         return {"category": "guardian", "label": "🤝 Guardian/Subagent"}
     elif source_str in ("exec", "cli"):
         return {"category": "program_call", "label": "🤖 程序/CLI调用"}
-    else:
-        return {"category": "standalone", "label": "💻 独立对话"}
+
+    # Content-based detection for CC teammate and observer sessions
+    all_text = (title or "") + " " + " ".join(user_topics or [])
+    if "teammate-message" in all_text or "team-lead" in all_text:
+        return {"category": "standalone_cc", "label": "💬 CC-Teammate 通信"}
+    if "Claude-Mem" in all_text or "memory agent" in all_text.lower() or "observer" in all_text.lower():
+        return {"category": "standalone_obs", "label": "👁️ Claude-Mem Observer"}
+
+    return {"category": "standalone", "label": "💻 独立对话"}
 
 
 def _guess_project(title: str, cwd: str = "") -> str:
@@ -254,16 +263,16 @@ def _scan_jsonl_sessions(date_str: str) -> list[dict]:
             ts_iso = meta.get("timestamp", "")
             source_raw = meta.get("source", "")
             source_str = _parse_source(source_raw)
-            classification = _classify_source(source_str)
             cwd = meta.get("cwd", "")
 
-            # Rich extraction
+            # Rich extraction first (v2.2: needed for topic-aware classification)
             rich = _extract_rich_session_data(str(jsonl_path), meta)
+
+            # Classify with topic awareness (teammate + observer detection)
+            topics = rich.get("user_topics", [])
+            classification = _classify_source(source_str, title=" ".join(topics), user_topics=topics)
             if rich.get("automation_id"):
-                classification = {  # Override: automations are standalone
-                    "category": "standalone",
-                    "label": "💻 独立对话",
-                }
+                classification = {"category": "standalone", "label": "💻 独立对话"}
 
             # Parse time
             try:
@@ -339,7 +348,7 @@ def _scan_sqlite_sessions(date_str: str) -> list[dict]:
             ts = row["created_at"]
             time_str = datetime.fromtimestamp(ts, tz=CST).strftime("%H:%M")
             source_str = row["source"] or ""
-            classification = _classify_source(source_str)
+            classification = _classify_source(source_str, title=row["title"] or "")
             title = _clean_title(row["title"] or "")
             project = _guess_project(row["title"] or "")
             sessions.append({
@@ -395,7 +404,7 @@ def get_codex_overview(date_str: str) -> dict:
     for s in sessions:
         p = s.get("project", "") or "other"
         if p not in projects:
-            projects[p] = {"count": 0, "standalone": 0, "guardian": 0, "program_call": 0, "sessions": []}
+            projects[p] = {"count": 0, "standalone": 0, "standalone_cc": 0, "standalone_obs": 0, "guardian": 0, "program_call": 0, "sessions": []}
         projects[p]["count"] += 1
         projects[p][s["category"]] += 1
         projects[p]["sessions"].append(s)
@@ -403,6 +412,8 @@ def get_codex_overview(date_str: str) -> dict:
     return {
         "total": len(sessions),
         "standalone": sum(1 for s in sessions if s["category"] == "standalone"),
+        "standalone_cc": sum(1 for s in sessions if s["category"] == "standalone_cc"),
+        "standalone_obs": sum(1 for s in sessions if s["category"] == "standalone_obs"),
         "guardian": sum(1 for s in sessions if s["category"] == "guardian"),
         "program_call": sum(1 for s in sessions if s["category"] == "program_call"),
         "sessions": sessions,
