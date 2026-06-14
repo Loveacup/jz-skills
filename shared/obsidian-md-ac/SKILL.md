@@ -1,7 +1,7 @@
 ---
 name: obsidian-md-ac
 description: "Obsidian Markdown/content authority: Obsidian-specific syntax (wikilinks, embeds, callouts, frontmatter, properties, tags, LaTeX, footnotes, comments), Mermaid diagrams, JSON Canvas, and note beautification. Use when drafting or formatting content for an Obsidian note, diagram, model, architecture, database schema, flowchart, canvas, or .canvas file. Pair with obsidian for vault path resolution, file IO, sync, CLI, Bases, Defuddle, or qmd indexing. DO NOT use as the vault-operation skill."
-version: 1.2.0
+version: 1.3.0
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos]
@@ -111,7 +111,8 @@ metadata:
 - 换行用 `<br>` — **绝对不要用 `\n`**（在 Obsidian 中显示为字面文本）
 - 注释用 `%%`（不是 `//` 或 `#`）
 - 未知关键词会**静默破坏**图表 — 不显示任何错误
-- 配置统一使用 **YAML frontmatter**，不要用旧版 `%%{init}%%` 语法
+- 配置统一使用 **YAML frontmatter**（`---` 块），不要用旧版 `%%{init}%%` 语法
+- **`---` frontmatter 需要 Mermaid ≥ 10.5**。旧的 Obsidian 捆绑版本（如 Mermaid <10.5）不识别 `---` config 块，会报 `Parse error … got 'LINK'`。当前 Obsidian 1.12+ 捆绑 Mermaid 11.4.1，已完全支持 `---` config。如需最大兼容性，可用裸 `flowchart` + `classDef` 显式样式——无需任何 config 块即可在所有版本下正常渲染
 - 主题：`default` | `forest` | `dark` | `neutral` | `base`
 - 布局：**仅 `dagre`**（Obsidian 不支持 ELK 布局引擎）
 - 外观：`classic`（默认）| `handDrawn`（手绘风格）
@@ -142,6 +143,8 @@ flowchart LR
 - 过度复杂的图 → 拆成多个小图
 - 特殊字符的标签 → 用 `""` 引号包裹
 - 增量开发 → 每加几个节点就预览一次
+- 🔴 **节点标签含 `N. ` 触发 Obsidian「Unsupported markdown: list」** — Obsidian Live Preview 的 CM6 markdown 解析器会把 Mermaid 代码块内的 `1. ` `2. ` 等当成有序列表来解析，即使图表渲染本身正常，编辑器里也会报红条。修法：改 `N. ` → `N、`（中文顿号）或 `(N)` `[N]`。这是 Obsidian 已确认 bug（[论坛 #112325](https://forum.obsidian.md/t/bug-render-mermaid-unsupported-markdown-list/112325)）
+- 🔴 **References 区 `  →` 缩进箭头触发列表警告** — 参考来源用 `[1]` 等编号后跟缩进 `→` 时，Obsidian 可能将其解释为列表续行。修法：`→` 顶格写，去掉缩进
 
 ## Best Practices
 
