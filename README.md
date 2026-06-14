@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/skills-48-blue" alt="48 skills">
+  <img src="https://img.shields.io/badge/skills-49-blue" alt="49 skills">
   <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
   <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
   <img src="https://img.shields.io/badge/license-MIT-brightgreen" alt="MIT license">
@@ -23,7 +23,7 @@
 
 ```
 jz-skills/
-├── shared/   🌐 跨平台 · Cross-platform (16)
+├── shared/   🌐 跨平台 · Cross-platform (17)
 ├── hermes/   ⚙️ Hermes (26)
 ├── pi/       🪟 Pi / Windows (6)
 └── _archived-hermes-3S6M-profiles/ 🗄️ 三省六部 · 已归档 (23)
@@ -31,7 +31,7 @@ jz-skills/
 
 | Layer | Directory | Skills | Scope · 范围 |
 |:---|:---|:---:|:---|
-| 🌐 | `shared/` | 16 | All 3 platforms · 三端同步 |
+| 🌐 | `shared/` | 17 | All 3 platforms · 三端同步 |
 | ⚙️ | `hermes/` | 26 | Hermes platform · 平台通用 |
 | 🪟 | `pi/` | 6 | Pi (Windows), self-authored · Pi 自创作 |
 
@@ -40,10 +40,11 @@ jz-skills/
 
 ```
 jz-skills/
-├── shared/                        # 🌐 Cross-platform · 跨平台 (16)
+├── shared/                        # 🌐 Cross-platform · 跨平台 (17)
 │   ├── github/                    # GitHub 全操作
 │   ├── grill-with-docs/           # 设计审查
 │   ├── skill-authoring/           # 合规创作 (11-step, 7-dim scoring)
+│   ├── goalgen/                   # 多 CLI 通用 goal 指令生成器
 │   ├── pdf/                       # PDF 处理 (OCR/extract/Markdown→PDF)
 │   ├── voice-to-markdown-workflow/# 语音/视频→结构化 Markdown
 │   ├── audio-transcriber/         # 音频转录 (降噪+声纹+Qwen3-MLX)

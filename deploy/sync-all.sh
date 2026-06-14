@@ -111,6 +111,7 @@ sync_hermes() {
   mkdir -p "$base/governance" "$base/productivity"
   copy_skill_dir "$REPO_ROOT/shared/grill-with-docs"        "$base/governance"
   copy_skill_dir "$REPO_ROOT/shared/skill-authoring"        "$base/governance"
+  copy_skill_dir "$REPO_ROOT/shared/goalgen"               "$base/governance"
   deploy_shared_multi "$REPO_ROOT/shared/pdf"   # blocker#2: canonical + 4-runtime symlinks（不再造 productivity/pdf 影子）
   copy_skill_dir "$REPO_ROOT/shared/strategic-insight-longform"  "$base/productivity"
   copy_skill_dir "$REPO_ROOT/shared/voice-to-markdown-workflow"  "$base/productivity"
@@ -165,6 +166,7 @@ sync_hermes() {
     mkdir -p "$pd/research" "$pd/github" "$pd/governance" "$pd/productivity" "$pd/autonomous-ai-agents" "$pd/apple" "$pd/hermes" "$pd/social-media" "$pd/smart-home"
     copy_skill_dir "$REPO_ROOT/shared/grill-with-docs"        "$pd/governance"
     copy_skill_dir "$REPO_ROOT/shared/skill-authoring"        "$pd/governance"
+    copy_skill_dir "$REPO_ROOT/shared/goalgen"               "$pd/governance"
     copy_skill_dir "$REPO_ROOT/shared/github"                "$pd"
     copy_skill_dir "$REPO_ROOT/shared/xhs-tech-writer"        "$pd/hermes"
     copy_shared_skill "$REPO_ROOT/shared/bookmark-organizer"     "$pd"
@@ -204,6 +206,7 @@ sync_cc() {
 
   cp -r "$REPO_ROOT/shared/grill-with-docs/SKILL.md"      "$base/grill-with-docs.md"
   cp -r "$REPO_ROOT/shared/skill-authoring/SKILL.md"      "$base/skill-authoring.md"
+  cp -r "$REPO_ROOT/shared/goalgen/SKILL.md"             "$base/goalgen.md"
 
   if [ -d "$REPO_ROOT/cc" ] && [ "$(ls -A "$REPO_ROOT/cc" 2>/dev/null)" ]; then
     for skill in "$REPO_ROOT/cc"/*/; do
@@ -223,6 +226,7 @@ sync_pi() {
 
   cp -r "$REPO_ROOT/shared/grill-with-docs"  "$base/"
   cp -r "$REPO_ROOT/shared/skill-authoring"  "$base/"
+  cp -r "$REPO_ROOT/shared/goalgen"  "$base/"
 
   if [ -d "$REPO_ROOT/pi" ] && [ "$(ls -A "$REPO_ROOT/pi" 2>/dev/null)" ]; then
     for skill in "$REPO_ROOT/pi"/*/; do

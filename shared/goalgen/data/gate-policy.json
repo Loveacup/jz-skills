@@ -1,0 +1,64 @@
+{
+  "schema_version": "0.1.0",
+  "_doc": "goalgen 确认门模式策略 — 对齐 Obsidian 方法论 01 §1.13 + 05 §3。每类门 human/auto，全局默认 + per-gate 覆盖。auto=对抗式 AI 互相确认(绝非自证)。",
+
+  "gate_default": "human",
+  "_gate_default_note": "MVP 默认 human(人在环)；full-auto 是显式 opt-in(把 gate_default 设 auto)；hybrid=低风险 auto/不可逆 human。每类门可 pin 回 human(粒度允许)。",
+
+  "gate_types": {
+    "binding": "逐角色组队绑定确认",
+    "audit": "审计/独立复验门",
+    "termination": "终止确认",
+    "escalation": "升级出口",
+    "publish": "发布/单点发布权(commit/push/tag/release)",
+    "install": "受控安装到 runtime skills 目录"
+  },
+
+  "per_gate": {
+    "binding":     { "mode": "human", "strength": "single-auditor", "_auto_note": "auto=可裁决自动提议不问人+独立 auditor 复核绑定合理性" },
+    "audit":       { "mode": "human", "strength": "single-auditor", "_auto_note": "auto=producer≠reviewer 独立 auditor 凭证据裁决" },
+    "termination": { "mode": "human", "strength": "single-auditor" },
+    "escalation":  { "mode": "human", "strength": "single-auditor", "escalation_target": "human" },
+    "publish":     { "mode": "human", "strength": "n-vote-multi-lens", "_irreversible": true, "_note": "不可逆;full-auto 下走 irreversible_controls" },
+    "install":     { "mode": "human", "strength": "n-vote-multi-lens", "_irreversible": true, "_note": "不可逆;full-auto 下走 irreversible_controls" }
+  },
+
+  "auto_confirm_requirements": {
+    "_note": "auto 门必须满足这四条，绝非 producer 自证(P3/P5:自报通过不可信，reward-hacking 实证)",
+    "producer_not_reviewer": "确认者=不同实例/CLI/记忆池的 agent，起全新 context 破 anchoring",
+    "evidence_only": "凭运行时/文件系统实态+证据句柄裁决；禁 inference-based approval；证据缺失=block",
+    "bounded_termination": "N票/超时 → 定义结局 {pass, block, escalate}，不得挂起；timeout-safe=block",
+    "audit_trail": "每次 auto-confirm 写 ~/.agents/audits/YYYY-MM-DD/ 供事后人审",
+    "live_anchor": "当前 Hermes Kanban regent review gate(adversarial) + askills CC+Codex 双审计"
+  },
+
+  "risk_strength": {
+    "routine": "single-auditor",
+    "high_risk": "n-vote-multi-lens"
+  },
+  "risk_criteria": {
+    "_note": "可裁决风险判据，决定 auto 门用哪档强度(对齐 03 §3.1 决策表 + HITL 风险矩阵)",
+    "high_risk_if_any": ["不可逆", "高 blast radius", "涉及 publish/发布", "文件改动 ≥3 或跨 domain", "需独立审查", "命中安全红线维"],
+    "n_vote_consensus": ">=2/3 多数放行；多透镜 correctness/security/repro 各异；安全红线唯一硬阻断维命中即 block"
+  },
+
+  "irreversible_controls": {
+    "_note": "用户拍定:不可逆/发布/高blast 门也随 full-auto 一起 auto(无 human 硬底)；以下是替代人类兜底的补偿控制(=风险分档+P3/P7 应有之义)。🔴 reward-hacking 暴露面最高处，残余风险用户接受([I] 设计判断)。",
+    "strength": "n-vote-multi-lens",
+    "audit_trail": true,
+    "single_publisher_separation": true,
+    "_single_publisher_note": "确认≠执行:确认由独立 auditor 群完成，不可逆动作仍由唯一 publisher 节点执行(单点发布权结构隔离 P4)",
+    "block_on_uncertainty": true,
+    "_block_note": "证据不足/不达共识即 block，绝不硬闯",
+    "enforcement_layer_required": true,
+    "_enforcement_note": "确认结果属建议层，须配 CC PreToolUse hook/permission deny / Codex sandbox·approval·requirements.toml 才硬生效",
+    "per_gate_pin_back_to_human": true,
+    "_pin_note": "用户可在某次 run 把 publish/install 单独 pin 回 human，full-auto 是默认非锁"
+  },
+
+  "escalation_default": {
+    "no_consensus": "block + 留痕",
+    "targets": ["stronger-consensus", "higher-tier-AI", "human"],
+    "_note": "full-auto 默认升级目标=block 或 higher-tier-AI(非 human)；不可逆终极可回退 human(用户可配)"
+  }
+}
