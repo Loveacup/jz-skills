@@ -12,8 +12,8 @@ description: |
 
   DO NOT use for: general note-taking, non-diary content generation, one-off research.
 type: routine
-version: 3.8.0
-author: Hermes Agent — v3.8.0 新增 Codex 会话采集 + 去重 cron ID + 文档漂移修复 · v3.7.0 git diff 扫 vault 删除 + git log 扫 jz-skills 提交 · v3.6.3 pwd.getpwuid() 绕过 cron HOME 污染
+version: 3.8.2
+author: Hermes Agent — v3.8.2 跨运行时架构 + Codex v2.1 富提取 · v3.8.1 JSONL 双源修复 · v3.8.0 新增 Codex 会话采集 + 去重 cron ID + 文档漂移修复 · v3.7.0 git diff 扫 vault 删除 + git log 扫 jz-skills 提交 · v3.6.3 pwd.getpwuid() 绕过 cron HOME 污染
 
 ---
 
@@ -59,7 +59,9 @@ author: Hermes Agent — v3.8.0 新增 Codex 会话采集 + 去重 cron ID + 文
 | "🦞 is Claude Code, I'll use that emoji" | 🔴 **🦞 = OpenClaw, NOT Claude Code**. CC has no fixed emoji; diary uses 💻 for CC. Hermes = 🐴. Mixing these up frustrated user. |
 | "Callouts look cleaner folded, I'll use `> [!info]-`" | 🔴 **No folding callouts** (v3.0): user rejected `-` suffix. All callouts MUST be expanded — `> [!abstract]`, `> [!info]`, `> [!tip]`, `> [!note]`. Never use `> [!xxx]-`. |
 | \"CC sessions are all the same, I'll list them flat\" | 🔴 **CC three-type split** (v3.2): 🤝 Agent Team 协作 / 💻 独立对话 / 🤖 程序调用。Group by type THEN by project, per-project topics. Data in `claude_overview.agent_team`, `.standalone`, `.program_call`. Classification uses CC native metadata (entrypoint + parentUuid), not text matching. |
-| \"Codex sessions are all guardian noise, I'll skip them\" | 🔴 **Codex blind spot** (v3.8.0): Codex sessions were completely absent from diaries before v3.8.0. Data source: `~/.codex/state_5.sqlite` → threads table (Unix timestamps). Three-type split: 💻 独立 (vscode) / 🤝 Guardian (subagent) / 🤖 程序 (exec/cli). Guardian 会话虽多是审批 noise，但也有实质性运维会话（如 skill 中心化治理）。不能整体跳过。 |
+| \"Codex sessions are all guardian noise, I'll skip them\" | 🔴 **Codex blind spot** (v3.8.0): Codex sessions were completely absent from diaries before v3.8.0. Data source: `~/.codex/state_5.sqlite` → threads table (Unix timestamps) AND `~/.codex/sessions/YYYY/MM/DD/*.jsonl` (v3.8.1 双源). Three-type split: 💻 独立 (vscode) / 🤝 Guardian (subagent) / 🤖 程序 (exec/cli). Guardian 会话虽多是审批 noise，但也有实质性运维会话（如 skill 中心化治理）。不能整体跳过。v3.8.2: 每条独立对话必须有时间、消息数、轮次数、2-4 行具体描述和 🔗 跨运行时联动标注。 |
+| \"I'll group all Codex sessions into one summary line\" | 🔴 **Codex 信息过薄** (v3.8.2): 凭记忆写日记导致 Codex 被压缩为一行（如"Agent Skills 自动化 (7)"），丢失 729 消息 19 轮的深度审查会话、8922 消息 96 轮的需求分析会话。正确做法：`extract_codex_conversations.py` v2.1 提取每条会话的消息数/轮次/用户话题/助手行为摘要，逐条展开写。日记格式见 `diary-format.md` v3.3。 |
+| \"The AI sections are independent silos\" | 🔴 **跨运行时盲区** (v3.8.2): Hermes、Codex、CC 在同一任务线上协作，但旧格式把它们写成独立段落。v3.8.2 新增 `🔗 跨运行时协作主线` note callout——从三段数据中提取端到端链路（发起方 → 审计/执行 → 交付物），用 `→` 展示。CC 和 Codex 段落内的项目也需标 `🔗` 联动标注。 |
 | "Knowledge base changes are independent" | 🔴 **KB ↔ AI linking** (v3.1): Every vault change was produced by an AI session. Cross-reference `vault_changes` paths/titles with session topics. Group by source system (🐴/🏛️/💻). Unreliable matches → mark `(推断)`. |
 | "I'll batch-generate all 31 diaries with a Python loop, it'll be fast" | 🔴 **批量生成 = 垃圾** (v3.2): 用户明确拒绝模板填充式批量生成。正确做法：逐条处理，用 cron 输出摘要的叙事做底子，三问必须有洞察力。详见 `references/batch-generation-pitfall.md`。 |
 | "I've written diaries before, I know the format — no need to load diary-format.md" | 🔴 **NEVER write from memory** (v3.3): 凭记忆写日记导致 2026-06-02 全月重写——用户发现缺失 info callout、段落合并、三问缩写、CC 未按三组拆分、底部分段拍扁、tip 格式错误。教训：写或重写任何日记之前，**必须** `skill_view(name='auto-diary', file_path='references/diary-format.md')` 加载格式 spec，逐段对照写。记忆不可信。 |
@@ -87,13 +89,14 @@ Trigger received (cron or manual)?
 4. **🔴 知识库双源** (v3.7.0): 日记的知识库部分必须同时呈现 Obsidian vault 变更（含 `vault_deletions`）和 jz-skills git commits。两者都做 AI 会话关联
 5. Read format spec: `{baseDir}/references/diary-format.md`
 6. **🔴 Cron health check** (v3.8.0): Run `hermes --profile cron-worker cron list | grep a68f4f81b3ee`. If the daily diary cron job_id is absent from the cron-worker scheduler, note it in the diary's 临时笔记 section and report it in the final response. The config archive at `config/cron-job.json` still holds the correct parameters for reconstruction.
-7. Generate diary with 10 sections: 🎯每日总结(三问) → 🌤️概览(weather+mood) → ⏰时间线(calendar) → 🤖AI工作记录（🐴助理体系 → 🏛️治理体系 → 🤖Codex → 💻CC） → 📚知识库更新（含 Obsidian vault + jz-skills git commits） → 📅日历事件(detailed table) → 🏠个人生活(placeholder) → ✅待办 → 📝临时笔记 → 💡tip 页脚
+7. Generate diary with 10 sections: 🎯每日总结(三问) → 🌤️概览(weather+mood) → ⏰时间线(calendar) → 🤖AI工作记录（📊全天AI活动概览 callout → 🔗跨运行时协作主线 callout → 🐴助理体系 → 🏛️治理体系 → 🤖Codex → 💻CC） → 📚知识库更新（含 Obsidian vault + jz-skills git commits） → 📅日历事件(detailed table) → 🏠个人生活(placeholder) → ✅待办 → 📝临时笔记 → 💡tip 页脚
+   - 🔴 **v3.3 必须 callout**（C1 修复）：`🤖 AI助手工作记录` 章节开头必须先有 `> [!info] 📊 全天AI活动概览` 和 `> [!note] 🔗 跨运行时协作主线` 两个 callout，再接四体系。漏写会被 `verify_diary_compliance.py` 判 FAIL。
 8. **CRITICAL 合并安全**: `collect_data.py` 的 `existing_content` 恒为 `null`（已知限制,脚本不读已有日记）。所以写入前**必须先 `Read` 目标日记文件**;若已存在用户手写内容 → 合并,保留用户文字,只填空缺。不可盲目覆盖。
 9. **校验闭环**: 写完后运行 `python3 {baseDir}/scripts/verify_diary_compliance.py <写入的文件>`;若 FAIL,对照 `diary-format.md` 逐项重写,直到 PASS 再交付
 10. Write to Obsidian vault
 11. **日记入记忆** (v3.6): 校验 PASS 且写入 vault 后,把日记写进 supermemory `hermes` 池,让小黄(default profile)能检索每天的日记。
-    `/Users/alexcai/.hermes/hermes-agent/venv/bin/python {baseDir}/scripts/write_diary_to_supermemory.py <写入的日记文件绝对路径>`
-    - ⚠️ **必须用 venv python 绝对路径**(系统 `python3` 缺 supermemory SDK 会 skip)。**不要用 `~/.hermes/...`**——cron-worker profile 下 `~` 会解析到 chroot (`~/.hermes/profiles/cron-worker/home/`)，venv python 根本不存在。必须用 `/Users/alexcai/.hermes/hermes-agent/venv/bin/python` 硬编码全路径。
+    `~/.hermes/hermes-agent/venv/bin/python {baseDir}/scripts/write_diary_to_supermemory.py <写入的日记文件绝对路径>`
+    - ⚠️ **必须用 venv python 绝对路径**(系统 `python3` 缺 supermemory SDK 会 skip)。**不要用 `~/.hermes/...`**——cron-worker profile 下 `~` 会解析到 chroot (`~/.hermes/profiles/cron-worker/home/`)，venv python 根本不存在。必须用 `~/.hermes/hermes-agent/venv/bin/python` 硬编码全路径。
     - 幂等(`custom_id=hermes-diary-<date>`,重跑覆盖不重复)、失败不阻塞交付、走 Surge 代理避开 fake-ip。
     - 这是绕过 memory provider 对 cron session 写入限制(`_write_enabled` 排除 cron)的唯一途径——日记 cron 不会自动 capture。
 12. Notify user (cron: via final response; manual: via Telegram)
@@ -195,6 +198,7 @@ Key improvements history: see `CHANGELOG.md` (skill 根目录)。
 | **🔴 Path.home() 被 cron HOME 环境变量污染 (v3.6.3 修复)** | v3.6.0 的 `Path.home()` 修复是假的——cron-worker profile 启动时 **同时覆盖 HOME** 到 chroot（`~/.hermes/profiles/cron-worker/home/`），所以 `Path.home()` 返回的是 chroot 而非真实 HOME。后果：chroot 里没有 `state.db`、没有 `.claude/projects/`、没有 `Documents/Obsidian/`，导致 Hermes/CC/Vault 三项数据全部为 0。只有天气（curl）和日历（icalBuddy）不受影响。修复：`extract_hermes_conversations.py` 和 `collect_data.py` 都新增 `_real_home()` 函数，使用 `pwd.getpwuid(os.getuid()).pw_dir` 读取系统 passwd 数据库，彻底绕过所有环境变量污染。**这是静默故障——cron 状态 'ok'，日记文件存在且格式完整，但数据全空**。 |
 | **🔴 find 扫不到已删除文件 (v3.7.0 修复)** | `scan_vault_changes()` 用 `find -newermt` 扫描文件系统，**已删除的文件对 find 完全不可见**。6/6 的 vault 有 165 个 .md 文件被删除（三省六部退役 + 00-Inbox 清理），但 find 只扫到 1 个修改。修复：新增 `scan_vault_deletions()` 使用 `git -c core.quotepath=false diff --diff-filter=D --name-only HEAD` 检测所有 staged 删除。注意：git 默认 `core.quotepath=true` 会转义中文路径为八进制，必须加 `-c core.quotepath=false`。另外删除操作无法精确日期过滤——返回自上次 commit 以来所有 staged 删除。 |
 | **🔴 jz-skills repo 提交未被计入知识库 (v3.7.0 修复)** | 用户的「知识库」不仅包括 Obsidian vault，还包括 `~/code/jz-skills/`（60+ skill 的源码仓库）。6/6 的 jz-skills 有 5 个 commit、71 个文件变更、5,467+ 行新增——这些是实打实的知识产出，但 `collect_data.py` 完全不扫。修复：新增 `scan_jzskills_commits()` 使用 `git log --after/--before` 扫描当日所有 commit，返回 hash + message + file list。 |
+| **🔴 Codex JSONL 双源漏扫 (v3.8.1 修复)** | `extract_codex_conversations.py` v1.0 只读 `state_5.sqlite` → threads 表。但 Codex 的会话存储是**双源**：(1) 旧会话在 SQLite threads 表；(2) 近期会话在 `~/.codex/sessions/YYYY/MM/DD/*.jsonl` 和 `~/.codex/archived_sessions/*.jsonl`。6/13 的 14 个 Codex 会话全部在 JSONL 里、SQLite 为 0，导致日记 Codex=0 的静默漏报。v3.8.1 修复：`extract_codex_conversations.py` v2.0 — 三源合并（SQLite + sessions/ JSONL + archived_sessions/ JSONL），thread_id 去重。JSONL 的 session_meta 提供元数据（id/source/cwd/timestamp），第一条真实用户消息（跳过 AGENTS.md 注入和 guardian prompt）作为标题。注意 `base_instructions` 是 dict `{text: ...}` 不是字符串。 |
 
 ## ⚠️ Config Drift (Silent Failure)
 
@@ -208,7 +212,7 @@ icalBuddy `-ic "cal1,cal2"` on mismatched names returns empty **without error**.
 
 **知识库 ↔ AI 会话未关联** (v3.1 TODO): 知识库变更（vault_changes）目前独立展示，未标注是由哪个 AI 会话推动的。待做：在日记写作阶段做语义匹配，标注每个 vault 文件的来源会话。
 
-**Codex 内容展现偏薄** (v3.8.0): Codex session titles 来自 `threads.title` 字段（首条用户消息），可能很长或含 markdown，需要在日记中 LLM 加工成可读概括。Guardian 类 session 的 title 通常是被审批的原始消息，需要额外提取真正主题。
+**Codex 内容展现偏薄** (v3.8.1): Codex session titles 来自 `threads.title` (SQLite) 或 JSONL 第一条用户消息。Guardian 类 session 的 title 通常是 guardian 系统 prompt（"You are judging..."），需要额外从 parent thread 获取真正主题（待做）。Automation 类 session 的标题前缀 "Automation:" 可以识别为定时任务。JSONL 来源的 session 需跳过 AGENTS.md 注入行（`# AGENTS.md instructions` 开头）和 guardian prompt 行（`The following is the Codex agent history` 开头）。
 
 **jz-skills git 扫描** (v3.7.0 已集成): 日记现在同时扫描 Obsidian vault 和 jz-skills git commits，**二者均已集成到 `collect_data.py`**（`scan_jzskills_commits()`）。返回 `jzskills_commits` 数组：hash + message + date + files + file_count。只扫描默认分支（main），不追踪 feature 分支。当日如果 jz-skills 有 commit，日记的 📚 知识库章节必须按来源体系分组展示。详见 `references/jz-skills-git-scanning.md`。
 
@@ -233,7 +237,7 @@ icalBuddy `-ic "cal1,cal2"` on mismatched names returns empty **without error**.
 | 🔴 **日记质量逐日退化** (CC=0, 知识库=0, 裸模板) | ⭐ **先查 cron skills！** `cronjob list` 和 `hermes --profile cron-worker cron list` 看 Skills 字段是否为空。**再查 HERMES_HOME 污染**：如果只有 cron-worker 会话、regent 全部缺失，是 v3.6 之前的 HERMES_HOME 污染 bug。**再查 Path.home() chroot 污染 (v3.6.3)**：如果 Hermes/CC/Vault 三项全 0 但天气和日历正常，是 HOME 被 cron chroot 覆盖——升级到 v3.6.3 用 pwd.getpwuid() 修复。 |
 | 🔴 **vault 变更条目偏少** (find 扫不到已删文件) | `find -newermt` 只扫存在的文件。检查 staged 删除: `git -c core.quotepath=false -C ~/Documents/Obsidian/AlexCai diff --diff-filter=D --name-only HEAD | grep '\.md$'`。v3.7.0 的 `scan_vault_deletions()` 已自动检测。注意：必须加 `-c core.quotepath=false` 否则中文路径被转义导致 grep 失败。 |
 | 🔴 **知识库变更条目偏少** (只有 vault，缺 jz-skills commits) | v3.7.0 的 `scan_jzskills_commits()` 已自动扫描。手动检查: `git -C ~/code/jz-skills log --after="DATE" --before="DATE+1" --oneline`。问题通常是 jz-skills repo 不存在或 git 不可用。
-| 🔴 **Codex 会话缺失** (v3.8.0 新增采集) | `collect_data.py` 的 `codex_sessions` 字段为空或全零。手动检查: `python3 /Users/alexcai/.hermes/skills/auto-diary/scripts/extract_codex_conversations.py 2026-06-12`。问题可能是 `~/.codex/state_5.sqlite` 不存在（Codex 未安装或从未使用）、threads 表为空（当天无 Codex 会话）、或 created_at Unix 时间戳时区计算有误。 |
+| 🔴 **Codex 会话缺失** (v3.8.1 双源) | `collect_data.py` 的 `codex_sessions` 字段为空或全零。v3.8.1 前只读 SQLite。先手动测试: `python3 ~/.hermes/skills/auto-diary/scripts/extract_codex_conversations.py 2026-06-13`。若 SQLite 为 0 但 JSONL 目录有文件（`ls ~/.codex/sessions/YYYY/MM/DD/`），说明是双源漏扫——升级到 v3.8.1。若 SQLite 和 JSONL 都为空，说明当天确实没有 Codex 使用。 |
 
 ## ✅ Verification Checklist
 

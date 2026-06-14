@@ -165,6 +165,26 @@ def check_structural(content):
         if answer_clean in placeholders or len(answer_clean) < 20:
             issues.append(f"三问{label}空洞(答案缺失/占位/<20字: '{answer_clean[:30]}')")
 
+    # 7) 🔴 v3.3: AI 记录区开头必须有 📊全天AI活动概览 + 🔗跨运行时协作主线 两个 callout。
+    #    (翻车点:v3.3 新增的两个必须 callout 被漏写。Workflow step 7 曾漏列、本脚本曾不查→漏写也 PASS。)
+    #    显式声明无 AI 数据的日子合理省略,不罚。注意:不能用 [!note] 判"无数据"
+    #    (🔗主线本身就是 [!note]),改用明确的无数据措辞。
+    ai_block = _block(r"^## 🤖 AI助手工作记录")
+    if ai_block and not any(s in ai_block for s in ("今日无 AI", "当日无 AI", "无 AI 会话", "无会话记录")):
+        if "📊 全天AI活动概览" not in ai_block:
+            issues.append("AI记录区缺 📊全天AI活动概览 callout (v3.3 必须)")
+        if "🔗 跨运行时协作主线" not in ai_block:
+            issues.append("AI记录区缺 🔗跨运行时协作主线 callout (v3.3 必须)")
+
+    # 8) 🔴 知识库条目 markdown 损坏:**[动作]** 被误写成 **[动作]]（加粗未闭合 + 多余 ]）。
+    #    (实证 2026-06-11:一整片 `- **[新建/修改]]` 致 Obsidian 渲染异常,旧版脚本检测不到。)
+    #    正则只匹配单括号标签 **[X…]]，不误伤合法的加粗 wikilink **[[…]]**。
+    kb_m = re.search(r"^## 📚 知识库.*?(?=^## |\Z)", content, re.MULTILINE | re.DOTALL)
+    if kb_m:
+        broken = re.findall(r"\*\*\[[^\[\]][^\]]*\]\]", kb_m.group(0))
+        if broken:
+            issues.append(f"知识库条目 markdown 损坏(加粗标签未闭合,如 '{broken[0][:20]}',应为 **[…]**;共 {len(broken)} 处)")
+
     return issues
 
 
