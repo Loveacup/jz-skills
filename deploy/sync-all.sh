@@ -113,6 +113,7 @@ sync_hermes() {
   copy_skill_dir "$REPO_ROOT/shared/skill-authoring"        "$base/governance"
   copy_skill_dir "$REPO_ROOT/shared/goalgen"               "$base/governance"
   deploy_shared_multi "$REPO_ROOT/shared/pdf"   # blocker#2: canonical + 4-runtime symlinks（不再造 productivity/pdf 影子）
+  deploy_shared_multi "$REPO_ROOT/shared/vault-keeper"   # Obsidian 知识库生命周期治理引擎（多 CLI：cc/codex/cursor/hermes）
   copy_skill_dir "$REPO_ROOT/shared/strategic-insight-longform"  "$base/productivity"
   copy_skill_dir "$REPO_ROOT/shared/voice-to-markdown-workflow"  "$base/productivity"
   copy_shared_skill "$REPO_ROOT/shared/bookmark-organizer"     "$base"

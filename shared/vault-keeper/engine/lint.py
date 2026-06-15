@@ -1,5 +1,7 @@
-"""Lint 巡检（🟢扫描）：孤立页 / 断链 / 缺溯源 core / 陈旧 / frontmatter 合规。
+"""Lint 巡检（🟢确定性结构扫描）：孤立页 / 断链 / 缺溯源 core / 陈旧 / frontmatter 合规。
 
+只做**结构 lint**（纯算法，无 LLM 判断，谁跑都同结果）。**语义 lint**（矛盾 / 过时 /
+无源外推 / AI 腔）需 agent 判断，见 references/lint-semantic.md，结果追加到同一份报告。
 输出报告到 88-审计/lint-YYYY-MM-DD.md，人确认后修复（🟡）。纯标准库 + pyyaml。
 用法：python3 lint.py
 """

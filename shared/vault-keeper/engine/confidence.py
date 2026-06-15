@@ -3,6 +3,7 @@
 confidence = 0.35·源数量信号 + 0.20·信息密度 + 0.20·连接度 + 0.25·AI自评
 - AI 自评只占一票（权重 0.25），从 frontmatter `_ai_self` 取（缺省 0.6）。
 - 任一冲突 → 触底 0.0 → 绕过矩阵，强制进矛盾裁决。
+- **保真信号**（无源外推检测，agent 判断）通过 conflict=True 复用触底通道，见 references/fidelity.md。
 权重是起始值，由 sampling.py 的错误率反馈校准（改权重=改逻辑=skill git PR）。
 """
 import re

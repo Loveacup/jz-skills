@@ -30,7 +30,8 @@ metadata:
 
 1. 定位 vault：环境变量 `$VAULT`（缺则问用户）。引擎目录记为 `$VK`（本 skill 的 `engine/`）。
 2. 读 `$VAULT/GOVERNANCE.md`（阈值+不变量+规则）与 `$VAULT/ROUTER.md`（core 内分流+定级）。
-3. 缺治理文件 → 走「冷启动」（见下）。
+3. **判定靠规程、确定性靠引擎**：需 LLM 判断的（评分 / 选区 / 语义 lint / 保真 / 是否权威变更）照 `references/*.md` 规程做；纯算法（硬门槛 / 算分 / 矩阵查表 / 结构 lint / 移文件）调 `engine/*.py`。判断结果作为 frontmatter 标记（`_ai_self`/`_authoritative_change`/`_lossy_merge`）或 CLI 参数喂给引擎。
+4. 缺治理文件 → 走「冷启动」（见下）。
 
 ## 决策树：用户想干什么
 
@@ -45,16 +46,16 @@ metadata:
 └─ 首次部署                       → 冷启动
 ```
 
-## 操作 → engine 映射（AI 判断由你做，确定性由引擎做）
+## 操作 → engine 映射（AI 判断由你做[规程见 `references/`]，确定性由引擎做）
 
-| 操作 | 你(agent)做的 AI 判断 | 调引擎(确定性) | 写 |
+| 操作 | 你(agent)的 AI 判断（规程） | 调引擎(确定性) | 写 |
 |---|---|---|---|
-| **Ingest** | 评分(五级锚定)→过滤(领域)→抽取实体与摘要 | `capture.py`(落源) → `ingest.py --title.. --sources..`(建 candidate) | candidate + LOG |
-| **Promote** | 选 ROUTER 目标区；判断是否权威变更/丢信息合并 | `gate.py <页> --to <区> --inlinks N` → 退出码 0 则 `promote.py --to <区> --conf --risk` | core 页 / 队列 + LOG |
+| **Ingest** | 两步 CoT 评分→过滤→抽取，先读区 `_purpose.md`（`references/ingest.md`） | `capture.py`(落源) → `ingest.py --title.. --sources..`(建 candidate) | candidate + LOG |
+| **Promote** | 选区 + 标 `_authoritative_change`/`_lossy_merge` + 保真前置（`references/gate.md` + `fidelity.md`） | `gate.py <页> --to <区> --inlinks N` → 退出码 0 则 `promote.py --to <区> --conf --risk` | core 页 / 队列 + LOG |
 | **Query 回填** | 判断是否 >500 字且有综合价值 | `wiki_save.py --title --file` → 再 Ingest | conversation 源 |
-| **Lint** | 读报告，决定修哪些（🟡） | `lint.py` | 88-审计/lint-*.md |
+| **Lint** | 结构由引擎扫；**语义 lint 你判断**（矛盾/过时/无源外推/AI腔，`references/lint-semantic.md`） | `lint.py`(仅结构) | 88-审计/lint-*.md |
 | **Sampling** | spot-check 抽样页，记缺陷 | `sampling.py` | 88-审计/sampling-*.md |
-| **Adjudicate** | 取证→**人**裁决 | （生成取证卡，见 references/matrix.md） | 88-审计/adjudication/*.md |
+| **Adjudicate** | 取证→**人**裁决 | （生成取证卡，见 `references/matrix.md`） | 88-审计/adjudication/*.md |
 
 调用示例（`$VK` = 本 skill 的 engine 目录）：
 ```bash
@@ -84,5 +85,5 @@ python3 $VK/promote.py "$VAULT/01-Staging/检索增强生成(RAG).md" --to 30-Re
 
 ## 验收（健康指标）
 
-- core 每页都有 `sources`（Dataview 查空集）；无页绕过隔离区进 core（`check_write_gate.py` 退出码 0）；
+- core 每页都有 `sources`（agent 加载 skill 扫描 frontmatter，零插件，**不用 Dataview**）；无页绕过隔离区进 core（`check_write_gate.py` 退出码 0）；
 - `PIPELINE_LOG` 随操作增长；人工队列可一天清空；抽样错误率下降。

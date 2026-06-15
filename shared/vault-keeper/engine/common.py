@@ -63,10 +63,22 @@ def dump(path, fm, body):
     open(path, "w", encoding="utf-8").write(f"---\n{head}\n---\n{body}")
 
 
+def _in_archive_dir(p):
+    """路径的目录部分是否落在区内归档子目录（归档/Archive）。
+    判断 dirname（不含文件名），避免误伤文件名含「归档」的页。"""
+    d = os.path.dirname(p)
+    return "归档" in d or "Archive" in d or "archive" in d
+
+
 def iter_pages(dirs=None):
-    """遍历 core 区（或指定目录）的所有 .md。"""
+    """遍历 core 区（或指定目录）的所有 .md。
+    跳过区内归档子目录（路径含 归档/Archive）——与 v2.0「archived 终态在 40-Archives」一致，
+    lint / index / gate / backfill 共享此口径。"""
     for d in (dirs or CORE_DIRS):
-        yield from glob.glob(vault_path(d, "**", "*.md"), recursive=True)
+        for p in glob.glob(vault_path(d, "**", "*.md"), recursive=True):
+            if _in_archive_dir(p):
+                continue
+            yield p
 
 
 def all_titles():
