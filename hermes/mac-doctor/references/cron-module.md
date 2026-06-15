@@ -152,6 +152,22 @@ if not threshold_alerts and diagnosis == "All clear":
 
 > ⚠️ **sysctl swapusage 正则陷阱：** `sysctl vm.swapusage` 输出格式为 `total = 3072.00M  used = 1741.44M` — **`total` 在 `used` 前面**，不是直觉中的 `used 在 total 前`。正则必须匹配 `total.*used` 顺序，否则永远匹配不到。
 
+### 去重冷却 (v2.4) 🆕
+
+高频 watchdog（30min）在同类告警持续期间会产生重复推送。为解决这个问题，watchdog 引入了**基于 state file 的去重冷却机制**：
+
+```
+去重逻辑（mac-doctor-watchdog.py）：
+├── 仅对纯 Disk low 告警生效（kanban/zombie/mcp 问题不受影响）
+├── 冷却窗口: 3 小时
+├── 磁盘变化阈值: 1GB（变化超过此值视为新告警，即使在冷却期内仍推送）
+└── State file: ~/.hermes/profiles/cron-worker/state/mac-doctor-watchdog-state.json
+```
+
+**对比诊断类型而非精确字符串**：`collector-daemon.py` 的 `diagnosis` 包含动态磁盘值，如 `"Disk low — 17.7GB free (7%)"` vs `"Disk low — 17.6GB free (7%)"`。精确字符串匹配会导致每轮变化 0.1GB 就绕过冷却，**必须以诊断前缀（`"Disk low"`）做类型匹配**。
+
+> 🐛 **v2.4 修复 (2026-06-15)：** `is_duplicate_disk_alert()` 原实现用 `diagnosis != prev_diag` 做精确字符串比较。由于 diagnosis 包含实时磁盘值，每轮都不同 → 去重从未生效。修复为 `"Disk low" in diagnosis and "Disk low" in prev_diag`。
+
 ---
 
 ## 跨 Profile 配置陷阱 ⚠️ (v2.3)

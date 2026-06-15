@@ -8,7 +8,7 @@ type: routine
   系统评分, 健康检查, 磁盘空间, 内存压力, swap, 清理缓存, brew/npm/uv cache,
   CPU 大户, 安全检查, 电池健康, 网络配置审计, 历史趋势, 异常检测, 臃肿/隐私扫描。
   Do NOT use for: GUI 操作, 实时网络诊断 (ping/traceroute), 清理孤儿 App 数据。
-version: 2.4.1
+version: 2.4.2
 author: Hermes Agent
 platforms: [macos]
 metadata:
@@ -19,7 +19,7 @@ metadata:
 
 ---
 
-# macOS 设备巡检 v2.0
+# macOS 设备巡检 v2.4
 
 六级体系：看分 → 快查 → 深挖 → 清理 → 追踪 → 告警。
 
