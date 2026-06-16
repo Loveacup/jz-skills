@@ -5,6 +5,20 @@
 
 ---
 
+## ⚡ 首次使用前 — 一行 pre-flight
+
+激活 platform mode 前先跑这一行确认通道在线（**用 `--json` 数 `status:ok`，不要数纯文本 `✅`**——纯文本的图例行 + 分组标题也含 `✅`，会虚高到 13）：
+
+```bash
+agent-reach doctor --json 2>&1 | grep -c '"status": "ok"'   # 期望 >=10；<10 说明多后端通道（OpenCLI 等）掉线
+```
+
+- 返回 **>=10** → 通道健康，正常路由（§1 起）。
+- 返回 **<10** → 多后端通道掉线（OpenCLI 浏览器没开 / mcporter 断连），按 §1 静默跳过不可用通道、必要时回退 `web_search`。
+- ⚠️ 这只是**计数闸**；真正路由仍以 §1 完整 `agent-reach doctor --json` 的逐通道 `active_backend` 为准。
+
+---
+
 ## 0. 为什么要它（5 引擎的结构性盲区）
 
 WRR 的 5 个引擎全在公网开放搜索空间。以下内容**默认搜不到或召回质量极差**：
@@ -33,9 +47,10 @@ agent-reach doctor --json
 
 **规则：**
 - ✅ `status: ok` → 用 `active_backend` 对应命令组（见 §3）
-- ⛔ `status: off`（当前实测 `linkedin` / `exa_search`）→ **静默跳过，不报错**
-  - `exa_search` off 无所谓——本 router 已有 Exa 主力引擎，重叠通道无需配
+- ⛔ `status` 非 `ok` → **静默跳过，不报错**
+  - 🚫 **`exa_search` 永远 hardcode 跳过**——本 router 已有 Exa 满分主力引擎，platform mode **绝不**复用 Agent-Reach 的 exa_search 通道。**不要**根据 doctor 当前是 `ok` 还是 `off` 去判断要不要复用它：答案恒为「不复用」。
   - `linkedin` off——需 `mcporter config add linkedin ...` 才激活
+- ⚠️ **doctor 状态会随 mcporter 连接 / 浏览器登录态波动**——同一通道在不同时刻可能在 `off`（mcporter 已装未配）/ `[X]`（纯文本图例：未安装）/ `ok` 间跳变（实测 `exa_search` 在 CC 一次跑是 `off`、重跑变 `[X]`）。**doctor 是某一时刻的快照，不是稳定契约**：每次激活都重跑，按当下结果路由，**别缓存上一次的状态**。
 - ⚠️ 多后端平台（小红书/Reddit/Twitter/B站）的 `active_backend` 随登录态/环境变化，**不要硬编码命令**
 
 **doctor 实测基线（2026-06-17，桌面环境）：11/13 ok**
@@ -53,8 +68,8 @@ agent-reach doctor --json
 | xueqiu | ok | Xueqiu API | 否（需 Cookie） |
 | rss | ok | feedparser | 否 |
 | web | ok | Jina Reader | 否 |
-| linkedin | **off** | — | （未配置） |
-| exa_search | **off** | — | （与 WRR Exa 重叠，无需） |
+| linkedin | **off** | — | （未配置；需 mcporter config add） |
+| exa_search | **off / [X] 波动** | — | 🚫 **hardcode 跳过**（与 WRR Exa 重叠，状态随 mcporter 波动也不复用） |
 
 ---
 
@@ -90,6 +105,23 @@ query 命中以下任一类即考虑 platform mode：
 ## 3. 各通道命令速查
 
 > 完整命令组与多后端重试链见 Agent-Reach 自带文档 `~/.claude/skills/agent-reach/references/{social,video,web}.md`。下面是 platform mode 路由够用的核心命令。
+
+### 输出格式速查（选对解析器，别拿 JSON 解析器啃 YAML）
+
+| 通道 / 命令 | 输出格式 | 解析建议 |
+|------------|---------|---------|
+| `opencli twitter/reddit/xiaohongshu search -f yaml` | **YAML**（`-f yaml`） | YAML parser；改 `-f json` 可拿 JSON |
+| `bili search / bili video / opencli bilibili search` | **YAML**（顶层 `ok: true` / `schema_version` / `data:`，实测确认） | YAML parser，读 `data` 数组 |
+| `opencli bilibili subtitle BVxxx` | **纯文本**（逐句带时间轴） | 按行切分 |
+| `yt-dlp --dump-json "ytsearch5:..."` | **JSON Lines**（每行一条 JSON，非单一 JSON 数组） | **逐行** `json.loads`，别一次性 parse 整段 |
+| `yt-dlp` 下载的 `.vtt` 字幕 | **纯文本 / WebVTT** | VTT 解析或正则去时间轴 |
+| V2EX `curl .../api/*.json` | **JSON** | `json.loads` |
+| 雪球 / xueqiu（公开 API） | **JSON** | `json.loads` |
+| `transcribe.sh`（小宇宙） | **Markdown 文件**（输出到 `/tmp/`） | 直接读文件 |
+| RSS `feedparser` | **Python 对象**（脚本内 print 纯文本） | 在 Python 内取 `.entries` |
+| `curl r.jina.ai/URL`（Jina） | **Markdown / 纯文本** | 直接读 |
+
+> 🪤 **两个最常踩的格式坑**：① `-f yaml` 是 OpenCLI 默认建议格式，**不是 JSON**——拿 `json.loads` 解析会直接报错，需 YAML parser 或显式加 `-f json`。② `yt-dlp --dump-json` 多结果时是 **JSON Lines**（一行一条），不是 JSON 数组，必须逐行解析。
 
 ### Twitter / X（⚠️ 交互环境 / OpenCLI）
 
@@ -225,16 +257,19 @@ curl -s "https://r.jina.ai/URL"             # 任意网页 → markdown
 
 **规则：** platform mode 报告里凡用了「需要交互环境」的通道，**必须在结论或 notes 标注**——否则换到 cron/headless 复跑会静默失败。doctor 在无头环境会把这些通道标 `off`，照 §1 静默跳过 / 回退即可。
 
+> ⚠️ **OpenCLI 首次调用的 macOS 授权弹窗**：twitter/reddit/xiaohongshu/`bilibili subtitle` 走 OpenCLI 控制浏览器，**首次调用可能触发 macOS 系统授权对话框**（自动化 / 辅助功能 / 浏览器控制权限）。对话框出现时命令会**阻塞等待用户点「允许」**——无人值守就一直挂死。因此：① 调用前先告诉用户「首次可能需要在弹窗里点允许」；② 给命令套超时（建议 30s）；③ 超时即回退 `web_search`，不要干等。
+
 ---
 
 ## 6. DO / DON'T
 
 **DO ✅**
 - 先 `agent-reach doctor --json` 体检，按 `active_backend` 选命令组
+- **OpenCLI 类通道（twitter/reddit/xiaohongshu/bilibili subtitle）首次调用前先提示用户**：macOS 可能弹系统授权对话框（自动化权限 / 浏览器控制），**需要手动点「允许」，否则命令会一直挂死**。建议给这些命令套**超时保护（如 30s）**，超时即判定为等待授权 / 登录态失效，回退 `web_search site:平台域名` 并告知用户去点授权
 - 不可用通道**静默跳过**，或回退 `web_search site:平台域名`
 - CLI 输出全程经 extractor → source map（`source_tier: social`）→ cross-check → 三分栏
 - 口碑/评价类 query 默认**多平台交叉**（Twitter + Reddit）再下结论
-- 用 `-f yaml` / `--json` 拿结构化输出（对抽 quote 友好）
+- 用 `-f yaml` / `--json` 拿结构化输出（对抽 quote 友好）；**先按 §3 输出格式速查选对解析器**（YAML ≠ JSON）
 - 标注「需要交互环境」的通道；互动数据进 `notes`
 - 完成较大任务后顺手 `agent-reach check-update`（一个 API 调用，有新版在收尾附一句）
 

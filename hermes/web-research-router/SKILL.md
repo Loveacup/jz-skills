@@ -129,7 +129,7 @@ Before calling ANY search tool, check this table. If any excuse below sounds fam
 
 - **platform** 🔌 — 社交媒体 / 视频 / 论坛 / RSS / 垂直社区（v3.10 新增，**补充模式，不替换主链路**）
   - 触发条件：query 涉及 Twitter/X/推 · Reddit · B站/bilibili · 小红书/xhs · YouTube/yt · V2EX · 雪球 · 小宇宙 · RSS；或动作+平台（搜推/看reddit/b站搜）；或内容类型（推文/帖子/弹幕/笔记/字幕/播客/口碑评价）
-  - **Step P0 先体检**：每次激活先跑 `agent-reach doctor --json`，按各平台 `active_backend` 选命令组；通道 `off`（如 linkedin/exa_search）**静默跳过不报错**
+  - **Step P0 先体检**：pre-flight 一行计数 `agent-reach doctor --json 2>&1 | grep -c '"status": "ok"'`（期望 >=10；**别数纯文本 `✅`**——图例+标题会虚高到 13），再按完整 `agent-reach doctor --json` 的各平台 `active_backend` 选命令组；不可用通道**静默跳过不报错**。⚠️ doctor 状态随 mcporter 连接/登录态**波动**（同一通道在 `off`/`[X]`/`ok` 间跳），是快照非契约——每次重跑、别缓存；**`exa_search` 永远 hardcode 跳过**（WRR 已有 Exa 满分主力，不复用其重叠通道，与 doctor 当下状态无关）
   - Primary: Agent-Reach CLI 路由到对应通道（`opencli twitter/reddit/xiaohongshu search` · `bili search` · `yt-dlp` · V2EX/雪球公开 API · feedparser · 小宇宙 transcribe）
   - Cross-check: 多平台交叉（同一议题 Twitter + Reddit）或公网验证（Exa/Brave 对社交结论做事实交叉）
   - Fallback: 通道不可用 → 回退 `web_search` 搜该平台公开索引（如 `site:reddit.com`）
@@ -213,7 +213,7 @@ Search first, fetch second. Fetch 1–3 high-signal URLs only. Prefer primary/of
   - tool: `terminal` → `gh search code`
 
 - **Agent-Reach** 🔌 平台通道（platform mode 专用）
-  - status: doctor 实测 11/13 ok（github/twitter/youtube/reddit/bilibili/xiaohongshu/xiaoyuzhou/v2ex/xueqiu/rss/web），linkedin/exa_search = off
+  - status: doctor 实测 11/13 ok（github/twitter/youtube/reddit/bilibili/xiaohongshu/xiaoyuzhou/v2ex/xueqiu/rss/web）；linkedin 未配；**exa_search 状态波动（off/[X]），恒 hardcode 跳过**（与 WRR Exa 重叠）。doctor 状态随 mcporter/登录态波动，每次重跑别缓存
   - best-for: **5 引擎结构性盲区**——Twitter/X 口碑、Reddit 讨论、B站/小红书/YouTube 内容、V2EX/雪球垂直社区、小宇宙播客、RSS
   - tool: `terminal` → `agent-reach doctor --json`（先体检）→ `opencli twitter/reddit/xiaohongshu search -f yaml` / `bili search` / `yt-dlp` / V2EX·雪球公开 API / feedparser
   - 边界: **不接 5 引擎主链路**，仅 platform mode 激活时启用；CLI 输出经 WRR 管线（`source_tier: social`）；OpenCLI 类通道需交互环境
