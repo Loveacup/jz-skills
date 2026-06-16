@@ -6,7 +6,8 @@
 #
 # v1.3 enforcement contract (files keyed by session, under /tmp):
 #   cc-heartbeat-<session>     single-line snapshot:
-#                              EPOCH|RUNCOUNT|STATE|TOKENS|TOKCHG_EPOCH|SEQ
+#                              EPOCH|RUNCOUNT|STATE|TOKENS|TOKCHG_EPOCH|SEQ|THINK_TIME
+#                              (THINK_TIME added for freeze detection — see line ~156)
 #   cc-state-<session>.log     append-only JSONL, ONE LINE PER RUN
 #                              (field "changed":true marks a real state transition)
 # cc-finish.sh audits these (freshness + transition summary + gaps).
@@ -39,25 +40,26 @@ NOW=$(date +%s)
 ISO=$(date -u +%Y-%m-%dT%H:%M:%S)
 
 # ── Read previous snapshot (for diff / freeze / counters) ────
-PREV_EPOCH=0; RUNCOUNT=0; PREV_STATE="NONE"; PREV_TOKENS="?"; TOKCHG_EPOCH=$NOW; SEQ=0
+PREV_EPOCH=0; RUNCOUNT=0; PREV_STATE="NONE"; PREV_TOKENS="?"; TOKCHG_EPOCH=$NOW; SEQ=0; PREV_THINK_TIME="?"
 if [[ -f "$HB" ]]; then
-  IFS='|' read -r PREV_EPOCH RUNCOUNT PREV_STATE PREV_TOKENS TOKCHG_EPOCH SEQ < "$HB" 2>/dev/null || true
+  IFS='|' read -r PREV_EPOCH RUNCOUNT PREV_STATE PREV_TOKENS TOKCHG_EPOCH SEQ PREV_THINK_TIME < "$HB" 2>/dev/null || true
   [[ -z "${PREV_EPOCH:-}" ]] && PREV_EPOCH=0
   [[ -z "${RUNCOUNT:-}" ]] && RUNCOUNT=0
   [[ -z "${PREV_STATE:-}" ]] && PREV_STATE="NONE"
   [[ -z "${PREV_TOKENS:-}" ]] && PREV_TOKENS="?"
   [[ -z "${TOKCHG_EPOCH:-}" ]] && TOKCHG_EPOCH=$NOW
   [[ -z "${SEQ:-}" ]] && SEQ=0
+  [[ -z "${PREV_THINK_TIME:-}" ]] && PREV_THINK_TIME="?"
 fi
 RUNCOUNT=$((RUNCOUNT + 1))
 SEQ=$((SEQ + 1))
 DELTA=$((NOW - PREV_EPOCH)); [[ "$PREV_EPOCH" -eq 0 ]] && DELTA=0
 
-# persist(STATE, TOKENS, TOKCHG_EPOCH): write heartbeat + append run to JSONL log
+# persist(STATE, TOKENS, TOKCHG_EPOCH, THINK_TIME): write heartbeat + append run to JSONL log
 persist() {
-  local st="$1" tk="$2" tce="$3" changed="false"
+  local st="$1" tk="$2" tce="$3" tt="$4" changed="false"
   [[ "$st" != "$PREV_STATE" ]] && changed="true"
-  echo "${NOW}|${RUNCOUNT}|${st}|${tk}|${tce}|${SEQ}" > "$HB"
+  echo "${NOW}|${RUNCOUNT}|${st}|${tk}|${tce}|${SEQ}|${tt}" > "$HB"
   printf '{"ts":"%s","epoch":%s,"seq":%s,"state":"%s","from":"%s","changed":%s,"tokens":"%s","delta_s":%s}\n' \
     "$ISO" "$NOW" "$SEQ" "$st" "$PREV_STATE" "$changed" "$tk" "$DELTA" >> "$STATELOG"
   # stderr: machine metadata (NOT for relay)
@@ -66,7 +68,7 @@ persist() {
 
 # ── Session existence ────────────────────────────────────────
 if ! tmux has-session -t "$SESSION" 2>/dev/null; then
-  persist "GONE" "$PREV_TOKENS" "$TOKCHG_EPOCH"
+  persist "GONE" "$PREV_TOKENS" "$TOKCHG_EPOCH" "$PREV_THINK_TIME"
   echo "===📡 BEGIN (relay verbatim)==="
   echo "📡 CC #${SEQ} · session '$SESSION' NOT FOUND (exited/killed)"
   echo "   → 若非预期：可能崩溃；若预期结束：跑 cc-finish.sh 收尾"
@@ -79,7 +81,7 @@ PANE=$(tmux capture-pane -t "$SESSION" -p -S -40 2>/dev/null || echo "")
 LASTLINE=$(printf '%s\n' "$PANE" | grep -v '^[[:space:]]*$' | tail -1 || true)
 
 if [[ -z "$PANE" ]]; then
-  persist "STARTING" "?" "$NOW"
+  persist "STARTING" "?" "$NOW" "?"
   echo "===📡 BEGIN (relay verbatim)==="
   echo "📡 CC #${SEQ} [距上次 ${DELTA}s] · 空 pane（session 刚起）"
   echo "===📡 END==="
@@ -95,7 +97,13 @@ THINKING=$(printf '%s' "$ACTIVE_TAIL" | grep -oE '[✻✳✶✢✽]' | tail -1 |
 TOOL_CALL=$(printf '%s' "$ACTIVE_TAIL" | grep -oE '⏺|●' | tail -1 || true)
 WAIT_AGENTS=$(printf '%s' "$PANE" | grep -oE 'Waiting for [0-9]+ background agent' | tail -1 || true)
 TOKENS=$(printf '%s' "$PANE" | grep -oE '[0-9.]+k tokens' | tail -1 || echo "?")
-THINK_TIME=$(printf '%s' "$PANE" | grep -oE '[0-9]+m [0-9]+s' | tail -1 || echo "?")
+# Elapsed-time progress proxy. Read ONLY from the live spinner line (in ACTIVE_TAIL)
+# so a stray "5s"/"3m" in tool output can't spoof progress and mask a real freeze.
+# Cover every timer rendering: "2m 3s" (full) · "49m · thinking" (minutes-only,
+# Pitfall #14's xhigh-freeze form) · "37s" (sub-minute). Feeds the freeze clock so a
+# "?"-token long-think with a ticking timer is not flagged as a false freeze.
+SPINNER_LINE=$(printf '%s\n' "$ACTIVE_TAIL" | grep -E '[✻✳✶✢✽]' | tail -1 || true)
+THINK_TIME=$(printf '%s' "$SPINNER_LINE" | grep -oE '[0-9]+m [0-9]+s|[0-9]+m|[0-9]+s' | tail -1 || echo "?")
 ALMOST_DONE=$(printf '%s' "$PANE" | grep -o 'almost done' | head -1 || true)
 ERROR=$(printf '%s' "$PANE" | grep -oE 'API Error|✗ [A-Za-z].*|Traceback \(most recent' | tail -1 || true)
 
@@ -149,13 +157,16 @@ else
 fi
 
 # ── Token-freeze tracking (folds audit gap #4 into the script) ──
-if [[ "$TOKENS" != "$PREV_TOKENS" || "$STATE" != "$PREV_STATE" ]]; then
-  TOKCHG_EPOCH=$NOW          # tokens or state moved → reset freeze clock
+# THINK_TIME progression (CC's own per-second timer) resets the freeze clock
+# even when TOKENS stays "?" (composing mode where token count is unreadable).
+# Only alert when BOTH TOKENS and THINK_TIME are stuck — true freeze.
+if [[ "$TOKENS" != "$PREV_TOKENS" || "$STATE" != "$PREV_STATE" || "$THINK_TIME" != "$PREV_THINK_TIME" ]]; then
+  TOKCHG_EPOCH=$NOW          # tokens/state/think_time moved → reset freeze clock
 fi
 FREEZE_S=$((NOW - TOKCHG_EPOCH))
 
 # ── Persist BEFORE printing (so a relay never lacks a record) ──
-persist "$STATE" "$TOKENS" "$TOKCHG_EPOCH"
+persist "$STATE" "$TOKENS" "$TOKCHG_EPOCH" "$THINK_TIME"
 
 # ── Output 📡 block (copy-paste-ready, between markers) ───────
 TRANS=""

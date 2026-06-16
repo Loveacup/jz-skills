@@ -27,7 +27,11 @@ esac
 # Large-artifact archival (applies to ANY extension, incl. .md — only formatting
 # is extension-gated). $$ suffix guards against same-second overwrite.
 SIZE=$(wc -c < "$F" 2>/dev/null | tr -d ' ')
-SESS="${CLAUDE_SESSION_ID:-unknown}"
+# D-4 key: prefer CC_TMUX_SESSION (the tmux session name, injected by cc-start.sh)
+# so archives land where cc-finish can clean them. CLAUDE_SESSION_ID is empty in the
+# hook env (CC v2.1.178), so the fallback is the stdin session_id (CC UUID).
+SID=$(printf '%s' "$IN" | jq -r '.session_id // empty' 2>/dev/null)
+SESS="${CC_TMUX_SESSION:-${SID:-unknown}}"
 if [ "${SIZE:-0}" -gt 8192 ]; then
   AD="${CC_OUTPUT_ROOT:-/tmp/cc-output}/${SESS}"
   mkdir -p "$AD" 2>/dev/null

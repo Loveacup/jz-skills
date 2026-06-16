@@ -10,6 +10,7 @@
 | [#18312](https://github.com/anthropics/claude-code/issues/18312) | 🔴 CRITICAL | Bash 在 allow list 时，PreToolUse 的 permissionDecision **完全被忽略**（包括 deny） | allow list + hook 组合 = hook 形同虚设 |
 | [#52822](https://github.com/anthropics/claude-code/issues/52822) | 🟡 MEDIUM | `permissionDecision:"allow"` 不抑制原生权限弹窗，用户仍需手动确认 | hook 的"自动放行"承诺落空 |
 | [#40506](https://github.com/anthropics/claude-code/issues/40506) | 🟡 MEDIUM | `claude -p` 非交互模式下 PreToolUse hook **完全不触发** | headless 模式 hook 零作用（tmux 交互模式不受影响） |
+| N/A (cc-tmux pitfall) | 🟡 MEDIUM | `CLAUDE_SESSION_ID` 环境变量在 hook 执行时为空（CC v2.1.178 实测）。Fallback `:-unknown` 导致产物全归 `unknown/`，Stop 软门 counter key 塌缩跨 session 污染 | 修复：所有 hook 从 stdin JSON 取 `session_id`。`in=$(cat)` 先保存 stdin，再 `jq -r '.session_id'`——stdin 只能读一次。cc-start v1.4+ 注入 `CC_TMUX_SESSION` 环境变量作为优先键 |
 
 ## 设计影响
 

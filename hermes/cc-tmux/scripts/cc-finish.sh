@@ -67,7 +67,9 @@ fi
 # ── 2. Monitoring-gap audit (heartbeat freshness) ─────────────
 if [[ -f "$HB" ]]; then
   HB_EPOCH=0; HB_RUNS=0; HB_STATE="?"; HB_SEQ=0
-  IFS='|' read -r HB_EPOCH HB_RUNS HB_STATE _ _ HB_SEQ < "$HB" 2>/dev/null || true
+  # heartbeat schema: EPOCH|RUNCOUNT|STATE|TOKENS|TOKCHG_EPOCH|SEQ|THINK_TIME
+  # (trailing _ absorbs THINK_TIME so HB_SEQ stays clean)
+  IFS='|' read -r HB_EPOCH HB_RUNS HB_STATE _ _ HB_SEQ _ < "$HB" 2>/dev/null || true
   [[ -z "${HB_EPOCH:-}" || ! "${HB_EPOCH}" =~ ^[0-9]+$ ]] && HB_EPOCH=0
   AGE=$((NOW - HB_EPOCH))
   if [[ "$AGE" -gt 120 ]]; then
@@ -147,12 +149,15 @@ if $KILL; then
   else
     echo "ℹ️  Session 已不存在: $SESSION"
   fi
-  # §3.7 cleanup: also drop the expected-artifacts file (keyed by tmux session,
-  # written by cc-send --expect). NOTE: the Stop hook's rewake counter is keyed
-  # by $CLAUDE_SESSION_ID (CC UUID, not the tmux name), which cc-finish does not
-  # know — that file (/tmp/cc-counter-stop-precheck-<uuid>.json) needs the D-4
-  # key-unification fix before it can be cleaned here. See hooks/README.md.
-  rm -f "$HB" "$STATELOG" "/tmp/cc-expect-${SESSION}"
+  # §3.7 + D-4 cleanup: all per-session state now shares ONE key — the tmux session
+  # name. cc-start injects CC_TMUX_SESSION=<tmux name>, so the in-CC hooks key their
+  # output (cc-output/, cc-state log, rewake counter) by the SAME name cc-finish knows.
+  # So cc-finish can finally drop the hook-written artifacts alongside its own state,
+  # solving the /tmp leak. (If CC_TMUX_SESSION did not propagate, those files were
+  # keyed by the CC UUID instead and simply won't match here — harmless miss, no error.)
+  rm -f  "$HB" "$STATELOG" "/tmp/cc-expect-${SESSION}" \
+         "/tmp/cc-counter-stop-precheck-${SESSION}.json"
+  rm -rf "/tmp/cc-output/${SESSION}"
 fi
 
 echo "===📋 END cc-finish==="

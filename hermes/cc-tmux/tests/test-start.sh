@@ -70,6 +70,16 @@ fi
 # Safety: ensure no lock dir was created for the test target
 rm -rf "/tmp/cc-lock-uniq-test-tgt-$$" 2>/dev/null || true
 
+# Test 5: §D-4 — the claude launch line must inject CC_TMUX_SESSION=<tmux name> so the
+# in-CC hooks key per-session state by the tmux name (aligning with cc-monitor/-send/
+# -finish). `VAR=val claude …` sets the launched process env by shell semantics; the
+# claude→hook propagation itself is a deployment smoke item, not unit-testable here.
+if grep 'claude --model' "$START" | grep -Eq 'CC_TMUX_SESSION=.*SESSION'; then
+  ok "#D4 cc-start launch injects CC_TMUX_SESSION=\$SESSION"
+else
+  bad "#D4 cc-start launch does NOT inject CC_TMUX_SESSION"
+fi
+
 echo ""
 echo "=== Results: $PASS/$((PASS+FAIL)) passed ==="
 [[ "$FAIL" -eq 0 ]] && exit 0 || exit 1

@@ -156,9 +156,14 @@ echo "$SESSION" > "$LOCKDIR/session"
 TMUX_PID=$(tmux display-message -t "$SESSION" -p '#{pid}' 2>/dev/null || echo "?")
 echo "$TMUX_PID" > "$LOCKDIR/tmux_pid"
 
-# Send the claude command
+# Send the claude command.
+# §D-4: inject CC_TMUX_SESSION=<tmux session name> into the launched claude's env so
+# the in-CC hooks key per-session state (cc-output/, cc-state log, expect, rewake
+# counter) by the SAME tmux name that cc-monitor/cc-send/cc-finish use — unifying the
+# state bus and letting cc-finish clean everything. Absent it, hooks degrade to the
+# CC UUID (no regression). `VAR=val claude …` sets the launched process environment.
 tmux send-keys -t "$SESSION" \
-  "HOME=\"$USER_HOME\" claude --model ${MODEL} --effort ${EFFORT}" Enter
+  "HOME=\"$USER_HOME\" CC_TMUX_SESSION=\"$SESSION\" claude --model ${MODEL} --effort ${EFFORT}" Enter
 
 # ── Output session info ─────────────────────────────────────
 echo "$SESSION"   # stdout: session name for consumption by other scripts

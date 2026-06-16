@@ -14,7 +14,13 @@
 # Always exit 0 even when emitting block JSON (the JSON, not the rc, blocks).
 set -uo pipefail
 
-S="${CLAUDE_SESSION_ID:-unknown}"
+# D-4 key: prefer CC_TMUX_SESSION (the tmux session name, injected by cc-start.sh)
+# so this hook resolves the SAME key cc-send.sh used when it wrote
+# /tmp/cc-expect-<tmux-name> via --expect — wiring the Stop soft gate end-to-end.
+# CLAUDE_SESSION_ID is empty in the hook env (CC v2.1.178); fallback = stdin UUID.
+IN=$(cat)
+SID=$(printf '%s' "$IN" | jq -r '.session_id // empty' 2>/dev/null)
+S="${CC_TMUX_SESSION:-${SID:-unknown}}"
 EXPECT="${CC_EXPECT_FILE:-/tmp/cc-expect-${S}}"
 GATE_DIR="${CC_TMUX_GATE_DIR:-/Users/$(id -un)/.hermes/skills/autonomous-ai-agents/cc-tmux/scripts/gate}"
 SEARCH_ROOT="${CC_STOP_SEARCH_ROOT:-/tmp}"
