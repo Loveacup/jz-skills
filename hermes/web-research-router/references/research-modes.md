@@ -103,6 +103,33 @@ Default path:
 
 ---
 
+## `platform` 🔌 — social / video / forum / RSS（v3.10 新增，补充模式）
+
+Use when the query targets content **inside a platform that the 5 public engines can't reach**: Twitter/X 口碑、Reddit 讨论、B站/小红书/YouTube 内容、V2EX/雪球垂直社区、小宇宙播客、RSS。调用 Agent-Reach 的多后端通道。
+
+> 🔌 **platform mode 是五模式之外的第 6 个补充模式，不替换 Exa/Brave/Tavily 主链路。** 它解决的是"公网索引覆盖不到平台原生内容"的结构性盲区，而非"换个更好的公网引擎"。
+> **完整通道速查 / 触发映射 / 输出映射 / 交互环境标注 / DO·DON'T: `references/platform-mode.md`**
+
+Default path:
+1. **Step P0 先体检（强制）**：`agent-reach doctor --json` —— 按各平台 `active_backend` 选命令组；`status: off` 的通道（当前 linkedin / exa_search）静默跳过不报错。
+2. **路由到对应通道**：
+   - Twitter/X 口碑 → `opencli twitter search "query" -f yaml`（⚠️ 交互环境）
+   - Reddit 讨论 → `opencli reddit search "query" -f yaml`（⚠️ 交互环境）
+   - B站 → `bili search "query" --type video -n 5`（免登录）+ `opencli bilibili subtitle BVxxx`（字幕需桌面）
+   - 小红书 → `opencli xiaohongshu search "query" -f yaml`（⚠️ 交互环境 + xsec_token）
+   - YouTube → `yt-dlp --dump-json "ytsearch5:query"` + 字幕；无字幕 `agent-reach transcribe`
+   - V2EX → `curl .../api/topics/hot.json`（免登录，最稳）
+   - 雪球 / 小宇宙 / RSS → 公开 API / transcribe.sh / feedparser
+3. **Cross-check**：口碑/评价类默认多平台交叉（Twitter ↔ Reddit）；社交数字/单方说法的关键 claim 用 Exa/Brave 公网佐证。
+4. **Fallback**：通道不可用 → 回退 `web_search site:平台域名`（如 `site:reddit.com`）搜公开索引。
+5. **管线收口**：CLI 原始信源 **必须** 经 extractor → source map（`provider: agent-reach` / `platform: <name>` / `source_tier: social`）→ 三分栏。社交口碑默认进「推断」或「冲突缺口」，**非「已确认」**（除非已被公网一手源 cross-check）。
+
+Output discipline:
+- 社交信源标 `source_tier: social`，与 primary/official/news 区分；互动数据（点赞/回复/播放）放 `notes`，是代表性信号不是事实。
+- 凡用了「需要交互环境」的通道（OpenCLI 类），结论或 notes 必须标注——否则 cron/headless 复跑会静默失败。
+
+---
+
 ## Cost / Noise Discipline
 
 - Do not use all engines by default.

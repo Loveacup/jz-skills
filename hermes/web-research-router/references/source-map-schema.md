@@ -7,7 +7,7 @@ Use this shape internally or in serious reports. Keep Telegram output human-read
 
 ```json
 {
-  "mode": "discovery|grounding|research|recovery|academic|deep",
+  "mode": "discovery|grounding|research|recovery|academic|platform|deep",
   "query": "user-facing research question",
   "sources": [
     {
@@ -15,8 +15,9 @@ Use this shape internally or in serious reports. Keep Telegram output human-read
       "title": "Source title or paper title",
       "url": "https://example.com",
       "domain": "example.com",
-      "provider": "searxng|exa|tavily|brave|local|github|arxiv|semantic-scholar|openalex|crossref|pubmed|papers-with-code|other",
-      "source_tier": "primary|official|original-report|paper|preprint|peer-reviewed|expert-analysis|news|secondary|unknown",
+      "provider": "searxng|exa|tavily|brave|local|github|arxiv|semantic-scholar|openalex|crossref|pubmed|papers-with-code|agent-reach|other",
+      "platform": "optional, platform-mode only: twitter|reddit|bilibili|xiaohongshu|youtube|v2ex|xueqiu|xiaoyuzhou|rss|null",
+      "source_tier": "primary|official|original-report|paper|preprint|peer-reviewed|expert-analysis|news|social|secondary|unknown",
       "claim_supported": "What this source supports",
       "evidence_status": "searched|fetched|read|extracted|verified|conflicted",
       "confidence": "high|medium|low",
@@ -83,6 +84,10 @@ Use this shape internally or in serious reports. Keep Telegram output human-read
   `max_iter` / `token_exhausted` = 强制停；`no_progress` = 连续 2 轮无新 quote）。
 - **`provider` 保留 `searxng`** —— 命中自 SearXNG 兜底通道的结果在 provider 字段标 `searxng`（v3.9：SearXNG 仅作最后兜底，非默认起手）。
   原本由 SearXNG 命中、但 fetch 阶段又被 Exa fetch 抓的 source 标 `searxng` + `notes: fetched via exa`。
+- **`provider: agent-reach` + `platform` + `source_tier: social`（v3.10 platform mode）** —— 经 platform mode 通过 Agent-Reach CLI 取得的社交/视频/论坛/RSS 信源：
+  `provider` 标 `agent-reach`，`platform` 标具体平台（`twitter`/`reddit`/`bilibili`/`xiaohongshu`/`youtube`/`v2ex`/`xueqiu`/`xiaoyuzhou`/`rss`），`source_tier` 标 **`social`**（UGC/社交信源，区别于 primary/official/news）。
+  社交单方说法 / 高赞推文默认 `confidence: low|medium`，仅当多平台一致或经 Exa/Brave 公网 cross-check 才升 `high` 并把 `evidence_status` 提到 `verified`。
+  互动数据（点赞/回复/播放）写 `notes`，是代表性信号不是事实。详见 `references/platform-mode.md`。
 - **`evidence_status` 新增 `extracted`** —— 比 `fetched` 进一步：已跑过 extractor、拿到 verbatim quote。
   排序：`searched` < `fetched` < `extracted` < `verified`（多源交叉过）；`conflicted` 与上述维度正交。
 

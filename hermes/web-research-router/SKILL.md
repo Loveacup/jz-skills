@@ -1,20 +1,22 @@
 ---
 
 name: web-research-router
-description: "Searches the web, finds papers, explores GitHub source code, verifies facts, and runs multi-step deep-research loops using Exa/Brave/web_search/Tavily/SearXNG (5 engines) plus local knowledge (Supermemory/qmd/Obsidian/CodeGraph). Includes verbatim-quote extraction (anti-hallucination), query decomposition, and forced-answer fact-recall. Use when the user needs to 搜索, 检索, 查找, 调研, 核实, 深挖, 出报告, 找资料, 找项目, search, research, deep-research, find, look up, or verify information. Routes GitHub source code tasks to github. Do NOT use for local file ops."
+description: "Searches the web, finds papers, explores GitHub source code, verifies facts, searches social/video/forum platforms (Twitter/Reddit/B站/小红书/YouTube/V2EX/雪球/小宇宙/RSS via Agent-Reach), and runs multi-step deep-research loops using Exa/Brave/web_search/Tavily/SearXNG (5 engines) plus local knowledge (Supermemory/qmd/Obsidian/CodeGraph). Includes verbatim-quote extraction (anti-hallucination), query decomposition, and forced-answer fact-recall. Use when the user needs to 搜索, 检索, 查找, 调研, 核实, 深挖, 出报告, 找资料, 找项目, 搜推/看reddit/b站搜/查口碑, search, research, deep-research, find, look up, or verify information. Routes GitHub source code tasks to github. Do NOT use for local file ops."
 type: routine
-version: 3.9.0
+version: 3.10.0
 author: Hermes Agent
 license: MIT
 platforms: [macos, linux, windows]
 metadata:
   hermes:
-    tags: [search, research, router, searxng, exa, tavily, brave, academic, papers, citations, sources, mcp, deep-research, verbatim-quote, anti-refusal, wechat, sogou]
-    related_skills: [content-source-workflow, exa-research, source-verification, qmd, obsidian, native-mcp, github, scrapling]
+    tags: [search, research, router, searxng, exa, tavily, brave, academic, papers, citations, sources, mcp, deep-research, verbatim-quote, anti-refusal, wechat, sogou, agent-reach, platform, social, twitter, reddit, bilibili, xiaohongshu, youtube, rss]
+    related_skills: [content-source-workflow, exa-research, source-verification, qmd, obsidian, native-mcp, github, scrapling, agent-reach]
 
 ---
 
-# Web Research Router v3.9
+# Web Research Router v3.10
+
+> 🆕 **v3.10 (2026-06-17)**: 🔌 集成 **Agent-Reach platform mode**——5 引擎全在公网搜索空间的结构性盲区（Twitter/X 口碑、Reddit 讨论、B站/小红书/YouTube 内容、V2EX/雪球垂直社区、小宇宙播客、RSS）现由第 6 个 `platform` mode 补齐，调用 Agent-Reach 11/13 可用通道（doctor 实测：linkedin/exa_search 为 off，exa_search 与本 router Exa 重叠故无需）。**platform mode 是 5 mode 之外的补充模式，不替换 Exa/Brave/Tavily 主链路**；CLI 原始信源统一经 WRR 标准管线（extractor → source map `source_tier: social` → cross-check → 三分栏 → `[s<id>]` citation）。每次激活先跑 `agent-reach doctor`，不可用通道静默跳过。新增 `references/platform-mode.md`。
 
 > 🆕 **v3.9 (2026-06-02)**: 🆕 集成 Sogou/微信公众号搜索 via weixin-search-mcp (PyPI v0.2.1)。搜索 + 加密链接解密 + 正文提取完整链路，Scrapling CLI stealthy-fetch 作为内容抓取 fallback（张睿 2026-06-01 验证）。新增 `references/sogou-wechat-source.md`。
 
@@ -97,7 +99,7 @@ Before calling ANY search tool, check this table. If any excuse below sounds fam
 >
 > **默认路由：web_search 广扫 → Exa 语义精准 → Brave 独立交叉 → Tavily 深度调研 → SearXNG 兜底。**
 
-#### 五模式路由（保留 v3.6 mode 名称，更新 engine 序列）
+#### 六模式路由（v3.6 五模式 + v3.10 platform mode）
 
 - **discovery** — 背景调研 / landscape / "有没有相关项目"
   - Primary: `web_search` 广扫 → `Exa` 语义精准
@@ -124,6 +126,16 @@ Before calling ANY search tool, check this table. If any excuse below sounds fam
   - Primary: `web_search` + `Brave`（双引擎广扫候选）
   - Cross-check: `Exa Fetch`（`mcp_exa_web_fetch_exa` 抓 cache / mirror）
   - Fallback: `mcp_searxng_web_url_read`（仅作抓取通道；**不**用 SearXNG 搜索）
+
+- **platform** 🔌 — 社交媒体 / 视频 / 论坛 / RSS / 垂直社区（v3.10 新增，**补充模式，不替换主链路**）
+  - 触发条件：query 涉及 Twitter/X/推 · Reddit · B站/bilibili · 小红书/xhs · YouTube/yt · V2EX · 雪球 · 小宇宙 · RSS；或动作+平台（搜推/看reddit/b站搜）；或内容类型（推文/帖子/弹幕/笔记/字幕/播客/口碑评价）
+  - **Step P0 先体检**：每次激活先跑 `agent-reach doctor --json`，按各平台 `active_backend` 选命令组；通道 `off`（如 linkedin/exa_search）**静默跳过不报错**
+  - Primary: Agent-Reach CLI 路由到对应通道（`opencli twitter/reddit/xiaohongshu search` · `bili search` · `yt-dlp` · V2EX/雪球公开 API · feedparser · 小宇宙 transcribe）
+  - Cross-check: 多平台交叉（同一议题 Twitter + Reddit）或公网验证（Exa/Brave 对社交结论做事实交叉）
+  - Fallback: 通道不可用 → 回退 `web_search` 搜该平台公开索引（如 `site:reddit.com`）
+  - Output: CLI 原始信源**必须**经 WRR 标准管线——extractor 抽 verbatim quote → source map（`source_tier: social` + `platform` 字段）→ cross-check → 三分栏 → `[s<id>]` citation
+  - ⚠️ 交互环境依赖：Twitter/Reddit/小红书走 OpenCLI（复用浏览器登录态），**无头/cron 环境不可用**，需标注「需要交互环境」
+  - 详见 `references/platform-mode.md`（通道速查 + 触发映射 + 输出映射 + DO/DON'T）
 
 > 🔁 **何时升级到 deep-research loop？** 议题维度 ≥ 3 / 需可引用结构化报告 / 单轮 source map 命中 <70% / 用户显式说"深挖" → 进入
 > `references/deep-research-loop.md` 的 plan → section research（含 `fetch-extract-pattern.md` extractor） → reflect → merge 循环。
@@ -200,6 +212,13 @@ Search first, fetch second. Fetch 1–3 high-signal URLs only. Prefer primary/of
   - best-for: GitHub 代码搜索
   - tool: `terminal` → `gh search code`
 
+- **Agent-Reach** 🔌 平台通道（platform mode 专用）
+  - status: doctor 实测 11/13 ok（github/twitter/youtube/reddit/bilibili/xiaohongshu/xiaoyuzhou/v2ex/xueqiu/rss/web），linkedin/exa_search = off
+  - best-for: **5 引擎结构性盲区**——Twitter/X 口碑、Reddit 讨论、B站/小红书/YouTube 内容、V2EX/雪球垂直社区、小宇宙播客、RSS
+  - tool: `terminal` → `agent-reach doctor --json`（先体检）→ `opencli twitter/reddit/xiaohongshu search -f yaml` / `bili search` / `yt-dlp` / V2EX·雪球公开 API / feedparser
+  - 边界: **不接 5 引擎主链路**，仅 platform mode 激活时启用；CLI 输出经 WRR 管线（`source_tier: social`）；OpenCLI 类通道需交互环境
+  - 详见 `references/platform-mode.md`
+
 ## 🔀 不稳定高质量源（Auxiliary Sources）
 
 > 🛑 **不在主链路。** 以下引擎不稳定（可能未安装/未认证/额度耗尽），**必须先做 pre-flight check 再调用**。仅作为主链路 Exa/Brave/Tavily/web_search/SearXNG 跑完后、需要额外权威验证时的加分项。
@@ -256,13 +275,15 @@ which codex && codex login status 2>/dev/null || echo "UNAVAILABLE"
   - ⚠️ Cookie 硬编码，可能随时过期；建议每周冒烟测试
   - 详细文档: `references/sogou-wechat-source.md`
 
-### 选型口诀 (v3.8)
+### 选型口诀 (v3.10)
 
 > **Exa 精准 + Brave 交叉 → Tavily 深研 → web_search 广扫 → SearXNG 仅兜底 / 仅抓取。**
 >
+> 🔌 **公网搜不到的社交/视频/论坛/RSS → platform mode（Agent-Reach）**：先 `agent-reach doctor` 体检，按 `active_backend` 路由到 opencli/bili/yt-dlp/公开 API，输出经 WRR 管线（`source_tier: social`）。**补充模式，不替换上述主链路。**
+>
 > 🔶 不稳定高质量源（Claude Code / Codex）**不接主链路**——pre-flight check 可用时才作为额外权威验证，失败静默跳过。
 >
-> 默认双主力 = Exa + Brave；研究类加 Tavily；SearXNG **不再**作为起手引擎。
+> 默认双主力 = Exa + Brave；研究类加 Tavily；社交/平台内容走 platform mode；SearXNG **不再**作为起手引擎。
 
 ### 参数陷阱速查（pi-report 教训吸收）
 
@@ -367,7 +388,7 @@ hermes mcp test searxng --query "claude 4.7 release notes"
 
 ### 必填字段（每次回答顶部）
 
-- **Mode:** `discovery` / `grounding` / `research` / `recovery` / `academic`（必填，单选）
+- **Mode:** `discovery` / `grounding` / `research` / `recovery` / `academic` / `platform`（必填，单选）
 - **结论:** 1–2 行，结论先行；含引用必须用 inline `[s<id>]` 形式，禁止裸 URL / 裸标题
 - **来源:** 每条一行，格式 `[s<id>] domain — why it matters — URL`（URL 行内允许，但结论段不允许裸 URL）
 
@@ -411,6 +432,7 @@ hermes mcp test searxng --query "claude 4.7 release notes"
 | When you need... | Read... |
 |-----------------|---------|
 | Detailed mode instructions (default paths, examples) | `references/research-modes.md` |
+| **🔌 platform mode**（Agent-Reach 通道速查 + 触发词→通道映射 + doctor 自检 + CLI 输出→source map + 交互环境标注 + DO/DON'T） | `references/platform-mode.md` |
 | Query patterns for common tasks | `references/query-patterns.md` |
 | Academic lane policy (arXiv, Semantic Scholar, PubMed, etc.) | `references/academic-lane.md` |
 | **arXiv / Semantic Scholar 操作细节**（API 语法 / BibTeX / 引用数据 / 限流降级 / `search_arxiv.py`） | `references/arxiv-semantic-scholar.md` |
@@ -437,7 +459,7 @@ hermes mcp test searxng --query "claude 4.7 release notes"
 
 ---
 
-## ⚠️ Common Pitfalls (Top 9)
+## ⚠️ Common Pitfalls (Top 12)
 
 1. **SearXNG SNR 陷阱。** SearXNG MCP 每次返回 140+ 条，其中大量 spam/钓鱼/词典释义/无关条目。信噪比 ~67%。**必须取前 5-10 条人工过滤**，不可直接把全量结果当有效信息源。
 2. **Brave/Tavily 假在线。** MCP server 显示 enabled 但搜索返回空——因为 API key 失效。先检查 key 状态：`echo $BRAVE_API_KEY` / `echo $TAVILY_API_KEY`，缺失则去官网申请免费 key。
@@ -449,6 +471,8 @@ hermes mcp test searxng --query "claude 4.7 release notes"
 8. **Exa 语义漂移。** Exa 语义搜索偶尔跑偏（"React release date" 召回 GTA 6）。对精确事实类 query 优先 `web_search`。
 9. **Cron job model pinning.** Always pin model explicitly in cron jobs — default model may be rate-limited.
 10. **Client-specific behavior ≠ backend failure.** If the user reports “works on PC/Desktop but not iOS/mobile” (or vice versa), immediately split the investigation into API/backend correctness vs client rendering/metadata behavior. Search with explicit client terms (`iOS`, `Android`, `Desktop`, version) and avoid declaring the server-side fix failed when one client already renders correctly. For Telegram topic/DM typing indicators, PC visibility plus iOS invisibility strongly suggests client-rendering limitations; keep native API calls as ground truth and treat visible placeholder fallbacks as opt-in only.
+11. **platform mode 跳过 doctor 直接调 CLI。** 🔌 OpenCLI 类通道（twitter/reddit/xiaohongshu）的 `active_backend` 随登录态/环境变化；不先跑 `agent-reach doctor --json` 就硬调 → 在无头/cron 环境必挂死或报 AUTH_REQUIRED。**先体检 → 按 `active_backend` 选命令组 → 不可用静默跳过 / 回退 web_search**。详见 `references/platform-mode.md`。
+12. **社交信源当事实直接写。** 🔌 平台 CLI 吐出的推文/帖子/笔记是**社交信源（`source_tier: social`）**，不是已验证事实——观点、口碑、单方说法占多数。绝不能让 CLI 输出绕过 extractor 直接进结论。**必须经 WRR 管线**：extractor 抽 verbatim quote → source map → 关键 claim 用 Exa/Brave 公网 cross-check → 三分栏（社交口碑入"推断"或"冲突缺口"，非"已确认"）。
 
 Full pitfalls (33 items, 含 v3.4 新增 deep loop 质量 8 项): `references/common-pitfalls.md`
 
@@ -458,7 +482,8 @@ Full pitfalls (33 items, 含 v3.4 新增 deep loop 质量 8 项): `references/co
 
 - [ ] **Local first?** Supermemory/session/qmd/CodeGraph 都查过再上公网。
 - [ ] **Step 0 四步全跑过？** Supermemory / session_search / qmd-Obsidian / CodeGraph 四项是否在回答中显式声明"已查 + 命中 / 未命中 / 跳过原因"？— 未声明视同未跑（v3.6 P1 Local-first 缺陷）。
-- [ ] **Mode + engine?** 选定 discovery/grounding/research/academic/recovery，或升级 deep loop；按 v3.7 表用对 primary engine（默认 Exa+Brave 双主力，SearXNG 仅兜底）。
+- [ ] **Mode + engine?** 选定 discovery/grounding/research/academic/recovery/platform，或升级 deep loop；按 v3.7 表用对 primary engine（默认 Exa+Brave 双主力，SearXNG 仅兜底）。
+- [ ] **platform mode 合规？**（仅当用了 platform mode）🔌 是否先跑 `agent-reach doctor --json` 体检、按 `active_backend` 选命令组、不可用通道静默跳过？CLI 原始信源是否经 extractor 入 source map（标 `source_tier: social` + `platform` 字段）、关键 claim 做了公网 cross-check、社交口碑未被当"已确认"事实？OpenCLI 类通道是否标注「需要交互环境」？— 任一缺失即视为 platform mode 未合规。
 - [ ] **Extractor not answerer?** 每个 fetched 页面跑过 extractor、verbatim quote 入 source map，**不是**让单次 LLM call 又 fetch 又综合答案。
 - [ ] **Citation 用 `citation_id`?** 综合答案中 inline citation 写 `[s3]`，不写裸 URL；`confirmed[i].citation_ids` 全部映得回 source map。
 - [ ] **Inline 引用全部 `[s<id>]` 形式？** 正文 / 结论 / 三分栏内是否 100% 使用 `[s1]`/`[s2]` 等 `[s<数字>]` 引用，零裸 URL、零裸 domain、零"见上文"？每个 `[s<id>]` 都能在 **来源** 段映回 source_map 条目？— 任一裸引用即失败。

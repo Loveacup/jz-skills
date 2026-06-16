@@ -18,6 +18,11 @@ Re-validate after every change to `description` or `triggers`.
 | 10 | "看看 Obsidian CLI 的源码实现" | discovery → GitHub |
 | 11 | "这个函数怎么实现的，搜一下 GitHub" | discovery → GitHub |
 | 12 | "帮我找一下关于 agent skill 的资料" | discovery |
+| 13 | "看看推特上大家怎么评价 Claude Opus" | platform (twitter) |
+| 14 | "reddit 上有没有关于这个框架的讨论" | platform (reddit) |
+| 15 | "b站搜一下 Claude Code 教程" | platform (bilibili) |
+| 16 | "小红书上这个产品的口碑怎么样" | platform (xiaohongshu) |
+| 17 | "把这期小宇宙播客转成文字" | platform (xiaoyuzhou) |
 
 ## Should NOT Trigger
 
