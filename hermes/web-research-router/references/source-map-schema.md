@@ -97,3 +97,38 @@ Use this shape internally or in serious reports. Keep Telegram output human-read
 - ✅ "Hermes A2A 默认端口为 8945 [s3]." —— `s3` 即 `citation_id`
 - ❌ "据 https://example.com 报道..." —— 不应裸写 URL；URL 在 source map 里查
 - ✅ confirmed[i].citation_ids 全部能映回 sources 中存在的 `citation_id`，否则报错"dangling citation"
+
+---
+
+## SOURCE_QUALITY —— `source_tier` → quality_weight（v3.11 新增）
+
+> **Read when:** 多源融合排序需要权重（喂 `dedup_rrf.py --weights`）；或同一 claim 多源不一致需要 tie-break。
+> **来源:** last30days `signals.py` 的 editorial SNR 常量（Reddit 0.6 / HN 0.8 / X 0.68 / Polymarket 0.5）——但 WRR 是 **authority-first**，故把它**换形**成「按 `source_tier` 的权威度权重」，而非按平台 engagement 打分。
+
+WRR 不做连续分层评分（last30days 那套），但需要一张**确定性的权威度权重表**作为 RRF 融合权重与 tie-break 依据。下表是 `source_tier` 枚举 → `quality_weight ∈ [0,1]` 的单一映射：
+
+| `source_tier` | quality_weight | 说明 |
+|---|:--:|---|
+| `primary` / `official` | 1.00 | 一手 / 官方（changelog、官网公告、招股书、API 一手数字） |
+| `original-report` / `peer-reviewed` | 0.95 | 原始调查报告 / 同行评审 |
+| `paper` | 0.90 | 正式论文 |
+| `preprint` | 0.80 | 预印本（未评审） |
+| `expert-analysis` | 0.78 | 署名专家深度分析 |
+| `news` | 0.70 | 权威媒体报道（二手但有编辑把关） |
+| `secondary` | 0.60 | 一般二手聚合 / 转述 |
+| `social` | 0.50 | 社交 / UGC（platform mode 信源，恒为此档上限） |
+| `unknown` | 0.40 | 来源不明 |
+
+### 🛑 红线（与 CQI §14.6 一致）：weight 不抬 tier
+
+- **`social` 档的 weight 永远 ≤ 非 social 档**——一条 5 万赞但断言错误的推文，`quality_weight` 仍是 0.50，**不得**因 engagement 高而越过官方 changelog（1.00）。
+- engagement（点赞/回复/播放/赔率）**只在 `social` 档内部**做次级排序，写进 `notes`，**绝不**抬升 `source_tier`，**绝不**单独把 weight 推过 0.50。
+- 平台级 social 次权重（仅在 `source_tier: social` 内部细分代表性，参考 last30days editorial SNR）：HN 0.80 · X/Twitter 0.68 · Reddit 0.60 · Polymarket 0.50——**这些只调 social 档内的相对顺序，封顶仍受 0.50 约束**。
+
+### 用法
+
+1. **RRF 融合**：把 `quality_weight` 作为 per-provider/per-source 权重传给 `dedup_rrf.py --weights`（见该脚本 `--weights` 说明），`score = weight / (k + rank)`。
+2. **tie-break**：两条 claim 冲突且 rank 接近时，`quality_weight` 高者优先进 Confirmed，低者降级到 Inference / Conflicts。
+3. **与 intent 权重叠加**：本表是「源权威度」基线；mode/intent 的「时效/语义」偏好（SKILL.md Step 2 intent 权重）作为乘子叠加——`final_weight = quality_weight × intent_multiplier`。
+
+> 🔧 **wrr-core 收口**：本表是 prompt/doc 层 spec。wrr-core 阶段 1 将其迁入 `constants.json`（§3.5 单一真源第 2 条），由 `route()` 在融合前注入 `--weights`；迁移 ≠ 推翻——表值与红线不变，仅改存放位置。

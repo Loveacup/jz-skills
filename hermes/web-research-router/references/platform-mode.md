@@ -100,6 +100,18 @@ query 命中以下任一类即考虑 platform mode：
 
 > **多义消解:** "x" 单字母歧义大；结合上下文（"x.com" / "马斯克的 x" → twitter；"x 项目源码" → github / discovery mode）。不确定时按 `research-modes.md` 的"When to ask"问用户。
 
+### 🆕 v3.11 — Step 0.6 预解析实体 → 通道定向
+
+若 SKILL.md **Step 0.6 预搜索实体接地**已解析出落点，**用户不必手动指名平台**——直接按解析结果定向通道：
+
+| Step 0.6 解析出 | 直接路由 | 命令 |
+|---|---|---|
+| subreddit（`r/LocalLLaMA`） | reddit subreddit | `opencli reddit subreddit LocalLLaMA -f yaml` |
+| X/Twitter handle（`@xxx`） | twitter user-posts | `opencli twitter user-posts @xxx -f yaml` |
+| GitHub repo（`owner/repo`） | github（非 platform mode，走 §Step 1 GitHub lane） | `gh` / `github` skill |
+
+> 例：「大家怎么评价 RWKV」→ Step 0.6 解析出 `r/RWKV` + `@RWKV_AI` + `github.com/BlinkDL/RWKV-LM` → 直接定向 reddit subreddit + twitter user-posts，**不需要用户说"去 reddit 搜"**。解析为空时回落本表 §2 的触发词路由。
+
 ---
 
 ## 3. 各通道命令速查

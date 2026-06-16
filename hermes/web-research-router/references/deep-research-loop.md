@@ -70,7 +70,14 @@ Step 1 PLAN → Step 2 SECTION (fetch → facts.jsonl → write) → Step 3 CoV 
   - **规则：** 失败静默跳过；返回空视为额度耗尽，该 section 内不再重试；结果与主链路结果统一走 2.3 extract_to_facts.jsonl
   - **成本意识：** Claude Code ~$0.30-0.66/query，仅在 section 为 `research=True` 且 `search_iterations ≤ 1` 时启用（首轮用一次，后续轮次不重复）
 
-  **2.3 `extract_to_facts.jsonl`** —— ★ **新增强制步骤**。把 2.2 抽出的 verbatim quotes 进一步原子化为事实卡片：
+  **2.2g 🆕 实体接地闸（ENTITY_MISS gate）★ v3.11** —— 在 2.2 抽 quote、进 2.3 原子化**之前**插一道闸。偷自 last30days `rerank.py` 的 `ENTITY_MISS_PENALTY`，但换形为 WRR 的**二元门控**（非连续打分）：
+  - **接地基准：** SKILL.md **Step 0.6** 解析出的核心实体（官方名 / repo / handle）；Step 0.6 未跑时退化为本 section 的核心 **NAMES** 实体（`query-decomposition.md`）。
+  - **判定：** 逐候选页/quote 检查**是否提及核心实体**。整页**完全不含**核心实体（含别名/缩写/官方域）→ 标 `entity_miss: true`。
+  - **行动：** `entity_miss` 的候选**不进 facts.jsonl**（不原子化），除非该 section 明确就是研究"关联但未命名"的侧面（须显式复核理由）。
+  - **为什么：** 堵 **Exa 语义漂移**（SKILL.md pitfall #8：「React release date」召回 GTA 6）——一个全程不提实体的页面，几乎必是漂移/噪声，放进 facts 就是给后续合成喂错前提。
+  - **与 CoV 互补：** 本闸防"主题跑偏的源混入"；Step 3 CoV 防"主题正确但 claim 错误"。两者正交，都要跑。
+
+  **2.3 `extract_to_facts.jsonl`** —— ★ **新增强制步骤**。把 2.2 抽出的 verbatim quotes（**已过 2.2g 实体接地闸**）进一步原子化为事实卡片：
 
   ```jsonl
   {"id":"f001","section":"竞争格局","claim":"蚂蚁阿福用户突破1亿","metric_type":"用户数","scope":"⚠️未指明(累计/MAU/DAU?)","value":"1亿","value_unit":"用户","time":"2026.1 PR稿","source_url":"https://...","source_tier":"C(蚂蚁PR稿)","confidence":"低-单源","extracted_at":"2026-05-28T...","verify_status":"unverified"}
@@ -236,6 +243,7 @@ Step 1 PLAN → Step 2 SECTION (fetch → facts.jsonl → write) → Step 3 CoV 
 - ❌ 把 `grounding` 简单查询硬升 deep loop → 浪费 budget。
 - ❌ 不设 `token_budget` → LLM 自己开心循环（实际是无限）。
 - ❌ Section research 跳过 `fetch-extract-pattern` → 幻觉风险回归。
+- ❌ **Step 2.2g 实体接地闸被跳过** ★ → Exa 语义漂移结果（整页不提核心实体）混进 facts.jsonl，给后续合成喂错前提（pitfall #8）。
 - ❌ **Step 2.3 跳过 facts.jsonl 直接写散文** ★ → fetch-write 耦合复发，所有改造作废。营销话术再次直接叙事化。
 - ❌ **Step 3 CoV 复用 Step 2 上下文** ★ → 失去"独立"性，退化为 REFLECT 自审。必须新 LLM call、新搜索。
 - ❌ **Step 4 跳过盲区检视/反向假设** ★ → 跨语言/跨地域召回失败复发。

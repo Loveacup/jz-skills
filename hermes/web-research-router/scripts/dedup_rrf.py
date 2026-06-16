@@ -16,6 +16,11 @@ Output: JSON object with:
 Usage:
   python scripts/dedup_rrf.py results.json
   cat results.json | python scripts/dedup_rrf.py
+  # Weighted RRF: per-provider or per-source_tier weights (see source-map-schema.md SOURCE_QUALITY)
+  python scripts/dedup_rrf.py results.json --weights exa=1.0,brave=0.9,social=0.5
+  python scripts/dedup_rrf.py results.json --weights '{"exa":1.0,"social":0.5,"*":0.7}'
+  # Per-item override: add a numeric "weight" field to any input item (per-subquery weighting).
+  # No --weights and no "weight" fields → unweighted RRF, byte-identical to the legacy path.
 """
 from __future__ import annotations
 
@@ -33,6 +38,58 @@ TRACKING_KEYS = {
     "spm", "campaign", "source", "feature", "si"
 }
 DEFAULT_K = 60
+DEFAULT_WEIGHT = 1.0
+
+
+def parse_weights(spec: str | None) -> dict[str, float]:
+    """Parse a weight spec into a {key: weight} map.
+
+    Accepts either JSON (`{"exa":1.0,"social":0.5}`) or a compact
+    comma list (`exa=1.0,brave=0.9,social=0.5`). Keys are matched
+    case-insensitively against each item's provider, then its
+    source_tier (so the source-map-schema SOURCE_QUALITY table —
+    keyed by source_tier — can be passed verbatim). Key `*` sets a
+    default for everything else.
+    """
+    if not spec:
+        return {}
+    spec = spec.strip()
+    if spec.startswith("{"):
+        raw = json.loads(spec)
+        return {str(k).lower().strip(): float(v) for k, v in raw.items()}
+    weights: dict[str, float] = {}
+    for pair in spec.split(","):
+        pair = pair.strip()
+        if not pair:
+            continue
+        if "=" not in pair:
+            raise ValueError(f"bad --weights entry (need key=value): {pair!r}")
+        key, value = pair.split("=", 1)
+        weights[key.lower().strip()] = float(value.strip())
+    return weights
+
+
+def resolve_weight(item: dict[str, Any], provider: str, weights: dict[str, float]) -> float:
+    """Pick the weight for one item.
+
+    Precedence: explicit item-level `weight` field (per-subquery) >
+    weights[provider] > weights[source_tier] > weights['*'] > 1.0.
+    Backward-compatible: empty weights + no `weight` field → 1.0,
+    so RRF scoring is byte-identical to the unweighted path.
+    """
+    if "weight" in item:
+        try:
+            return float(item["weight"])
+        except (TypeError, ValueError):
+            pass
+    if not weights:
+        return DEFAULT_WEIGHT
+    if provider in weights:
+        return weights[provider]
+    tier = str(item.get("source_tier") or "").lower().strip()
+    if tier and tier in weights:
+        return weights[tier]
+    return weights.get("*", DEFAULT_WEIGHT)
 
 
 def normalize_url(url: str) -> str:
@@ -116,7 +173,9 @@ class MergedResult:
     duplicates: list[dict[str, Any]] = field(default_factory=list)
 
 
-def merge_rrf(items: list[dict[str, Any]], k: int = DEFAULT_K) -> dict[str, Any]:
+def merge_rrf(items: list[dict[str, Any]], k: int = DEFAULT_K,
+              weights: dict[str, float] | None = None) -> dict[str, Any]:
+    weights = weights or {}
     groups: dict[str, MergedResult] = {}
     provider_seen_rank: dict[str, int] = defaultdict(int)
     provider_counts = Counter()
@@ -129,7 +188,7 @@ def merge_rrf(items: list[dict[str, Any]], k: int = DEFAULT_K) -> dict[str, Any]
         norm = normalize_url(str(item.get("url", "")))
         if not norm:
             continue
-        score = 1.0 / (k + rank)
+        score = resolve_weight(item, provider, weights) / (k + rank)
         if norm not in groups:
             groups[norm] = MergedResult(
                 normalized_url=norm,
@@ -161,7 +220,7 @@ def merge_rrf(items: list[dict[str, Any]], k: int = DEFAULT_K) -> dict[str, Any]
     if duplicate_count == 0 and len(provider_set) > 1:
         gaps.append("No cross-provider URL overlap; inspect source quality manually before treating results as confirmed.")
 
-    return {
+    out = {
         "results": [
             {
                 "title": r.title,
@@ -181,19 +240,40 @@ def merge_rrf(items: list[dict[str, Any]], k: int = DEFAULT_K) -> dict[str, Any]
         "duplicate_count": duplicate_count,
         "gaps": gaps,
     }
+    # Only surface weights when non-default → unweighted output stays byte-identical.
+    if weights:
+        out["weights_applied"] = dict(sorted(weights.items()))
+    return out
 
 
 def main() -> int:
-    if len(sys.argv) > 1 and sys.argv[1] not in {"-", "--"}:
-        raw = open(sys.argv[1], "r", encoding="utf-8").read()
-    else:
-        raw = sys.stdin.read()
+    # Manual parse keeps the legacy positional-file / stdin contract intact
+    # while adding an optional `--weights` flag (anywhere in argv).
+    weights_spec: str | None = None
+    positional: list[str] = []
+    argv = sys.argv[1:]
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--weights":
+            i += 1
+            weights_spec = argv[i] if i < len(argv) else None
+        elif arg.startswith("--weights="):
+            weights_spec = arg.split("=", 1)[1]
+        else:
+            positional.append(arg)
+        i += 1
+
+    weights = parse_weights(weights_spec)
+
+    src = positional[0] if positional and positional[0] not in {"-", "--"} else None
+    raw = open(src, "r", encoding="utf-8").read() if src else sys.stdin.read()
     if not raw.strip():
         print(json.dumps({"results": [], "provider_counts": {}, "input_count": 0, "unique_count": 0, "duplicate_count": 0, "gaps": ["No input provided."]}, ensure_ascii=False, indent=2))
         return 0
     payload = json.loads(raw)
     items = extract_items(payload)
-    print(json.dumps(merge_rrf(items), ensure_ascii=False, indent=2))
+    print(json.dumps(merge_rrf(items, weights=weights), ensure_ascii=False, indent=2))
     return 0
 
 

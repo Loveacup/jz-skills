@@ -3,7 +3,7 @@
 name: web-research-router
 description: "Searches the web, finds papers, explores GitHub source code, verifies facts, searches social/video/forum platforms (Twitter/Reddit/B站/小红书/YouTube/V2EX/雪球/小宇宙/RSS via Agent-Reach), and runs multi-step deep-research loops using Exa/Brave/web_search/Tavily/SearXNG (5 engines) plus local knowledge (Supermemory/qmd/Obsidian/CodeGraph). Includes verbatim-quote extraction (anti-hallucination), query decomposition, and forced-answer fact-recall. Use when the user needs to 搜索, 检索, 查找, 调研, 核实, 深挖, 出报告, 找资料, 找项目, 搜推/看reddit/b站搜/查口碑, search, research, deep-research, find, look up, or verify information. Routes GitHub source code tasks to github. Do NOT use for local file ops."
 type: routine
-version: 3.10.0
+version: 3.11.0
 author: Hermes Agent
 license: MIT
 platforms: [macos, linux, windows]
@@ -14,7 +14,9 @@ metadata:
 
 ---
 
-# Web Research Router v3.10
+# Web Research Router v3.11
+
+> 🆕 **v3.11 (2026-06-17)**: 🧲 **last30days 源码吸收（6 机制，一条链）**。在不碰 wrr-core 核心约束的前提下吸收 [last30days-skill](https://github.com/mvanhorn/last30days-skill) v3.3.2 的 6 项机制，全部 prompt/脚本层、向后兼容：**①Step 0.6 预搜索实体接地**（命名实体类 query 主搜前解析官方域/repo/subreddit/handle，喂主搜+platform 通道定向）→ **②ENTITY_MISS 闸**（deep loop 不提实体的漂移结果不进 facts.jsonl）；**④SOURCE_QUALITY 权威度权重表** + **⑤intent-aware 融合权重** → **③weighted RRF**（`dedup_rrf.py --weights`，默认均权向后兼容）；**⑧薄源重试**（命中 <3 先简化 query 重试同引擎再切）。**唯一红线**：engagement/social 权重永不抬 `source_tier`（封顶 0.50，CQI §14.6）。改动文件：SKILL.md / research-modes.md / source-map-schema.md / deep-research-loop.md / platform-mode.md / dedup_rrf.py / trigger-tests.md。新机制是 wrr-core 阶段 1 `route()`/registry 将**吸收而非推翻**的 prompt spec（CQI §14.5 许可的 Week-1 落地）。
 
 > 🆕 **v3.10 (2026-06-17)**: 🔌 集成 **Agent-Reach platform mode**——5 引擎全在公网搜索空间的结构性盲区（Twitter/X 口碑、Reddit 讨论、B站/小红书/YouTube 内容、V2EX/雪球垂直社区、小宇宙播客、RSS）现由第 6 个 `platform` mode 补齐，调用 Agent-Reach 11/13 可用通道（doctor 实测：linkedin/exa_search 为 off，exa_search 与本 router Exa 重叠故无需）。**platform mode 是 5 mode 之外的补充模式，不替换 Exa/Brave/Tavily 主链路**；CLI 原始信源统一经 WRR 标准管线（extractor → source map `source_tier: social` → cross-check → 三分栏 → `[s<id>]` citation）。每次激活先跑 `agent-reach doctor`，不可用通道静默跳过。新增 `references/platform-mode.md`。
 
@@ -85,6 +87,26 @@ Before calling ANY search tool, check this table. If any excuse below sounds fam
 
 **只有以上 4 步全部"已查 + 未命中或不足"，才允许调用 web_search / Exa / Brave / Tavily / SearXNG。** 在最终回答的 Verification Checklist 中必须显式声明这 4 步的执行结果（命中 / 未命中 / 跳过+原因）。
 
+### Step 0.6: Pre-search entity grounding — 预搜索实体接地（命名实体类 query，🆕 v3.11）
+
+> 🎯 **门控触发：仅当 query 含具体命名实体**（人 / 产品 / 项目 / 公司 / 开源库 / 社区）。纯概念 / 背景 / how-to 类（无命名实体）**跳过**——省一次预搜索。
+> 思路偷自 last30days `resolve.py`（87 行**纯正则 + 频率计数，零 LLM**）：在主搜索发动前，把实体解析成「权威落点」，让后续检索锚定实体而非空打。
+
+- **怎么做（一次轻量预搜索，不展开成多轮）：**
+  1. 用 `web_search` + `Exa` 仅就 topic 跑一次（不拆 sub-query）。
+  2. 对返回标题/URL 做**正则**提取四类落点（不做语义理解）：
+     - 官方域（频率最高的非聚合站域名）
+     - GitHub repo（`github.com/<owner>/<repo>`，后缀规范化：`-action` / `-sdk` → canonical）
+     - subreddit（`r/<name>` 或 `reddit.com/r/<name>`）
+     - X/Twitter handle（`@<name>` 或 `(twitter|x).com/<name>`）
+  3. 频率计数排序；**URL 模式匹配权重 ×3 > 纯文本匹配 ×1**；过滤通用 handle（`twitter`/`x`/`home`/`search`/`i`/`intent`/`share`）。
+- **解析结果喂三处：**
+  - **(a) 主搜精确化** —— 把实体名 / 官方域作锚（加引号 NAMES 或 `site:官方域`），喂 Step 2 主链路。
+  - **(b) platform mode 通道定向** —— 解析出 subreddit → `reddit subreddit`；handle → `twitter user-posts`；repo → `github`。**用户不必手动指名平台**（详见 `references/platform-mode.md` §2）。
+  - **(c) #2 ENTITY_MISS 接地基准** —— deep loop 用它过滤语义漂移结果（见 `references/deep-research-loop.md` Step 2）。
+- **关联：** 实体类别提取复用 `references/query-decomposition.md` 的 **NAMES** 类口径。
+- 🔧 **wrr-core 收口：** 本步是 prompt 层 spec。wrr-core 阶段 1 将其并入 `route()` 预搜索管线，用 registry `vertical_domains` 做权威域目标表（CQI §3.5 路由函数化 + §14 线程 E2）；当前 prompt 形态即该 spec 的 Week-1 落地，route() 落地后**收口为单一路径，不留双轨**。
+
 ### Step 1: Is this a GitHub source code task?
 - "看看 X 项目源码" / "这个函数怎么实现" → load `github`.
 
@@ -137,11 +159,32 @@ Before calling ANY search tool, check this table. If any excuse below sounds fam
   - ⚠️ 交互环境依赖：Twitter/Reddit/小红书走 OpenCLI（复用浏览器登录态），**无头/cron 环境不可用**，需标注「需要交互环境」
   - 详见 `references/platform-mode.md`（通道速查 + 触发映射 + 输出映射 + DO/DON'T）
 
+> 🔁 **薄源重试（thin-source retry，🆕 v3.11）：** 任一引擎命中 **<3 条**时，**先**用 core-subject 简化 query（≤3 词，剥离修饰词）**重试同引擎一次**，**再**按该 mode 的 Fallback 切下一引擎 / SearXNG。每引擎只薄重试一次；详见 `references/research-modes.md` §薄源重试。
+
 > 🔁 **何时升级到 deep-research loop？** 议题维度 ≥ 3 / 需可引用结构化报告 / 单轮 source map 命中 <70% / 用户显式说"深挖" → 进入
 > `references/deep-research-loop.md` 的 plan → section research（含 `fetch-extract-pattern.md` extractor） → reflect → merge 循环。
 > Deep loop **不替换**上述 5 mode；它是 `research` mode 的可选升级路径。
 
 Detailed mode instructions: `references/research-modes.md`
+
+### Step 2.5: Intent-aware fusion weighting — 多引擎融合权重（🆕 v3.11，可选）
+
+> 6 mode 是**粗粒度 intent 代理**；同一议题的**细粒度 intent** 决定融合时**哪个引擎的结果该被加权**。仅当你把多引擎结果喂 `scripts/dedup_rrf.py` 融合时启用——单引擎/不融合可跳过。
+
+**权重 = 源权威度基线 × intent 乘子：** `final_weight = quality_weight(source_tier) × intent_multiplier(provider)`
+- `quality_weight` 来自 `references/source-map-schema.md` §SOURCE_QUALITY（#4 表）。
+- `intent_multiplier` 按下表取（偷自 last30days `planner.py` 的 intent-aware source weighting，换形为 prompt 层）：
+
+| 细粒度 intent | 加权引擎（multiplier） | 依据 |
+|---|---|---|
+| breaking_news / 时效 | Brave 1.0 ≥ web_search 0.9 > Exa 0.8 | 独立爬虫最新，神经索引有滞后 |
+| concept / technical / comparison | Exa 1.0 > Brave 0.85 | 语义精准 |
+| factual / numerical / date | web_search 1.0 + Brave 0.9 > Exa 0.7 | Exa 精确事实易漂移（pitfall #8） |
+| product / opinion / how_to | Brave 0.95 + Exa 0.9 | 均衡 |
+
+- **落地：** 算出 `final_weight` → 传 `dedup_rrf.py --weights exa=..,brave=..,social=..`（per-provider；社交档恒受 0.50 上限约束）。
+- 🛑 **红线：** intent 乘子**只调引擎间相对顺序**，**不抬 `source_tier`**——social 信源乘完仍封顶 0.50（CQI §14.6）。
+- 🔧 **wrr-core 收口：** 当前是 prompt 层提示；wrr-core 阶段 1 由 `route(query, mode, signals)` 的 `signals` 携带 intent → registry 注入 `--weights`（CQI §3.5 路由函数化）。
 
 ### Step 3: Cross-check only when warranted (respect `CROSS_CHECK_DEPTH`)
 Cross-check when: numbers, dates, prices, legal claims, attribution, SOTA claims, financial decisions, fast-changing news, suspicious claims. At depth 1, skip cross-check. At depth 2 (default), cross-check one source. At depth 3, triple-verify.
@@ -433,6 +476,7 @@ hermes mcp test searxng --query "claude 4.7 release notes"
 |-----------------|---------|
 | Detailed mode instructions (default paths, examples) | `references/research-modes.md` |
 | **🔌 platform mode**（Agent-Reach 通道速查 + 触发词→通道映射 + doctor 自检 + CLI 输出→source map + 交互环境标注 + DO/DON'T） | `references/platform-mode.md` |
+| **🆕 last30days 源码深度分析 — WRR 可吸收机制**（5 项可偷 + 4 项不偷 + CQI 对照） | `references/last30days-analysis.md` |
 | Query patterns for common tasks | `references/query-patterns.md` |
 | Academic lane policy (arXiv, Semantic Scholar, PubMed, etc.) | `references/academic-lane.md` |
 | **arXiv / Semantic Scholar 操作细节**（API 语法 / BibTeX / 引用数据 / 限流降级 / `search_arxiv.py`） | `references/arxiv-semantic-scholar.md` |
@@ -482,6 +526,8 @@ Full pitfalls (33 items, 含 v3.4 新增 deep loop 质量 8 项): `references/co
 
 - [ ] **Local first?** Supermemory/session/qmd/CodeGraph 都查过再上公网。
 - [ ] **Step 0 四步全跑过？** Supermemory / session_search / qmd-Obsidian / CodeGraph 四项是否在回答中显式声明"已查 + 命中 / 未命中 / 跳过原因"？— 未声明视同未跑（v3.6 P1 Local-first 缺陷）。
+- [ ] **Step 0.6 实体接地（命名实体类 query）？** 🆕 query 含具体实体时，是否在主搜前跑过预搜索解析（官方域/repo/subreddit/handle），并用解析结果锚定主搜 / 定向 platform 通道？纯概念类跳过可不勾。
+- [ ] **融合权重红线？** 🆕 若用 `dedup_rrf.py --weights` 加权，social/engagement 是否封顶 0.50、未抬 `source_tier`？intent 乘子是否只调引擎间顺序？— 越界即违反 CQI §14.6。
 - [ ] **Mode + engine?** 选定 discovery/grounding/research/academic/recovery/platform，或升级 deep loop；按 v3.7 表用对 primary engine（默认 Exa+Brave 双主力，SearXNG 仅兜底）。
 - [ ] **platform mode 合规？**（仅当用了 platform mode）🔌 是否先跑 `agent-reach doctor --json` 体检、按 `active_backend` 选命令组、不可用通道静默跳过？CLI 原始信源是否经 extractor 入 source map（标 `source_tier: social` + `platform` 字段）、关键 claim 做了公网 cross-check、社交口碑未被当"已确认"事实？OpenCLI 类通道是否标注「需要交互环境」？— 任一缺失即视为 platform mode 未合规。
 - [ ] **Extractor not answerer?** 每个 fetched 页面跑过 extractor、verbatim quote 入 source map，**不是**让单次 LLM call 又 fetch 又综合答案。

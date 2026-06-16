@@ -130,6 +130,25 @@ Output discipline:
 
 ---
 
+## 薄源重试（Thin-Source Retry）— 切引擎前先简化重试同引擎 🆕 v3.11
+
+> 偷自 last30days `pipeline.py` 的 thin-source retry：某引擎命中过少，常因 query 带太多修饰词而过窄，**不是该引擎没这个源**。切引擎前先给同引擎一次"简化重试"机会。
+
+**规则（套在每个 mode 的 Fallback 步之前）：**
+
+1. 某引擎命中 **<3 条** → **先**用 **core-subject 简化 query**（≤3 词，剥离 intent modifier，复用 `query-decomposition.md` 的 **NAMES** 类提取）**重试同一引擎一次**。
+   - 例：`"Kanye West album sales Billboard performance 2026"` 命中 1 条 → 简化为 `"Kanye West"` 重试 Exa。
+2. 简化重试仍 **<3 条** → **再**按该 mode 的 Fallback 切下一引擎 / SearXNG 兜底。
+
+**边界：**
+- 每引擎只薄重试 **一次**（防循环）；
+- 简化 query 与原 query 的结果在喂 `dedup_rrf.py` **前先 dedup**（避免重复污染 RRF）；
+- core-subject = 最显著的 NAMES 实体，≤3 词，不重新展开成多 sub-query（那是 decomposition 的活，不是 retry）。
+
+> 🔧 **wrr-core 收口：** 当前是各 mode fallback 的 prompt 前置；wrr-core 阶段 1 把它放进 `route()` 的 fallback 链——作为"切下一引擎"前的一跳，由 registry `modes.*.fallback` 序列驱动。
+
+---
+
 ## Cost / Noise Discipline
 
 - Do not use all engines by default.
