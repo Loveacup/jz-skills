@@ -88,8 +88,11 @@ fi
 
 # ── Signals ──────────────────────────────────────────────────
 BYPASS=$(printf '%s' "$PANE" | grep -o 'bypass permissions on' | head -1 || true)
-THINKING=$(printf '%s' "$PANE" | grep -oE '[✻✳✶✢✽]' | tail -1 || true)   # NO `·` (P0 fix)
-TOOL_CALL=$(printf '%s' "$PANE" | grep -oE '⏺|●' | tail -1 || true)
+# §3.1 fix: narrow THINKING/TOOL to active tail (last 6 non-empty lines)
+# to avoid stale signals in scrollback after CC finishes a turn.
+ACTIVE_TAIL=$(printf '%s\n' "$PANE" | grep -v '^[[:space:]]*$' | tail -6 || true)
+THINKING=$(printf '%s' "$ACTIVE_TAIL" | grep -oE '[✻✳✶✢✽]' | tail -1 || true)
+TOOL_CALL=$(printf '%s' "$ACTIVE_TAIL" | grep -oE '⏺|●' | tail -1 || true)
 WAIT_AGENTS=$(printf '%s' "$PANE" | grep -oE 'Waiting for [0-9]+ background agent' | tail -1 || true)
 TOKENS=$(printf '%s' "$PANE" | grep -oE '[0-9.]+k tokens' | tail -1 || echo "?")
 THINK_TIME=$(printf '%s' "$PANE" | grep -oE '[0-9]+m [0-9]+s' | tail -1 || echo "?")
@@ -107,8 +110,15 @@ if [[ -n "$PROMPT_LINE" ]]; then
   PROMPT_CONTENT=$(printf '%s' "$PROMPT_LINE" | sed -E 's/^[[:space:]│╎┃|]*❯[[:space:]]*//; s/[[:space:]│╎┃|]*$//')
 fi
 # IDLE = a ❯ prompt is at the bottom and is empty (no residual text after it)
+# §3.1 fix: tighten IDLE so it is mutually exclusive with any active-work signal
+# (THINKING/TOOL/WAIT_AGENTS). Defense-in-depth: the priority chain below also
+# resolves TOOL/THINKING before IDLE, but the guard keeps the IDLE flag itself
+# honest for any future consumer ("三者互锁，缺一不可").
 IDLE=""
-[[ -n "$PROMPT_LINE" && -z "$PROMPT_CONTENT" ]] && IDLE="yes"
+if [[ -n "$PROMPT_LINE" && -z "$PROMPT_CONTENT" \
+      && -z "$THINKING" && -z "$TOOL_CALL" && -z "$WAIT_AGENTS" ]]; then
+  IDLE="yes"
+fi
 
 # Crash-to-shell heuristic: no bypass banner AND last line looks like a bare shell prompt
 SHELL_FALLBACK=""
@@ -119,18 +129,19 @@ if [[ -z "$BYPASS" && -z "$PROMPT_LINE" ]]; then
 fi
 
 # ── Resolve primary STATE (priority order) ───────────────────
-# IDLE (empty ❯ at bottom) wins over TOOL: `●` lingers in scrollback after a
-# tool finishes, so an empty prompt means CC is genuinely waiting, not working.
+# §3.1 fix: TOOL/THINKING now win over IDLE. TOOL/THINKING signals
+# are sampled from ACTIVE_TAIL (last 6 non-empty lines) to avoid stale
+# scrollback artifacts. IDLE only fires when no active work signal exists.
 if [[ -n "$SHELL_FALLBACK" ]]; then
   STATE="SHELL"
 elif [[ -n "$WAIT_AGENTS" ]]; then
   STATE="WAITING_AGENTS"
-elif [[ -n "$IDLE" ]]; then
-  STATE="IDLE"
 elif [[ -n "$TOOL_CALL" ]]; then
   STATE="TOOL"
 elif [[ -n "$THINKING" ]]; then
   STATE="THINKING"
+elif [[ -n "$IDLE" ]]; then
+  STATE="IDLE"
 elif [[ -n "$BYPASS" ]]; then
   STATE="IDLE"
 else

@@ -147,7 +147,12 @@ if $KILL; then
   else
     echo "ℹ️  Session 已不存在: $SESSION"
   fi
-  rm -f "$HB" "$STATELOG"
+  # §3.7 cleanup: also drop the expected-artifacts file (keyed by tmux session,
+  # written by cc-send --expect). NOTE: the Stop hook's rewake counter is keyed
+  # by $CLAUDE_SESSION_ID (CC UUID, not the tmux name), which cc-finish does not
+  # know — that file (/tmp/cc-counter-stop-precheck-<uuid>.json) needs the D-4
+  # key-unification fix before it can be cleaned here. See hooks/README.md.
+  rm -f "$HB" "$STATELOG" "/tmp/cc-expect-${SESSION}"
 fi
 
 echo "===📋 END cc-finish==="

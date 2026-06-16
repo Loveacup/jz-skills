@@ -40,7 +40,19 @@ case "$EFFORT" in
   *) echo "Invalid effort: $EFFORT (must be high, xhigh, or max)" >&2; exit 1 ;;
 esac
 
+# ── §3.8 #7: HERMES_HOME / HOME redirection self-check ────────
+# Pure read-only, runs BEFORE any lock/scan. Turns a mysterious runtime failure
+# (HOME redirected by a profile → skill scripts unfindable) into an explicit
+# startup diagnosis. SKILL_ROOT is env-overridable only for test injection.
+SKILL_ROOT="${CC_TMUX_SKILL_ROOT:-/Users/$(id -un)/.hermes/skills/autonomous-ai-agents/cc-tmux}"
+if [[ ! -d "$SKILL_ROOT/scripts" ]]; then
+  echo "❌ 找不到 $SKILL_ROOT/scripts — 可能 HERMES_HOME/HOME 被 profile 重定向" >&2
+  echo "   检查: echo \$HOME; echo \$HERMES_HOME。修法: 绝对路径调用，或命令前加 HOME=/Users/$(id -un)" >&2
+  exit 1
+fi
+
 TSLUG=$(echo "$TARGET" | tr '/' '-')
+USER_HOME=$(eval echo ~$(id -un))
 LOCKDIR="/tmp/cc-lock-${TARGET}"
 
 # ── Classify a session's CC state from its pane ──────────────
@@ -101,8 +113,9 @@ if [[ "$OTHERS_ACTIVE" -gt 0 && "$ACK_ACTIVE" != true ]]; then
   echo "===📋 BEGIN cc-start 扫描报告 (relay verbatim)==="
   echo "⚠️  检测到 ${OTHERS_ACTIVE} 个活跃的其它 CC session（非本 target '${TARGET}'）："
   printf '%s' "$OTHERS_REPORT"
-  echo "  → 这些 CC 正在干活。若确认可并行启动，请让用户确认后"
-  echo "    重跑本命令并加 --ack-active；否则先处理它们。"
+  echo "  → 这些 CC 正在干活。确认可并行启动? 让用户确认后重跑并加 --ack-active；"
+  echo "    否则先 cc-finish 收尾上一个再起。"
+  echo "  📋 可粘贴: cc-start.sh --target $TARGET --effort $EFFORT --agent $AGENT --task '<原任务>' --ack-active"
   echo "===📋 END==="
   exit 3
 fi
@@ -130,7 +143,7 @@ if tmux has-session -t "$SESSION" 2>/dev/null; then
 fi
 
 # ── Start tmux session ───────────────────────────────────────
-if ! HOME=/Users/alexcai tmux new-session -d -s "$SESSION" -c /tmp 2>/dev/null; then
+if ! HOME="$USER_HOME" tmux new-session -d -s "$SESSION" -c /tmp 2>/dev/null; then
   echo "❌ tmux new-session 失败: $SESSION" >&2
   rm -rf "$LOCKDIR"   # roll back the lock so the target isn't wedged
   exit 1
@@ -145,7 +158,7 @@ echo "$TMUX_PID" > "$LOCKDIR/tmux_pid"
 
 # Send the claude command
 tmux send-keys -t "$SESSION" \
-  "HOME=/Users/alexcai claude --model ${MODEL} --effort ${EFFORT}" Enter
+  "HOME=\"$USER_HOME\" claude --model ${MODEL} --effort ${EFFORT}" Enter
 
 # ── Output session info ─────────────────────────────────────
 echo "$SESSION"   # stdout: session name for consumption by other scripts
