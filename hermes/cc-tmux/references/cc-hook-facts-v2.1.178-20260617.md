@@ -74,7 +74,7 @@
 
 claude-code-guide 调研报告里以下项**本次未实测**,使用前须单独 `--debug hooks` 复验:
 - hook 类型 `http` / `mcp_tool` / `prompt` / `agent`(主动外呼/LLM 决策)——方案刻意不依赖,守"零新依赖"。
-- 冷门事件 `PostToolBatch` / `MessageDisplay` / `ConfigChange` / `CwdChanged` / `FileChanged` / `TeammateIdle` / `PostCompact` 等——核心只用上表 8 个已验证事件。
+- 冷门事件 `PostToolBatch` / `MessageDisplay` / `ConfigChange` / `CwdChanged` / `FileChanged` / `TeammateIdle` / `PostCompact` 等——核心只用上表 7 类事件中 6 类已实测验证（SubagentStop 未测）。
 - `--settings` 对**非 hooks 键**(如 model/permissions)的 override-vs-merge 语义——本次只验证了 hooks=累积。
 - SessionEnd 其它 `reason` 取值(clear/resume/logout/...)——只实测了 `prompt_input_exit`。
 - `CLAUDE_SESSION_ID` 仍为空(沿用旧结论,本次未重测;所有 hook 继续从 stdin 取 `session_id`)。

@@ -1,6 +1,6 @@
 # CC Hook Bug Registry
 
-> 2026-06-15 调研发现。这些是 Claude Code PreToolUse hook 的已知开放 bug，是 cc-tmux 不依赖 hook 做硬门、改用外部脚本（flock + 祝福路径）的关键论据。
+> 2026-06-15 调研发现。这些是 Claude Code PreToolUse hook 的已知开放 bug，是 cc-tmux 不依赖 hook 做硬门、改用外部脚本（mkdir 原子目录锁 + 祝福路径）的关键论据。
 
 ## 开放 Bug 清单
 

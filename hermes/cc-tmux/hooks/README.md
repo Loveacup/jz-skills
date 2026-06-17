@@ -1,6 +1,6 @@
 # cc-tmux driven-CC hooks (§3.3–3.7)
 
-被 cc-tmux 驱动的 CC 的 **L2(CC-native)hook 层**。五个 hook 全部坐落在
+被 cc-tmux 驱动的 CC 的 **L2(CC-native)hook 层**。七类事件 / 八个 hook 条目全部坐落在
 **non-deny 路径**(PostToolUse / Notification / SessionStart / Stop-block)上,
 任何一个不触发都只会**静默降级**回 L0/L1 行为,绝不 wedge 住 turn(原则⑥
 graceful degradation)。
@@ -196,7 +196,7 @@ HOME=… CC_TMUX_SESSION="$SESSION" CC_TMUX_HOOK_DIR="$SKILL_ROOT/hooks" \
 
 ## 6. Smoke test 清单(部署后逐项验证)
 
-单测在隔离环境过了(`tests/test-hooks.sh`,**16/16**),但**实际触发**依赖目标 CC 版本。
+单测在隔离环境过了(`tests/test-hooks.sh`,**21/21**),但**实际触发**依赖目标 CC 版本。
 下列每项给一个**最小可复现 shell 命令**,可直接在 shell 里喂 stdin JSON 验证脚本逻辑;
 标 *(live)* 的项必须在真实 CC build 里跑。
 
@@ -277,7 +277,7 @@ echo '{"session_id":"uuid-x"}' | CC_TMUX_SESSION="smoke" bash cc-stop-check.sh; 
 ## 7. 清理契约(已实现)
 
 `cc-finish.sh` step 7(`--kill-session`)按 tmux session name 移除整套 per-session
-文件:`cc-heartbeat-<s>`、`cc-state-<s>.log`、`cc-expect-<s>`、
-`cc-counter-stop-precheck-<s>.json`、`cc-output/<s>/`。由 `tests/test-finish.sh`(6/6)
+文件:`cc-heartbeat-<s>`、`cc-state-<s>.log`、`cc-expect-<s>`、`cc-turn-done-<s>`、`cc-freeze-<s>`、`cc-watch-<s>.log`、
+`cc-counter-stop-precheck-<s>.json`、`cc-output/<s>/`；watcher PID 由 cc-finish step7 `kill`。
 覆盖。若 `CC_TMUX_SESSION` 当时没传播,hook 文件是 UUID-keyed 的,这里匹配不到 ——
 属无害 miss,非错误。

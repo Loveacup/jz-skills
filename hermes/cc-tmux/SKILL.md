@@ -362,7 +362,6 @@ independence_level: L1 | L2 | L3               # 隔离强度：readonly→L1 / 
 > 📊 **V4 对比**：`references/v4-comparison-findings.md`（功能矩阵 + 尺寸对比 + 使用场景）
 > 🔄 **多轮 CC 设计迭代**：`references/multi-round-design-pattern.md`（4 轮模式：设计→优化→产出→终审）
 > 🔗 **源仓库**：`~/code/jz-skills/hermes/cc-tmux/`
-> 🔗 **源仓库**：`~/code/jz-skills/hermes/cc-tmux/`
 > 📡 **Relay Contract**：`references/relay-contract.md`（机械执行细则 + 反模式）
 > 🧪 **测试复现**：`references/test-repro-2026-06-16.md`（cc-send Enter 未生效 + monitor 盲区复现步骤）
 > 🔀 **路由对照**：`references/hermes-deck-routing-comparison.md`（hermes-deck Primer + AgentRouting 块 vs cc-tmux 长会话模型对照分析）
