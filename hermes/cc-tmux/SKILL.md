@@ -8,8 +8,8 @@ description: >
   Use when: 调 CC, 用 claude, 拉 CC, delegate to CC, agent team, 重活调 CC.
   Do NOT use for: simple single-tool calls, grammar fixes, non-coding tasks.
 type: routine
-version: 1.10.0
-author: "Hermes Agent + Claude Code (v1.10.0: Phase 3 Hermes 转被动落地——cc-finish 以 turn-done 为完成权威/心跳退为辅助 backstop；eval-compliance 评分从「监控密度」改为「turn-done 响应+freeze 未漏」；SKILL.md 删定时轮询义务、立被动契约；SOUL.md ⑤ 同步被动检测。测试 68→74 全绿。 | v1.9.0 Phase 2: 事件驱动监控——PreToolUse async 刷心跳+UserPromptSubmit+SessionEnd+Stop turn-done 标记；cc-watcher --watch 守护模式；cc-monitor 写 cc-freeze 告警；活体冒烟 5/5；nohup 编排 references/cc-nohup-orchestration-pattern.md)"
+version: 1.12.0
+author: "Hermes Agent + Claude Code (v1.12.0: Turn 内等待（in-turn wait）——新增 scripts/cc-wait-marker.sh（严格 mtime>after 阻塞等 turn-done marker）+ tests/test-wait-marker.sh 6/6；SKILL.md §3 增 in-turn wait 决策树/操作步骤（事件驱动唤醒的紧凑互补）+ Pitfall #20 mtime 比较陷阱；测试 74→80 全绿；TDD 三轮交付。归源时修复 v1.11.0 deploy 热修丢失的 Pitfall #18。| v1.11.0: 事件驱动唤醒——CC 深度调研发现 Hermes 内置 terminal(background/notify_on_complete)→gateway watcher→合成消息注入机制；加 Pitfall #19「被动沉默让用户蒙在鼓里」；加 references/event-driven-wakeup.md（零代码方案+行业共识+不可行清单）。SKILL.md §3 增唤醒模式。| v1.10.0: Phase 3 被动落地 | v1.9.0: Phase 2 事件驱动监控)"
 license: MIT
 ---
 
@@ -169,6 +169,48 @@ tmux capture-pane -t <session> -p -S -5
 - 想知道「该看结果了吗」→ 读 `cc-turn-done-<s>` 标记（出现=本轮完成）
 - 想知道「有没有出事」→ 读 `cc-freeze-<s>` 告警标记
 
+**⚡ 事件驱动唤醒（v1.11.0 新增）** — 从「被动读」升级为「CC 一完成 Hermes 就自动醒」：
+
+Hermes 内置后台进程完成注入机制：派发 CC 的同一个 turn 内，起一个后台子进程阻塞等 `cc-turn-done-<s>` marker（`terminal(background=true, notify_on_complete=true)`），然后 Hermes 正常结束 turn。子进程不占 Hermes 注意力。CC Stop hook 写完 marker → 子进程退出 → gateway watcher（≤5s）自动注入 `[IMPORTANT: Background process completed]` 合成消息到同一个 Telegram 会话 → 触发 Hermes 新 turn → 读产物、汇报、讨论。
+
+**实现只改编排行为，零代码改动**——Hermes gateway 的 `_inject_watch_notification`（`gateway/run.py:11701`）和 `_run_process_watcher`（`:11782`）已完整实现此机制。详见 `references/event-driven-wakeup.md`。
+
+**约束**：必须 `notify_on_complete=true`；派发 CC 的 turn 必须结束（watcher 在 turn 后才 arm）；不要 `process(action=poll/wait/log)` 这个等待子进程（agent 消费完成事件会使 watcher 跳过注入）；检测延迟 ≤5s。
+
+**⏳ Turn 内等待模式（in-turn wait，v1.12.0 新增）** — 事件驱动唤醒的「紧凑互补」：
+
+事件驱动唤醒（上）是**结束 turn → CC 完成 → 注入新 turn**，适合长任务 / 无人值守，但每轮是离散 turn。当你要**紧凑连续干预**（派 CC → 等 → 读 → 立即发下一条 → 再等，全程同一段推理，且用户能 ~1s 插话）时，用 in-turn wait：在**同一 turn 内** `process(action=wait)` 阻塞等 `scripts/cc-wait-marker.sh`，不结束 turn。
+
+**决策树（何时用哪种）**：
+```
+预计 CC 往返 ≤ ~10  且要紧凑连续干预 / 即时插话  → in-turn wait（本节）
+预计往返 > ~10  或单轮很久 / 无人值守           → 事件驱动唤醒（上一节）
+拿不准 → 先 in-turn wait 跑前几轮，接近 ~12-16 往返（单 turn max_iterations≈50）时
+        主动收尾 → 挂事件驱动唤醒（notify_on_complete=true）接力
+```
+
+**操作步骤（start → send → wait-marker → read → loop）**：
+```bash
+S="hermes-cc-default-<ts>"
+# 1. 记录基线 = 发指令前的 marker mtime（无 marker 则 0）—— ⚠️ 必须先记，见 Pitfall #20
+AFTER=$(stat -f %m /private/tmp/cc-turn-done-$S 2>/dev/null || echo 0)
+# 2. 发任务
+bash .../scripts/cc-send.sh --session "$S" --context /tmp/cc-context.md
+# 3. 起后台 waiter；Hermes 在同一 turn 内 process(action=wait) 阻塞它
+#    （单次 wait ≤180s，循环兜长任务；notify_on_complete=false 见要点）
+terminal(command="bash .../scripts/cc-wait-marker.sh --session $S --after $AFTER --timeout 21600",
+         background=true, notify_on_complete=false)
+process(action="wait", session_id=<上一步 id>, timeout=180)
+#   exited → CC 本轮完成；timeout → 再 wait；interrupted → 用户插话，先响应再续
+# 4. 读产物 → 决策 → 回到第 1 步（AFTER 更新为刚见到的新 marker mtime）再发下一条
+```
+
+**要点**：
+- waiter 用 `notify_on_complete=false`——in-turn wait 自己消费完成，**不要**和事件驱动唤醒对同一进程双触发（`process(action=wait)` 退出会标 `_completion_consumed`，反让 gateway 注入被跳过）。
+- 单次 `process(action=wait)` ≤180s（`TERMINAL_TIMEOUT` clamp）；超时进程不死 → 再 wait；用户消息 ~1s 中断 wait（真可中断，非傻等满 180s）。
+- 单 turn 约 ~12-16 个 CC 往返封顶（`max_iterations≈50`，每个 wait→读→send 周期 ~3-4 次工具调用）；要更多请调 `agent.max_turns`。
+- `cc-wait-marker.sh` 用**严格 `mtime > --after`**，每轮必须重记基线 → 见 Pitfall #20。
+
 **手动监控**（按需，不再强制定时）：
 ```bash
 # 想看 CC 现在在干嘛时手动跑
@@ -322,6 +364,8 @@ independence_level: L1 | L2 | L3               # 隔离强度：readonly→L1 / 
 | 16 | cc-monitor.sh 在 CC 正常长思考时误报 token 冻结 >3min，打断正在产出的 CC | 冻结检测只看 TOKENS（token 计数字符串）是否变化。CC 写文件/深度思考时 token 显示为 ?（不可读），连续多轮 ? → TOKENS 不变 → 冻结时钟累计 → >180s 误报。但 CC 自己的思考计时器 THINK_TIME（如 4m 13s）每秒递增——这个信号之前被忽略了。修复 (v1.8.1)：冻结重置条件增加 THINK_TIME 变化检测。? 但计时器在走 → 不告警；双停（计时器 + token 都不动）→ 真告警。计时器提取**锚定到 spinner 行**（避免 tool 输出里的随机 `5s`/`3m` 误重置而掩盖真冻结）且**放宽格式**覆盖全部渲染：`2m 3s`（完整）/ `49m ·`（分钟制，本 Pitfall 的 xhigh 形态）/ `37s`（不足 1 分钟）。新测试 tests/test-monitor-freeze.sh 6/6 覆盖。 | ① token 在涨 / spinner 在动 / pane 有新输出 → CC 活跃，不要 C-c ② 判准是双停（THINK_TIME + TOKENS 全不动 >3min），不是时间长 ③ 用户明确要求「只要他持续在思考，就先别干预他」 |
 | 17 | Hermes 反复违反「每 30-60s 跑 cc-monitor.sh」的轮询纪律，沉默 >2min、心跳间隙 >120s、cc-finish 拒绝收尾 | **根因是架构性的，不是 prompt 能修的**：LLM 不擅长定时重复执行——长思考中一定会忘。 | **✅ 已修复 (v1.9.0 / Phase 2)**：节律义务从 LLM 搬到 hook 事件驱动 + watcher 守护进程 + turn-done 标记——Hermes 只需被动读文件。详见 `references/hook-evolution-plan-20260617.md`。 |
 | 18 | `cc-send.sh` 返回 `✓ Sent` 且消息出现在 ❯ 后，但 CC 长时间不处理——消息残留 >8s 无 spinner | Pitfall #5 的特化高频形态：Enter 未生效时消息**原样显示**在 ❯ 后而非被 CC 消化。Hermes 可能误以为 CC「在思考这段指令」，实际 CC 根本没开始。**2026-06-17 单 session 触发 2+ 次。** | **加固存活验证**：`cc-send.sh` 后等 4-6s 抓屏——① 若 ❯ 后有残留文字且无 spinner（✻/✽/✶/⏺）→ Enter 未生效，**立即** `tmux send-keys Enter`；② 5s 后仍残留 → 再补一次 Enter。**宁多补一次 Enter 不白等一轮。** 存活验证失败时不要假定「CC 会自己消化」——它不会。 |
+| 19 | 用户问「你在轮巡吗？Hook 没有效果吗？已经 20 分钟了，一点反应都没有」 | **被动模型的结构性缺陷**：Hermes 不轮询、不主动查 turn-done 标记，turn-done 早已写好但 Hermes 不知道——用户在等 Hermes 汇报，Hermes 在等用户发消息，双方互等。CC 已经完成 20 分钟了但没人知道。**2026-06-17 实发——turn-done 09:41 写好，用户 09:51 质问才被发现。** | **根治**：用事件驱动唤醒（`terminal(background=true, notify_on_complete=true)` 后台子进程等 marker）替代纯被动等待——让 CC 完成时自动触发 Hermes 新 turn，而不是等用户发现沉默再问。详见 `references/event-driven-wakeup.md`。**在此之前**：用户发消息时立刻查 turn-done 标记，不要假定「还没完成」。
+| 20 | in-turn wait 循环里第二轮 `cc-wait-marker.sh` 立即返回旧 marker，没等到 CC 新一轮完成 | **mtime 比较陷阱**：marker 是同一个文件 `/private/tmp/cc-turn-done-<s>`，CC 每轮 Stop hook 覆盖它（mtime 刷新）。若第二轮仍复用上一轮的 `--after` 基线，waiter 看到的 marker（mtime=上一轮）已 > 旧基线 → 立即 exit 0，把**上一轮的旧结果**误判成本轮完成。 | **每轮发指令前重记基线**：`AFTER=$(stat -f %m /private/tmp/cc-turn-done-$S 2>/dev/null \|\| echo 0)` → `cc-send` → `cc-wait-marker.sh --after $AFTER`。脚本用**严格 `mtime > after`**，基线必须是「你上一轮 wait 返回时那一版 marker 的 mtime」，不能复用更早的值。`--after 0` 仅第一轮（尚无任何 marker）用。覆盖测试 `tests/test-wait-marker.sh`（Test 3/6）。 |
 
 ## 👤 用户偏好与约束（不可协商）
 
@@ -370,11 +414,12 @@ independence_level: L1 | L2 | L3               # 隔离强度：readonly→L1 / 
 > 🚀 **Ultracode Dynamic Workflow**：`references/ultracode-workflow-pattern.md`（用 CC 原生 ultracode 模式做 13-agent 并行深度调研的完整流程：触发方式、编排设计、监控、产出验收、适用/不适用场景）
 > 📊 **用量汇报**：`references/usage-reporting-pattern.md`（CC 无法自理 `/usage` 的根因 + 方案 3 实现细节 + npx ccusage 使用）
 > 📋 **优化方案（2026-06-16）**：Obsidian `02-Plan&CQI/cc-tmux优化方案_20260616.md`（ultracode 13-agent 深度调研产出：P0 脚本修复 + P1 CC hook 混合架构 + 基质无关内核收敛 + CQI 闭环 + 6 决策点）
-> 🧪 **TDD 测试套件**：`tests/test-hooks.sh`（§3.3-3.7+P2 心跳总线 21/21）· `tests/test-start.sh`（§3.8+D-4+P1 注入+P2 watcher 拉起 9/9）· `tests/test-finish.sh`（§3.7+D-4+P2 turn-done/watcher+P3 完成权威 10/10）· `tests/test-monitor.sh`（§3.1+P2 fast-path 8/8）· `tests/test-monitor-freeze.sh`（§3.1 冻结+P2 freeze 标记 8/8）· `tests/test-send.sh`（§3.2 9/9）· `tests/test-watcher.sh`（P2 --watch 守护探针 4/4）· `tests/test-eval.sh`（P3 被动评分 turn-done/freeze 5/5）→ **74/74 全绿**（21+9+10+8+8+9+4+5，实跑核实，2026-06-17）
+> 🧪 **TDD 测试套件**：`tests/test-hooks.sh`（§3.3-3.7+P2 心跳总线 21/21）· `tests/test-start.sh`（§3.8+D-4+P1 注入+P2 watcher 拉起 9/9）· `tests/test-finish.sh`（§3.7+D-4+P2 turn-done/watcher+P3 完成权威 10/10）· `tests/test-monitor.sh`（§3.1+P2 fast-path 8/8）· `tests/test-monitor-freeze.sh`（§3.1 冻结+P2 freeze 标记 8/8）· `tests/test-send.sh`（§3.2 9/9）· `tests/test-watcher.sh`（P2 --watch 守护探针 4/4）· `tests/test-eval.sh`（P3 被动评分 turn-done/freeze 5/5）· `tests/test-wait-marker.sh`（§3 in-turn wait marker mtime 等待 6/6）→ **80/80 全绿**（21+9+10+8+8+9+4+5+6，实跑核实，2026-06-17）
 > 🪝 **CC Hook 脚本**：`hooks/cc-posttool.sh`（§3.3 PostToolUse 归档）· `hooks/cc-stop-check.sh`（§3.7 Stop 软门）· `templates/settings.runtime.json`（§3.4/3.5 Notification+SessionStart 内联 + 两脚本路径经 `$CC_TMUX_HOOK_DIR` 自定位，**单一事实源**，由 cc-start `--settings` 会话级注入；stdin-jq + D-4 键统一 `${CC_TMUX_SESSION:-<stdin session_id>}`；**全局 hooks 已摘**避免 R1 双触发）· `hooks/README.md`（§3 `--settings` 部署 + D-4 + smoke 清单）
 > 🧪 **测试结果记录**：`references/test-results-33of33-20260617.md`（历史文件名；现为 **48/48**，含 D-4 键统一 + 冻结检测修复记录 + 部署 smoke 清单）
 > 🔬 **Hook 部署验证 (2026-06-17)**：`references/cc-hook-deployment-20260617.md`（部署流程 · CLAUDE_SESSION_ID 空值根因 · stdin 消费陷阱 · 验证方法 · 修复记录）
 > 📋 **状态审计 (2026-06-17)**：Obsidian `88-审计/cc-tmux 状态审计 20260617.md`（CC 自主审计：Readiness 6→8 · D-4 键分裂 · 测试失真 · 三步修复落地全记录）
 > 🚀 **Hook 演进方案 (2026-06-17)**：`references/hook-evolution-plan-20260617.md`（部署自动化 `--settings` 注入 + 事件驱动监控混合架构 + 4 阶段路线图，Pitfall #17 治本方案）
 > 🔬 **Hook 实测事实表 (2026-06-17)**：`references/cc-hook-facts-v2.1.178-20260617.md`（Phase 0 冒烟：R1 ACCUMULATE/R2 PASS/R3 async可靠/R4 每调用触发/R5 事件全过；CLI 事实 + 未验证清单 + 月度复查节奏）
+> ⚡ **事件驱动唤醒 (2026-06-17)**：`references/event-driven-wakeup.md`（CC 深度调研：Hermes 内置后台进程→gateway watcher→合成消息注入机制；零代码改动唤醒方案；行业共识验证；不可行方案清单）
 > 🧩 **CC Nohup 后台编排模式**：`references/cc-nohup-orchestration-pattern.md`（CC 写脚本→nohup 后台跑→等待器监听 REPORT→醒来消化；适用独立批量验证，避开 xhigh 长思考冻结）
