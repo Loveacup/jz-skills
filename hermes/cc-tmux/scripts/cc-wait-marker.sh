@@ -36,9 +36,9 @@ SESSION="" AFTER=0 TIMEOUT=21600
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --session) SESSION="$2"; shift 2 ;;
-    --after)   AFTER="$2";   shift 2 ;;
-    --timeout) TIMEOUT="$2"; shift 2 ;;
+    --session) [[ $# -ge 2 ]] || { echo "❌ cc-wait-marker: --session requires a value" >&2; usage; exit 2; }; SESSION="$2"; shift 2 ;;
+    --after)   [[ $# -ge 2 ]] || { echo "❌ cc-wait-marker: --after requires a value"   >&2; usage; exit 2; }; AFTER="$2";   shift 2 ;;
+    --timeout) [[ $# -ge 2 ]] || { echo "❌ cc-wait-marker: --timeout requires a value" >&2; usage; exit 2; }; TIMEOUT="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "❌ cc-wait-marker: unknown arg: $1" >&2; usage; exit 2 ;;
   esac
@@ -46,6 +46,18 @@ done
 
 if [[ -z "$SESSION" ]]; then
   echo "❌ cc-wait-marker: --session is required" >&2
+  usage
+  exit 2
+fi
+
+if ! [[ "$AFTER" =~ ^[0-9]+$ ]]; then
+  echo "❌ cc-wait-marker: --after must be a non-negative integer (got: '$AFTER')" >&2
+  usage
+  exit 2
+fi
+
+if ! [[ "$TIMEOUT" =~ ^[0-9]+$ ]]; then
+  echo "❌ cc-wait-marker: --timeout must be a non-negative integer (got: '$TIMEOUT')" >&2
   usage
   exit 2
 fi

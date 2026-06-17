@@ -135,6 +135,70 @@ else
 fi
 wait "$pid" 2>/dev/null || true
 
+# ── Test 7: unknown arg → exit 2 + stderr ──
+err=$(bash "$SCRIPT" --session "$SESS" --bogus 2>&1 >/dev/null); rc=$?
+if [[ "$rc" -eq 2 ]] && [[ -n "$err" ]]; then
+  ok "unknown arg → exit 2 + stderr"
+else
+  bad "unknown-arg: rc=$rc (want 2) stderr='$(printf '%s' "$err" | tr -d '\n')'"
+fi
+
+# ── Test 8: -h/--help → exit 0 + usage on stderr ──
+out=$(bash "$SCRIPT" --help 2>&1); rc=$?
+if [[ "$rc" -eq 0 ]] && printf '%s' "$out" | grep -qi 'usage'; then
+  ok "--help → exit 0 + usage"
+else
+  bad "help: rc=$rc (want 0) out='$(printf '%s' "$out" | tr -d '\n' | cut -c1-40)'"
+fi
+
+# ── Test 9: --after as trailing arg with no value → exit 2 (not unbound crash) ──
+err=$(bash "$SCRIPT" --session "$SESS" --after 2>&1 >/dev/null); rc=$?
+if [[ "$rc" -eq 2 ]] && [[ -n "$err" ]]; then
+  ok "--after missing value → exit 2 + stderr"
+else
+  bad "after-missing-value: rc=$rc (want 2; rc=1 = set -u unbound crash)"
+fi
+
+# ── Test 10: --timeout as trailing arg with no value → exit 2 (not unbound crash) ──
+err=$(bash "$SCRIPT" --session "$SESS" --timeout 2>&1 >/dev/null); rc=$?
+if [[ "$rc" -eq 2 ]] && [[ -n "$err" ]]; then
+  ok "--timeout missing value → exit 2 + stderr"
+else
+  bad "timeout-missing-value: rc=$rc (want 2; rc=1 = set -u unbound crash)"
+fi
+
+# ── Test 11: non-numeric --after → exit 2 (input validation, no hang/late timeout) ──
+errf=$(mktemp)
+bash "$SCRIPT" --session "$SESS" --after notanum --timeout 5 >/dev/null 2>"$errf" &
+pid=$!
+if wait_pid_exit 6 "$pid"; then
+  wait "$pid" 2>/dev/null; rc=$?
+  if [[ "$rc" -eq 2 ]] && [[ -s "$errf" ]]; then
+    ok "non-numeric --after → exit 2 + stderr"
+  else
+    bad "non-numeric-after: rc=$rc (want 2; rc=1 = blocked to timeout, no validation)"
+  fi
+else
+  kill "$pid" 2>/dev/null; bad "non-numeric-after: never exited (no validation, would hang)"
+fi
+rm -f "$errf"
+
+# ── Test 12: non-numeric --timeout → exit 2 (must not infinite-loop on bad arith) ──
+errf=$(mktemp)
+bash "$SCRIPT" --session "$SESS" --after 0 --timeout notanum >/dev/null 2>"$errf" &
+pid=$!
+if wait_pid_exit 6 "$pid"; then
+  wait "$pid" 2>/dev/null; rc=$?
+  if [[ "$rc" -eq 2 ]] && [[ -s "$errf" ]]; then
+    ok "non-numeric --timeout → exit 2 + stderr"
+  else
+    bad "non-numeric-timeout: rc=$rc (want 2)"
+  fi
+else
+  kill "$pid" 2>/dev/null; bad "non-numeric-timeout: never exited (infinite loop on bad arith)"
+fi
+rm -f "$errf"
+
 echo ""
 echo "=== Results: $PASS/$((PASS+FAIL)) passed ==="
 [[ "$FAIL" -eq 0 ]] && exit 0 || exit 1
