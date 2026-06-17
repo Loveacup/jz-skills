@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# eval-compliance.sh — Machine-checkable compliance eval for cc-tmux skill (v1.3)
+# eval-compliance.sh — Machine-checkable compliance eval for cc-tmux skill (v1.4 / §Phase-3)
 #
 # Scores 3 symptoms against the artifacts the other scripts leave on disk:
 #   occupancy     — was a cc-start.sh occupancy lock claimed?  (lock dir / transcript)
-#   reporting     — DENSITY, not just presence: ≥1 📡 relay per 120s of session
+#   reporting     — §Phase-3 PASSIVE model: completion was SIGNALLED (turn-done) and no
+#                   freeze alert was MISSED. (Replaces the old poll-density metric.)
 #   verification  — disk-checked artifacts AND no silent crash-to-shell
 #
-# Why density (v1.3): `count >= 1` let a single 📡 block "pass" a 30-min session.
-# We now divide monitor run-count by real session duration so sparse monitoring
-# fails. Authoritative source is cc-monitor.sh's heartbeat + state log; when those
-# are absent (e.g. a v4 baseline run that never calls cc-monitor.sh) we degrade to
-# counting relay markers in the transcript so baseline-vs-test stays comparable.
+# Why the reporting rescore (v1.4): the old metric divided cc-monitor run-count by
+# session duration to reward dense polling. But Phase 2 moved the monitoring cadence
+# off the LLM onto the watcher daemon + hooks — so rewarding poll density now penalises
+# the intended passive behaviour. We instead score the event-driven protocol: did a
+# turn-done completion signal appear, and was every cc-freeze alert acknowledged.
 #
 # Usage:
 #   eval-compliance.sh --mode baseline|test --transcript <file>
@@ -36,20 +37,6 @@ done
 # ── Helpers ──────────────────────────────────────────────────
 int_or() { [[ "${1:-}" =~ ^[0-9]+$ ]] && printf '%s' "$1" || printf '%s' "$2"; }
 
-iso_to_epoch() { date -j -f "%Y-%m-%dT%H:%M:%S" "$1" +%s 2>/dev/null || echo 0; }
-
-# Span (seconds) between the first and last ISO timestamp found in a file.
-transcript_span_s() {
-  local f="$1" first last fe le
-  [[ -f "$f" ]] || { echo 0; return; }
-  first=$(grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}' "$f" 2>/dev/null | head -1)
-  last=$(grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}' "$f" 2>/dev/null | tail -1)
-  [[ -z "$first" || -z "$last" ]] && { echo 0; return; }
-  fe=$(iso_to_epoch "$first"); le=$(iso_to_epoch "$last")
-  local d=$(( le - fe )); [[ "$d" -lt 0 ]] && d=0
-  echo "$d"
-}
-
 # ── Resolve session + artifact paths ─────────────────────────
 # If --session omitted, recover it from the transcript (first hermes-cc-* name).
 if [[ -z "$SESSION" && -f "$TRANSCRIPT" ]]; then
@@ -69,51 +56,41 @@ score_occupancy() {
   echo "fail"
 }
 
-# ── 2. Reporting density ─────────────────────────────────────
-# Sets globals: REPORT_STATUS RUNS DURATION DENSITY MINREQ SOURCE
+# ── 2. Responsiveness (§Phase-3 passive model) ───────────────
+# Sets globals: REPORT_STATUS SOURCE TURN_DONE_EVIDENCE BUS_ALIVE FREEZE_UNHANDLED
+#
+# We NO LONGER score cc-monitor poll DENSITY. The watcher now owns the monitoring
+# cadence (a deterministic shell loop), and the hooks keep the heartbeat fresh — so
+# "Hermes polled often" is no longer the right thing to reward; it would penalise the
+# very passive behaviour the architecture was changed to enable. Instead score the
+# event-driven protocol:
+#   TURN_DONE_EVIDENCE — completion was SIGNALLED: a /tmp/cc-turn-done-<s> marker exists
+#                        OR the transcript shows Hermes used the turn-done flow.
+#   FREEZE_UNHANDLED   — a /tmp/cc-freeze-<s> alert lingers AND the transcript never
+#                        acknowledges it → a MISSED alert (the one thing that fails).
+#   BUS_ALIVE          — heartbeat present → the hook/watcher bus ran (advisory).
 score_reporting() {
-  if [[ -f "$HB" ]]; then
-    SOURCE="heartbeat"
-    # heartbeat line: EPOCH|RUNCOUNT|STATE|TOKENS|TOKCHG_EPOCH|SEQ  (RUNCOUNT = field 2)
-    local _e rc
-    IFS='|' read -r _e rc _ _ _ _ < "$HB" 2>/dev/null
-    RUNS=$(int_or "$rc" 0)
-    # duration = last epoch − first epoch from the state log
-    local first last span
-    first=$(grep -oE '"epoch":[0-9]+' "$STATELOG" 2>/dev/null | head -1 | grep -oE '[0-9]+')
-    last=$(grep -oE '"epoch":[0-9]+'  "$STATELOG" 2>/dev/null | tail -1 | grep -oE '[0-9]+')
-    first=$(int_or "$first" 0); last=$(int_or "$last" 0)
-    span=$(( last - first )); [[ "$span" -lt 0 ]] && span=0
-    if [[ "$span" -ge 1 ]]; then
-      DURATION="$span"
-    else
-      # A single state-log point can't reveal a long session — fall back to the
-      # transcript span so "monitored once near the end" cannot pass.
-      DURATION=$(int_or "$(transcript_span_s "$TRANSCRIPT")" 0)
-    fi
-  else
-    # Fallback: no heartbeat (e.g. v4 baseline). Count relay markers + estimate
-    # duration from transcript timestamps so the comparison still works.
-    SOURCE="transcript"
-    local begins lines
-    begins=$(grep -c '===📡 BEGIN' "$TRANSCRIPT" 2>/dev/null); begins=$(int_or "$begins" 0)
-    if [[ "$begins" -gt 0 ]]; then
-      RUNS="$begins"
-    else
-      lines=$(grep -c '📡' "$TRANSCRIPT" 2>/dev/null); RUNS=$(int_or "$lines" 0)
-    fi
-    DURATION=$(int_or "$(transcript_span_s "$TRANSCRIPT")" 0)
+  SOURCE="event-bus"
+  TURN_DONE_EVIDENCE=false
+  if [[ -f "/tmp/cc-turn-done-${SESSION}" ]] \
+     || { [[ -f "$TRANSCRIPT" ]] && grep -qiE 'cc-turn-done|turn[_-]done' "$TRANSCRIPT" 2>/dev/null; }; then
+    TURN_DONE_EVIDENCE=true
   fi
-
-  [[ "$DURATION" -lt 1 ]] && DURATION=1            # avoid div-by-zero
-
-  # density_score = min(100, RUNCOUNT * 120 * 100 / duration_s)
-  DENSITY=$(( RUNS * 120 * 100 / DURATION ))
-  [[ "$DENSITY" -gt 100 ]] && DENSITY=100
-  # min reports required to clear the "1 per 120s" cadence (ceil)
-  MINREQ=$(( (DURATION + 119) / 120 )); [[ "$MINREQ" -lt 1 ]] && MINREQ=1
-
-  if [[ "$DENSITY" -ge 100 ]]; then REPORT_STATUS="pass"; else REPORT_STATUS="fail"; fi
+  BUS_ALIVE=false
+  [[ -f "$HB" ]] && BUS_ALIVE=true
+  FREEZE_UNHANDLED=false
+  if [[ -f "/tmp/cc-freeze-${SESSION}" ]] \
+     && ! { [[ -f "$TRANSCRIPT" ]] && grep -qiE 'cc-freeze|freeze|冻结' "$TRANSCRIPT" 2>/dev/null; }; then
+    FREEZE_UNHANDLED=true
+  fi
+  # PASS = completion was signalled AND no freeze was missed. A transcript-only run
+  # (v4 baseline, no heartbeat/marker) fails unless it shows the turn-done flow — so the
+  # baseline-vs-test comparison still discriminates, just on the RIGHT axis.
+  if [[ "$TURN_DONE_EVIDENCE" == true && "$FREEZE_UNHANDLED" == false ]]; then
+    REPORT_STATUS="pass"
+  else
+    REPORT_STATUS="fail"
+  fi
 }
 
 # ── 3. Verification: disk-check evidence AND no crash-to-shell ──
@@ -172,10 +149,9 @@ cat <<EOF
     "reporting": {
       "status": "$REPORT_STATUS",
       "source": "$SOURCE",
-      "heartbeat_runs": ${RUNS},
-      "session_duration_s": ${DURATION},
-      "min_required": ${MINREQ},
-      "density_score": ${DENSITY}
+      "turn_done_evidence": ${TURN_DONE_EVIDENCE},
+      "bus_alive": ${BUS_ALIVE},
+      "freeze_unhandled": ${FREEZE_UNHANDLED}
     },
     "verification": {
       "status": "$VERIFY_STATUS",

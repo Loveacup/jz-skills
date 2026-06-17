@@ -32,6 +32,9 @@ SIZE=$(wc -c < "$F" 2>/dev/null | tr -d ' ')
 # hook env (CC v2.1.178), so the fallback is the stdin session_id (CC UUID).
 SID=$(printf '%s' "$IN" | jq -r '.session_id // empty' 2>/dev/null)
 SESS="${CC_TMUX_SESSION:-${SID:-unknown}}"
+# §Phase-2 state bus: a Write/Edit is a sign of life → refresh the freshness heartbeat
+# (mtime) so cc-watcher --watch does not mistake active editing for a think-freeze.
+touch "/tmp/cc-heartbeat-${SESS}" 2>/dev/null || true
 if [ "${SIZE:-0}" -gt 8192 ]; then
   AD="${CC_OUTPUT_ROOT:-/tmp/cc-output}/${SESS}"
   mkdir -p "$AD" 2>/dev/null

@@ -80,6 +80,43 @@ else
   bad "#D4 cc-start launch does NOT inject CC_TMUX_SESSION"
 fi
 
+# Test 6: §Phase1 — launch line must export CC_TMUX_HOOK_DIR so the in-CC hooks
+# self-locate their scripts in the SKILL dir (R2-verified env propagation), making
+# the skill the single source — no global ~/.claude/hooks copy needed.
+if grep 'claude --model' "$START" | grep -q 'CC_TMUX_HOOK_DIR='; then
+  ok "#P1 cc-start launch exports CC_TMUX_HOOK_DIR"
+else
+  bad "#P1 cc-start launch does NOT export CC_TMUX_HOOK_DIR"
+fi
+
+# Test 7: §Phase1 — launch line must inject --settings <runtime template> so each
+# launch auto-syncs the latest hook config from the skill (no cp/jq/restart).
+if grep 'claude --model' "$START" | grep -q -- '--settings'; then
+  ok "#P1 cc-start launch injects --settings"
+else
+  bad "#P1 cc-start launch does NOT inject --settings"
+fi
+
+# Test 8: §Phase1 — runtime settings template exists and its script-path hooks
+# self-locate via $CC_TMUX_HOOK_DIR (NOT a hardcoded ~/.claude/hooks global copy).
+RUNTIME_TPL="$REAL_ROOT/templates/settings.runtime.json"
+if [[ -f "$RUNTIME_TPL" ]] \
+   && grep -q 'CC_TMUX_HOOK_DIR' "$RUNTIME_TPL" \
+   && ! grep -q '\.claude/hooks' "$RUNTIME_TPL"; then
+  ok "#P1 settings.runtime.json self-locates hooks via \$CC_TMUX_HOOK_DIR"
+else
+  bad "#P1 settings.runtime.json missing or still uses ~/.claude/hooks"
+fi
+
+# Test 9: §Phase2 — cc-start spawns the resident watcher daemon in the background and
+# records its PID in the lock dir so cc-finish can kill it (the ONE deterministic poller,
+# moving monitoring cadence off the LLM).
+if grep -Eq 'cc-watcher\.sh.*--watch' "$START" && grep -q 'watcher_pid' "$START"; then
+  ok "#P2 cc-start spawns cc-watcher --watch + records watcher_pid in lock"
+else
+  bad "#P2 cc-start does NOT spawn watcher daemon / record watcher_pid"
+fi
+
 echo ""
 echo "=== Results: $PASS/$((PASS+FAIL)) passed ==="
 [[ "$FAIL" -eq 0 ]] && exit 0 || exit 1

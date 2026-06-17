@@ -17,7 +17,7 @@
 set -uo pipefail
 
 HOOKS="$(cd "$(dirname "$0")/../hooks" && pwd)"
-TPL="$(cd "$(dirname "$0")/../templates" && pwd)/settings.template.json"   # D-4: the DEPLOYED template (stdin-jq), not the old env one
+TPL="$(cd "$(dirname "$0")/../templates" && pwd)/settings.runtime.json"   # §Phase-1: the --settings-injected runtime template (single source); inline cmds unchanged from the old template
 GATE="$(cd "$(dirname "$0")/../scripts/gate" && pwd)"
 TMPD="/tmp/cc-hooks-test-$$"
 SESS="hooktest-$$"               # stands in for the tmux session name (CC_TMUX_SESSION)
@@ -31,7 +31,8 @@ cleanup() {
          "/tmp/cc-counter-stop-precheck-unknown.json" \
          "/tmp/cc-expect-${SESS}" "/tmp/cc-expect-${UUID}" \
          "/tmp/cc-state-${SESS}.log" "/tmp/cc-state-${UUID}.log" \
-         "/tmp/cc-heartbeat-${SESS}" "/tmp/cc-heartbeat-${UUID}"
+         "/tmp/cc-heartbeat-${SESS}" "/tmp/cc-heartbeat-${UUID}" \
+         "/tmp/cc-turn-done-${SESS}" "/tmp/cc-turn-done-${UUID}"
 }
 trap cleanup EXIT
 cleanup; mkdir -p "$TMPD"
@@ -101,7 +102,7 @@ else
 fi
 
 echo ""
-echo "§3.3 Bash big-tool_response inline command (from templates/settings.template.json)"
+echo "§3.3 Bash big-tool_response inline command (from templates/settings.runtime.json)"
 BASH_CMD=$(jq -r '.hooks.PostToolUse[0].hooks[0].command' "$TPL")
 # Test 8: big tool_response (>4096) → appended to responses log under tmux key
 RESP=$(head -c 5000 /dev/zero | tr '\0' 'y')
@@ -178,6 +179,58 @@ fi
 # Test 16: empty pattern in expect file → no block (conservative)
 : > "$EXPECT"; out=$(run_stop); rc=$?
 [[ "$rc" -eq 0 && -z "$out" ]] && ok "empty pattern → no block" || bad "empty pattern: rc=$rc out=$out"
+
+# ═════════════════════════════════════════════════════════════
+# §Phase-2 event-driven monitoring: hooks own the freshness bus
+# ═════════════════════════════════════════════════════════════
+echo ""
+echo "§Phase2 PreToolUse inline — high-freq heartbeat touch (async, no log bloat)"
+PRE_CMD=$(jq -r '.hooks.PreToolUse[0].hooks[0].command' "$TPL")
+# Test 17: PreToolUse touches the heartbeat (freshness beat) under the D-4 key
+rm -f "/tmp/cc-heartbeat-${SESS}"
+j_bare | CC_TMUX_SESSION="$SESS" bash -c "$PRE_CMD"
+[[ -f "/tmp/cc-heartbeat-${SESS}" ]] && ok "PreToolUse touches heartbeat (tmux key)" || bad "PreToolUse did not touch heartbeat"
+
+echo ""
+echo "§Phase2 UserPromptSubmit inline — new turn: touch hb + log + clear stale turn-done"
+UPS_CMD=$(jq -r '.hooks.UserPromptSubmit[0].hooks[0].command' "$TPL")
+# Test 18: hb touched, state logged, AND a stale turn-done marker is cleared (new turn)
+rm -f "/tmp/cc-heartbeat-${SESS}" "/tmp/cc-state-${SESS}.log"
+echo "stale" > "/tmp/cc-turn-done-${SESS}"
+j_bare | CC_TMUX_SESSION="$SESS" bash -c "$UPS_CMD"
+if [[ -f "/tmp/cc-heartbeat-${SESS}" ]] \
+   && grep -qiE 'received|prompt' "/tmp/cc-state-${SESS}.log" 2>/dev/null \
+   && [[ ! -f "/tmp/cc-turn-done-${SESS}" ]]; then
+  ok "UserPromptSubmit: hb touched + state logged + stale turn-done cleared"
+else
+  bad "UserPromptSubmit side effects wrong (hb=$([ -f "/tmp/cc-heartbeat-${SESS}" ] && echo y || echo n) turndone=$([ -f "/tmp/cc-turn-done-${SESS}" ] && echo present || echo gone))"
+fi
+
+echo ""
+echo "§Phase2 SessionEnd inline — lifecycle GONE marker on the state bus"
+SE_CMD=$(jq -r '.hooks.SessionEnd[0].hooks[0].command' "$TPL")
+# Test 19: SessionEnd appends a GONE entry (lets cc-finish distinguish exit vs crash)
+rm -f "/tmp/cc-state-${SESS}.log"
+printf '{"session_id":"%s","reason":"prompt_input_exit"}' "$UUID" | CC_TMUX_SESSION="$SESS" bash -c "$SE_CMD"
+grep -qiE 'gone|sessionend|"event":"end"' "/tmp/cc-state-${SESS}.log" 2>/dev/null \
+  && ok "SessionEnd logs GONE to state bus" || bad "SessionEnd did not log GONE: $(cat "/tmp/cc-state-${SESS}.log" 2>/dev/null)"
+
+echo ""
+echo "§Phase2 Stop — writes cc-turn-done marker on NON-block paths only"
+# Test 20: no expect file → turn ends normally → marker written (Hermes's 'go look' signal)
+rm -f "$EXPECT" "/tmp/cc-turn-done-${SESS}"
+run_stop >/dev/null 2>&1
+[[ -f "/tmp/cc-turn-done-${SESS}" ]] && ok "Stop (no expect) writes turn-done marker" || bad "Stop did not write turn-done"
+
+# Test 21: blocking path (artifact missing, not capped) → marker NOT written (turn not done)
+rm -f "$TMPD/artifacts/result-final.md" "/tmp/cc-turn-done-${SESS}" "/tmp/cc-counter-stop-precheck-${SESS}.json"
+mkdir -p "$TMPD/artifacts"; echo 'result-*.md' > "$EXPECT"
+out=$(run_stop)   # call#1 → blocks
+if printf '%s' "$out" | grep -q '"decision":"block"' && [[ ! -f "/tmp/cc-turn-done-${SESS}" ]]; then
+  ok "Stop (blocking) does NOT write turn-done (turn not done)"
+else
+  bad "Stop turn-done/block logic wrong: out=[$out] marker=$([ -f "/tmp/cc-turn-done-${SESS}" ] && echo present || echo gone)"
+fi
 
 echo ""
 echo "=== Results: $PASS/$((PASS+FAIL)) passed ==="

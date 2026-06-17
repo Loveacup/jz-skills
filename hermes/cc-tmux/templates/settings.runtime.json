@@ -1,0 +1,89 @@
+{
+  "_comment": "cc-tmux driven-CC hook config (§3.3-3.7 + §Phase-2 event-driven monitoring). SINGLE SOURCE OF TRUTH for the L2 hook layer, injected at launch via `claude --settings <this file>` by cc-start.sh — NO global ~/.claude merge, NO cp, NO 'remember to restart' (each task spawns a fresh CC that reads the latest skill copy). Script-path hooks SELF-LOCATE via $CC_TMUX_HOOK_DIR (cc-start exports CC_TMUX_HOOK_DIR=<skill>/hooks; verified to expand in the hook shell at fire time — references/cc-hook-facts-v2.1.178-20260617.md R2). PHASE-2 STATE BUS: hooks OWN the freshness signal so Hermes never has to poll. PreToolUse (async, R3/R4 verified) + PostToolUse + UserPromptSubmit + Notification + SessionEnd all `touch /tmp/cc-heartbeat-<key>` → mtime = last-sign-of-life, which cc-watcher --watch reads to decide whether to probe (capture-pane freeze detection is the ONLY thing a hook cannot do — no hook can read the TUI think-timer). Stop writes /tmp/cc-turn-done-<key> = Hermes's 'go look at results' signal + cc-finish's completion authority. UserPromptSubmit clears a stale turn-done (new turn). Low-freq lifecycle events append to /tmp/cc-state-<key>.log; high-freq PreToolUse only touches (no log bloat). All hooks NON-deny, exit 0, degrade silently. CLAUDE_SESSION_ID is EMPTY in hook env (CC v2.1.178) — read session_id from stdin JSON; stdin consumed once → 'in=$(cat)' before any jq. D-4 key = ${CC_TMUX_SESSION:-<stdin session_id>}. R1 (verified): --settings hooks ACCUMULATE with global ~/.claude hooks → the global cc-tmux hooks block MUST stay removed.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "async": true,
+            "command": "in=$(cat); sid=$(printf '%s' \"$in\" | jq -r '.session_id // \"unknown\"'); k=\"${CC_TMUX_SESSION:-$sid}\"; touch \"/tmp/cc-heartbeat-${k}\" 2>/dev/null"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "in=$(cat); sid=$(printf '%s' \"$in\" | jq -r '.session_id // \"unknown\"'); k=\"${CC_TMUX_SESSION:-$sid}\"; d=\"${CC_OUTPUT_ROOT:-/tmp/cc-output}/${k}\"; mkdir -p \"$d\" 2>/dev/null; resp=$(printf '%s' \"$in\" | jq -r '.tool_response // empty' 2>/dev/null); [ \"${#resp}\" -gt 4096 ] && printf '%s\\n' \"$resp\" >> \"$d/responses-$(date +%s).log\" 2>/dev/null; touch \"/tmp/cc-heartbeat-${k}\" 2>/dev/null; exit 0"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CC_TMUX_HOOK_DIR/cc-posttool.sh\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "in=$(cat); sid=$(printf '%s' \"$in\" | jq -r '.session_id // \"unknown\"'); k=\"${CC_TMUX_SESSION:-$sid}\"; touch \"/tmp/cc-heartbeat-${k}\" 2>/dev/null; printf '{\"ts\":\"%s\",\"event\":\"received\",\"session\":\"%s\"}\\n' \"$(date -u +%FT%TZ)\" \"$k\" >> \"/tmp/cc-state-${k}.log\" 2>/dev/null; rm -f \"/tmp/cc-turn-done-${k}\" 2>/dev/null"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "idle_prompt|permission_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "in=$(cat); sid=$(printf '%s' \"$in\" | jq -r '.session_id // \"unknown\"'); k=\"${CC_TMUX_SESSION:-$sid}\"; printf '{\"ts\":\"%s\",\"event\":\"notification\",\"session\":\"%s\"}\\n' \"$(date -u +%FT%TZ)\" \"$k\" >> \"/tmp/cc-state-${k}.log\"; touch \"/tmp/cc-heartbeat-${k}\""
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "in=$(cat); sid=$(printf '%s' \"$in\" | jq -r '.session_id // \"unknown\"'); k=\"${CC_TMUX_SESSION:-$sid}\"; echo \"[cc-tmux] 你是被 cc-tmux 驱动的 CC。session=${k}。约定:大输出(>8KB)必须 Write 到 /tmp/cc-output/${k}/ 下文件,不要只打进对话(scrollback 会丢)。最近状态:\"; tail -3 \"/tmp/cc-state-${k}.log\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "in=$(cat); sid=$(printf '%s' \"$in\" | jq -r '.session_id // \"unknown\"'); k=\"${CC_TMUX_SESSION:-$sid}\"; rsn=$(printf '%s' \"$in\" | jq -r '.reason // \"?\"' 2>/dev/null); printf '{\"ts\":\"%s\",\"event\":\"end\",\"state\":\"GONE\",\"reason\":\"%s\",\"session\":\"%s\"}\\n' \"$(date -u +%FT%TZ)\" \"$rsn\" \"$k\" >> \"/tmp/cc-state-${k}.log\" 2>/dev/null"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CC_TMUX_HOOK_DIR/cc-stop-check.sh\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

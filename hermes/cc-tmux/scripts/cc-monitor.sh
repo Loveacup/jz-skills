@@ -20,11 +20,12 @@
 
 set -euo pipefail
 
-SESSION="" LAST_TS=""
+SESSION="" LAST_TS="" FORCE_CAPTURE=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --session) SESSION="$2"; shift 2 ;;
     --last-timestamp) LAST_TS="$2"; shift 2 ;;   # back-compat; heartbeat now authoritative
+    --force-capture) FORCE_CAPTURE=true; shift ;; # §Phase-2: always full capture (the watcher probe path), bypassing the fresh-heartbeat fast path
     *) echo "Unknown arg: $1" >&2; exit 1 ;;
   esac
 done
@@ -43,12 +44,15 @@ ISO=$(date -u +%Y-%m-%dT%H:%M:%S)
 PREV_EPOCH=0; RUNCOUNT=0; PREV_STATE="NONE"; PREV_TOKENS="?"; TOKCHG_EPOCH=$NOW; SEQ=0; PREV_THINK_TIME="?"
 if [[ -f "$HB" ]]; then
   IFS='|' read -r PREV_EPOCH RUNCOUNT PREV_STATE PREV_TOKENS TOKCHG_EPOCH SEQ PREV_THINK_TIME < "$HB" 2>/dev/null || true
-  [[ -z "${PREV_EPOCH:-}" ]] && PREV_EPOCH=0
-  [[ -z "${RUNCOUNT:-}" ]] && RUNCOUNT=0
+  # Numeric fields MUST be validated, not just non-empty: a hook-touched heartbeat may
+  # carry non-numeric content, and `set -u` arithmetic on a non-numeric value aborts the
+  # script. Coerce any non-integer to a safe default (mirrors cc-finish's guard).
+  [[ "${PREV_EPOCH:-}"   =~ ^[0-9]+$ ]] || PREV_EPOCH=0
+  [[ "${RUNCOUNT:-}"     =~ ^[0-9]+$ ]] || RUNCOUNT=0
+  [[ "${TOKCHG_EPOCH:-}" =~ ^[0-9]+$ ]] || TOKCHG_EPOCH=$NOW
+  [[ "${SEQ:-}"          =~ ^[0-9]+$ ]] || SEQ=0
   [[ -z "${PREV_STATE:-}" ]] && PREV_STATE="NONE"
   [[ -z "${PREV_TOKENS:-}" ]] && PREV_TOKENS="?"
-  [[ -z "${TOKCHG_EPOCH:-}" ]] && TOKCHG_EPOCH=$NOW
-  [[ -z "${SEQ:-}" ]] && SEQ=0
   [[ -z "${PREV_THINK_TIME:-}" ]] && PREV_THINK_TIME="?"
 fi
 RUNCOUNT=$((RUNCOUNT + 1))
@@ -74,6 +78,26 @@ if ! tmux has-session -t "$SESSION" 2>/dev/null; then
   echo "   → 若非预期：可能崩溃；若预期结束：跑 cc-finish.sh 收尾"
   echo "===📡 END==="
   exit 1
+fi
+
+# ── §Phase-2 fast path: fresh heartbeat → CC actively working, skip capture ──
+# Hooks (PreToolUse/PostToolUse/UserPromptSubmit/Notification) touch the heartbeat on
+# every event. A FRESH heartbeat therefore means CC is doing tool work right now — no
+# need for an expensive capture-pane just to confirm liveness. Only a STALE heartbeat
+# (a pure-think gap, the one thing no hook can see) warrants the full freeze probe, so
+# the watcher and the freeze tests pass --force-capture to always take the slow path.
+if [[ "$FORCE_CAPTURE" != true && -f "$HB" ]]; then
+  HB_MTIME=$(stat -f %m "$HB" 2>/dev/null || echo 0)
+  HB_AGE=$((NOW - HB_MTIME)); [[ "$HB_MTIME" -eq 0 ]] && HB_AGE=999999
+  FAST_S=${CC_MONITOR_FAST_S:-20}
+  if [[ "$HB_AGE" -ge 0 && "$HB_AGE" -lt "$FAST_S" ]]; then
+    persist "ACTIVE_HOOK" "$PREV_TOKENS" "$NOW" "$PREV_THINK_TIME"
+    echo "===📡 BEGIN (relay verbatim)==="
+    echo "📡 CC #${SEQ} [距上次 ${DELTA}s] · 心跳新鲜（hook ${HB_AGE}s 前刷新）→ CC 活跃/工作中"
+    echo "   (hook 在持续刷新心跳，跳过抓屏；要强制抓屏诊断加 --force-capture)"
+    echo "===📡 END==="
+    exit 0
+  fi
 fi
 
 # ── Capture pane ─────────────────────────────────────────────
@@ -167,6 +191,19 @@ FREEZE_S=$((NOW - TOKCHG_EPOCH))
 
 # ── Persist BEFORE printing (so a relay never lacks a record) ──
 persist "$STATE" "$TOKENS" "$TOKCHG_EPOCH" "$THINK_TIME"
+
+# ── §Phase-2 freeze marker (Hermes's passive alert) ──────────
+# A CONFIRMED freeze (think-timer + tokens both stuck past threshold) drops
+# /tmp/cc-freeze-<s>; recovery (any progression resets FREEZE_S) clears it. The watcher
+# is what drives these probes on a timer, so Hermes need only check this file passively.
+FREEZE_MARK="/tmp/cc-freeze-${SESSION}"
+if { [[ "$STATE" == "THINKING" ]] && [[ "$FREEZE_S" -gt 180 ]]; } \
+   || { [[ "$STATE" == "WAITING_AGENTS" ]] && [[ "$FREEZE_S" -gt 120 ]]; }; then
+  printf '{"ts":"%s","event":"freeze","state":"%s","freeze_s":%s,"session":"%s"}\n' \
+    "$ISO" "$STATE" "$FREEZE_S" "$SESSION" > "$FREEZE_MARK" 2>/dev/null || true
+else
+  rm -f "$FREEZE_MARK" 2>/dev/null || true
+fi
 
 # ── Output 📡 block (copy-paste-ready, between markers) ───────
 TRANS=""

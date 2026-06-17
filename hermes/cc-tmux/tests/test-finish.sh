@@ -16,11 +16,16 @@ PASS=0 FAIL=0
 ok(){  echo "  ✅ $1"; PASS=$((PASS+1)); }
 bad(){ echo "  ❌ $1"; FAIL=$((FAIL+1)); }
 
+SESS2="cctmux-test-finish2-$$"
 cleanup() {
   tmux kill-session -t "$SESS" 2>/dev/null || true
+  tmux kill-session -t "$SESS2" 2>/dev/null || true
   rm -rf "/tmp/cc-lock-${TGT}" "/tmp/cc-output/${SESS}" \
          "/tmp/cc-heartbeat-${SESS}" "/tmp/cc-state-${SESS}.log" \
-         "/tmp/cc-expect-${SESS}" "/tmp/cc-counter-stop-precheck-${SESS}.json"
+         "/tmp/cc-expect-${SESS}" "/tmp/cc-counter-stop-precheck-${SESS}.json" \
+         "/tmp/cc-turn-done-${SESS}" "/tmp/cc-freeze-${SESS}" \
+         "/tmp/cc-heartbeat-${SESS2}" "/tmp/cc-state-${SESS2}.log" \
+         "/tmp/cc-turn-done-${SESS2}" "/tmp/cc-freeze-${SESS2}"
 }
 trap cleanup EXIT
 cleanup
@@ -63,6 +68,68 @@ fi
 
 # Test 6: D-4 — cc-output archive dir cleaned
 [[ -d "/tmp/cc-output/${SESS}" ]] && bad "cc-output dir NOT cleaned (D-4)" || ok "cc-output archive dir cleaned (D-4)"
+
+# ─── §Phase-2: turn-done marker is the completion authority ───
+echo ""
+echo "§Phase-2 turn-done marker overrides stale-heartbeat gap gate"
+tmux new-session -d -s "$SESS2" -x 120 -y 20 "sleep 999" 2>/dev/null
+sleep 0.3
+# Genuinely STALE heartbeat (real Unix epoch, 300s old) → would normally gap-block...
+OLD2=$(( $(date +%s) - 300 ))
+printf '%s|1|THINKING|?|%s|1\n' "$OLD2" "$OLD2" > "/tmp/cc-heartbeat-${SESS2}"
+# ...but a FRESH turn-done marker says the turn legitimately completed.
+printf '{"ts":"now","event":"turn_done"}\n' > "/tmp/cc-turn-done-${SESS2}"
+
+out7=$(bash "$FINISH" --session "$SESS2" --target "none-$$" 2>&1); rc7=$?
+# Test 7: fresh turn-done overrides the stale-heartbeat gap block → not rejected (rc≠2)
+if [[ "$rc7" -ne 2 ]] && ! printf '%s' "$out7" | grep -q '拒绝收尾'; then
+  ok "fresh turn-done overrides stale-heartbeat gap block (completion authority)"
+else
+  bad "turn-done did not override gap block: rc=$rc7 out=$out7"
+fi
+
+# Test 8: turn-done marker cleaned on --kill-session
+bash "$FINISH" --session "$SESS2" --target "none-$$" --kill-session >/dev/null 2>&1
+[[ -f "/tmp/cc-turn-done-${SESS2}" ]] && bad "turn-done marker NOT cleaned on kill" || ok "turn-done marker cleaned on kill (D-4)"
+
+# ─── §Phase-2: cc-finish --kill-session kills the resident watcher daemon ───
+echo ""
+echo "§Phase-2 cc-finish kills the resident watcher (PID recorded in lock dir)"
+SESS3="cctmux-test-finish3-$$"; TGT3="cctmux-test-finish3-tgt-$$"
+tmux new-session -d -s "$SESS3" -x 120 -y 20 "sleep 999" 2>/dev/null; sleep 0.2
+mkdir -p "/tmp/cc-lock-${TGT3}"; echo "$SESS3" > "/tmp/cc-lock-${TGT3}/session"
+sleep 999 & WPID=$!; echo "$WPID" > "/tmp/cc-lock-${TGT3}/watcher_pid"
+NOW3=$(date +%s); printf '%s|1|IDLE|?|%s|1\n' "$NOW3" "$NOW3" > "/tmp/cc-heartbeat-${SESS3}"
+bash "$FINISH" --session "$SESS3" --target "$TGT3" --release-lock --kill-session >/dev/null 2>&1
+sleep 0.3
+# Test 9: the recorded watcher PID is dead after finish --kill-session
+if kill -0 "$WPID" 2>/dev/null; then
+  bad "watcher PID still alive after finish --kill-session"; kill "$WPID" 2>/dev/null || true
+else
+  ok "finish --kill-session kills resident watcher (PID from lock)"
+fi
+tmux kill-session -t "$SESS3" 2>/dev/null || true
+rm -rf "/tmp/cc-lock-${TGT3}" "/tmp/cc-heartbeat-${SESS3}" "/tmp/cc-state-${SESS3}.log" \
+       "/tmp/cc-turn-done-${SESS3}" "/tmp/cc-freeze-${SESS3}" "/tmp/cc-watch-${SESS3}.log"
+
+# ─── §Phase-3: turn-done is the COMPLETION AUTHORITY (heartbeat demoted to auxiliary) ───
+echo ""
+echo "§Phase-3 turn-done acknowledged as completion authority even with a FRESH heartbeat"
+SESS4="cctmux-test-finish4-$$"
+tmux new-session -d -s "$SESS4" -x 120 -y 20 "sleep 999" 2>/dev/null; sleep 0.2
+NOW4=$(date +%s)
+printf '%s|1|IDLE|?|%s|1\n' "$NOW4" "$NOW4" > "/tmp/cc-heartbeat-${SESS4}"   # FRESH heartbeat
+printf '{"ts":"now","event":"turn_done"}\n'  > "/tmp/cc-turn-done-${SESS4}"  # FRESH turn-done
+out10=$(bash "$FINISH" --session "$SESS4" --target "none4-$$" 2>&1); rc10=$?
+# Test 10: with both fresh, finish must lead with turn-done as the AUTHORITY (not just
+# "监控新鲜"), proving heartbeat is now auxiliary. No block.
+if [[ "$rc10" -ne 2 ]] && printf '%s' "$out10" | grep -qE '完成权威|turn-done'; then
+  ok "turn-done acknowledged as completion authority (heartbeat auxiliary)"
+else
+  bad "turn-done not acknowledged as authority: rc=$rc10 out=$out10"
+fi
+tmux kill-session -t "$SESS4" 2>/dev/null || true
+rm -f "/tmp/cc-heartbeat-${SESS4}" "/tmp/cc-state-${SESS4}.log" "/tmp/cc-turn-done-${SESS4}"
 
 echo ""
 echo "=== Results: $PASS/$((PASS+FAIL)) passed ==="

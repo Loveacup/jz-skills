@@ -15,7 +15,8 @@ PASS=0 FAIL=0
 cleanup() {
   tmux kill-session -t "$SESSION" 2>/dev/null || true
   rm -f "/tmp/cc-heartbeat-${SESSION}" "/tmp/cc-state-${SESSION}.log" \
-        "/tmp/cc-fixture-${SESSION}.txt" "/tmp/cc-monitor-stderr-${SESSION}.txt"
+        "/tmp/cc-fixture-${SESSION}.txt" "/tmp/cc-monitor-stderr-${SESSION}.txt" \
+        "/tmp/cc-freeze-${SESSION}"
 }
 trap cleanup EXIT
 
@@ -29,9 +30,11 @@ check_freeze_reset() {
   tmux new-session -d -s "$SESSION" -x 120 -y 20 \
     "while true; do cat /tmp/cc-fixture-${SESSION}.txt 2>/dev/null; sleep 0.2; done" 2>/dev/null
   sleep 0.8
-  
-  bash "$MONITOR" --session "$SESSION" >/dev/null 2>/dev/null || true
-  
+
+  # §Phase-2: --force-capture so the fresh-heartbeat fast path never short-circuits the
+  # probe — freeze detection IS the probe path the watcher drives.
+  bash "$MONITOR" --session "$SESSION" --force-capture >/dev/null 2>/dev/null || true
+
   # Artificially age the TOKCHG_EPOCH to simulate >180s freeze
   local hb="/tmp/cc-heartbeat-${SESSION}"
   if [[ -f "$hb" ]]; then
@@ -47,8 +50,8 @@ check_freeze_reset() {
   # Round 2: update fixture to fixture_b (THINK_TIME progressed, TOKENS still "?")
   printf '%s\n' "$fixture_b" > "/tmp/cc-fixture-${SESSION}.txt"
   sleep 0.3
-  
-  bash "$MONITOR" --session "$SESSION" >/dev/null 2>/dev/null || true
+
+  bash "$MONITOR" --session "$SESSION" --force-capture >/dev/null 2>/dev/null || true
   
   # Check: TOKCHG_EPOCH should be recent (close to NOW), meaning freeze was reset
   local now new_tce
@@ -130,6 +133,36 @@ check_freeze_reset \
   "✢ Inferring… (49m · thinking some more)" \
   "✢ Inferring… (49m · thinking some more)" \
   "no"
+
+# ─── §Phase-2: a confirmed freeze writes /tmp/cc-freeze-<s> (Hermes's passive alert) ───
+echo ""
+echo "§Phase-2 freeze marker — confirmed freeze writes a marker; recovery clears it"
+cleanup
+printf '✻ Thinking…（2m 0s · ?）\n' > "/tmp/cc-fixture-${SESSION}.txt"
+tmux new-session -d -s "$SESSION" -x 120 -y 20 \
+  "while true; do cat /tmp/cc-fixture-${SESSION}.txt; sleep 0.2; done" 2>/dev/null
+sleep 0.8
+bash "$MONITOR" --session "$SESSION" --force-capture >/dev/null 2>/dev/null || true
+# Age TOKCHG_EPOCH ~300s into the past (mirror check_freeze_reset: the 6th read var
+# absorbs SEQ|THINK_TIME, so the 7-field schema is preserved on rewrite).
+HBF="/tmp/cc-heartbeat-${SESSION}"
+IFS='|' read -r g1 g2 g3 g4 _ g6 < "$HBF" 2>/dev/null || true
+printf '%s|%s|%s|%s|%d|%s\n' "${g1:-0}" "${g2:-0}" "${g3:-THINKING}" "${g4:-?}" "$(( $(date +%s) - 300 ))" "${g6:-0}" > "$HBF"
+bash "$MONITOR" --session "$SESSION" --force-capture >/dev/null 2>/dev/null || true
+if [[ -f "/tmp/cc-freeze-${SESSION}" ]]; then
+  echo "  ✅ confirmed freeze (THINKING >180s) → cc-freeze marker written"; PASS=$((PASS+1))
+else
+  echo "  ❌ freeze marker NOT written"; FAIL=$((FAIL+1))
+fi
+# Recovery: THINK_TIME progresses → freeze clock resets → marker must be cleared
+printf '✻ Thinking…（9m 9s · ?）\n' > "/tmp/cc-fixture-${SESSION}.txt"; sleep 0.4
+bash "$MONITOR" --session "$SESSION" --force-capture >/dev/null 2>/dev/null || true
+if [[ ! -f "/tmp/cc-freeze-${SESSION}" ]]; then
+  echo "  ✅ recovery (THINK_TIME progresses) → freeze marker cleared"; PASS=$((PASS+1))
+else
+  echo "  ❌ freeze marker NOT cleared on recovery"; FAIL=$((FAIL+1))
+fi
+cleanup
 
 echo ""
 echo "=== Results: $PASS/$((PASS+FAIL)) passed ==="

@@ -162,8 +162,29 @@ echo "$TMUX_PID" > "$LOCKDIR/tmux_pid"
 # counter) by the SAME tmux name that cc-monitor/cc-send/cc-finish use — unifying the
 # state bus and letting cc-finish clean everything. Absent it, hooks degrade to the
 # CC UUID (no regression). `VAR=val claude …` sets the launched process environment.
+#
+# §Phase-1 (2026-06-17) deployment auto-sync: instead of pre-merging hooks into the
+# global ~/.claude/settings.json (manual cp+jq, needs restart, fires for EVERY CC,
+# and R1-verified to DOUBLE-FIRE alongside --settings), inject the skill's own hook
+# config at launch via `--settings <runtime template>` and export CC_TMUX_HOOK_DIR so
+# the template's script-path hooks self-locate in the skill dir. Net effect: the skill
+# is the single source of truth, every fresh CC auto-picks the latest hooks, zero
+# cp/jq/restart. R2 verified $CC_TMUX_HOOK_DIR expands in the hook shell at fire time.
+HOOKDIR="$SKILL_ROOT/hooks"
+RUNTIME_SETTINGS="$SKILL_ROOT/templates/settings.runtime.json"
 tmux send-keys -t "$SESSION" \
-  "HOME=\"$USER_HOME\" CC_TMUX_SESSION=\"$SESSION\" claude --model ${MODEL} --effort ${EFFORT}" Enter
+  "HOME=\"$USER_HOME\" CC_TMUX_SESSION=\"$SESSION\" CC_TMUX_HOOK_DIR=\"$HOOKDIR\" claude --model ${MODEL} --effort ${EFFORT} --settings \"$RUNTIME_SETTINGS\"" Enter
+
+# ── §Phase-2: launch the resident watcher daemon ─────────────
+# The ONE deterministic poller. It refreshes nothing itself — it only probes
+# (cc-monitor --force-capture) when the hook-driven heartbeat goes stale, to tell a long
+# think from a freeze (the one signal no hook can read). This moves the monitoring
+# cadence OFF the LLM onto a守时 shell loop. It self-retires when the session dies;
+# cc-finish --kill-session also kills it via the PID recorded here. nohup so it outlives
+# this cc-start process. Failure to spawn must NOT break startup (best-effort).
+nohup bash "$SKILL_ROOT/scripts/cc-watcher.sh" --watch "$SESSION" \
+      >"/tmp/cc-watch-${SESSION}.log" 2>&1 &
+echo "$!" > "$LOCKDIR/watcher_pid" 2>/dev/null || true
 
 # ── Output session info ─────────────────────────────────────
 echo "$SESSION"   # stdout: session name for consumption by other scripts

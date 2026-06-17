@@ -1,15 +1,65 @@
 #!/usr/bin/env bash
-# cc-watcher.sh — Audit-only watcher for CC tmux sessions
-# Flags anomalies; does NOT auto-fix. Designed for cron/launchd.
-# All findings go to stdout (cron no_agent=true delivery depends on stdout).
+# cc-watcher.sh — two modes:
+#  (A) DEFAULT audit (cron/launchd): scan ALL CC sessions for orphans/stale-locks/
+#      longruns. Findings → stdout. `--quiet` = output only on findings.
+#  (B) §Phase-2 resident per-session daemon: `--watch <session>` — the ONE deterministic
+#      poller. It probes (cc-monitor --force-capture) ONLY when the hook-driven heartbeat
+#      goes stale, disambiguating a long think from a freeze (the one thing no hook can
+#      see). This moves the monitoring CADENCE off the LLM onto a守时 shell loop.
+#      cc-start launches it (nohup) per session; cc-finish --kill-session kills it; it
+#      also self-retires when the session dies. `--once` = single check (unit-testable).
 # Usage: cc-watcher.sh [--quiet]
-#   --quiet: only output on findings (zero stdout = all clear)
+#        cc-watcher.sh --watch <session> [--once] [--stale <s>] [--interval <s>]
 
 set -euo pipefail
 
 QUIET=false
-[[ "${1:-}" == "--quiet" ]] && QUIET=true
+WATCH_SESSION="" ONCE=false
+STALE="${CC_WATCH_STALE:-45}"        # heartbeat older than this (s) → probe
+INTERVAL="${CC_WATCH_INTERVAL:-15}"  # daemon loop sleep (s)
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --quiet)    QUIET=true; shift ;;
+    --watch)    WATCH_SESSION="$2"; shift 2 ;;
+    --once)     ONCE=true; shift ;;
+    --stale)    STALE="$2"; shift 2 ;;
+    --interval) INTERVAL="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
 
+# ── Mode B: resident per-session freeze-probe daemon ──────────
+if [[ -n "$WATCH_SESSION" ]]; then
+  MONITOR="$(cd "$(dirname "$0")" && pwd)/cc-monitor.sh"
+  RETIRE=0
+  # One check: retire if the session is gone; else probe only when the heartbeat is
+  # stale (hooks stopped touching it → a pure-think gap or a real freeze).
+  watch_once() {
+    RETIRE=0
+    local s="$1"
+    if ! tmux has-session -t "$s" 2>/dev/null; then RETIRE=1; return 0; fi
+    local hb="/tmp/cc-heartbeat-${s}" age=999999 m
+    if [[ -f "$hb" ]]; then
+      m=$(stat -f %m "$hb" 2>/dev/null || echo 0)
+      age=$(( $(date +%s) - m ))
+    fi
+    if [[ "$age" -ge "$STALE" ]]; then
+      bash "$MONITOR" --session "$s" --force-capture >/dev/null 2>&1 || true
+    fi
+    return 0
+  }
+  if $ONCE; then
+    watch_once "$WATCH_SESSION"
+    exit 0
+  fi
+  while true; do
+    watch_once "$WATCH_SESSION"
+    [[ "$RETIRE" -eq 1 ]] && exit 0
+    sleep "$INTERVAL"
+  done
+fi
+
+# ── Mode A: default global audit (unchanged) ─────────────────
 FINDINGS=0
 NOW=$(date -u +%Y-%m-%dT%H:%M:%S)
 

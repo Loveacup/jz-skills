@@ -83,6 +83,34 @@ run_test "✶ detected" \
 ❯ ' \
 "THINKING"
 
+# ─── §Phase-2 fast path: fresh hook heartbeat → skip expensive capture-pane ───
+echo ""
+echo "§Phase-2 fast path (fresh heartbeat → report liveness without capture)"
+SFP="cctmux-test-fastpath-$$"
+fp_cleanup(){ tmux kill-session -t "$SFP" 2>/dev/null || true; rm -f "/tmp/cc-heartbeat-${SFP}" "/tmp/cc-state-${SFP}.log" /tmp/cc-fixture-fp.txt; }
+fp_cleanup
+
+# Test 7: fresh heartbeat present → fast path → state=ACTIVE_HOOK, no capture
+tmux new-session -d -s "$SFP" -x 120 -y 20 "sleep 999" 2>/dev/null
+sleep 0.3
+NOWFP=$(date +%s); printf '%s|1|TOOL|?|%s|1\n' "$NOWFP" "$NOWFP" > "/tmp/cc-heartbeat-${SFP}"
+err=$(bash "$MONITOR" --session "$SFP" 2>&1 >/dev/null || true)
+st=$(echo "$err" | grep -o 'state=[A-Z_]*' | head -1 | cut -d= -f2 || true)
+[[ "$st" == "ACTIVE_HOOK" ]] && { echo "  ✅ fresh heartbeat → fast path (state=ACTIVE_HOOK)"; PASS=$((PASS+1)); } \
+  || { echo "  ❌ fast path not taken: state=$st"; FAIL=$((FAIL+1)); }
+
+# Test 8: --force-capture bypasses fast path even with a fresh heartbeat → real capture
+printf '⏺ Writing…\n❯ \n' > /tmp/cc-fixture-fp.txt
+tmux kill-session -t "$SFP" 2>/dev/null || true
+tmux new-session -d -s "$SFP" -x 120 -y 20 "cat /tmp/cc-fixture-fp.txt; sleep 999" 2>/dev/null
+sleep 0.6
+NOWFP=$(date +%s); printf '%s|1|TOOL|?|%s|1\n' "$NOWFP" "$NOWFP" > "/tmp/cc-heartbeat-${SFP}"
+err=$(bash "$MONITOR" --session "$SFP" --force-capture 2>&1 >/dev/null || true)
+st=$(echo "$err" | grep -o 'state=[A-Z_]*' | head -1 | cut -d= -f2 || true)
+[[ "$st" == "TOOL" ]] && { echo "  ✅ --force-capture bypasses fast path (state=TOOL from pane)"; PASS=$((PASS+1)); } \
+  || { echo "  ❌ --force-capture did not capture: state=$st"; FAIL=$((FAIL+1)); }
+fp_cleanup
+
 echo ""
 echo "=== Results: $PASS/$((PASS+FAIL)) passed ==="
 rm -f /tmp/cc-monitor-stderr-*.txt

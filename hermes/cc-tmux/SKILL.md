@@ -8,8 +8,8 @@ description: >
   Use when: 调 CC, 用 claude, 拉 CC, delegate to CC, agent team, 重活调 CC.
   Do NOT use for: simple single-tool calls, grammar fixes, non-coding tasks.
 type: routine
-version: 1.8.1
-author: "Hermes Agent + Claude Code (v1.8.1: §3.1 冻结检测改用 THINK_TIME 计时器——CC 长思考 token=? 但计时器递增→不打断；双停才告警。计时器提取锚定 spinner 行+放宽格式（2m 3s / 49m · / 37s 全覆盖，防 tool 输出随机数字误重置）；心跳补第 7 字段 THINK_TIME，cc-finish reader 同步。test-monitor-freeze 6/6。全量 48/48)"
+version: 1.10.0
+author: "Hermes Agent + Claude Code (v1.10.0: Phase 3 Hermes 转被动落地——cc-finish 以 turn-done 为完成权威/心跳退为辅助 backstop；eval-compliance 评分从「监控密度」改为「turn-done 响应+freeze 未漏」；SKILL.md 删定时轮询义务、立被动契约；SOUL.md ⑤ 同步被动检测。测试 68→74 全绿。 | v1.9.0 Phase 2: 事件驱动监控——PreToolUse async 刷心跳+UserPromptSubmit+SessionEnd+Stop turn-done 标记；cc-watcher --watch 守护模式；cc-monitor 写 cc-freeze 告警；活体冒烟 5/5；nohup 编排 references/cc-nohup-orchestration-pattern.md)"
 license: MIT
 ---
 
@@ -24,7 +24,7 @@ license: MIT
 | Excuse your brain will make | Why it's wrong |
 |---|---|
 | "我先手动 tmux 起一个 CC 看看" | 绕过 `cc-start.sh` = 绕过占用锁 = 并发冲突破坏。只用脚本。 |
-| "等 CC 跑完我再看结果" | 📡 汇报是红线。每 30-60s 用 `cc-monitor.sh` 抓屏并汇报。 |
+| "等 CC 跑完我再看结果" | 📡 汇报是红线。等 turn-done 标记出现 → 立即读产物并汇报。 |
 | "任务很简单，不用走完整流程" | 简单 ≠ 可以跳过占用检测。5 秒的脚本值得跑。 |
 | "我把 📡 输出总结一下/换个格式" | `cc-monitor.sh` 输出已是 copy-paste-ready。**原样转发**，不要总结、合并、改格式。 |
 
@@ -58,7 +58,7 @@ license: MIT
 
 ## 🔴 两条红线（违反 = 停 + 补做）
 
-1. **📡 汇报**：每次 `cc-monitor.sh` 输出必须**原样转发**给用户。沉默 >2min = 违规（`cc-finish.sh` 拒绝收尾）。
+1. **📡 汇报（被动模型 v1.9.0+）**：**不再有定时轮询义务**——hook+watcher 自动维护心跳，沉默不再违规。但 `cc-turn-done-<s>` 标记一出现，必须及时读产物并汇报（漏看 = 违规）；读 `cc-freeze-<s>` 告警则必须响应。任何时候读取 CC 状态/`cc-monitor` 输出，都**原样转发**给用户，不总结、不合并、不改格式。
 2. **讨论协议**：用户说"看方案 / 优化方案"= 讨论，不是执行。只有"执行吧 / 拉 CC 改"才动手。
 
 ## 📡 Relay Contract（机械执行 — 不是建议）
@@ -68,8 +68,8 @@ license: MIT
 **铁律**：
 - **原样转发** stdout 到用户可见的 📡 块。不总结、不合并、不改格式。
 - 机器元数据去 stderr（`META` 行），不在 relay 范围内。
-- `cc-finish.sh` 会审计心跳新鲜度。>120s 监控间隙 → reject 收尾（除非 `--force`）。
-- 每次 `cc-monitor.sh` 跑完 = 一次心跳写入 `/tmp/cc-heartbeat-<session>`。这不只是"建议"——`cc-finish.sh` 真会堵你。
+- 现在 **hook 事件驱动的心脏持续刷新心跳**（PreToolUse/PostToolUse/Notification 写），watcher 守护进程兜底探针（心跳陈旧时 capture-pane 读 THINK_TIME）。Hermes **不再背定时轮询义务**——想知道状态时读 `/tmp/cc-heartbeat-<s>` 和 `/tmp/cc-turn-done-<s>` 标记即可。
+- `cc-finish.sh` 仍审计心跳新鲜度（但现在心跳由 hook 自动维护，不会陈旧）。`--force` 语义不变。
 
 ## 🔥 讨论协议（任务不明确或涉及架构决策时触发）
 
@@ -119,6 +119,8 @@ bash ~/.hermes/skills/autonomous-ai-agents/cc-tmux/scripts/cc-start.sh \
 
 **CC_TMUX_SESSION 注入 (v1.4)**：`cc-start.sh` 启动 CC 时注入环境变量 `CC_TMUX_SESSION=<tmux-session-name>`，供所有 hook 统一 D-4 键。详见 `hooks/README.md` §2、§4。
 
+**Hook 自动部署 (v1.8.2 / Phase 1)**：`cc-start.sh` 启动行自动追加 `--settings "$SKILL_ROOT/templates/settings.runtime.json"` + 导出 `CC_TMUX_HOOK_DIR`。skill 是 hook 的唯一真源——改模板或脚本后，下个 CC 启动自动生效，零 cp / 零 jq / 零重启。全局 `~/.claude/settings.json` 的 cc-tmux hooks 已摘除（R1 验证为累积触发，保留会双写）。详见 `references/hook-evolution-plan-20260617.md`、`references/cc-hook-facts-v2.1.178-20260617.md`。
+
 ### 2. 发送 — `scripts/cc-send.sh`
 
 ```bash
@@ -145,10 +147,31 @@ tmux capture-pane -t <session> -p -S -5
 
 不经验证直接等 30s 后跑 `cc-monitor.sh` = 可能白等一轮。
 
-### 3. 监控 — `scripts/cc-monitor.sh`
+### 3. 监控 — 事件驱动 + 守护探针（Phase 2 落地，v1.9.0）
 
+**架构变更**：监控从「Hermes 定时轮询」变为「CC hook 事件推 + watcher 守护进程探针 + Hermes 被动读」。
+
+**Hook 事件驱动心跳**（无需 Hermes 参与）：
+- `PreToolUse(async)` / `PostToolUse` 每次工具调用前后刷心跳 → CC 在干活时心跳恒新鲜
+- `Notification(idle)` 空闲时写心跳
+- `Stop` 在 turn 完成时写 `cc-turn-done-<s>` 标记 → Hermes 的「该去看结果了」信号
+- `UserPromptSubmit` / `SessionStart` / `SessionEnd` 生命周期事件记入 state log
+
+**Watcher 守护进程**（cc-start 后台拉起，确定性 shell 循环）：
+- 每 N 秒读 `/tmp/cc-heartbeat-<s>` 新鲜度
+- 心跳够新 → 什么都不做（hook 在刷，CC 在调工具）
+- 心跳陈旧 → 跑一次 `cc-monitor` 探针 → 读 THINK_TIME → 区分「深思」vs「冻结」
+- 确认冻结 → 写 `/tmp/cc-freeze-<s>` 告警标记（Hermes 被动检查）
+- cc-finish 收尾时 kill watcher PID
+
+**Hermes 的新职责**（被动，无节律义务）：
+- 想知道状态 → 读心跳文件
+- 想知道「该看结果了吗」→ 读 `cc-turn-done-<s>` 标记（出现=本轮完成）
+- 想知道「有没有出事」→ 读 `cc-freeze-<s>` 告警标记
+
+**手动监控**（按需，不再强制定时）：
 ```bash
-# 每 30-60s 运行。stdout 原样转发给用户（见 📡 Relay Contract）。
+# 想看 CC 现在在干嘛时手动跑
 bash ~/.hermes/skills/autonomous-ai-agents/cc-tmux/scripts/cc-monitor.sh \
   --session "hermes-cc-default-20260615"
 ```
@@ -188,12 +211,12 @@ bash ~/.hermes/skills/autonomous-ai-agents/cc-tmux/scripts/cc-finish.sh \
 
 **v1.3 机械安全门**（7 步，顺序执行）：
 1. **❯ 残留检测** — 边框感知提取，危险模式识别（rm -rf / git push / sudo 等）。残留 ≠ 空 → 告警。
-2. **监控间隙审计** — 心跳 >120s 陈旧 / 从未有心跳 → reject（exit 2，锁不释放、session 不杀）。加 `--force` 可覆盖监控 gap（不能覆盖残留 gate）。
+2. **监控间隙审计** — 心跳 >120s 陈旧 / 从未有心跳 → reject（exit 2，锁不释放、session 不杀）。加 `--force` 可覆盖监控 gap（不能覆盖残留 gate）。（v1.9.0：心跳现在由 hook 事件驱动持续刷新，正常不会陈旧；turn-done 标记存在时心跳陈旧不拒绝。）
 3. **状态转移摘要** — 从 JSONL 日志读取：抓屏次数、转移次数、最大间隙、状态序列。
 4. **Hard Gate** — 监控未达标 → 拒绝收尾。
 5. **产物验证** — `find -L /tmp`（macOS symlink 兼容），0 字节文件标 ⚠️。
 6. **释放锁** — `--release-lock`。
-7. **杀 session** — `--kill-session`，同步清理心跳 + 状态文件。
+7. **杀 session** — `--kill-session`，同步清理心跳 + 状态文件 + `cc-turn-done-<s>` + `cc-freeze-<s>` + `cc-watch-<s>.log` + watcher PID。
 
 ## 🔍 第 5 步：审核（委派包 → gate → auditor 验收）
 
@@ -292,11 +315,13 @@ independence_level: L1 | L2 | L3               # 隔离强度：readonly→L1 / 
 | 9 | `cc-send.sh` 中 `(( tries++ ))` 在 `set -euo pipefail` 下首次重试即 abort | `tries` 初始化为 0 → `(( tries++ ))` 返回 rc=1（后置++表达式值=0）→ `set -e` 下整个脚本退出，重试循环一次都不跑。**2026-06-16 实读 line 5 确认 `set -euo pipefail`；此 bug 经 CC 对抗核验确认成立** | 所有自增必须用 `(( ++tries ))` 或 `tries=$((tries+1))`——前缀 `++` 使表达式值非零，不触发 `set -e` abort |
 | 10 | CC 执行 `/usage` 后卡在 TUI 全屏面板，无法继续 | `/usage` 是 CC CLI 内置命令，执行后进入交互式 TUI（全屏仪表盘），CC 本身不会自己退出，pane 冻结在用量面板 | `tmux send-keys Escape` 退出 TUI → 回到 ❯ prompt。不要在 CC 工作中途敲 `/usage`——只在任务边界（开始/结束）由用户手动敲，CC 读屏后汇报。Hermes 侧不可代敲 `/usage`（非可注入的 shell 命令） |
 | 11 | 用户要求「每次任务开始/结束汇报用量」，但 CC 无法自理 | `/usage` 不是 shell 命令也不是 tool，CC 的 Bash/任何工具都无法执行它。本地 `npx ccusage` 可估算 token/成本但无剩余额度；`~/.claude/` 下无可直接读的订阅额度文件 | **方案 3（推荐）**：CC 每次任务边界自动跑 `npx ccusage` 给消耗估算；用户方便时敲 `/usage` 补真实剩余额度。CC 在每个子任务边界主动提醒用户敲 `/usage`。详见 `references/usage-reporting-pattern.md` |
-| 12 | `cc-finish.sh` 拒绝收尾：监控未达标（心跳间隙 >120s） | Hermes 用 `tmux capture-pane` 手动查 CC 进度（绕过 monitor 盲区，Pitfall #6），但**忘了同时跑 `cc-monitor.sh`** 刷新心跳。手动抓屏 ≠ 心跳——`cc-finish.sh` 看的是 `/tmp/cc-heartbeat-*` 时间戳，不是 pane 内容。 | **每次手动 `capture-pane` 后立刻跑 `cc-monitor.sh`**——即使只是为了刷心跳。习惯性写成一行：`capture-pane ... && cc-monitor.sh ...`。沉默 >90s 还没跑 monitor → 补跑一次再 finish（同 Pitfall #4）。2026-06-17 WRR platform mode 任务中连续两次被拒，根因即此。 |
+| 12 | （历史）`cc-finish.sh` 拒绝收尾：监控未达标（心跳间隙 >120s） | 旧模型下 Hermes 手动 `capture-pane` 但忘了同时跑 `cc-monitor.sh` 刷心跳。 | **✅ 已被 v1.9.0/Phase 2 消除**：hook（PreToolUse/PostToolUse/Notification）自动刷心跳，手动 `capture-pane` 不再需要补跑 cc-monitor；且 `cc-finish.sh` 现以 `cc-turn-done-<s>` 标记为**完成权威**，心跳新鲜度退为辅助 backstop。只要 Stop hook 正常落地，正常收尾不会再被监控间隙拒绝。 |
 | 13 | CC 报告「已完成/N 个测试通过」但**磁盘上没有任何产物** | CC 在长时间的 xhigh 思考后，有时会在**思考态内部形成「已经做过」的幻觉**——它在对话流里描述了完成状态和结果，但从没用 Write/Bash 工具真正写过文件。验证方法：**不要信 CC 说的任何完成声明，必须 `ls -la` / `find` / `stat` 独立取证**。这与 SOUL 委派审核规则「禁止采信执行方自报」完全一致。 | ① 听到「已完成」→ 立刻 `ls -la` 查产物目录 ② 若文件不存在 → `tmux send-keys C-c` 中断 + 「用 Write 工具写文件，不要只说不做」③ 每次验证后汇报文件路径 + size + 行数。**Hermes 永远不代信 CC 的自报，必须亲眼看到磁盘文件**。 |
 | 14 | CC xhigh effort 陷入 >5min 思考冻结（token/screen 完全不更新，spinner 静止） | xhigh effort 在工程实现类任务上极度易冻结。CC 不报错、不崩溃、不会自己挣脱。**v1.8.1 冻结检测已改用 THINK_TIME 计时器**：token=? 但计时器每秒递增 → 不误报。双停（计时器+token 全不动 >3min）→ 真告警。见 Pitfall #16。 | ① 发现 THINK_TIME 停止 + token 完全不动 >3min → C-c ② 发 /effort high + 缩小范围 ③ 预防：工程实现类任务地板用 high |
 | 15 | CC hook 被误判为不触发，实际产物全堆 unknown/ 目录 | CLAUDE_SESSION_ID 在 hook 执行环境中为空（CC v2.1.178 实测）。所有 hook 脚本用兜底值 → 产物归入 unknown/。验证时按 session 名找产物找不到 → 误判。根因不在 hook 配置，在 session ID 来源。修复：从 hook 的 stdin JSON 中提取 session_id 字段。关键：stdin 只能读一次——必须先 in=$(cat) 保存，再从 $in 中提取 sid 和 tool_response。见 references/cc-hook-deployment-20260617.md。 | ① 不引用 CLAUDE_SESSION_ID 环境变量 ② stdin JSON → jq 取 session_id ③ in=$(cat) 先保存——禁止分两次读 stdin |
 | 16 | cc-monitor.sh 在 CC 正常长思考时误报 token 冻结 >3min，打断正在产出的 CC | 冻结检测只看 TOKENS（token 计数字符串）是否变化。CC 写文件/深度思考时 token 显示为 ?（不可读），连续多轮 ? → TOKENS 不变 → 冻结时钟累计 → >180s 误报。但 CC 自己的思考计时器 THINK_TIME（如 4m 13s）每秒递增——这个信号之前被忽略了。修复 (v1.8.1)：冻结重置条件增加 THINK_TIME 变化检测。? 但计时器在走 → 不告警；双停（计时器 + token 都不动）→ 真告警。计时器提取**锚定到 spinner 行**（避免 tool 输出里的随机 `5s`/`3m` 误重置而掩盖真冻结）且**放宽格式**覆盖全部渲染：`2m 3s`（完整）/ `49m ·`（分钟制，本 Pitfall 的 xhigh 形态）/ `37s`（不足 1 分钟）。新测试 tests/test-monitor-freeze.sh 6/6 覆盖。 | ① token 在涨 / spinner 在动 / pane 有新输出 → CC 活跃，不要 C-c ② 判准是双停（THINK_TIME + TOKENS 全不动 >3min），不是时间长 ③ 用户明确要求「只要他持续在思考，就先别干预他」 |
+| 17 | Hermes 反复违反「每 30-60s 跑 cc-monitor.sh」的轮询纪律，沉默 >2min、心跳间隙 >120s、cc-finish 拒绝收尾 | **根因是架构性的，不是 prompt 能修的**：LLM 不擅长定时重复执行——长思考中一定会忘。 | **✅ 已修复 (v1.9.0 / Phase 2)**：节律义务从 LLM 搬到 hook 事件驱动 + watcher 守护进程 + turn-done 标记——Hermes 只需被动读文件。详见 `references/hook-evolution-plan-20260617.md`。 |
+| 18 | `cc-send.sh` 返回 `✓ Sent` 且消息出现在 ❯ 后，但 CC 长时间不处理——消息残留 >8s 无 spinner | Pitfall #5 的特化高频形态：Enter 未生效时消息**原样显示**在 ❯ 后而非被 CC 消化。Hermes 可能误以为 CC「在思考这段指令」，实际 CC 根本没开始。**2026-06-17 单 session 触发 2+ 次。** | **加固存活验证**：`cc-send.sh` 后等 4-6s 抓屏——① 若 ❯ 后有残留文字且无 spinner（✻/✽/✶/⏺）→ Enter 未生效，**立即** `tmux send-keys Enter`；② 5s 后仍残留 → 再补一次 Enter。**宁多补一次 Enter 不白等一轮。** 存活验证失败时不要假定「CC 会自己消化」——它不会。 |
 
 ## 👤 用户偏好与约束（不可协商）
 
@@ -314,10 +339,11 @@ independence_level: L1 | L2 | L3               # 隔离强度：readonly→L1 / 
 - [ ] 是否用 `cc-start.sh` 启动？（不用裸 tmux）
 - [ ] 启动时是否检查了 exit code？（2=本 target BUSY, 3=其他活跃 CC 需确认）
 - [ ] `cc-send.sh` 后是否做了存活验证？（`capture-pane` 确认 ❯ 后无残留文字，CC 已开始执行）
-- [ ] 是否每 30-60s 跑 `cc-monitor.sh` 并**原样转发** stdout 到 📡 块？
-- [ ] 沉默是否从未超过 2min？（`cc-finish.sh` 会检测心跳间隙）
+- [ ] **（新）** 发完任务后，等 `cc-turn-done-<s>` 标记出现即读产物——不再盲目轮询
+- [ ] **（新）** 是否检查过 `cc-freeze-<s>` 告警标记？（被动读，无节律义务）
+- [ ] turn-done 标记出现后，是否**立刻**读产物并汇报？（这是新的及时性红线——不是定时轮询，而是事件响应）
 - [ ] 🔀 状态转移是否即时可见、随 📡 块转发？（非事后补报）
-- [ ] 结束前是否跑了 `cc-finish.sh`？（检查 ❯ 残留 + 监控间隙 + 释放锁）
+- [ ] 结束前是否跑了 `cc-finish.sh`？（检查 ❯ 残留 + 监控间隙 + 释放锁 + 清理 watcher + turn-done）
 - [ ] 产物是否经磁盘校验（`ls -la` 确认 size > 0）？
 - [ ] `cc-finish.sh` 是否通过（exit 0）？（exit 2 = 监控未达标被拒）
 
@@ -345,8 +371,11 @@ independence_level: L1 | L2 | L3               # 隔离强度：readonly→L1 / 
 > 🚀 **Ultracode Dynamic Workflow**：`references/ultracode-workflow-pattern.md`（用 CC 原生 ultracode 模式做 13-agent 并行深度调研的完整流程：触发方式、编排设计、监控、产出验收、适用/不适用场景）
 > 📊 **用量汇报**：`references/usage-reporting-pattern.md`（CC 无法自理 `/usage` 的根因 + 方案 3 实现细节 + npx ccusage 使用）
 > 📋 **优化方案（2026-06-16）**：Obsidian `02-Plan&CQI/cc-tmux优化方案_20260616.md`（ultracode 13-agent 深度调研产出：P0 脚本修复 + P1 CC hook 混合架构 + 基质无关内核收敛 + CQI 闭环 + 6 决策点）
-> 🧪 **TDD 测试套件**：`tests/test-monitor.sh`（§3.1 6/6）· `tests/test-monitor-freeze.sh`（§3.1 冻结检测 6/6，含计时器格式覆盖）· `tests/test-send.sh`（§3.2 9/9）· `tests/test-start.sh`（§3.8+D-4 注入 5/5）· `tests/test-finish.sh`（§3.7+D-4 清理契约 6/6）· `tests/test-hooks.sh`（§3.3-3.7 D-4 键统一 16/16）→ **48/48 全绿**（实跑核实，2026-06-17）
-> 🪝 **CC Hook 脚本**：`hooks/cc-posttool.sh`（§3.3 PostToolUse 归档）· `hooks/cc-stop-check.sh`（§3.7 Stop 软门）· `templates/settings.template.json`（§3.4/3.5 Notification+SessionStart 内联，**单一事实源**，stdin-jq + D-4 键统一 `${CC_TMUX_SESSION:-<stdin session_id>}`）· `hooks/README.md`（部署 + D-4 + smoke 清单）
-> 🧪 **测试结果记录**：`references/test-results-33of33-20260617.md`（历史文件名；现为 **45/45**，含 D-4 键统一 + 冻结检测修复记录 + 部署 smoke 清单）
+> 🧪 **TDD 测试套件**：`tests/test-hooks.sh`（§3.3-3.7+P2 心跳总线 21/21）· `tests/test-start.sh`（§3.8+D-4+P1 注入+P2 watcher 拉起 9/9）· `tests/test-finish.sh`（§3.7+D-4+P2 turn-done/watcher+P3 完成权威 10/10）· `tests/test-monitor.sh`（§3.1+P2 fast-path 8/8）· `tests/test-monitor-freeze.sh`（§3.1 冻结+P2 freeze 标记 8/8）· `tests/test-send.sh`（§3.2 9/9）· `tests/test-watcher.sh`（P2 --watch 守护探针 4/4）· `tests/test-eval.sh`（P3 被动评分 turn-done/freeze 5/5）→ **74/74 全绿**（21+9+10+8+8+9+4+5，实跑核实，2026-06-17）
+> 🪝 **CC Hook 脚本**：`hooks/cc-posttool.sh`（§3.3 PostToolUse 归档）· `hooks/cc-stop-check.sh`（§3.7 Stop 软门）· `templates/settings.runtime.json`（§3.4/3.5 Notification+SessionStart 内联 + 两脚本路径经 `$CC_TMUX_HOOK_DIR` 自定位，**单一事实源**，由 cc-start `--settings` 会话级注入；stdin-jq + D-4 键统一 `${CC_TMUX_SESSION:-<stdin session_id>}`；**全局 hooks 已摘**避免 R1 双触发）· `hooks/README.md`（§3 `--settings` 部署 + D-4 + smoke 清单）
+> 🧪 **测试结果记录**：`references/test-results-33of33-20260617.md`（历史文件名；现为 **48/48**，含 D-4 键统一 + 冻结检测修复记录 + 部署 smoke 清单）
 > 🔬 **Hook 部署验证 (2026-06-17)**：`references/cc-hook-deployment-20260617.md`（部署流程 · CLAUDE_SESSION_ID 空值根因 · stdin 消费陷阱 · 验证方法 · 修复记录）
 > 📋 **状态审计 (2026-06-17)**：Obsidian `88-审计/cc-tmux 状态审计 20260617.md`（CC 自主审计：Readiness 6→8 · D-4 键分裂 · 测试失真 · 三步修复落地全记录）
+> 🚀 **Hook 演进方案 (2026-06-17)**：`references/hook-evolution-plan-20260617.md`（部署自动化 `--settings` 注入 + 事件驱动监控混合架构 + 4 阶段路线图，Pitfall #17 治本方案）
+> 🔬 **Hook 实测事实表 (2026-06-17)**：`references/cc-hook-facts-v2.1.178-20260617.md`（Phase 0 冒烟：R1 ACCUMULATE/R2 PASS/R3 async可靠/R4 每调用触发/R5 事件全过；CLI 事实 + 未验证清单 + 月度复查节奏）
+> 🧩 **CC Nohup 后台编排模式**：`references/cc-nohup-orchestration-pattern.md`（CC 写脚本→nohup 后台跑→等待器监听 REPORT→醒来消化；适用独立批量验证，避开 xhigh 长思考冻结）

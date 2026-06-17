@@ -40,6 +40,9 @@ HB="/tmp/cc-heartbeat-${SESSION}"
 STATELOG="/tmp/cc-state-${SESSION}.log"
 EXIT_CODE=0
 GAP_BLOCK=false
+# §Phase-2: read the resident watcher PID BEFORE §6 release-lock removes the lock dir,
+# so §7 can still kill it. Empty if no --target or no watcher recorded (harmless).
+WATCHER_PID=$(cat "/tmp/cc-lock-${TARGET}/watcher_pid" 2>/dev/null || echo "")
 
 echo "===📋 BEGIN cc-finish (relay verbatim)==="
 
@@ -64,22 +67,42 @@ else
   echo "ℹ️  Session '$SESSION' 不存在（可能已退出）"
 fi
 
-# ── 2. Monitoring-gap audit (heartbeat freshness) ─────────────
+# ── 2. Completion audit: turn-done AUTHORITY, heartbeat AUXILIARY ──
+# §Phase-3: the Stop hook drops /tmp/cc-turn-done-<S> on EVERY clean turn-end, so a
+# fresh marker is authoritative proof the turn finished — it ALONE clears the finish.
+# The heartbeat is demoted to an AUXILIARY liveness backstop, consulted only when no
+# completion proof exists (Stop hook not deployed / a degraded CC). This is the teeth
+# behind "Hermes stops polling": the hook proves completion, the LLM owes no cadence.
+TURNDONE="/tmp/cc-turn-done-${SESSION}"
+TURN_DONE_FRESH=false; TD_AGE=-1
+if [[ -f "$TURNDONE" ]]; then
+  TD_MTIME=$(stat -f %m "$TURNDONE" 2>/dev/null || echo 0)
+  TD_AGE=$((NOW - TD_MTIME))
+  [[ "$TD_AGE" -ge 0 && "$TD_AGE" -lt 300 ]] && TURN_DONE_FRESH=true
+fi
+# Auxiliary heartbeat liveness (read even when turn-done is fresh, for the advisory note).
+# Schema: EPOCH|RUNCOUNT|STATE|TOKENS|TOKCHG_EPOCH|SEQ|THINK_TIME.
+HB_PRESENT=false; AGE=-1; HB_STATE="?"; HB_RUNS=0
 if [[ -f "$HB" ]]; then
-  HB_EPOCH=0; HB_RUNS=0; HB_STATE="?"; HB_SEQ=0
-  # heartbeat schema: EPOCH|RUNCOUNT|STATE|TOKENS|TOKCHG_EPOCH|SEQ|THINK_TIME
-  # (trailing _ absorbs THINK_TIME so HB_SEQ stays clean)
-  IFS='|' read -r HB_EPOCH HB_RUNS HB_STATE _ _ HB_SEQ _ < "$HB" 2>/dev/null || true
-  [[ -z "${HB_EPOCH:-}" || ! "${HB_EPOCH}" =~ ^[0-9]+$ ]] && HB_EPOCH=0
+  HB_PRESENT=true; HB_EPOCH=0
+  IFS='|' read -r HB_EPOCH HB_RUNS HB_STATE _ _ _ _ < "$HB" 2>/dev/null || true
+  [[ "${HB_EPOCH:-}" =~ ^[0-9]+$ ]] || HB_EPOCH=0
+  [[ "${HB_RUNS:-}"  =~ ^[0-9]+$ ]] || HB_RUNS=0
   AGE=$((NOW - HB_EPOCH))
-  if [[ "$AGE" -gt 120 ]]; then
-    echo "⚠️  监控间隙: 距最后一次 cc-monitor ${AGE}s（>120s），最后状态=${HB_STATE}"
-    $FORCE || GAP_BLOCK=true
-  else
-    echo "✓ 监控新鲜: 距最后一次 cc-monitor ${AGE}s（最后状态=${HB_STATE}, 共 ${HB_RUNS} 次）"
-  fi
+fi
+
+if $TURN_DONE_FRESH; then
+  echo "✓ 完成权威: turn-done 标记新鲜（${TD_AGE}s）→ 本轮已正常收尾"
+  $HB_PRESENT && echo "  辅助: 心跳 ${AGE}s（最后状态=${HB_STATE}, 共 ${HB_RUNS} 次）"
+  # turn-done is authoritative — never block on the auxiliary heartbeat.
+elif $HB_PRESENT && [[ "$AGE" -ge 0 && "$AGE" -le 120 ]]; then
+  echo "ℹ️  无 turn-done 标记，但心跳新鲜（${AGE}s，最后状态=${HB_STATE}）→ 辅助放行（正常完成应留 turn-done）"
 else
-  echo "⚠️  监控缺失: 从未跑过 cc-monitor（无心跳文件）"
+  if $HB_PRESENT; then
+    echo "⚠️  无 turn-done 且监控间隙 ${AGE}s（>120s），最后状态=${HB_STATE}"
+  else
+    echo "⚠️  无 turn-done 且无心跳（从未监控 / hook 未生效）"
+  fi
   $FORCE || GAP_BLOCK=true
 fi
 
@@ -149,6 +172,21 @@ if $KILL; then
   else
     echo "ℹ️  Session 已不存在: $SESSION"
   fi
+  # §Phase-2: stop the resident watcher daemon (it self-retires on session death anyway,
+  # but kill it now for immediacy). PID was captured before the lock dir was removed.
+  if [[ -n "$WATCHER_PID" ]] && kill -0 "$WATCHER_PID" 2>/dev/null; then
+    kill "$WATCHER_PID" 2>/dev/null || true
+    echo "✓ Watcher 已停: PID $WATCHER_PID"
+  fi
+  # Also reap any in-flight probe the watcher had just spawned — otherwise that child
+  # cc-monitor re-creates the heartbeat AFTER we rm it below (race seen in the live
+  # smoke). Matching on the session name keeps it scoped to THIS session.
+  pkill -f "cc-monitor.sh --session ${SESSION}" 2>/dev/null || true
+  # Settle: killing the session fires the in-CC SessionEnd hook (it appends a GONE line
+  # to the state log). Give it a moment so our rm below wins the race and leaves /tmp
+  # clean (D-4 no-leak). The SessionEnd hook no longer touches the heartbeat.
+  sleep 0.5
+  rm -f "/tmp/cc-watch-${SESSION}.log"
   # §3.7 + D-4 cleanup: all per-session state now shares ONE key — the tmux session
   # name. cc-start injects CC_TMUX_SESSION=<tmux name>, so the in-CC hooks key their
   # output (cc-output/, cc-state log, rewake counter) by the SAME name cc-finish knows.
@@ -156,7 +194,8 @@ if $KILL; then
   # solving the /tmp leak. (If CC_TMUX_SESSION did not propagate, those files were
   # keyed by the CC UUID instead and simply won't match here — harmless miss, no error.)
   rm -f  "$HB" "$STATELOG" "/tmp/cc-expect-${SESSION}" \
-         "/tmp/cc-counter-stop-precheck-${SESSION}.json"
+         "/tmp/cc-counter-stop-precheck-${SESSION}.json" \
+         "/tmp/cc-turn-done-${SESSION}" "/tmp/cc-freeze-${SESSION}"
   rm -rf "/tmp/cc-output/${SESSION}"
 fi
 

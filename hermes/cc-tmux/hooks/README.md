@@ -5,28 +5,35 @@
 任何一个不触发都只会**静默降级**回 L0/L1 行为,绝不 wedge 住 turn(原则⑥
 graceful degradation)。
 
-**inline hook 的唯一真相源(single source of truth):**
-[`../templates/settings.template.json`](../templates/settings.template.json)
-(stdin-jq 变体,D-4 key 已统一)。旧的 `hooks/settings.template.json`
-(env-based,在 Pitfall #15 下有 bug)已于 **2026-06-17 删除**,以终结模板分裂。
+**hook 配置的唯一真相源(single source of truth):**
+[`../templates/settings.runtime.json`](../templates/settings.runtime.json)
+(stdin-jq 变体,D-4 key 已统一,两个脚本路径经 `$CC_TMUX_HOOK_DIR` **自定位**到 skill 目录)。
+cc-start.sh 启动 CC 时用 `claude --settings <此文件>` **会话级注入**(§3),不再 merge 进
+全局 `~/.claude`。旧的 env-based 模板与 global-merge 模板均已删除,以终结模板分裂。
 
 > 命名约定:本文档里的 `<key>` / `<s>` 一律指 **D-4 规范键**
 > `${CC_TMUX_SESSION:-<stdin session_id>}`,详见 [§D-4 key 统一](#d-4-key-统一the-key)。
 
 ---
 
-## 0. 五个 hook 总览
+## 0. 七类事件总览（§Phase-2/3 状态总线）
 
-| Hook | 实现位置 | matcher | Pitfall | 角色 |
-|---|---|---|---|---|
-| PostToolUse(Bash) | inline(template) | `Bash` | #8 | 把 >4KB 的 `tool_response` 归档到 `/tmp/cc-output/<key>/responses-*.log` |
-| PostToolUse(Write\|Edit\|MultiEdit) | `cc-posttool.sh` | `Write\|Edit\|MultiEdit` | #8 | best-effort 格式化 + 把 >8KB 产物归档到 `/tmp/cc-output/<key>/` |
-| Notification | inline(template) | `idle_prompt\|permission_prompt` | #4 | 追加 `{event:notification}` JSONL 到 `/tmp/cc-state-<key>.log` + touch heartbeat |
-| SessionStart | inline(template) | (无,全部触发) | #2 | 注入 cc-tmux run-context + 最近 state 尾巴 |
-| Stop | `cc-stop-check.sh` | (无,全部触发) | — | soft gate:`--expect` 产物缺失则 block;经 gate-counter 有界 re-block |
+hook 共同维护一条**事件驱动状态总线**，让 Hermes **无需定时轮询**：心跳 = freshness、`cc-turn-done` = 完成权威、`cc-freeze` = 异常告警。
 
-两个 `.sh` 是真实脚本文件,其余三个是 template 里的 inline command。
-**所有 hook 永远 `exit 0`**(Stop 靠输出的 JSON 而非 rc 来 block)。
+| 事件 | 实现位置 | matcher | 角色（状态总线） |
+|---|---|---|---|
+| **PreToolUse**(`async`) | inline | (无,全部) | `touch` 心跳（高频 freshness beat，CC 调工具时心跳恒新鲜） |
+| PostToolUse(Bash) | inline | `Bash` | >4KB `tool_response` 归档 + `touch` 心跳 |
+| PostToolUse(Write\|Edit\|MultiEdit) | `cc-posttool.sh` | `Write\|Edit\|MultiEdit` | best-effort 格式化 + >8KB 归档 + `touch` 心跳 |
+| **UserPromptSubmit** | inline | (无) | `touch` 心跳 + 记 `received` + **清掉上一轮 `cc-turn-done`**（新 turn） |
+| Notification | inline | `idle_prompt\|permission_prompt` | 写 `{event:notification}` 到 state log + `touch` 心跳 |
+| SessionStart | inline | (无) | 注入 cc-tmux run-context + 最近 state 尾巴 |
+| **SessionEnd** | inline | (无) | 记 `{state:GONE,reason}` 到 state log（区分正常退出 vs 崩溃） |
+| Stop | `cc-stop-check.sh` | (无) | 软门 `--expect` 缺失则 `block`（gate-counter 有界）；非 block 收尾时写 **`cc-turn-done-<key>`** 标记 |
+
+两个 `.sh` 是真实脚本文件（经 `--settings` 的 `$CC_TMUX_HOOK_DIR` 自定位到 skill 目录），其余是 `templates/settings.runtime.json` 里的 inline command。
+**所有 hook 全程非 deny、`exit 0`、best-effort**（Stop 靠输出的 JSON 而非 rc 来 block）——这是 hook 的安全车道，避开全部 deny 类 bug（见 `../references/cc-hook-bug-registry.md`）。
+**冻结探针**由 `cc-watcher.sh --watch`（cc-start 后台拉起的守护进程）在心跳陈旧时跑 `cc-monitor` 完成，写 `cc-freeze-<key>` 告警——这是唯一无法靠 hook 实现的部分（TUI 计时器无 hook 可读）。
 
 ---
 
@@ -134,27 +141,27 @@ graceful degradation)。
 
 ---
 
-## 3. 配置 / 部署(全局 `~/.claude`,当前安装方式)
+## 3. 配置 / 部署(§Phase-1 2026-06-17 起:`--settings` 会话级注入,**已替代全局**)
+
+**不再需要任何手动部署。** cc-start.sh 在启动每个 CC 时自动注入本 skill 的 hook 配置:
 
 ```bash
-# 1. 拷贝两个脚本文件
-mkdir -p ~/.claude/hooks
-cp cc-posttool.sh cc-stop-check.sh ~/.claude/hooks/
-chmod +x ~/.claude/hooks/cc-posttool.sh ~/.claude/hooks/cc-stop-check.sh
-
-# 2. 把 template 里的 "hooks" block merge 进 ~/.claude/settings.json
-#    用 jq merge,不要 clobber 已有 key:
-jq -s '.[0] * {hooks: .[1].hooks}' \
-   ~/.claude/settings.json \
-   ../templates/settings.template.json \
-   > /tmp/merged.json && mv /tmp/merged.json ~/.claude/settings.json
-
-# 3. CC 必须 RESTART 才能加载新 hook
+# cc-start.sh 启动行(节选)——无需人工操作,改 skill 即生效:
+HOME=… CC_TMUX_SESSION="$SESSION" CC_TMUX_HOOK_DIR="$SKILL_ROOT/hooks" \
+  claude --model … --effort … --settings "$SKILL_ROOT/templates/settings.runtime.json"
 ```
 
-> **全局部署的代价:** 这些 hook 会对机器上**所有** CC session 触发,包括非
-> cc-tmux 驱动的(那些会降级到 UUID key)。session-scoped 的
-> `--settings /tmp/cc-settings-<s>.json` 注入(plan §9)是更干净的长期模型,但**尚未接线**。
+- **声明式 + 自动同步:** skill 改 `templates/settings.runtime.json` 或 `hooks/*.sh`,
+  **下一个 CC 启动时自动拿到最新版**(每个任务 = 全新 CC)。零 cp、零 jq merge、零"记得重启"。
+- **脚本自定位:** 模板里 `bash "$CC_TMUX_HOOK_DIR/cc-*.sh"`,`CC_TMUX_HOOK_DIR` 由启动行
+  导出、在 hook 触发时于 hook shell 内展开(已实测 R2 PASS)。所以脚本只存在于 skill 目录,
+  **不再往 `~/.claude/hooks/` 拷贝**(那会造成"改错文件"陷阱)。
+- **隔离:** 只对 cc-tmux 拉起的 CC 生效,不污染机器上其它 CC session。
+
+> ⚠️ **绝不要再把这些 hook merge 进全局 `~/.claude/settings.json`。** 已实测(R1)
+> `--settings` 的 hooks 与全局 hooks **累积/双触发** —— 同时存在会双写心跳、Stop 双 block、
+> 大输出双归档。全局 cc-tmux hooks 已于 Phase 1 摘除,保持摘除状态。
+> 详见 [`../references/cc-hook-facts-v2.1.178-20260617.md`](../references/cc-hook-facts-v2.1.178-20260617.md)。
 
 ---
 
@@ -183,7 +190,7 @@ jq -s '.[0] * {hooks: .[1].hooks}' \
 | Stop gate 从不 block | `EXPECT` 文件不存在 / D-4 key 不匹配 | 确认 `cc-send.sh --expect <glob>` 写了 `/tmp/cc-expect-<tmux-name>`,且 Stop hook 解析同一个 `<key>` |
 | Stop gate 反复 block 卡住 turn | 不应发生(有 gate-counter 上限 2) | 检查 `/tmp/cc-counter-stop-precheck-<s>.json`;满 2 次后必放行,cc-finish 兜底 |
 | state log / SessionStart 尾巴为空 | Notification 与 SessionStart 用了不同 key | D-4 已修;若仍空,说明 `CC_TMUX_SESSION` 在某一端缺失 → 两端不一致 |
-| 全局 hook 干扰非 cc-tmux 的 CC | 全局部署副作用 | 预期行为,会降级到 UUID key;长期方案是 session-scoped `--settings`(未接线) |
+| 非 cc-tmux 的 CC 也触发了 cc-tmux hook | 误把 hooks merge 回了全局 `~/.claude` | §Phase-1 起只走 `--settings` 注入,不应再有全局 cc-tmux hooks;`jq '.hooks' ~/.claude/settings.json` 应为 null/无 cc-tmux 键 |
 
 ---
 
@@ -197,7 +204,7 @@ jq -s '.[0] * {hooks: .[1].hooks}' \
 
 ```bash
 # 提取 inline 命令并喂一个 >4KB tool_response
-CMD=$(jq -r '.hooks.PostToolUse[0].hooks[0].command' ../templates/settings.template.json)
+CMD=$(jq -r '.hooks.PostToolUse[0].hooks[0].command' ../templates/settings.runtime.json)
 BIG=$(head -c 5000 /dev/zero | tr '\0' 'x')
 printf '{"session_id":"uuid-x","tool_response":"%s"}' "$BIG" \
   | CC_TMUX_SESSION="smoke" bash -c "$CMD"
@@ -221,7 +228,7 @@ echo '{"session_id":"uuid-x","tool_input":{"edits":[]}}' \
 ### 6.3 Notification — inline
 
 ```bash
-CMD=$(jq -r '.hooks.Notification[0].hooks[0].command' ../templates/settings.template.json)
+CMD=$(jq -r '.hooks.Notification[0].hooks[0].command' ../templates/settings.runtime.json)
 echo '{"session_id":"uuid-x"}' | CC_TMUX_SESSION="smoke" bash -c "$CMD"
 tail -1 /tmp/cc-state-smoke.log     # 期望:一行 {"event":"notification",...}
 ls -l /tmp/cc-heartbeat-smoke        # 期望:heartbeat 文件存在
@@ -230,7 +237,7 @@ ls -l /tmp/cc-heartbeat-smoke        # 期望:heartbeat 文件存在
 ### 6.4 SessionStart — inline
 
 ```bash
-CMD=$(jq -r '.hooks.SessionStart[0].hooks[0].command' ../templates/settings.template.json)
+CMD=$(jq -r '.hooks.SessionStart[0].hooks[0].command' ../templates/settings.runtime.json)
 echo '{"ts":"x","state":"THINKING","marker":"SEEN"}' > /tmp/cc-state-smoke.log
 echo '{"session_id":"uuid-x"}' | CC_TMUX_SESSION="smoke" bash -c "$CMD"
 # 期望 stdout:含 "[cc-tmux] 你是被 cc-tmux 驱动的 CC" + 贴出 marker=SEEN 的尾巴

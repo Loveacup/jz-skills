@@ -1,12 +1,14 @@
 # CC Hook 部署验证 — 2026-06-17
 
-**环境**: CC v2.1.178 · macOS 26.5.1 · `~/.claude/settings.json` 全局部署
+> ⚠️ **部署模型已迁移（v1.9.0 / Phase 1，2026-06-17）。** 本文档**顶部的"部署步骤"（全局 cp + jq merge + 重启）已废弃**——R1 实测证明 `--settings` 注入的 hooks 与全局 hooks **累积双触发**，故全局 cc-tmux hooks 已摘除（`jq '.hooks' ~/.claude/settings.json` 现为 null）。
+> **现行部署**：cc-start.sh 启动 CC 时自动 `--settings "$SKILL_ROOT/templates/settings.runtime.json"` + 导出 `CC_TMUX_HOOK_DIR`，skill 即唯一真源，零 cp / 零 jq / 零重启。详见 `hooks/README.md` §3 与 `references/cc-hook-facts-v2.1.178-20260617.md`。
+> 下方的 **CLAUDE_SESSION_ID 为空根因 + stdin 消费陷阱 + 验证点教训仍然有效**（与部署方式无关），保留作历史记录。
 
-## 部署步骤
+## 部署步骤（⚠️ 已废弃，见上方横幅——仅作历史记录）
 
-1. 创建 `~/.claude/hooks/` 目录，拷贝 `cc-posttool.sh` + `cc-stop-check.sh`
-2. 合并 hook 配置到 `~/.claude/settings.json`（4 事件：PostToolUse / Notification / SessionStart / Stop）
-3. **CC 必须重启才能载入新 hook 配置**（热重载不支持）
+1. ~~创建 `~/.claude/hooks/` 目录，拷贝 `cc-posttool.sh` + `cc-stop-check.sh`~~ → 现由 `$CC_TMUX_HOOK_DIR` 自定位到 skill 目录，不再拷贝
+2. ~~合并 hook 配置到 `~/.claude/settings.json`~~ → 现由 `--settings` 会话级注入，不再 merge（R1 累积会双写）
+3. ~~**CC 必须重启才能载入新 hook 配置**~~ → 每任务全新 CC，启动即读最新，**天然无重启问题**
 
 ## 验证方法（教训：验证点必须对应实际落盘路径）
 
