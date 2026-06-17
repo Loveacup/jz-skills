@@ -9,7 +9,7 @@ description: >
   Do NOT use for: simple single-tool calls, grammar fixes, non-coding tasks.
 type: routine
 version: 1.12.0
-author: "Hermes Agent + Claude Code (v1.12.0: Turn 内等待（in-turn wait）——新增 scripts/cc-wait-marker.sh（严格 mtime>after 阻塞等 turn-done marker）+ tests/test-wait-marker.sh 6/6；SKILL.md §3 增 in-turn wait 决策树/操作步骤（事件驱动唤醒的紧凑互补）+ Pitfall #20 mtime 比较陷阱；测试 74→80 全绿；TDD 三轮交付。归源时修复 v1.11.0 deploy 热修丢失的 Pitfall #18。| v1.11.0: 事件驱动唤醒——CC 深度调研发现 Hermes 内置 terminal(background/notify_on_complete)→gateway watcher→合成消息注入机制；加 Pitfall #19「被动沉默让用户蒙在鼓里」；加 references/event-driven-wakeup.md（零代码方案+行业共识+不可行清单）。SKILL.md §3 增唤醒模式。| v1.10.0: Phase 3 被动落地 | v1.9.0: Phase 2 事件驱动监控)"
+author: "Hermes Agent + Claude Code (v1.13.0: 中间过程可视性——新增 `## 📡 Progress Reporting` 段（6 状态机 emoji 映射 + 4 场景模板 + 信息密度原则）+ references/progress-reporting.md（搬运适配自 claude-code skill）；§3 in-turn wait 增「三段协议」（发任务前讨论/中间状态汇报/完成后讨论，全程 📡 可见）；Pitfall #21「in-turn wait 全程沉默 + 判断环节直接中断」。纯文档增强，零脚本改动，核心契约不变，测试维持 86/86。| v1.12.0: Turn 内等待（in-turn wait）——新增 scripts/cc-wait-marker.sh（严格 mtime>after 阻塞等 turn-done marker）+ tests/test-wait-marker.sh 6/6；SKILL.md §3 增 in-turn wait 决策树/操作步骤（事件驱动唤醒的紧凑互补）+ Pitfall #20 mtime 比较陷阱；测试 74→80 全绿；TDD 三轮交付。归源时修复 v1.11.0 deploy 热修丢失的 Pitfall #18。| v1.11.0: 事件驱动唤醒——CC 深度调研发现 Hermes 内置 terminal(background/notify_on_complete)→gateway watcher→合成消息注入机制；加 Pitfall #19「被动沉默让用户蒙在鼓里」；加 references/event-driven-wakeup.md（零代码方案+行业共识+不可行清单）。SKILL.md §3 增唤醒模式。| v1.10.0: Phase 3 被动落地 | v1.9.0: Phase 2 事件驱动监控)"
 license: MIT
 ---
 
@@ -70,6 +70,72 @@ license: MIT
 - 机器元数据去 stderr（`META` 行），不在 relay 范围内。
 - 现在 **hook 事件驱动的心脏持续刷新心跳**（PreToolUse/PostToolUse/Notification 写），watcher 守护进程兜底探针（心跳陈旧时 capture-pane 读 THINK_TIME）。Hermes **不再背定时轮询义务**——想知道状态时读 `/tmp/cc-heartbeat-<s>` 和 `/tmp/cc-turn-done-<s>` 标记即可。
 - `cc-finish.sh` 仍审计心跳新鲜度（但现在心跳由 hook 自动维护，不会陈旧）。`--force` 语义不变。
+
+## 📡 Progress Reporting（中间过程可视化 — 不只是「开始」和「结束」）
+
+> **解决的问题**：in-turn wait / 事件驱动唤醒下，用户只看到「派了任务」和「拿到产物」，中间 CC 的状态、Hermes 的判断、与 CC 的讨论全是黑盒。每次读 CC 状态 → 用下面的 📡 块汇报，**结构化总览 + Hermes 自主判断**，不要只说一句「CC 在干 X」。
+> 搬运并适配自旧 `claude-code` skill，详见 `references/progress-reporting.md`。
+
+### 状态 Emoji 映射（对齐 cc-monitor 6 状态机）
+
+| Emoji | 含义 | cc-monitor 状态 / pane 信号 |
+|:--:|------|------|
+| ⚡ | CC 工具调用中 | `TOOL` · `⏺/●` |
+| 🧠 | CC 思考态 | `THINKING` · `✻/✽/✶/✢/✳` + THINK_TIME 递增 |
+| 💤 | CC 空闲 / 可发新指令 | `IDLE` · `❯` 末行为空 |
+| ✅ | 完成 | turn-done marker 出现 / 产物已写盘 |
+| 🔵 | 进行中 | — |
+| 🟡 | 假死（UI 卡但文件已写盘） | `WAITING_AGENTS` + token 冻结但 `ls` 有产出 |
+| 🔴 | 真死（无磁盘产出，需接管） | `SHELL` 回落 / 双停 >3min 且产物目录空 |
+| 🛡️ | Gate 安全门（正常流程） | cc-finish 7 步门 |
+| ❌ | 出错 | pane 出现 `Error/Traceback` |
+| ⏳ | 限流 / 等待 | rate limit |
+
+**关键信号识别**：`⏺/●`→调工具 · `❯` 末行为空→空闲/完成 · `✻/✽/✶`→思考态 · `Error/Traceback`→**立即汇报**。
+（注意 Pitfall #6 已修但仍有盲区：`cc-monitor` 连报 IDLE+changed=false 时，`tmux capture-pane` 人工确认实况，别误判冻结。）
+
+### 4 种场景模板
+
+**① 单任务进度**
+```
+📡 CC [5min · 距上次 22s]
+  ⚡ 当前: Write(src/auth/login.ts) — 重构 auth 模块
+  ├─ ✅ 已完成: 读完 context + 列出 3 处改点
+  └─ 🔵 进行中: 写 login.ts（已 142 行）
+  📊 Token: 12.4k · 🛡️ Gate: 0 次
+```
+
+**② 异常 / 假死**
+```
+📡 CC [18min · 距上次 41s] ⚠️
+  🟡 假死检测: WAITING_AGENTS + token 2min 不变
+  ├─ `ls -la /tmp/cc-output` → 文件已写盘 (2.1KB) → 判定假死非真死
+  └─ Hermes 判断: 不 C-c，发 "worker done, continue" 推一把
+  📊 Token: 31k · ❌ 0 · 🛡️ Gate: 1 次
+```
+
+**③ 等待中（in-turn wait 超时一轮）**
+```
+📡 CC [9min · 距上次 180s] ⏳
+  🧠 当前: THINKING（THINK_TIME 4m13s 仍在递增）→ 非冻结，继续 wait
+  └─ Hermes 判断: 方向正常，不干预；本轮 wait 超时 → 再 wait 一轮
+  📊 Token: ? (写文件中) · 🛡️ Gate: 0 次
+```
+
+**④ 完成**
+```
+📡 CC [12min] ✅ turn-done
+  ✅ 产物: /tmp/cc-coverage.md (86 行) · /tmp/fix.diff (2 处)
+  └─ Hermes 判断: 覆盖核心契约，但缺 X 边界 → 拟和 CC 讨论补测
+  📊 Token: ~47k · 🛡️ Gate: 1 次
+```
+
+### 信息密度原则
+- **第 1 行**：总览 = `[耗时 · 距上次抓屏 Xs]` + 整体状态标记（⚠️/⏳/✅）。
+- **中间 N 行**：树形详情（`├─ └─`），每行一个 emoji + 关键指标（行数/token/文件）。
+- **最后 1 行**：`📊 Token: X.Xk · 🛡️ Gate: N 次`（+ `❌`/`⏳` 计数如有）。
+- **每块必含 Hermes 自主判断**：不是转述 CC 在干嘛，而是「我据此判断 → 要不要干预 / 下一步」。
+- `cc-monitor.sh` 的 `===📡 BEGIN/END===` 块**原样转发**（见 Relay Contract）；上面的手写块用于「读状态后的判断汇报」，两者不冲突——前者是机器产出，后者是 Hermes 的解读层。
 
 ## 🔥 讨论协议（任务不明确或涉及架构决策时触发）
 
@@ -188,6 +254,16 @@ Hermes 内置后台进程完成注入机制：派发 CC 的同一个 turn 内，
 拿不准 → 先 in-turn wait 跑前几轮，接近 ~12-16 往返（单 turn max_iterations≈50）时
         主动收尾 → 挂事件驱动唤醒（notify_on_complete=true）接力
 ```
+
+**📡 三段协议（贯穿 in-turn wait 全程，让中间过程可见 — 见 `## 📡 Progress Reporting`）**：
+
+in-turn wait 不是「写好任务 → send → 静默等 → 拿产物」。每个阶段都要让用户看见 CC 状态 + Hermes 的判断/讨论。三个必经节点：
+
+1. **发任务前讨论（不是写好就 send 执行）**：写好 context → `cc-send` → **等 CC 读完首轮**（一个 wait 周期）→ `capture-pane` 看 CC 对任务的理解 → 用 📡 块汇报「CC 怎么理解的 + Hermes 判断对不对」。**若 CC 理解偏了，先和 CC 讨论纠正方案、确认后再让它开干**，不是放任它按错误理解跑。这段讨论过程同样用 📡 格式汇报给用户。
+
+2. **中间状态汇报（wait 超时 ≠ 静默再等）**：`process(action=wait, timeout=180)` 超时返回 → **不是闷头再 wait**，而是：`capture-pane` 抓屏 → 判断 CC 方向（🧠 思考中？⚡ 在调工具？走偏了？）→ 用 📡 块汇报「当前状态 + Hermes 自主判断」→ 再决定 wait 下一轮。**若判断 CC 方向有问题 → 先把判断汇报给用户、等确认，不直接 `C-c` 中断**（在判断环节直接中断 = 违规，见 Pitfall #21）。CC 仍在正常思考（THINK_TIME 递增）时按用户偏好不打断。
+
+3. **完成后讨论（turn-done ≠ 直接汇报转发）**：marker 出现 → 读产物 → **先和 CC 讨论**（产物是否达标、有无遗漏、要不要补）→ 讨论完带上 **Hermes 的判断**再汇报给用户。不是把 CC 产物原样丢给用户就完事——Hermes 要先做一层解读和把关。
 
 **操作步骤（start → send → wait-marker → read → loop）**：
 ```bash
@@ -366,6 +442,7 @@ independence_level: L1 | L2 | L3               # 隔离强度：readonly→L1 / 
 | 18 | `cc-send.sh` 返回 `✓ Sent` 且消息出现在 ❯ 后，但 CC 长时间不处理——消息残留 >8s 无 spinner | Pitfall #5 的特化高频形态：Enter 未生效时消息**原样显示**在 ❯ 后而非被 CC 消化。Hermes 可能误以为 CC「在思考这段指令」，实际 CC 根本没开始。**2026-06-17 单 session 触发 2+ 次。** | **加固存活验证**：`cc-send.sh` 后等 4-6s 抓屏——① 若 ❯ 后有残留文字且无 spinner（✻/✽/✶/⏺）→ Enter 未生效，**立即** `tmux send-keys Enter`；② 5s 后仍残留 → 再补一次 Enter。**宁多补一次 Enter 不白等一轮。** 存活验证失败时不要假定「CC 会自己消化」——它不会。 |
 | 19 | 用户问「你在轮巡吗？Hook 没有效果吗？已经 20 分钟了，一点反应都没有」 | **被动模型的结构性缺陷**：Hermes 不轮询、不主动查 turn-done 标记，turn-done 早已写好但 Hermes 不知道——用户在等 Hermes 汇报，Hermes 在等用户发消息，双方互等。CC 已经完成 20 分钟了但没人知道。**2026-06-17 实发——turn-done 09:41 写好，用户 09:51 质问才被发现。** | **根治**：用事件驱动唤醒（`terminal(background=true, notify_on_complete=true)` 后台子进程等 marker）替代纯被动等待——让 CC 完成时自动触发 Hermes 新 turn，而不是等用户发现沉默再问。详见 `references/event-driven-wakeup.md`。**在此之前**：用户发消息时立刻查 turn-done 标记，不要假定「还没完成」。
 | 20 | in-turn wait 循环里第二轮 `cc-wait-marker.sh` 立即返回旧 marker，没等到 CC 新一轮完成 | **mtime 比较陷阱**：marker 是同一个文件 `/private/tmp/cc-turn-done-<s>`，CC 每轮 Stop hook 覆盖它（mtime 刷新）。若第二轮仍复用上一轮的 `--after` 基线，waiter 看到的 marker（mtime=上一轮）已 > 旧基线 → 立即 exit 0，把**上一轮的旧结果**误判成本轮完成。 | **每轮发指令前重记基线**：`AFTER=$(stat -f %m /private/tmp/cc-turn-done-$S 2>/dev/null \|\| echo 0)` → `cc-send` → `cc-wait-marker.sh --after $AFTER`。脚本用**严格 `mtime > after`**，基线必须是「你上一轮 wait 返回时那一版 marker 的 mtime」，不能复用更早的值。`--after 0` 仅第一轮（尚无任何 marker）用。覆盖测试 `tests/test-wait-marker.sh`（Test 3/6）。 |
+| 21 | in-turn wait 全程沉默——派了 CC 就闷头 `process(action=wait)`，wait 超时就再 wait，直到 turn-done 才冒头。用户只看到「开始」和「结束」，看不到 CC 状态、Hermes 判断、和 CC 的讨论。**或反过来**：判断 CC 走偏后**不讨论直接 `C-c`**，事后才说「我中断了它」。 | 「等一下就好了 / 让它先跑」**不是汇报**——它把中间过程变黑盒。两个反模式：① wait 超时静默再等（用户以为卡死）；② 在判断环节直接中断（绕过用户，可能误杀正常思考的 CC）。 | **三段协议（见 §3 in-turn wait）**：① 发任务前等 CC 读完 → 抓屏看理解 → 偏了先讨论再开干；② wait 超时 → 抓屏 + 📡 块汇报状态与判断，**不静默**；③ 判断走偏 → **先汇报用户等确认，再 `C-c`**，不在判断环节直接中断。每次读状态都用 📡 块（`## 📡 Progress Reporting`）输出「总览 + 树形详情 + Hermes 自主判断」。CC 正常思考（THINK_TIME 递增）时按用户偏好不打断。 |
 
 ## 👤 用户偏好与约束（不可协商）
 
@@ -407,6 +484,7 @@ independence_level: L1 | L2 | L3               # 隔离强度：readonly→L1 / 
 > 🔄 **多轮 CC 设计迭代**：`references/multi-round-design-pattern.md`（4 轮模式：设计→优化→产出→终审）
 > 🔗 **源仓库**：`~/code/jz-skills/hermes/cc-tmux/`
 > 📡 **Relay Contract**：`references/relay-contract.md`（机械执行细则 + 反模式）
+> 📡 **Progress Reporting**：`references/progress-reporting.md`（中间过程可视化：6 状态机 emoji 映射 + 4 场景模板 + 信息密度原则 + in-turn wait 三段协议对应；搬运适配自 claude-code skill）
 > 🧪 **测试复现**：`references/test-repro-2026-06-16.md`（cc-send Enter 未生效 + monitor 盲区复现步骤）
 > 🔀 **路由对照**：`references/hermes-deck-routing-comparison.md`（hermes-deck Primer + AgentRouting 块 vs cc-tmux 长会话模型对照分析）
 > 🔍 **CC 审核模式**：`references/cc-audit-cross-evaluation-pattern.md`（用 CC 做多文档交叉审核：典型发现层级、常见误判、输出格式）
