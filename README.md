@@ -158,7 +158,7 @@ Automated daily/weekly/monthly/yearly diary generation from cron with pyramid ag
 
 - **v3.8.0 Codex session collection:** Codex session auto-collection + dedup cron ID + doc drift fix / Codex 会话自动采集 + cron ID 去重 + 文档漂移修复
 - **v3.6.3 cron HOME fix:** `pwd.getpwuid()` bypass to survive cron's polluted HOME environment / 绕过 cron 污染的 HOME 环境变量
-- **DingTalk class group · 钉钉班级群:** Decrypt local DingTalk SQLite → extract teacher messages → auto-include in daily diary / 解密本地加密 SQLite → 提取老师消息 → 自动写入日记
+- **DingTalk group ingestion · 钉钉群消息采集:** Decrypt local DingTalk SQLite → extract group messages → auto-include in daily diary / 解密本地加密 SQLite → 提取群消息 → 自动写入日记
 - **Silent cron failure fix · 静默故障修复:** Diagnosed and fixed silent skill degradation from empty array — documented in failure pattern library / 诊断修复空数组导致的静默退化，写入故障模式库
 
 → [`hermes/auto-diary/`](hermes/auto-diary/)
