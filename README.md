@@ -35,78 +35,78 @@ jz-skills/
 
 ```
 shared/                              🧩 18 skills
-├── audio-transcriber
-├── bookmark-organizer
-├── china-legal-optimized
-├── de-slop
-├── destiny-matrix
-├── github
-├── goalgen
-├── grill-with-docs
-├── methodology-writer
-├── obsidian
-├── obsidian-md-ac
-├── pdf
-├── skill-authoring
-├── supermemory-maintenance
-├── vault-keeper
-├── voice-to-markdown-workflow
-├── xhs-tech-writer
-└── xiaohongshu-cards
+├── audio-transcriber            # 音频转录：降噪+声纹+中文ASR
+├── bookmark-organizer           # 书签策展
+├── china-legal-optimized        # 中国法务（7大领域）
+├── de-slop                      # 中英双语去AI味
+├── destiny-matrix               # 命运矩阵：荣格八维+八字+紫微
+├── github                       # GitHub 全操作
+├── goalgen                      # 多CLI通用 goal 指令生成器
+├── grill-with-docs              # 基于治理文档的设计审查
+├── methodology-writer           # 经验→结构化方法论
+├── obsidian                     # Vault 操作、CLI、Bases、Defuddle
+├── obsidian-md-ac               # OFM + Mermaid + JSON Canvas 参考
+├── pdf                          # PDF 全处理：OCR/提取/Markdown→PDF
+├── skill-authoring              # 11步合规创作+七维评分
+├── supermemory-maintenance      # Supermemory v7 参考
+├── vault-keeper                 # Obsidian 知识库生命周期治理
+├── voice-to-markdown-workflow   # 语音/视频→结构化 Markdown
+├── xhs-tech-writer              # 小红书 AI/科技短图文
+└── xiaohongshu-cards            # 文章→小红书图文卡片
 
 hermes/                              ⚡ 30 skills
-├── arxiv
-├── auto-diary
-├── bilibili-video-analyzer
-├── calendar-manager
-├── cc-tmux
-├── cccmux
-├── claude-code
-├── cqi-plan-writer
-├── cron-worker
-├── dingtalk-message-monitor
-├── kanban-codex-lane
-├── kanban-orchestrator
-├── llm-wiki
-├── mac-doctor
-├── memory-hub
-├── morning-news-briefing
-├── news-assembly
-├── openwrt-router
-├── reply-context-retrieval
-├── source-verification
-├── supermemory-hermes
-├── surge-gateway
-├── teach
-├── tech-support-email
-├── telegram-topic-manager
-├── tradingagents
-├── tts-manager
-├── unifi-ops
-├── web-research-router
-└── xhs-crawler
+├── arxiv                        # arXiv + Semantic Scholar 论文检索
+├── auto-diary                   # 自动化日记：日→周→月→年金字塔聚合
+├── bilibili-video-analyzer      # B站视频深度分析
+├── calendar-manager             # 智能日历+提醒
+├── cc-tmux                      # tmux 驱动 Claude Code（脚本强制护栏）
+├── cccmux                       # cmux 原生 CC agent team 编排
+├── claude-code                  # CC 编排桥（已由 cc-tmux 取代）
+├── cqi-plan-writer              # 通用 CQI 写作方法论
+├── cron-worker                  # 定时任务 profile + 技能池看门狗
+├── dingtalk-message-monitor     # 钉钉本地DB解密+消息监控
+├── kanban-codex-lane            # Kanban→Codex CLI 通道
+├── kanban-orchestrator          # 任务分解+Kanban 编排
+├── llm-wiki                     # Karpathy's LLM Wiki 知识库
+├── mac-doctor                   # macOS 六级健康巡检
+├── memory-hub                   # CC×CQI 自动归集回路（Jz-Plugin内核）
+├── morning-news-briefing        # 每日早新闻简报
+├── news-assembly                # 多源搜索→简报骨架
+├── openwrt-router               # OpenWrt/iStoreOS 路由器运维
+├── reply-context-retrieval      # Telegram 回复上下文检索
+├── source-verification          # 事实验证+声明溯源
+├── supermemory-hermes           # Hermes Supermemory 配置
+├── surge-gateway                # Surge 家庭代理网关
+├── teach                        # Telegram 跨会话教学
+├── tech-support-email           # 调查驱动的技术支持邮件
+├── telegram-topic-manager       # Telegram Topic CRUD + /topic 命令
+├── tradingagents                # A股/市场分析
+├── tts-manager                  # TTS 供应商注册+语音测试
+├── unifi-ops                    # UniFi AP/交换机/Controller 运维
+├── web-research-router          # 六引擎搜索路由+深度研究循环
+└── xhs-crawler                  # 小红书 CDP 提取（CloakBrowser）
 
 pi/                                  🪟 6 skills
-├── pi-grill
-├── pi-hermes-setup
-├── pi-supermemory
-├── pi-web-research
-├── skill-creator
-└── web-research-router
+├── pi-grill                     # 歧义守护 v3.1
+├── pi-hermes-setup              # Pi↔Hermes SSH+MCP 联动
+├── pi-supermemory               # Windows Supermemory
+├── pi-web-research              # 多引擎深度研究 v3.4
+├── skill-creator                # 合规创作 v6.0
+└── web-research-router          # TS SDK 搜索路由
 
 _archived-hermes-3S6M-profiles/      🗄️ 12 profiles
-├── archivist
-├── auditor
-├── budget
-├── common
-├── gongbu
-├── hanlinyuan
-├── jiangzuojian
-├── protocol
-├── regent
-├── registry
-├── shangshu
-└── tester
+├── archivist                    # 三省六部·归档
+├── auditor                      # 三省六部·审计
+├── budget                       # 三省六部·预算
+├── common                       # 三省六部·宪法+金融研究
+├── gongbu                       # 三省六部·工部（基础设施）
+├── hanlinyuan                   # 三省六部·翰林院
+├── jiangzuojian                 # 三省六部·将作监（交付）
+├── protocol                     # 三省六部·A2A 协议
+├── regent                       # 三省六部·摄政（Kanban治理）
+├── registry                     # 三省六部·注册
+├── shangshu                     # 三省六部·尚书
+└── tester                       # 三省六部·审计测试
 ```
 
 </details>
