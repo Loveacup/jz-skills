@@ -1,6 +1,6 @@
 # 🏛️ jz-skills · AI Agent Skills Hub
 
-![skills](https://img.shields.io/badge/skills-54-blue)
+![skills](https://img.shields.io/badge/skills-47-blue)
 ![platforms](https://img.shields.io/badge/platforms-Hermes_|_CC_|_pi-8A2BE2)
 ![sync](https://img.shields.io/badge/sync-bidirectional-green)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
@@ -24,75 +24,68 @@ jz-skills/
 
 | Layer | Directory | Skills | Scope |
 |-------|-----------|--------|-------|
-| 🧩 Shared | `shared/` | 18 | Works across Hermes, Claude Code, and pi |
-| ⚡ Hermes | `hermes/` | 30 | Hermes‑only (macOS orchestrator) |
-| 🪟 Pi | `pi/` | 6 | Windows / pi‑only |
+| 🧩 Shared | `shared/` | 25 | Works across Hermes, Claude Code, and pi |
+| ⚡ Hermes | `hermes/` | 20 | Hermes‑only (macOS orchestrator) |
+| 🪟 Pi | `pi/` | 2 | Windows / pi‑only |
 | 🗄️ Archived | `_archived-hermes-3S6M-profiles/` | 12 profiles | Retired 三省六部 governance profiles |
-| **Total** | | **54 skills** | |
+| **Total** | | **47 skills** | |
 
 <details>
 <summary>🌳 Full skill tree</summary>
 
 ```
-shared/                              🧩 18 skills
+shared/                              🧩 25 skills
 ├── audio-transcriber            # 音频转录：降噪+声纹+中文ASR
+├── bilibili-video-analyzer      # B站视频深度分析
 ├── bookmark-organizer           # 书签策展
 ├── china-legal-optimized        # 中国法务（7大领域）
+├── cqi-plan-writer              # 通用 CQI 写作方法论
 ├── de-slop                      # 中英双语去AI味
 ├── destiny-matrix               # 命运矩阵：荣格八维+八字+紫微
 ├── github                       # GitHub 全操作
 ├── goalgen                      # 多CLI通用 goal 指令生成器
 ├── grill-with-docs              # 基于治理文档的设计审查
+├── memory-hub                   # CC×CQI 自动归集回路（Jz-Plugin内核）
 ├── methodology-writer           # 经验→结构化方法论
 ├── obsidian                     # Vault 操作、CLI、Bases、Defuddle
 ├── obsidian-md-ac               # OFM + Mermaid + JSON Canvas 参考
 ├── pdf                          # PDF 全处理：OCR/提取/Markdown→PDF
 ├── skill-authoring              # 11步合规创作+七维评分
 ├── supermemory-maintenance      # Supermemory v7 参考
+├── surge-gateway                # Surge 家庭代理网关
+├── unifi-ops                    # UniFi AP/交换机/Controller 运维
 ├── vault-keeper                 # Obsidian 知识库生命周期治理
 ├── voice-to-markdown-workflow   # 语音/视频→结构化 Markdown
+├── web-research-router          # 六引擎搜索路由+深度研究循环
+├── xhs-crawler                  # 小红书 CDP 提取（CloakBrowser）
 ├── xhs-tech-writer              # 小红书 AI/科技短图文
 └── xiaohongshu-cards            # 文章→小红书图文卡片
 
-hermes/                              ⚡ 30 skills
+hermes/                              ⚡ 20 skills
 ├── arxiv                        # arXiv + Semantic Scholar 论文检索
 ├── auto-diary                   # 自动化日记：日→周→月→年金字塔聚合
-├── bilibili-video-analyzer      # B站视频深度分析
 ├── calendar-manager             # 智能日历+提醒
 ├── cc-tmux                      # tmux 驱动 Claude Code（脚本强制护栏）
 ├── cccmux                       # cmux 原生 CC agent team 编排
 ├── claude-code                  # CC 编排桥（已由 cc-tmux 取代）
-├── cqi-plan-writer              # 通用 CQI 写作方法论
 ├── cron-worker                  # 定时任务 profile + 技能池看门狗
 ├── dingtalk-message-monitor     # 钉钉本地DB解密+消息监控
 ├── kanban-codex-lane            # Kanban→Codex CLI 通道
 ├── kanban-orchestrator          # 任务分解+Kanban 编排
 ├── llm-wiki                     # Karpathy's LLM Wiki 知识库
 ├── mac-doctor                   # macOS 六级健康巡检
-├── memory-hub                   # CC×CQI 自动归集回路（Jz-Plugin内核）
 ├── morning-news-briefing        # 每日早新闻简报
-├── news-assembly                # 多源搜索→简报骨架
 ├── openwrt-router               # OpenWrt/iStoreOS 路由器运维
-├── reply-context-retrieval      # Telegram 回复上下文检索
-├── source-verification          # 事实验证+声明溯源
 ├── supermemory-hermes           # Hermes Supermemory 配置
-├── surge-gateway                # Surge 家庭代理网关
 ├── teach-hermes                 # Telegram 跨会话教学
 ├── tech-support-email           # 调查驱动的技术支持邮件
 ├── telegram-topic-manager       # Telegram Topic CRUD + /topic 命令
 ├── tradingagents                # A股/市场分析
-├── tts-manager                  # TTS 供应商注册+语音测试
-├── unifi-ops                    # UniFi AP/交换机/Controller 运维
-├── web-research-router          # 六引擎搜索路由+深度研究循环
-└── xhs-crawler                  # 小红书 CDP 提取（CloakBrowser）
+└── tts-manager                  # TTS 供应商注册+语音测试
 
-pi/                                  🪟 6 skills
+pi/                                  🪟 2 skills
 ├── pi-grill                     # 歧义守护 v3.1
-├── pi-hermes-setup              # Pi↔Hermes SSH+MCP 联动
-├── pi-supermemory               # Windows Supermemory
-├── pi-web-research              # 多引擎深度研究 v3.4
-├── skill-creator                # 合规创作 v6.0
-└── web-research-router          # TS SDK 搜索路由
+└── pi-hermes-setup              # Pi↔Hermes SSH+MCP 联动
 
 _archived-hermes-3S6M-profiles/      🗄️ 12 profiles — 已归档的三省六部治理体系
 ```
@@ -135,7 +128,7 @@ Multi-engine deep research router with anti-hallucination guardrails. Latest ite
 - **v3.11 6 optimizations:** Deep source analysis driven — coverage, latency, and dedup improvements / 深源分析驱动，覆盖率、延迟、去重优化
 - **Anti-hallucination · 反幻觉:** Verbatim quote extraction + `[s<id>]` inline citation + WeChat/Sogou encrypted link decryption / 逐字引用 + 内联标注 + 微信/搜狗加密链接解密
 
-→ [`hermes/web-research-router/`](hermes/web-research-router/)
+→ [`shared/web-research-router/`](shared/web-research-router/)
 
 ### 📔 auto-diary · 自动化日记 v3.8.0
 
@@ -178,7 +171,7 @@ General-purpose CQI (持续质量改进) writing methodology. Structured plan au
 - **Completed appendix:** Mandatory completed-appendix section for traceability / 强制完成的附录章节，确保可追溯性
 - **Major decision protocol:** Structured protocol for capturing and justifying architectural decisions / 结构化协议，捕获并论证架构决策
 
-→ [`hermes/cqi-plan-writer/`](hermes/cqi-plan-writer/)
+→ [`shared/cqi-plan-writer/`](shared/cqi-plan-writer/)
 
 > Previously featured skills like claude-code, skill-authoring, grill-with-docs, and memory-hub remain in the full catalog below but have been superseded or stabilized.
 > 此前入选的技能如 claude-code、skill-authoring、grill-with-docs、memory-hub 仍保留在下方完整目录中，但已被取代或趋于稳定。
@@ -187,10 +180,10 @@ General-purpose CQI (持续质量改进) writing methodology. Structured plan au
 
 ## 📋 Full Catalog · 完整目录
 
-> **54 skills** across three platforms — shared foundations, Hermes agent operations, and pi extensions.
-> **54 个技能**覆盖三大平台 — 共享基础层、Hermes 智能体操作层、pi 扩展层。
+> **47 skills** across three platforms — shared foundations, Hermes agent operations, and pi extensions.
+> **47 个技能**覆盖三大平台 — 共享基础层、Hermes 智能体操作层、pi 扩展层。
 
-### shared/ — Cross-Platform Foundations · 跨平台基础技能
+### shared/ — Cross-Platform Foundations · 跨平台基础技能 (25 skills)
 
 | | Skill | Purpose · 用途 |
 |---|-------|----------------|
@@ -201,49 +194,46 @@ General-purpose CQI (持续质量改进) writing methodology. Structured plan au
 | 📄 | [pdf](shared/pdf/) | OCR, extract, markdown→PDF / PDF 全处理 |
 | 🎙️ | [voice-to-markdown-workflow](shared/voice-to-markdown-workflow/) | Speech→structured markdown / 语音转文稿 |
 | 🔊 | [audio-transcriber](shared/audio-transcriber/) | Denoise+diarization+Chinese ASR / 音频转录 |
+| 📺 | [bilibili-video-analyzer](shared/bilibili-video-analyzer/) | Bilibili video analysis / B站视频分析 |
 | ⚖️ | [china-legal-optimized](shared/china-legal-optimized/) | 7 legal domains / 中国法务 |
+| 📊 | [cqi-plan-writer](shared/cqi-plan-writer/) | Signal-driven CQI writing / CQI 计划写作 |
 | 🔮 | [destiny-matrix](shared/destiny-matrix/) | Jungian+BaZi+ZiWei+Astrology / 命运矩阵 |
 | 📐 | [methodology-writer](shared/methodology-writer/) | Experience→structured methodology / 经验框架化 |
+| 🧲 | [memory-hub](shared/memory-hub/) | CC→CQI auto-ingest loop / 自动归集回路 |
 | 💎 | [obsidian](shared/obsidian/) | Vault ops, CLI, Bases, Defuddle / Obsidian 全操作 |
 | 📓 | [obsidian-md-ac](shared/obsidian-md-ac/) | OFM + Mermaid + JSON Canvas / OFM 参考 |
 | 🧠 | [supermemory-maintenance](shared/supermemory-maintenance/) | Supermemory v7 reference / 记忆参考 |
+| 🚪 | [surge-gateway](shared/surge-gateway/) | Household proxy gateway / 家庭代理网关 |
+| 🛜 | [unifi-ops](shared/unifi-ops/) | UniFi network operations / 网络运维 |
 | 🧹 | [de-slop](shared/de-slop/) | Bilingual AI writing detection / 中英去 AI 味 |
 | 🟥 | [xiaohongshu-cards](shared/xiaohongshu-cards/) | Article→RED card images / 小红书图文卡片 |
 | 📱 | [xhs-tech-writer](shared/xhs-tech-writer/) | RED AI/tech short-form content / 小红书科技短图文 |
 | 🏛️ | [vault-keeper](shared/vault-keeper/) | Obsidian lifecycle governance / 知识库治理 |
+| 🌐 | [web-research-router](shared/web-research-router/) | 6-engine search + deep loop / 检索总控 |
+| 🕷️ | [xhs-crawler](shared/xhs-crawler/) | XHS CDP extraction / 小红书爬虫 |
 | 🔖 | [bookmark-organizer](shared/bookmark-organizer/) | Bookmark curation / 书签策展 |
 
-### hermes/ — Agent Operations · 智能体操作技能
+### hermes/ — Agent Operations · 智能体操作技能 (20 skills)
 
 | | Skill | Purpose · 用途 |
 |---|-------|----------------|
-| 🌐 | [web-research-router](hermes/web-research-router/) | 6-engine search + deep loop / 检索总控 |
 | 📔 | [auto-diary](hermes/auto-diary/) | Daily→yearly diary pyramid / 自动化日记 |
 | 🍎 | [mac-doctor](hermes/mac-doctor/) | 6-tier macOS health / macOS 巡检 |
 | ⏰ | [cron-worker](hermes/cron-worker/) | Cron profile + pool watchdog / 定时任务 |
 | 🤖 | [claude-code](hermes/claude-code/) | CC orchestration v4.2.1 / CC 编排 |
 | 🖥️ | [cc-tmux](hermes/cc-tmux/) | Drive CC via tmux / tmux 驱动 CC |
 | 🎛️ | [cccmux](hermes/cccmux/) | cmux-native CC agent teams / cmux 原生团队编排 |
-| 📊 | [cqi-plan-writer](hermes/cqi-plan-writer/) | Signal-driven CQI writing / CQI 计划写作 |
-| 🧲 | [memory-hub](hermes/memory-hub/) | CC→CQI auto-ingest loop / 自动归集回路 |
 | 💾 | [supermemory-hermes](hermes/supermemory-hermes/) | Hermes Supermemory setup / 记忆配置 |
 | 🗣️ | [tts-manager](hermes/tts-manager/) | TTS provider registry / TTS 管理 |
 | ✉️ | [tech-support-email](hermes/tech-support-email/) | Investigation-first vendor emails / 技术支持邮件 |
 | 📈 | [tradingagents](hermes/tradingagents/) | A-share market analysis / 交易分析 |
-| 📰 | [news-assembly](hermes/news-assembly/) | Multi-source→briefing skeleton / 简报汇编 |
-| ✅ | [source-verification](hermes/source-verification/) | Fact-checking + claim verification / 事实验证 |
-| 📺 | [bilibili-video-analyzer](hermes/bilibili-video-analyzer/) | Bilibili video analysis / B站视频分析 |
-| 🕷️ | [xhs-crawler](hermes/xhs-crawler/) | XHS CDP extraction / 小红书爬虫 |
 | 📅 | [calendar-manager](hermes/calendar-manager/) | Smart calendar + reminders / 智能日历 |
 | 🌅 | [morning-news-briefing](hermes/morning-news-briefing/) | Daily news briefing / 早新闻简报 |
 | 💬 | [telegram-topic-manager](hermes/telegram-topic-manager/) | Telegram Topic CRUD / 话题管理 |
 | 📚 | [arxiv](hermes/arxiv/) | arXiv + Semantic Scholar / 论文检索 |
 | 📡 | [dingtalk-message-monitor](hermes/dingtalk-message-monitor/) | Decrypt + monitor DingTalk DB / 钉钉解密监控 |
-| 🚪 | [surge-gateway](hermes/surge-gateway/) | Household proxy gateway / 家庭代理网关 |
 | 📶 | [openwrt-router](hermes/openwrt-router/) | OpenWrt/iStoreOS router ops / 路由器运维 |
-| 🛜 | [unifi-ops](hermes/unifi-ops/) | UniFi network operations / 网络运维 |
 | 🧪 | [llm-wiki](hermes/llm-wiki/) | Karpathy's LLM Wiki / LLM Wiki 知识库 |
-| ↩️ | [reply-context-retrieval](hermes/reply-context-retrieval/) | Telegram reply context / 回复上下文检索 |
 | 📋 | [kanban-orchestrator](hermes/kanban-orchestrator/) | Decomposition playbook / Kanban 编排 |
 | 🛤️ | [kanban-codex-lane](hermes/kanban-codex-lane/) | Kanban→Codex CLI lane / Kanban Codex 通道 |
 | 🎓 | [teach-hermes](hermes/teach-hermes/) | Cross-session teaching in Telegram / Telegram 教学 |
@@ -252,12 +242,8 @@ General-purpose CQI (持续质量改进) writing methodology. Structured plan au
 
 | | Skill | Purpose · 用途 |
 |---|-------|----------------|
-| 🌐 | [web-research-router](pi/web-research-router/) | TS SDK search routing / 检索总控 |
-| 🔬 | [pi-web-research](pi/pi-web-research/) | Multi-engine deep research v3.4 / 深度研究 |
 | 🛡️ | [pi-grill](pi/pi-grill/) | Ambiguity guardian v3.1 / 歧义守护 |
-| 🔧 | [skill-creator](pi/skill-creator/) | Compliance-first authoring v6.0 / 合规创作 |
 | 🔗 | [pi-hermes-setup](pi/pi-hermes-setup/) | Pi↔Hermes SSH+MCP / 联动设置 |
-| 🗄️ | [pi-supermemory](pi/pi-supermemory/) | Windows Supermemory / 记忆 |
 
 ### 📦 Archived · 已归档
 

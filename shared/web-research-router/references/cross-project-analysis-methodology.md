@@ -85,6 +85,17 @@ For each analyzed project, produce:
 - Risk: {what breaks}
 ```
 
+## User-Facing Output Delivery ★
+
+**The full analysis is for you, not the user.** The user wants a concise takeaway they can react to and discuss — not an exhaustive report to scroll through. After completing all four stages internally, deliver to the user:
+
+1. **One-paragraph summary** — what it is, how it works, 3–5 sentences max
+2. **Key mechanisms enumerated** — numbered list, one sentence each
+3. **Comparison to our approach** — a few bullet contrasts
+4. **Open-ended question** — invite discussion on a specific direction (e.g. "要不要让 regent 自动判断该交给 CC？")
+
+**Anti-pattern**: dumping all four stages verbatim into the chat. The user said "不要发那么长的东西，我看不懂我们讨论一下技术路线" — this is the signal. The detailed analysis exists for you to draw on during the discussion, not to paste wholesale.
+
 ## When NOT to Do This
 
 - Skip if the project is clearly a toy (< 10 stars, no recent commits)
