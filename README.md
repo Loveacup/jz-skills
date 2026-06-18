@@ -115,108 +115,85 @@ _archived-hermes-3S6M-profiles/      🗄️ 12 profiles
 
 ## 🔥 Active Skills · 高频迭代
 
-Skills ranked by git commit count across the full repository history — reflecting sustained, multi-version iteration. Not hand-picked — data-driven.
+> Ranked by recent activity (last 7 days). Not hand-picked — data-driven.
+> 按近 7 天活跃度排序，数据驱动而非人工挑选。
 
-> **Criteria · 入选标准:** ≥5 commits + ≥2 major versions + real functional evolution per version. A skill with 12 typo commits doesn't qualify. A skill with 4 commits across 4 major rewrites doesn't either — the floor keeps the section focused.
+### 🖥️ cc-tmux · tmux 驱动 CC v1.13.1
 
-### 📔 auto-diary · 自动化日记 v3.6.2
+> **10 commits in last 3 days** — THE hottest skill · 最活跃技能
 
-> **26 commits** — the most-iterated skill in the repo · 仓库中迭代次数最多的技能
+Drive Claude Code via tmux with script-enforced safeguards. The active CC driver — replacing the older claude-code skill.
+通过 tmux 驱动 Claude Code，脚本强制护栏。当前主力 CC 驱动技能，取代旧版 claude-code。
 
-Automated daily/weekly/monthly/yearly diary generation from cron. Pyramid aggregation from daily fragments to yearly retrospectives.
-从 cron 触发的日记生成到金字塔聚合的年报体系。
+- **Turn内等待 · In-turn Wait:** Waits for CC response within the same tmux turn before proceeding / 同一 tmux turn 内等待 CC 响应再继续
+- **📡 Progress Reporting · 中间过程可视性:** Real-time visibility into CC's intermediate reasoning and tool calls / CC 中间推理与工具调用的实时可见性
+- **四阶段Hook演进:** Deploy automation → event-driven monitoring → passive contract — full hook lifecycle / 部署自动化→事件驱动监控→被动合约，完整 Hook 生命周期
+- **冻结检测:** THINK_TIME timer prevents silent hangs when CC freezes mid-reasoning / 检测 CC 推理卡死的静默冻结
+- **F1-F4 一致性修复 + Pre-Send 讨论可操作性:** Fixes function key consistency + pre-send discussion operability / 函数键一致性修复 + 发送前讨论可操作
+- **TDD implementation:** 32/33 tests green — test-driven from the ground up / 测试驱动开发，32/33 通过
+- **审计修复 F1-F9:** Full audit pass with 9 fixes across the codebase / 全量审计，9 项修复
 
-- **DingTalk class group · 钉钉班级群:** Decrypt local DingTalk SQLite → extract teacher messages → auto-include in daily diary / 解密本地加密 SQLite → 提取老师消息 → 自动写入日记
-- **Silent cron failure fix · 静默故障修复:** `skills: []` empty array silently passed but diary degraded daily — diagnosed, fixed, and documented / 空技能数组静默通过但日记逐日退化，已诊断修复并写入故障模式库
-- **Pyramid aggregation · 金字塔聚合:** Daily→weekly→monthly→yearly with cron scheduling + validation / 日→周→月→年四级聚合
-- **CC classification · CC 三分类:** agent-team / independent / programmatic, with entrypoint+parentUuid tracking / 三类 CC 会话分类与溯源
-- **OFM formatting · 标准化输出:** YAML frontmatter, callouts, section dividers in generated Obsidian output / Obsidian 标准化格式输出
-
-→ [`hermes/auto-diary/`](hermes/auto-diary/)
-
-### ✍️ skill-authoring · 合规创作 v3.0
-
-> **25 commits** — absorbed SkillEvolver + EmbodiSkill (2026-05) · 吸收双子系统
-
-11-step compliance-first skill authoring workflow with 7-dimension scoring. The governance backbone for every skill in this repo.
-11 步合规创作工作流 + 七维评分。本仓库所有技能的治理骨架。
-
-- **11-step flow · 11 步流程:** Capture → Grill → Progressive disclosure → Anti-rationalization → Rule positioning → Checklist → 7-dim scoring → Test cases → Deployment-grounded audit → Failure classification → Revision
-- **7-dim scoring · 七维评分:** Progressive disclosure, anti-rationalization, rule positioning, checklist coverage, test coverage, deployment fit, failure resilience
-- **v3.0 — Dual-role review · 双角色审查:** Advocate→Challenger→Synthesize pattern; deployment-grounded audit closes the loop / 双角色辩证审查 + 部署根基审计闭环
-
-→ [`shared/skill-authoring/`](shared/skill-authoring/)
-
-### 🤖 claude-code · CC 编排 v4.2.1
-
-> **25 commits** — 685→446 line salience slim (-35%) · 大幅瘦身
-
-Hermes↔Claude Code orchestration bridge with bidirectional grilling protocol and autonomous agent team coordination.
-Hermes↔CC 编排桥梁，双向拷问协议 + 自治 agent team 协调。
-
-- **Salience slim · 瘦身下沉:** 685→446 lines (-35%). 7 reference tables moved to `references/`; core body retains high-frequency skeleton only / 7 张参考表下沉，主体仅留高频骨架
-- **Constitutional red lines · 红线宪法:** 2 iron rules — capture↔report 1:1 pairing + discussion protocol = no execution. 5 Gate Stamp disciplines / 2 条铁律红线 + 5 项 Gate Stamp
-- **Bidirectional grilling · 双向拷问:** Hermes↔CC grill pattern (question-by-question / fact-check first) + multi-round dialectic + consensus termination / 逐问→先查事实→多轮辩证→共识终止
-- **Autonomous agent teams · 自治团队:** Per-task isolated sessions, cross-session context via `/tmp/cc-context-{task}.md`, smart effort routing (5-level, signal-based)
-- **Progress reporting · 进度汇报:** Mandatory 15s first-check → 30-60s polling → emoji status template. Silence >2min = anomaly
-
-→ [`hermes/claude-code/`](hermes/claude-code/)
+→ [`hermes/cc-tmux/`](hermes/cc-tmux/)
 
 ### 🔍 web-research-router · 检索总控 v3.11
 
-> **22 commits** — 6-engine search router · 六引擎搜索路由
+> **22 total commits, 3 recent** — 6-engine search router · 六引擎搜索路由
 
-Multi-engine deep research router with anti-hallucination guardrails. The most architecturally complex skill in the repo.
-六引擎搜索路由 + 深度研究循环 + 反幻觉护栏。仓库中架构最复杂的技能。
+Multi-engine deep research router with anti-hallucination guardrails. Latest iterations: Agent-Reach platform mode + 6 deep-source optimizations.
+六引擎搜索路由 + 深度研究循环 + 反幻觉护栏。近期迭代：Agent-Reach 平台模式 + 六项深源分析优化。
 
-- **6 engines · 六引擎:** Exa + Brave (dual-primary) → Tavily (deep) → web_search (broad) → Sogou/WeChat → SearXNG (fallback) / 双主力→深度→广扫→微信/搜狗→兜底
-- **Deep research loop · 深度循环:** Plan → Section (facts.jsonl) → Reflect → Merge + cross-language blind-spot detection / 分节→反思→合并+跨语言盲区检测
-- **Anti-hallucination · 反幻觉:** Verbatim quote extraction, `[s<id>]` inline citation, 3-column output (Confirmed / Inference / Conflicts) / 逐字引用 + 内联标注 + 三分栏
-- **WeChat/Sogou · 微信/搜狗:** Integrated Sogou + WeChat Official Account search with encrypted link decryption / 集成微信公众号搜索与加密链接解密
-- **Agent-Reach · 智能可达:** Mandatory 4-step local check before any web call; SearXNG demoted after cross-platform validation / 强制四步本地检查，SearXNG 降级为兜底
+- **6-engine cascade · 六引擎级联:** Exa + Brave (dual-primary) → Tavily (deep) → web_search (broad) → Sogou/WeChat → SearXNG (fallback) / 双主力→深度→广扫→微信/搜狗→兜底
+- **v3.10 Agent-Reach · 智能可达:** Platform-mode integration — mandatory 4-step local check before any web call / 平台模式集成，强制四步本地检查
+- **v3.11 6 optimizations:** Deep source analysis driven — coverage, latency, and dedup improvements / 深源分析驱动，覆盖率、延迟、去重优化
+- **Anti-hallucination · 反幻觉:** Verbatim quote extraction + `[s<id>]` inline citation + WeChat/Sogou encrypted link decryption / 逐字引用 + 内联标注 + 微信/搜狗加密链接解密
 
 → [`hermes/web-research-router/`](hermes/web-research-router/)
 
-### 🩺 mac-doctor · macOS 巡检 v2.4.1
+### 📔 auto-diary · 自动化日记 v3.8.0
 
-> **16 commits** — 6-tier health monitoring · 六级健康巡检
+> **26 total commits, 3 recent** — pyramid aggregation diary · 金字塔聚合日记
 
-Six-tier macOS system health monitoring with root-cause diagnosis and 27-item security audit.
-六级 macOS 健康巡检，根因诊断 + 27 项安全审计。
+Automated daily/weekly/monthly/yearly diary generation from cron with pyramid aggregation from daily fragments to yearly retrospectives.
+从 cron 触发的日记生成到金字塔聚合的年报体系。
 
-- **6 tiers · 六层:** Health scoring + root-cause → Security audit (27 items) → Hardware → Network → Privacy → History / 评分+根因→27项安全→硬件→网络→隐私→追踪
-- **Dual cron · 双调度:** LLM agent (daily deep audit) + Silent Watchdog (30min, `no_agent=true`, anomaly-only) / LLM 深审 + 静默看门狗
-- **Root-cause diagnosis · 根因诊断:** Traces causal chains beyond symptom reporting (e.g., high CPU → specific process → known memory leak) / 追溯因果链而非仅报告症状
-- **Multi-profile · 多 Profile 感知:** Cache deduplication across profiles, zombie process detection, awk escaping fixes
+- **v3.8.0 Codex session collection:** Codex session auto-collection + dedup cron ID + doc drift fix / Codex 会话自动采集 + cron ID 去重 + 文档漂移修复
+- **v3.6.3 cron HOME fix:** `pwd.getpwuid()` bypass to survive cron's polluted HOME environment / 绕过 cron 污染的 HOME 环境变量
+- **DingTalk class group · 钉钉班级群:** Decrypt local DingTalk SQLite → extract teacher messages → auto-include in daily diary / 解密本地加密 SQLite → 提取老师消息 → 自动写入日记
+- **Silent cron failure fix · 静默故障修复:** Diagnosed and fixed silent skill degradation from empty array — documented in failure pattern library / 诊断修复空数组导致的静默退化，写入故障模式库
 
-→ [`hermes/mac-doctor/`](hermes/mac-doctor/)
+→ [`hermes/auto-diary/`](hermes/auto-diary/)
 
-### 📋 grill-with-docs · 设计审查
+### 🏛️ vault-keeper · 知识库治理 NEW
 
-> **11 commits** — governance-grounded design review · 基于治理文档的设计审查
+> **2 commits** — BRAND NEW skill · 全新技能
 
-Systematically cross-examines any design proposal or implementation plan against the repository's governance documents.
-将任何设计提案或实现计划与治理文档体系进行系统性交叉审查。
+Obsidian knowledge base lifecycle governance engine. Rapidly developing with three-gate architecture and confidence-matrix quality control.
+Obsidian 知识库生命周期治理引擎。快速迭代中，三道闸架构 + 置信矩阵质控。
 
-- **Governance-grounded · 治理根基:** Every challenge must cite a specific governance document provision — no hand-waving / 每条质疑必须引用具体治理文档条款
-- **Cross-profile · 跨 Profile:** Works across `default`, `regent`, and `cron-worker` profiles; governance docs sourced from shared pool / 跨三 Profile 工作
-- **Systematic examination · 系统性审查:** Claim → document reference → contradiction/omission → recommendation / 主张→文档引用→矛盾/遗漏→建议
+- **三道闸 · Three Gates:** Capture gate → Judgment gate → Backfill gate — full lifecycle governance / 采集闸→判定闸→回填闸，全生命周期治理
+- **置信矩阵 · Confidence Matrix:** Quantified confidence scoring for every knowledge assertion / 每条知识断言的量化置信度评分
+- **Lint巡检 · Lint Patrol:** Automated quality patrol across the vault with rule-based checks / 基于规则的自动化质量巡检
+- **抽样自校准 · Sampling Self-Calibration:** Periodic random sampling to verify and recalibrate confidence scores / 定期随机抽样验证并重校准置信度
+- **判定/确定性两层拆分:** Judgment (subjective assessment) vs. Determinism (objective verification) — two-layer architecture / 主观判定与客观确定性分离的双层架构
 
-→ [`shared/grill-with-docs/`](shared/grill-with-docs/)
+→ [`shared/vault-keeper/`](shared/vault-keeper/)
 
-### 🧠 memory-hub · CC×CQI 自动归集回路 v0.2.1
+### 📊 cqi-plan-writer · CQI 计划写作 v2.0
 
-> **9 commits** — Jz-Plugin v4.0 kernel · Jz-Plugin v4.0 内核
+> **v2.0 just landed** — domain-agnostic CQI methodology · 领域无关 CQI 方法论
 
-Append-only JSONL event log + CC handoff auto-ingest + CQI runtime auto-acknowledge + cron fallback. First Jz-Plugin component to reach full automated CQI closed loop.
-Append-only JSONL 真相源 + CC 自动归集 + CQI 自动标记 + cron 兜底。首个跑通完整自动化 CQI 闭环的 Jz-Plugin 组件。
+General-purpose CQI (持续质量改进) writing methodology. Structured plan authoring with hard evidence anchoring and major decision protocol.
+通用持续质量改进写作方法论。结构化计划创作，硬证据锚定 + 重大决策协议。
 
-- **3-shard schema · 三 shard:** `issue` / `evolution` / `status_event` — append-only, no mutation, JSONL as source of truth / 追加写入，JSONL 为真相源
-- **CC handoff auto-ingest · CC 自动归集:** CC session ends → `mem_ingest` → `cqi_runtime` → `mem_merge` → Obsidian `88-审计/` auto-output / CC 会话结束→四步自动链→审计输出
-- **Cron fallback · cron 兜底:** Every-30m fallback ensures no event is missed if real-time pipeline is down / 每 30 分钟兜底
-- **Single-write-entry · 单写入口:** stdlib validation gate — all writes go through one validated path / stdlib 校验闸门
+- **v2.0 domain-agnostic:** Stripped domain assumptions — writes CQI plans for any field / 剥离领域假设，可为任何领域撰写 CQI 计划
+- **v1.2 restructure pattern:** Systematic restructuring methodology with hard evidence anchoring / 系统化重构方法论 + 硬证据锚定
+- **Completed appendix:** Mandatory completed-appendix section for traceability / 强制完成的附录章节，确保可追溯性
+- **Major decision protocol:** Structured protocol for capturing and justifying architectural decisions / 结构化协议，捕获并论证架构决策
 
-→ [`hermes/memory-hub/`](hermes/memory-hub/)
+→ [`hermes/cqi-plan-writer/`](hermes/cqi-plan-writer/)
+
+> Previously featured skills like claude-code, skill-authoring, grill-with-docs, and memory-hub remain in the full catalog below but have been superseded or stabilized.
+> 此前入选的技能如 claude-code、skill-authoring、grill-with-docs、memory-hub 仍保留在下方完整目录中，但已被取代或趋于稳定。
 
 ---
 
@@ -354,19 +331,19 @@ hermes gateway restart -p default
 | 5 | **Commits · 提交** | Bilingual: `type(scope): EN description / 中文描述`. |
 | 6 | **Sync · 同步** | Always `sync-back.sh --dry-run` before commit. Never skip sanitize. |
 | 7 | **Archive · 归档** | Deprecate with `_archived-{name}/`, never delete. |
-| 8 | **Active · 高频** | Ranked by full-history commit count. ≥5 commits + ≥2 versions + real functional evolution. |
+| 8 | **Active · 高频** | Ranked by recent activity (last 7 days). Data-driven, not hand-picked. |
 
 ### 🔥 Active Skill Criteria · 高频标准
 
-Skills in the **Active Skills** section are not hand-picked — they earn their place:
+Skills in the **Active Skills** section are ranked by **recent activity** — not total historical commits:
 
-- **≥5 commits** across the full repository history
-- **≥2 major versions** (sustained iteration, not one-and-done)
-- **Real functional evolution** — each version adds a distinct capability, not just typo fixes
+- **Last 7 days** — activity window, reflecting what's being actively developed *right now*
+- **Commit velocity** — higher commit frequency in the window ranks higher, regardless of lifetime totals
+- **New skills welcome** — brand-new skills with rapid iteration can appear alongside mature ones
 
-A skill with 12 typo commits doesn't qualify. A skill with 4 commits across 4 major rewrites does — but won't appear because the 5-commit floor isn't met. The floor keeps the section focused on genuinely high-iteration skills.
+A skill with 50 lifetime commits but zero in the last week won't appear. A skill with 2 commits but both this week will. This keeps the section focused on what's hot *now*, not what was hot 3 months ago.
 
-高频技能不靠拍脑袋选——用数据说话：全历史 ≥5 提交 + ≥2 大版本 + 每次迭代有实质能力增量。
+高频技能按近 7 天活跃度排序——反映当下而非历史。全新技能与成熟技能同台竞技，只看近期迭代速度。
 
 ---
 
