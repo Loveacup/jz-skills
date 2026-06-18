@@ -94,19 +94,7 @@ pi/                                  🪟 6 skills
 ├── skill-creator                # 合规创作 v6.0
 └── web-research-router          # TS SDK 搜索路由
 
-_archived-hermes-3S6M-profiles/      🗄️ 12 profiles
-├── archivist                    # 三省六部·归档
-├── auditor                      # 三省六部·审计
-├── budget                       # 三省六部·预算
-├── common                       # 三省六部·宪法+金融研究
-├── gongbu                       # 三省六部·工部（基础设施）
-├── hanlinyuan                   # 三省六部·翰林院
-├── jiangzuojian                 # 三省六部·将作监（交付）
-├── protocol                     # 三省六部·A2A 协议
-├── regent                       # 三省六部·摄政（Kanban治理）
-├── registry                     # 三省六部·注册
-├── shangshu                     # 三省六部·尚书
-└── tester                       # 三省六部·审计测试
+_archived-hermes-3S6M-profiles/      🗄️ 12 profiles — 已归档的三省六部治理体系
 ```
 
 </details>
