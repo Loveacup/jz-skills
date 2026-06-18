@@ -1,5 +1,5 @@
 ---
-name: teach
+name: teach-hermes
 description: "在 Telegram 异步环境中跨会话、有状态地教用户一门技能或概念，为长期储存（将来用得上）而非当下流畅（此刻学会）设计：使命锚定每节课、ZPD 校准难度、知识阶段降认知负荷/技能阶段加困难、只在有理解证据时写学习记录、cron 主动间隔复习推送。课程为 Markdown，工作区为 Obsidian vault，quiz 异步批改。使用时机：用户表达长期、多次的学习意图——教我 X、带我系统学 X、我想长期学 X、teach。DO NOT use for：一次性事实查询（「Box 是什么」）、使命怎么问都说不清、纯娱乐性浏览——这些走普通问答，不进教学模式。触发词：教我、带我学、我想系统学、长期学、teach。"
 type: routine
 version: 0.2.0

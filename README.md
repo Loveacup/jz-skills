@@ -77,7 +77,7 @@ hermes/                              ⚡ 30 skills
 ├── source-verification          # 事实验证+声明溯源
 ├── supermemory-hermes           # Hermes Supermemory 配置
 ├── surge-gateway                # Surge 家庭代理网关
-├── teach                        # Telegram 跨会话教学
+├── teach-hermes                 # Telegram 跨会话教学
 ├── tech-support-email           # 调查驱动的技术支持邮件
 ├── telegram-topic-manager       # Telegram Topic CRUD + /topic 命令
 ├── tradingagents                # A股/市场分析
@@ -246,7 +246,7 @@ General-purpose CQI (持续质量改进) writing methodology. Structured plan au
 | ↩️ | [reply-context-retrieval](hermes/reply-context-retrieval/) | Telegram reply context / 回复上下文检索 |
 | 📋 | [kanban-orchestrator](hermes/kanban-orchestrator/) | Decomposition playbook / Kanban 编排 |
 | 🛤️ | [kanban-codex-lane](hermes/kanban-codex-lane/) | Kanban→Codex CLI lane / Kanban Codex 通道 |
-| 🎓 | [teach](hermes/teach/) | Cross-session teaching in Telegram / Telegram 教学 |
+| 🎓 | [teach-hermes](hermes/teach-hermes/) | Cross-session teaching in Telegram / Telegram 教学 |
 
 ### pi/ — Personal Intelligence Extensions · 个人智能扩展
 
