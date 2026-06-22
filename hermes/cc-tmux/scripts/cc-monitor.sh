@@ -91,6 +91,22 @@ if [[ "$FORCE_CAPTURE" != true && -f "$HB" ]]; then
   HB_AGE=$((NOW - HB_MTIME)); [[ "$HB_MTIME" -eq 0 ]] && HB_AGE=999999
   FAST_S=${CC_MONITOR_FAST_S:-20}
   if [[ "$HB_AGE" -ge 0 && "$HB_AGE" -lt "$FAST_S" ]]; then
+    # §P1-1 状态权威 fast path: hook 事件直接写 /tmp/cc-status-<s>.json（state 权威），
+    # 比心跳 ACTIVE_HOOK 更具体（TOOL/IDLE/COMPLETED/RECEIVED/BLOCKED…）。有则直接信它，
+    # bash capture-pane 正则降级为 fallback（无 status 文件时才走下方旧 ACTIVE_HOOK / 抓屏）。
+    STATUS_F="/tmp/cc-status-${SESSION}.json"
+    if [[ -f "$STATUS_F" ]] && command -v jq >/dev/null 2>&1; then
+      HS=$(jq -r '.state // "ACTIVE"' "$STATUS_F" 2>/dev/null || echo "ACTIVE")
+      HLT=$(jq -r '.last_tool // ""' "$STATUS_F" 2>/dev/null || echo "")
+      HLE=$(jq -r '.last_event // ""' "$STATUS_F" 2>/dev/null || echo "")
+      [[ -z "$HS" || "$HS" == "null" ]] && HS="ACTIVE"
+      persist "$HS" "$PREV_TOKENS" "$NOW" "$PREV_THINK_TIME"
+      echo "===📡 BEGIN (relay verbatim)==="
+      echo "📡 CC #${SEQ} [距上次 ${DELTA}s] · hook 状态权威: ${HS}${HLT:+（last_tool=$HLT）}"
+      echo "   (state 由 hook 事件直接写入 cc-status-${SESSION}.json，心跳 ${HB_AGE}s 前刷新；要强制抓屏诊断加 --force-capture)"
+      echo "===📡 END==="
+      exit 0
+    fi
     persist "ACTIVE_HOOK" "$PREV_TOKENS" "$NOW" "$PREV_THINK_TIME"
     echo "===📡 BEGIN (relay verbatim)==="
     echo "📡 CC #${SEQ} [距上次 ${DELTA}s] · 心跳新鲜（hook ${HB_AGE}s 前刷新）→ CC 活跃/工作中"

@@ -111,6 +111,24 @@ st=$(echo "$err" | grep -o 'state=[A-Z_]*' | head -1 | cut -d= -f2 || true)
   || { echo "  ❌ --force-capture did not capture: state=$st"; FAIL=$((FAIL+1)); }
 fp_cleanup
 
+# ─── §P1-1 状态权威 fast path: fresh heartbeat + cc-status-<s>.json → state from hook ───
+echo ""
+echo "§P1-1 status fast path (fresh hb + status file → state 直接取自 hook 权威)"
+SSP="cctmux-test-statusfp-$$"
+ssp_cleanup(){ tmux kill-session -t "$SSP" 2>/dev/null || true; rm -f "/tmp/cc-heartbeat-${SSP}" "/tmp/cc-state-${SSP}.log" "/tmp/cc-status-${SSP}.json"; }
+ssp_cleanup
+tmux new-session -d -s "$SSP" -x 120 -y 20 "sleep 999" 2>/dev/null
+sleep 0.3
+NOWSP=$(date +%s)
+printf '%s|1|TOOL|?|%s|1\n' "$NOWSP" "$NOWSP" > "/tmp/cc-heartbeat-${SSP}"
+# hook 写的权威状态：COMPLETED（capture-pane 永远推不出这个 → 证明走的是 status 文件）
+printf '{"state":"COMPLETED","state_since":"2026-06-22T00:00:00Z","last_event":"Stop","last_tool":"Write","last_tool_since":"2026-06-22T00:00:00Z","seq":9,"heartbeat":"2026-06-22T00:00:00Z"}\n' > "/tmp/cc-status-${SSP}.json"
+err=$(bash "$MONITOR" --session "$SSP" 2>&1 >/dev/null || true)
+st=$(echo "$err" | grep -o 'state=[A-Z_]*' | head -1 | cut -d= -f2 || true)
+[[ "$st" == "COMPLETED" ]] && { echo "  ✅ status fast path → state=COMPLETED（取自 hook 权威，非抓屏推断）"; PASS=$((PASS+1)); } \
+  || { echo "  ❌ status fast path 未生效: state=$st"; FAIL=$((FAIL+1)); }
+ssp_cleanup
+
 echo ""
 echo "=== Results: $PASS/$((PASS+FAIL)) passed ==="
 rm -f /tmp/cc-monitor-stderr-*.txt

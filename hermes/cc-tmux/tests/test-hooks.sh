@@ -233,5 +233,20 @@ else
 fi
 
 echo ""
+echo "§P1-1 cc-status-writer — 状态权威：7 事件全接线 + 端到端写 cc-status-<key>.json"
+# Test 22: every fired event wires cc-status-writer.sh, AND it writes the authoritative
+# status file (state from the event arg). Proves the L2 layer became the state authority.
+WIRED=$(grep -c 'cc-status-writer.sh' "$TPL")
+SW="$HOOKS/cc-status-writer.sh"
+SWTMP="$TMPD/status"; mkdir -p "$SWTMP"
+printf '%s' '{"session_id":"'"$UUID"'","tool_name":"Write"}' | CC_TMUX_SESSION="$SESS" CC_STATUS_TMPDIR="$SWTMP" bash "$SW" PreToolUse >/dev/null 2>&1
+SWSTATE=$(jq -r '.state' "$SWTMP/cc-status-${SESS}.json" 2>/dev/null || echo "")
+if [[ "$WIRED" -ge 7 ]] && [[ "$SWSTATE" == "TOOL" ]]; then
+  ok "cc-status-writer 接线 ${WIRED} 处(≥7 事件) + 端到端写 state=TOOL"
+else
+  bad "status-writer wiring/write 失败 (wired=$WIRED state=$SWSTATE)"
+fi
+
+echo ""
 echo "=== Results: $PASS/$((PASS+FAIL)) passed ==="
 [[ "$FAIL" -eq 0 ]] && exit 0 || exit 1

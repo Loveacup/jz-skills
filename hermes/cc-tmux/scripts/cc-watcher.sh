@@ -44,7 +44,20 @@ if [[ -n "$WATCH_SESSION" ]]; then
       age=$(( $(date +%s) - m ))
     fi
     if [[ "$age" -ge "$STALE" ]]; then
-      bash "$MONITOR" --session "$s" --force-capture >/dev/null 2>&1 || true
+      # §P1-1: hook 现在直接写状态权威 /tmp/cc-status-<s>.json。watcher 缩职责——
+      # 心跳陈旧时，若 hook 说状态是「静默本属预期」(IDLE 等待输入 / COMPLETED 已完成 /
+      # BLOCKED 等权限 / GONE / ERROR)→ 直接信 hook，不抓屏。只有「在途状态却沉默」
+      # (RECEIVED/TOOL/ACTIVE/未知/无 status 文件) 才兜底抓屏——这正是 hook 看不见的
+      # 纯思考-或-冻结歧义区。注：hook 不会写 THINKING（纯思考无事件），故按状态语义而非
+      # 字面 THINKING 判定；skip-list 设计让未知/未来状态默认仍探（保守）。
+      local sf="/tmp/cc-status-${s}.json" hstate=""
+      if [[ -f "$sf" ]] && command -v jq >/dev/null 2>&1; then
+        hstate=$(jq -r '.state // ""' "$sf" 2>/dev/null || echo "")
+      fi
+      case "$hstate" in
+        IDLE|COMPLETED|GONE|BLOCKED|ERROR|COMPACTING) : ;;  # 信 hook，不探
+        *) bash "$MONITOR" --session "$s" --force-capture >/dev/null 2>&1 || true ;;
+      esac
     fi
     return 0
   }
