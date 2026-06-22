@@ -16,7 +16,7 @@
 
 set -euo pipefail
 
-SESSION="" TARGET="" RELEASE_LOCK=false KILL=false VERIFY_PATTERN="" FORCE=false
+SESSION="" TARGET="" RELEASE_LOCK=false KILL=false VERIFY_PATTERN="" FORCE=false CLEAN_TOPIC_MAP=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -26,6 +26,8 @@ while [[ $# -gt 0 ]]; do
     --kill-session) KILL=true; shift ;;
     --verify)   VERIFY_PATTERN="$2"; shift 2 ;;
     --force)    FORCE=true; shift ;;
+    --clean-topic-map) CLEAN_TOPIC_MAP=true; shift ;;  # R9b: kill 时反查删 topic→session 映射
+    --keep-topic-map)  CLEAN_TOPIC_MAP=false; shift ;; # R9b: 默认——保留映射（下次同 topic 发现死→自动 unset+新建）
     *) echo "Unknown arg: $1" >&2; exit 1 ;;
   esac
 done
@@ -195,8 +197,14 @@ if $KILL; then
   # keyed by the CC UUID instead and simply won't match here — harmless miss, no error.)
   rm -f  "$HB" "$STATELOG" "/tmp/cc-expect-${SESSION}" \
          "/tmp/cc-counter-stop-precheck-${SESSION}.json" \
-         "/tmp/cc-turn-done-${SESSION}" "/tmp/cc-freeze-${SESSION}"
+         "/tmp/cc-turn-done-${SESSION}" "/tmp/cc-freeze-${SESSION}" \
+         "/tmp/cc-status-${SESSION}.json"
   rm -rf "/tmp/cc-output/${SESSION}"
+  # R9b: --clean-topic-map → 反查删此 session 的 topic 映射（默认保留，让下次同 topic 自动 unset+新建）
+  if $CLEAN_TOPIC_MAP; then
+    bash "$(cd "$(dirname "$0")" && pwd)/cc-topic-map.sh" unset-by-session "$SESSION" 2>/dev/null \
+      && echo "✓ topic 映射已清理 (session=$SESSION)" || true
+  fi
 fi
 
 echo "===📋 END cc-finish==="

@@ -18,7 +18,7 @@
 set -euo pipefail
 
 # ── Parse args ──────────────────────────────────────────────
-TARGET="" EFFORT="high" TASK="" MODEL="claude-opus-4-8" AGENT="default" ACK_ACTIVE=false
+TARGET="" EFFORT="high" TASK="" MODEL="claude-opus-4-8" AGENT="default" ACK_ACTIVE=false TOPIC=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --target) TARGET="$2"; shift 2 ;;
@@ -26,10 +26,16 @@ while [[ $# -gt 0 ]]; do
     --task)   TASK="$2"; shift 2 ;;
     --model)  MODEL="$2"; shift 2 ;;
     --agent)  AGENT="$2"; shift 2 ;;
+    --topic)  TOPIC="$2"; shift 2 ;;   # R9b: 若提供，启动前查 topic→session 映射尝试复用
     --ack-active) ACK_ACTIVE=true; shift ;;
     *) echo "Unknown arg: $1" >&2; exit 1 ;;
   esac
 done
+
+# R9b: all tmux calls go through tmuxc so CC_TOPIC_TMUX can inject a stub for hermetic
+# tests (default = real tmux → zero behavior change). Same pattern as cc-gc's CC_GC_TMUX.
+# shellcheck disable=SC2086
+tmuxc() { ${CC_TOPIC_TMUX:-tmux} "$@"; }
 
 if [[ -z "$TARGET" || -z "$TASK" ]]; then
   echo "Usage: cc-start.sh --target <name> --task <desc> [--effort high|xhigh|max] [--model ...] [--agent ...] [--ack-active]" >&2
@@ -47,7 +53,7 @@ esac
 SKILL_ROOT="${CC_TMUX_SKILL_ROOT:-/Users/$(id -un)/.hermes/skills/autonomous-ai-agents/cc-tmux}"
 if [[ ! -d "$SKILL_ROOT/scripts" ]]; then
   echo "❌ 找不到 $SKILL_ROOT/scripts — 可能 HERMES_HOME/HOME 被 profile 重定向" >&2
-  echo "   检查: echo \$HOME; echo \$HERMES_HOME。修法: 绝对路径调用，或命令前加 HOME=/Users/$(id -un)" >&2
+  echo "   检查: echo \$HOME; echo \${HERMES_HOME}。修法: 绝对路径调用，或命令前加 HOME=/Users/$(id -un)" >&2
   exit 1
 fi
 
@@ -58,7 +64,7 @@ LOCKDIR="/tmp/cc-lock-${TARGET}"
 # ── Classify a session's CC state from its pane ──────────────
 classify() {
   local s="$1" pane last3 prompt content
-  pane=$(tmux capture-pane -t "$s" -p -S -20 2>/dev/null || echo "")
+  pane=$(tmuxc capture-pane -t "$s" -p -S -20 2>/dev/null || echo "")
   [[ -z "$pane" ]] && { echo "EMPTY"; return; }
   if printf '%s' "$pane" | grep -qE 'Waiting for [0-9]+ background agent'; then echo "WAITING_AGENTS"; return; fi
   last3=$(printf '%s\n' "$pane" | grep -v '^[[:space:]]*$' | tail -3)
@@ -75,11 +81,45 @@ classify() {
 is_cc_session() { # name matches hermes-cc-* OR pane shows the bypass banner
   local s="$1"
   [[ "$s" == hermes-cc-* ]] && return 0
-  tmux capture-pane -t "$s" -p -S -20 2>/dev/null | grep -q 'bypass permissions on'
+  tmuxc capture-pane -t "$s" -p -S -20 2>/dev/null | grep -q 'bypass permissions on'
 }
 
+# ── R9b: --topic 复用（查 topic→session 映射，可复用则短路，绕过新建+锁）──
+# 子进程 cc-topic-map.sh 自动继承 CC_TOPIC_MAP_FILE / CC_TOPIC_TMUX 环境变量（hermetic）。
+TOPIC_MAP="$SKILL_ROOT/scripts/cc-topic-map.sh"
+if [[ -n "$TOPIC" ]]; then
+  MAPPED=$(bash "$TOPIC_MAP" get "$TOPIC" 2>/dev/null || echo "")
+  if [[ -n "$MAPPED" ]]; then
+    if tmuxc has-session -t "$MAPPED" 2>/dev/null; then
+      RST=$(classify "$MAPPED")
+      # P1-1 cc-status 权威覆盖：COMPLETED/IDLE 视为可复用空闲态
+      SF="/tmp/cc-status-${MAPPED}.json"
+      if [[ -f "$SF" ]] && command -v jq >/dev/null 2>&1; then
+        CST=$(jq -r '.state // ""' "$SF" 2>/dev/null || echo "")
+        [[ "$CST" == "COMPLETED" || "$CST" == "IDLE" ]] && RST="IDLE"
+      fi
+      # 心跳新鲜度（默认 2h，与 R9d IDLE>2h 对齐）
+      HBF="/tmp/cc-heartbeat-${MAPPED}"; FRESH=false; HBAGE=999999
+      if [[ -f "$HBF" ]]; then
+        HBAGE=$(( $(date +%s) - $(stat -f %m "$HBF" 2>/dev/null || echo 0) ))
+        [[ "$HBAGE" -lt "${CC_TOPIC_FRESH_S:-7200}" ]] && FRESH=true
+      fi
+      if [[ "$RST" == "IDLE" && "$FRESH" == true ]]; then
+        echo "♻️  R9b 复用 topic=$TOPIC 的 session: ${MAPPED}（state=IDLE，心跳新鲜 ${HBAGE}s）" >&2
+        echo "$MAPPED"   # stdout: 复用 session 名，对调用方透明
+        exit 0
+      fi
+      echo "ℹ️  R9b topic=$TOPIC 的 session $MAPPED 状态=$RST / 心跳陈旧 → 不复用，新建（不打断旧 session）" >&2
+      # 落到下方新建流程；映射在新建成功后覆盖
+    else
+      echo "🧹 R9b topic=$TOPIC 映射的 session $MAPPED 已死 → unset，新建" >&2
+      bash "$TOPIC_MAP" unset "$TOPIC" 2>/dev/null || true
+    fi
+  fi
+fi
+
 # ── Scan ALL tmux sessions for live CC sessions ──────────────
-ALL_SESSIONS=$(tmux list-sessions -F '#{session_name}' 2>/dev/null || true)
+ALL_SESSIONS=$(tmuxc list-sessions -F '#{session_name}' 2>/dev/null || true)
 OTHERS_REPORT=""; OTHERS_ACTIVE=0
 if [[ -n "$ALL_SESSIONS" ]]; then
   while IFS= read -r s; do
@@ -96,14 +136,14 @@ fi
 # ── Handle THIS target's lock: BUSY vs zombie ────────────────
 if [[ -d "$LOCKDIR" ]]; then
   LSESS=$(cat "$LOCKDIR/session" 2>/dev/null || echo "")
-  if [[ -n "$LSESS" ]] && tmux has-session -t "$LSESS" 2>/dev/null; then
+  if [[ -n "$LSESS" ]] && tmuxc has-session -t "$LSESS" 2>/dev/null; then
     LST=$(classify "$LSESS")
     echo "⛔ BUSY: target '$TARGET' 被存活 session 占用" >&2
     echo "⛔   session=$LSESS  state=$LST  lock=$LOCKDIR" >&2
     echo "⛔   → 等它结束，或换 --target / cc-finish 那个 session 后再起" >&2
     exit 2
   else
-    echo "🧹 清理僵尸锁: $LOCKDIR（记录的 session '${LSESS:-?}' 已不存在）" >&2
+    echo "🧹 清理僵尸锁: ${LOCKDIR}（记录的 session '${LSESS:-?}' 已不存在）" >&2
     rm -rf "$LOCKDIR"
   fi
 fi
@@ -138,13 +178,13 @@ fi
 TS=$(date +%m%d-%H%M)
 SESSION="hermes-cc-${AGENT}-${TSLUG}-${TS}"
 # Guard against same-minute same-agent same-target collision
-if tmux has-session -t "$SESSION" 2>/dev/null; then
+if tmuxc has-session -t "$SESSION" 2>/dev/null; then
   SESSION="${SESSION}-$$"
 fi
 
 # ── Start tmux session ───────────────────────────────────────
-if ! HOME="$USER_HOME" tmux new-session -d -s "$SESSION" -c /tmp 2>/dev/null; then
-  echo "❌ tmux new-session 失败: $SESSION" >&2
+if ! HOME="$USER_HOME" tmuxc new-session -d -s "$SESSION" -c /tmp 2>/dev/null; then
+  echo "❌ tmuxc new-session 失败: $SESSION" >&2
   rm -rf "$LOCKDIR"   # roll back the lock so the target isn't wedged
   exit 1
 fi
@@ -153,8 +193,13 @@ fi
 echo "$$" > "$LOCKDIR/script_pid"
 echo "$(date -u +%Y-%m-%dT%H:%M:%S)" > "$LOCKDIR/created"
 echo "$SESSION" > "$LOCKDIR/session"
-TMUX_PID=$(tmux display-message -t "$SESSION" -p '#{pid}' 2>/dev/null || echo "?")
+TMUX_PID=$(tmuxc display-message -t "$SESSION" -p '#{pid}' 2>/dev/null || echo "?")
 echo "$TMUX_PID" > "$LOCKDIR/tmux_pid"
+
+# R9b: 新建成功 → 写/覆盖 topic→session 映射（下次同 topic 任务可复用本 session）
+if [[ -n "$TOPIC" ]]; then
+  bash "$TOPIC_MAP" set "$TOPIC" "$SESSION" 2>/dev/null || true
+fi
 
 # Send the claude command.
 # §D-4: inject CC_TMUX_SESSION=<tmux session name> into the launched claude's env so
@@ -172,7 +217,7 @@ echo "$TMUX_PID" > "$LOCKDIR/tmux_pid"
 # cp/jq/restart. R2 verified $CC_TMUX_HOOK_DIR expands in the hook shell at fire time.
 HOOKDIR="$SKILL_ROOT/hooks"
 RUNTIME_SETTINGS="$SKILL_ROOT/templates/settings.runtime.json"
-tmux send-keys -t "$SESSION" \
+tmuxc send-keys -t "$SESSION" \
   "HOME=\"$USER_HOME\" CC_TMUX_SESSION=\"$SESSION\" CC_TMUX_HOOK_DIR=\"$HOOKDIR\" claude --model ${MODEL} --effort ${EFFORT} --settings \"$RUNTIME_SETTINGS\"" Enter
 
 # ── §Phase-2: launch the resident watcher daemon ─────────────
