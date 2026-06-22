@@ -61,7 +61,7 @@ cc-tmux = Hermes ↔ Claude Code 的 tmux-based 编排层。**Thin skill**：脚
 
 ## 工作约定（coding agent）
 
-- **TDD 红线**：实现类先写测试 → 确认失败 → 写代码 → 确认通过。当前 **92/92**。
+- **TDD 红线**：实现类先写测试 → 确认失败 → 写代码 → 确认通过。当前 **136/136**。
 - **Hook/脚本是单一真源**：改 `hooks/`/`templates/settings.runtime.json` → 下个 CC 启动经 `--settings` 自动生效，零 cp/jq/重启。
 - **杀 session 必须用户确认**（`cc-finish.sh --kill-session` 永不自动）。
 - **改完同步 deploy**：`~/.hermes/skills/autonomous-ai-agents/cc-tmux/`，`md5` 校验 parity。
@@ -69,7 +69,7 @@ cc-tmux = Hermes ↔ Claude Code 的 tmux-based 编排层。**Thin skill**：脚
 ## 关键文件
 
 - `SKILL.md` — 操作手册（红线 / 决策树 / 4 步流程 / 21 条 Pitfalls）。
-- `scripts/` — 6 核心脚本 + `cc-send-robust.sh`（P0-1 send 原语库）+ `gate/`。`tests/` — 10 文件 92/92。`references/` — 设计依据 / Hook 事实 / 事件驱动 等。
+- `scripts/` — 11 脚本（6 核心 + cc-send-robust/cc-usage/cc-gc/cc-topic-map + eval）+ `gate/`。`tests/` — 15 文件 136/136。`references/` — 设计依据 / Hook 事实 / 事件驱动 / R2.1 澄清协议 / R8b 配置指南 等。
 
 ## 需求与设计权威（在 OB，非本库）
 
