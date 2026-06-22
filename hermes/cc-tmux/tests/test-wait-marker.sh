@@ -199,6 +199,85 @@ else
 fi
 rm -f "$errf"
 
+# ═══ P1-2: fswatch 事件驱动等待（CC_WAIT_FSWATCH 注入 stub，hermetic）═══
+echo ""
+echo "§P1-2 fswatch 事件驱动等待（mock fswatch via CC_WAIT_FSWATCH）"
+
+# stub 工厂：写一个假 fswatch 到临时文件，行为由 $1 决定（quick=立即返回 / hang=永挂）
+STUBDIR=$(mktemp -d "/tmp/cc-wm-stub.XXXXXX")
+trap 'rm -f "$MARKER" "/tmp/cc-turn-done-${SESS}"; rm -rf "$STUBDIR"' EXIT
+make_fswatch() { # <name> <quick|hang> — stub touches <p>.called on invocation (proves fswatch path used)
+  local p="$STUBDIR/$1"
+  if [[ "$2" == "quick" ]]; then
+    printf '#!/usr/bin/env bash\ntouch "%s.called"\nsleep 0.1\nexit 0\n' "$p" > "$p"   # 模拟「事件已触发」立即返回
+  else
+    printf '#!/usr/bin/env bash\ntouch "%s.called"\nsleep 999\n' "$p" > "$p"            # 模拟永挂（等不到事件）
+  fi
+  chmod +x "$p"; echo "$p"
+}
+
+# ── Test 13: fswatch 路径 — stub 立即返回，核心循环捕获新 marker → exit 0 + 内容 ──
+rm -f "$MARKER"
+printf 'OLD\n' > "$MARKER"; touch -t 202601010000.00 "$MARKER" 2>/dev/null || true
+AFTER=$(stat -f %m "$MARKER" 2>/dev/null || echo 0)
+FSW=$(make_fswatch fsw-quick quick)
+outf=$(mktemp)
+CC_WAIT_FSWATCH="$FSW" bash "$SCRIPT" --session "$SESS" --after "$AFTER" --timeout 30 >"$outf" 2>/dev/null &
+pid=$!
+sleep 1
+printf 'DONE-13\n' > "$MARKER"        # fresh mtime > AFTER；stub 每 0.1s 返回 → 循环顶复判捕获
+if wait_pid_exit 10 "$pid"; then
+  wait "$pid" 2>/dev/null; rc=$?
+  # 断言机制：stub 被调用过（旧轮询码不会调 → RED）+ 行为 exit 0 + 内容
+  if [[ "$rc" -eq 0 ]] && grep -q 'DONE-13' "$outf" && [[ -f "${FSW}.called" ]]; then
+    ok "fswatch 路径：真调 fswatch stub + 复判 → exit 0 + 内容"
+  else
+    bad "fswatch-path: rc=$rc called=$([[ -f "${FSW}.called" ]]&&echo y||echo n) out='$(tr -d '\n' <"$outf")'"
+  fi
+else
+  kill "$pid" 2>/dev/null; bad "fswatch-path: never exited"
+fi
+rm -f "$outf"
+
+# ── Test 14: 回退路径 — CC_WAIT_FSWATCH 指向不存在命令 → 回退轮询，marker 出现仍 exit 0 ──
+rm -f "$MARKER"
+outf=$(mktemp)
+CC_WAIT_FSWATCH="/nonexistent/fswatch-xyz" bash "$SCRIPT" --session "$SESS" --after 0 --timeout 30 >"$outf" 2>/dev/null &
+pid=$!
+sleep 1
+printf 'DONE-14\n' > "$MARKER"
+if wait_pid_exit 10 "$pid"; then
+  wait "$pid" 2>/dev/null; rc=$?
+  if [[ "$rc" -eq 0 ]] && grep -q 'DONE-14' "$outf"; then
+    ok "回退路径：fswatch 不可用 → 轮询兜底，marker 出现 → exit 0 + 内容"
+  else
+    bad "fallback-path: rc=$rc out='$(tr -d '\n' <"$outf")'"
+  fi
+else
+  kill "$pid" 2>/dev/null; bad "fallback-path: never exited"
+fi
+rm -f "$outf"
+
+# ── Test 15: 超时包裹 — stub 永挂 + 短 timeout → bash 超时 kill → exit 1（非 999） ──
+rm -f "$MARKER"
+printf 'STALE\n' > "$MARKER"
+N=$(stat -f %m "$MARKER" 2>/dev/null || echo 0)   # marker 存在但不会更新
+FSW=$(make_fswatch fsw-hang hang)
+start=$(date +%s)
+CC_WAIT_FSWATCH="$FSW" bash "$SCRIPT" --session "$SESS" --after "$N" --timeout 3 >/dev/null 2>&1 &
+pid=$!
+if wait_pid_exit 12 "$pid"; then
+  wait "$pid" 2>/dev/null; rc=$?
+  elapsed=$(( $(date +%s) - start ))
+  if [[ "$rc" -eq 1 ]] && [[ "$elapsed" -ge 3 ]] && [[ "$elapsed" -lt 12 ]] && [[ -f "${FSW}.called" ]]; then
+    ok "超时包裹：真调 fswatch 永挂 + timeout 3 → bash kill → exit 1 (${elapsed}s)"
+  else
+    bad "timeout-wrap: rc=$rc elapsed=${elapsed}s called=$([[ -f "${FSW}.called" ]]&&echo y||echo n) (want rc=1,3<=t<12,called=y)"
+  fi
+else
+  kill "$pid" 2>/dev/null; bad "timeout-wrap: never exited (永挂未被 kill → 超时包裹失效)"
+fi
+
 echo ""
 echo "=== Results: $PASS/$((PASS+FAIL)) passed ==="
 [[ "$FAIL" -eq 0 ]] && exit 0 || exit 1
