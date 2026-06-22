@@ -2,7 +2,7 @@
 
 > **Canonical 架构参考。在本代码库工作前先读这里。**
 > 分工：**本文件 = 实现/架构权威**；需求/设计权威在 OB（见文末）。
-> 当前：v1.14.0 · 测试 92/92 · 健康分 0.93。
+> 当前：v1.22.0 · 测试 136/136 · 健康分 0.96。
 
 ## 是什么
 
@@ -15,15 +15,21 @@ cc-tmux = Hermes ↔ Claude Code 的 tmux-based 编排层。**Thin skill**：脚
    - ⚠️ 演进中：iii Hub 轨（轨2）可能突破此条（改 `call()` 网络通信），**待 Alex 拍 D-iii-3**，未拍板前文件系统仍是唯一通道。
 3. **义务最小化** —— 节律义务搬到 hook 事件 + watcher，LLM 不背定时器。
 
-## 四组件基座（R1/R3/R4/R9a · 代码扎实 · 只改良不重写）
+## 四组件基座 + 轨1 扩展（R1/R3/R4/R9a · v1.14-v1.22 全部落地）
 
-| 脚本 | 职责 | 在建改良 |
+| 脚本 | 职责 | 版本 |
 |------|------|------|
-| `cc-start.sh` | 启动 + 占用锁(mkdir 原子) + 全量扫描 + 僵尸清理 | — |
-| `cc-send.sh` | 发送 + 存活验证 | **P0-1** 封装强化(primeline 四件套) |
-| `cc-monitor.sh` | 6 状态机(SHELL>WAITING_AGENTS>IDLE>TOOL>THINKING>STARTING) | **P0-4** 加 `esc to interrupt` 状态金标准 |
-| `cc-finish.sh` | 7 步安全门 + 收尾(锁/session/state 清理) | — |
-| 辅助 | `cc-watcher.sh`(守护探针) · `cc-wait-marker.sh`(in-turn wait marker) | **P1-2** wait→inotify |
+| `cc-start.sh` | 启动 + 占用锁 + 全量扫描 + 僵尸清理 + `--topic` 复用 | v1.22.0 |
+| `cc-send.sh` | 发送 + 存活验证 | — |
+| `cc-send-robust.sh` | send-keys 健壮封装（回读+重试） | v1.14.0 |
+| `cc-monitor.sh` | 6 状态机 + esc 金标准 + cc-status fast-path | v1.15.0/18.0 |
+| `cc-finish.sh` | 7 步安全门 + topic-map 清理 | v1.22.0 |
+| `cc-wait-marker.sh` | fswatch 事件驱动等待 | v1.19.0 |
+| `cc-watcher.sh` | 守护探针（缩职责） | v1.18.0 |
+| `cc-usage.sh` | 用量管理 pre/post | v1.16.0 |
+| `cc-gc.sh` | Session GC scan/gc/suggest | v1.17.0 |
+| `cc-topic-map.sh` | Topic↔Session 复用注册表 | v1.22.0 |
+| `hooks/cc-status-writer.sh` | Hook→状态文件原子写 | v1.18.0 |
 
 ## 三段协议（in-turn wait 全程可见 · cc-tmux 独有优势 · 不该砍）
 
@@ -44,9 +50,9 @@ cc-tmux = Hermes ↔ Claude Code 的 tmux-based 编排层。**Thin skill**：脚
 
 **决策基础**：D-iii-1=路线 A(保 tmux) · D-iii-2=解耦(P0 bash 先) · D-iii-3=§8 先不管 · 第三轨=认。
 
-- **轨1 内核轨**（立即·bash·零依赖）：`P0-1 send-keys 封装 → P0-4 状态金标准 → P0-2 cc-usage.sh → P0-3 cc-gc.sh → P1-1 hook 成状态权威 → P1-2 wait→inotify`。借鉴 primeline/shogun/swarm-lib/disler。
+- **轨1 内核轨**（✅ 全部落地·bash·零依赖）：`P0-1 send-keys 封装 (v1.14.0) → P0-4 状态金标准 (v1.15.0) → P0-2 cc-usage (v1.16.0) → P0-3 cc-gc (v1.17.0) → P1-1 hook 成状态权威 (v1.18.0) → P1-2 fswatch (v1.19.0)`。测试 80→127。
 - **轨2 iii Hub 轨**（远期·赌多 Agent·pre-1.0 隔离）：`iii-P0 HelloWorld → iii-P1 复用官方 worker → iii-P2 自写 cc-worker🚧§8 → iii-P3 review-worker → iii-P4 全 Hub`。覆盖 R5/R6/R8a。
-- **轨3 Hermes 侧智能轨**（并行）：R2.1 自动注入 · R8b 配置决策 · R8d3 WRR 升级。
+- **轨3 Hermes 侧智能轨**（并行）：R2.1 澄清式交接 ✅ (v1.20.0) · R8b CC 配置 ✅ 部分 (v1.21.0) · R9b 会话复用 ✅ (v1.22.0) · R8a 路由归 iii · R8d3 WRR 升级（远期）。
 
 ## 不该动（红线 · 防颠覆误伤）
 
