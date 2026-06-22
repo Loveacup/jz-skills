@@ -119,6 +119,11 @@ BYPASS=$(printf '%s' "$PANE" | grep -o 'bypass permissions on' | head -1 || true
 ACTIVE_TAIL=$(printf '%s\n' "$PANE" | grep -v '^[[:space:]]*$' | tail -6 || true)
 THINKING=$(printf '%s' "$ACTIVE_TAIL" | grep -oE '[✻✳✶✢✽]' | tail -1 || true)
 TOOL_CALL=$(printf '%s' "$ACTIVE_TAIL" | grep -oE '⏺|●' | tail -1 || true)
+# Gold-standard BUSY: CC self-renders "esc to interrupt" at the bottom of an active
+# turn. Scanned ONLY in ACTIVE_TAIL so a stale esc in scrollback can't spoof BUSY.
+# Single, stable, self-rendered → more reliable than glyph/token heuristics; it gates
+# "is CC busy", while ⏺/● vs ✻ still subdivides TOOL/THINKING below.
+ESC=$(printf '%s' "$ACTIVE_TAIL" | grep -o 'esc to interrupt' | head -1 || true)
 WAIT_AGENTS=$(printf '%s' "$PANE" | grep -oE 'Waiting for [0-9]+ background agent' | tail -1 || true)
 TOKENS=$(printf '%s' "$PANE" | grep -oE '[0-9.]+k tokens' | tail -1 || echo "?")
 # Elapsed-time progress proxy. Read ONLY from the live spinner line (in ACTIVE_TAIL)
@@ -148,7 +153,7 @@ fi
 # honest for any future consumer ("三者互锁，缺一不可").
 IDLE=""
 if [[ -n "$PROMPT_LINE" && -z "$PROMPT_CONTENT" \
-      && -z "$THINKING" && -z "$TOOL_CALL" && -z "$WAIT_AGENTS" ]]; then
+      && -z "$THINKING" && -z "$TOOL_CALL" && -z "$WAIT_AGENTS" && -z "$ESC" ]]; then
   IDLE="yes"
 fi
 
@@ -171,6 +176,11 @@ elif [[ -n "$WAIT_AGENTS" ]]; then
 elif [[ -n "$TOOL_CALL" ]]; then
   STATE="TOOL"
 elif [[ -n "$THINKING" ]]; then
+  STATE="THINKING"
+elif [[ -n "$ESC" ]]; then
+  # Gold-standard BUSY with no glyph captured (esc carries its own weight): bucket as
+  # THINKING so it reuses the existing output branch AND the freeze clock — esc presence
+  # is NOT a liveness exemption, a token+timer double-stall still trips a freeze.
   STATE="THINKING"
 elif [[ -n "$IDLE" ]]; then
   STATE="IDLE"
