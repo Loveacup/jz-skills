@@ -21,7 +21,10 @@
 每次任务边界（子任务开始/结束）：
 ```bash
 # 估算消耗（npx ccusage 基于本地 transcript）
-npx ccusage --json 2>/dev/null | jq '{tokens: .totalTokens, cost: .totalCost}' 2>/dev/null || echo '{"status":"ccusage not available"}'
+# schema 校正：顶层仅 {daily, totals}，token/cost 在 .totals 下（2026-06-22 cc-usage.sh 落地时实测核实，旧写法 .totalTokens 为空）
+npx ccusage --json 2>/dev/null | jq '{tokens: .totals.totalTokens, cost: .totals.totalCost}' 2>/dev/null || echo '{"status":"ccusage not available"}'
+
+# P0-2 已封装为脚本：scripts/cc-usage.sh --mode pre|post（自带可移植 timeout + 基线 delta + 降级）
 ```
 
 然后在会话中汇报："📊 本阶段消耗估算: XXk tokens · 请方便时敲 /usage 补真实额度"
