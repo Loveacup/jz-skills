@@ -8,8 +8,8 @@ description: >
   Use when: 调 CC, 用 claude, 拉 CC, delegate to CC, agent team, 重活调 CC.
   Do NOT use for: simple single-tool calls, grammar fixes, non-coding tasks.
 type: routine
-version: 1.16.0
-author: "Hermes Agent + Claude Code (v1.16.0: cc-usage 用量管理（PRD R8c）——新增 scripts/cc-usage.sh：pre 模式跑 ccusage 写基线 /tmp/cc-usage-baseline-<session>.json、post 模式读基线算本轮 delta，全程提醒敲 /usage 取真实剩余；诚实边界——ccusage 只有累计无剩余额度，脚本不伪造预测/剩余数字；自带可移植 run_bounded()（macOS 无 timeout → gtimeout/timeout/纯 bash 三级回退）；CC_USAGE_CMD 注入做 hermetic 测试；ccusage 不可用/超时/非 JSON → 降级 exit 0 不打断任务流。修正 references/usage-reporting-pattern.md 的 jq 路径（.totalTokens→.totals.totalTokens，实测核实）。新增 tests/test-usage.sh 4/4；96→100 全绿；TDD 先红后绿。| v1.15.0: cc-monitor 状态金标准——active tail（末6非空行）出现 CC 自渲染的 `esc to interrupt` 即判 BUSY，比 spinner 字符/token/否定推理更可靠；glyph ⏺/● vs ✻ 仍细分 TOOL/THINKING，esc-only（无 glyph）兜底归 THINKING（复用输出分支+冻结时钟）；IDLE 守卫加 `-z ESC`（源头互锁）；esc 不豁免冻结（token+timer 双停仍判冻结，Pitfall #24 防护）；esc 只在 active tail 扫，scrollback 残留不误判。新增 tests/test-monitor-esc.sh 4/4；92→96 全绿；TDD 先红后绿。| v1.13.1: doc 校正——version 字段 1.12.0→1.13.1 对齐实际；references 测试计数 80/80→86/86 修正（test-wait-marker 6→12，补参数校验，实跑核实）。零脚本改动。| v1.13.0: 中间过程可视性——新增 `## 📡 Progress Reporting` 段（6 状态机 emoji 映射 + 4 场景模板 + 信息密度原则）+ references/progress-reporting.md（搬运适配自 claude-code skill）；§3 in-turn wait 增「三段协议」（发任务前讨论/中间状态汇报/完成后讨论，全程 📡 可见）；Pitfall #21「in-turn wait 全程沉默 + 判断环节直接中断」；F1-F4 一致性修复（节点③补 📡 模板④引用 / 新增模板⓪ Pre-Send 理解对齐 / Pitfall #21 症状-原因四反模式对齐三段协议 / 节点① 补 context「先复述」约定 + templates/discuss-first-snippet.md）。纯文档增强，零脚本改动，核心契约不变，测试维持 86/86。| v1.12.0: Turn 内等待（in-turn wait）——新增 scripts/cc-wait-marker.sh（严格 mtime>after 阻塞等 turn-done marker）+ tests/test-wait-marker.sh 6/6；SKILL.md §3 增 in-turn wait 决策树/操作步骤（事件驱动唤醒的紧凑互补）+ Pitfall #20 mtime 比较陷阱；测试 74→80 全绿；TDD 三轮交付。归源时修复 v1.11.0 deploy 热修丢失的 Pitfall #18。| v1.11.0: 事件驱动唤醒——CC 深度调研发现 Hermes 内置 terminal(background/notify_on_complete)→gateway watcher→合成消息注入机制；加 Pitfall #19「被动沉默让用户蒙在鼓里」；加 references/event-driven-wakeup.md（零代码方案+行业共识+不可行清单）。SKILL.md §3 增唤醒模式。| v1.10.0: Phase 3 被动落地 | v1.9.0: Phase 2 事件驱动监控)"
+version: 1.17.0
+author: "Hermes Agent + Claude Code (v1.17.0: cc-gc Session 垃圾回收（PRD R9c 堆积检测 + R9d Session GC）——新增 scripts/cc-gc.sh：纯 bash+tmux+文件系统、可独立运行、三模式（scan/gc/suggest）；R9c 残留>3 告警；R9d 4 触发（僵尸=锁目录指向死 session / 完成=turn-done+存活+IDLE / IDLE>2h=心跳陈旧>7200s / 总数>8 超限列最旧）；3 安全规则（绝不自动杀存活 session·活跃 TOOL/THINKING/WAITING_AGENTS 不碰·completed 附产物计数提醒先归档/commit）；裁断——僵尸孤儿文件清理需显式 --apply（默认所有模式只读·干运行），--apply 只删已死 session 的孤儿锁+state，绝不碰活 session；锁真实约定=锁目录+session 文件（非扁平文件）；classify() 移植自 cc-start.sh；CC_GC_TMUX/CC_GC_TMPDIR 注入做 hermetic 测试（stub tmux + fixture 文件，零真实 session）。踩坑同 P0-2：CJK 全角括号紧贴 unbraced $var 在 set -u 下吞字节 → 全量加 ${} 花括号。新增 tests/test-gc.sh 10/10；100→110 全绿；TDD 先红后绿。| v1.16.0: cc-usage 用量管理（PRD R8c）——新增 scripts/cc-usage.sh：pre 模式跑 ccusage 写基线 /tmp/cc-usage-baseline-<session>.json、post 模式读基线算本轮 delta，全程提醒敲 /usage 取真实剩余；诚实边界——ccusage 只有累计无剩余额度，脚本不伪造预测/剩余数字；自带可移植 run_bounded()（macOS 无 timeout → gtimeout/timeout/纯 bash 三级回退）；CC_USAGE_CMD 注入做 hermetic 测试；ccusage 不可用/超时/非 JSON → 降级 exit 0 不打断任务流。修正 references/usage-reporting-pattern.md 的 jq 路径（.totalTokens→.totals.totalTokens，实测核实）。新增 tests/test-usage.sh 4/4；96→100 全绿；TDD 先红后绿。| v1.15.0: cc-monitor 状态金标准——active tail（末6非空行）出现 CC 自渲染的 `esc to interrupt` 即判 BUSY，比 spinner 字符/token/否定推理更可靠；glyph ⏺/● vs ✻ 仍细分 TOOL/THINKING，esc-only（无 glyph）兜底归 THINKING（复用输出分支+冻结时钟）；IDLE 守卫加 `-z ESC`（源头互锁）；esc 不豁免冻结（token+timer 双停仍判冻结，Pitfall #24 防护）；esc 只在 active tail 扫，scrollback 残留不误判。新增 tests/test-monitor-esc.sh 4/4；92→96 全绿；TDD 先红后绿。| v1.13.1: doc 校正——version 字段 1.12.0→1.13.1 对齐实际；references 测试计数 80/80→86/86 修正（test-wait-marker 6→12，补参数校验，实跑核实）。零脚本改动。| v1.13.0: 中间过程可视性——新增 `## 📡 Progress Reporting` 段（6 状态机 emoji 映射 + 4 场景模板 + 信息密度原则）+ references/progress-reporting.md（搬运适配自 claude-code skill）；§3 in-turn wait 增「三段协议」（发任务前讨论/中间状态汇报/完成后讨论，全程 📡 可见）；Pitfall #21「in-turn wait 全程沉默 + 判断环节直接中断」；F1-F4 一致性修复（节点③补 📡 模板④引用 / 新增模板⓪ Pre-Send 理解对齐 / Pitfall #21 症状-原因四反模式对齐三段协议 / 节点① 补 context「先复述」约定 + templates/discuss-first-snippet.md）。纯文档增强，零脚本改动，核心契约不变，测试维持 86/86。| v1.12.0: Turn 内等待（in-turn wait）——新增 scripts/cc-wait-marker.sh（严格 mtime>after 阻塞等 turn-done marker）+ tests/test-wait-marker.sh 6/6；SKILL.md §3 增 in-turn wait 决策树/操作步骤（事件驱动唤醒的紧凑互补）+ Pitfall #20 mtime 比较陷阱；测试 74→80 全绿；TDD 三轮交付。归源时修复 v1.11.0 deploy 热修丢失的 Pitfall #18。| v1.11.0: 事件驱动唤醒——CC 深度调研发现 Hermes 内置 terminal(background/notify_on_complete)→gateway watcher→合成消息注入机制；加 Pitfall #19「被动沉默让用户蒙在鼓里」；加 references/event-driven-wakeup.md（零代码方案+行业共识+不可行清单）。SKILL.md §3 增唤醒模式。| v1.10.0: Phase 3 被动落地 | v1.9.0: Phase 2 事件驱动监控)"
 license: MIT
 ---
 
@@ -345,6 +345,23 @@ bash ~/.hermes/skills/autonomous-ai-agents/cc-tmux/scripts/cc-finish.sh \
 6. **释放锁** — `--release-lock`。
 7. **杀 session** — `--kill-session`，同步清理心跳 + 状态文件 + `cc-turn-done-<s>` + `cc-freeze-<s>` + `cc-watch-<s>.log` + watcher PID。
 
+### 维护 · 垃圾回收 — `scripts/cc-gc.sh`（PRD R9c/R9d）
+
+当 tmux 里堆了一堆 `hermes-cc-*` session 不知哪个能杀时跑它。纯 bash+tmux+文件系统，**可独立运行**（不依赖 cc-monitor / iii Engine）。
+
+```bash
+bash .../scripts/cc-gc.sh --mode scan      # 全量扫描摘要（默认）
+bash .../scripts/cc-gc.sh --mode suggest   # 一行简洁建议
+bash .../scripts/cc-gc.sh --mode gc        # 列候选+建议（干运行·只读）
+bash .../scripts/cc-gc.sh --mode gc --apply  # 仅清【僵尸孤儿文件】（死 session 的锁+state）
+```
+
+**R9c 堆积检测**：残留 `hermes-cc-*` >3 → `heap_warn`。
+**R9d 4 触发**（按优先级）：① 僵尸=锁目录指向已死 session ② 完成=turn-done+存活+IDLE ③ IDLE>2h=心跳陈旧 >7200s ④ 总数>8=超限列最旧。
+**3 安全规则**：① **绝不自动杀存活 session**——只建议，kill 必须 Alex 确认；② **活跃不碰**——TOOL/THINKING/WAITING_AGENTS 永不入候选（`kind=active-skip`）；③ **先归档后清理**——completed 候选附 `cc-output/<s>/` 产物计数，提醒先确认已归档/commit 再 kill。
+
+> 裁断：`--apply` 是唯一会改文件系统的开关，且**只删已死 session 的孤儿锁+state**（绝不碰活 session）；默认所有模式只读。机器断言行走 stderr（`GCMETA`/`GCITEM`/`GCAPPLY`/`GColdest`），stdout 是 📡 relay 块。锁的真实约定是**锁目录 `/tmp/cc-lock-<target>/` + `session` 文件**（非扁平文件）。
+
 ## 🔍 第 5 步：审核（委派包 → gate → auditor 验收）
 
 > 承接 D3 客观/主观分治：**客观半调 `scripts/gate/` 的硬脚本 gate（不可绕），主观半由 auditor 角色审（L1 起步）。**
@@ -501,7 +518,7 @@ independence_level: L1 | L2 | L3               # 隔离强度：readonly→L1 / 
 > 🚀 **Ultracode Dynamic Workflow**：`references/ultracode-workflow-pattern.md`（用 CC 原生 ultracode 模式做 13-agent 并行深度调研的完整流程：触发方式、编排设计、监控、产出验收、适用/不适用场景）
 > 📊 **用量汇报**：`references/usage-reporting-pattern.md`（CC 无法自理 `/usage` 的根因 + 方案 3 实现细节 + npx ccusage 使用）
 > 📋 **优化方案（2026-06-16）**：Obsidian `02-Plan&CQI/cc-tmux优化方案_20260616.md`（ultracode 13-agent 深度调研产出：P0 脚本修复 + P1 CC hook 混合架构 + 基质无关内核收敛 + CQI 闭环 + 6 决策点）
-> 🧪 **TDD 测试套件**：`tests/test-hooks.sh`（§3.3-3.7+P2 心跳总线 21/21）· `tests/test-start.sh`（§3.8+D-4+P1 注入+P2 watcher 拉起 9/9）· `tests/test-finish.sh`（§3.7+D-4+P2 turn-done/watcher+P3 完成权威 10/10）· `tests/test-monitor.sh`（§3.1+P2 fast-path 8/8）· `tests/test-monitor-freeze.sh`（§3.1 冻结+P2 freeze 标记 8/8）· `tests/test-monitor-esc.sh`（P0-4 状态金标准 esc to interrupt 4/4）· `tests/test-send.sh`（§3.2 9/9）· `tests/test-watcher.sh`（P2 --watch 守护探针 4/4）· `tests/test-eval.sh`（P3 被动评分 turn-done/freeze 5/5）· `tests/test-wait-marker.sh`（§3 in-turn wait marker mtime 等待 + 参数校验 12/12）· `tests/test-send-robust.sh`（轨1 P0-1 send 原语库：回读校验+有界重试 6/6）· `tests/test-usage.sh`（P0-2 用量管理 pre/post 基线+delta+降级 4/4）→ **100/100 全绿**（21+9+10+8+8+4+9+4+5+12+6+4，实跑核实，2026-06-22）
+> 🧪 **TDD 测试套件**：`tests/test-hooks.sh`（§3.3-3.7+P2 心跳总线 21/21）· `tests/test-start.sh`（§3.8+D-4+P1 注入+P2 watcher 拉起 9/9）· `tests/test-finish.sh`（§3.7+D-4+P2 turn-done/watcher+P3 完成权威 10/10）· `tests/test-monitor.sh`（§3.1+P2 fast-path 8/8）· `tests/test-monitor-freeze.sh`（§3.1 冻结+P2 freeze 标记 8/8）· `tests/test-monitor-esc.sh`（P0-4 状态金标准 esc to interrupt 4/4）· `tests/test-send.sh`（§3.2 9/9）· `tests/test-watcher.sh`（P2 --watch 守护探针 4/4）· `tests/test-eval.sh`（P3 被动评分 turn-done/freeze 5/5）· `tests/test-wait-marker.sh`（§3 in-turn wait marker mtime 等待 + 参数校验 12/12）· `tests/test-send-robust.sh`（轨1 P0-1 send 原语库：回读校验+有界重试 6/6）· `tests/test-usage.sh`（P0-2 用量管理 pre/post 基线+delta+降级 4/4）· `tests/test-gc.sh`（P0-3 Session GC 僵尸/完成/IDLE>2h/超限/活跃跳过/安全规则 10/10）→ **110/110 全绿**（21+9+10+8+8+4+9+4+5+12+6+4+10，实跑核实，2026-06-22）
 > 🪝 **CC Hook 脚本**：`hooks/cc-posttool.sh`（§3.3 PostToolUse 归档）· `hooks/cc-stop-check.sh`（§3.7 Stop 软门）· `templates/settings.runtime.json`（§3.4/3.5 Notification+SessionStart 内联 + 两脚本路径经 `$CC_TMUX_HOOK_DIR` 自定位，**单一事实源**，由 cc-start `--settings` 会话级注入；stdin-jq + D-4 键统一 `${CC_TMUX_SESSION:-<stdin session_id>}`；**全局 hooks 已摘**避免 R1 双触发）· `hooks/README.md`（§3 `--settings` 部署 + D-4 + smoke 清单）
 > 🧪 **测试结果记录**：`references/test-results-33of33-20260617.md`（历史文件名；现为 **48/48**，含 D-4 键统一 + 冻结检测修复记录 + 部署 smoke 清单）
 > 🔬 **Hook 部署验证 (2026-06-17)**：`references/cc-hook-deployment-20260617.md`（部署流程 · CLAUDE_SESSION_ID 空值根因 · stdin 消费陷阱 · 验证方法 · 修复记录）
