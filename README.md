@@ -65,7 +65,7 @@ hermes/                              ⚡ 20 skills
 ├── arxiv                        # arXiv + Semantic Scholar 论文检索
 ├── auto-diary                   # 自动化日记：日→周→月→年金字塔聚合
 ├── calendar-manager             # 智能日历+提醒
-├── cc-tmux                      # tmux 驱动 Claude Code（脚本强制护栏）
+├── cc-tmux                      # tmux 驱动 CC v1.22.0：脚本强制护栏 · 11 脚本 / 136 测试
 ├── cccmux                       # cmux 原生 CC agent team 编排
 ├── claude-code                  # CC 编排桥（已由 cc-tmux 取代）
 ├── cron-worker                  # 定时任务 profile + 技能池看门狗
@@ -99,26 +99,28 @@ _archived-hermes-3S6M-profiles/      🗄️ 12 profiles — 已归档的三省�
 > Ranked by recent activity (last 7 days). Not hand-picked — data-driven.
 > 按近 7 天活跃度排序，数据驱动而非人工挑选。
 
-### 🖥️ cc-tmux · tmux 驱动 CC v1.13.1
+### 🖥️ cc-tmux · tmux 驱动 CC v1.22.0
 
-> **10 commits in last 3 days** — THE hottest skill · 最活跃技能
+> **21 commits in last 7 days (12 in last 3)** — THE hottest skill · 最活跃技能
 
 Drive Claude Code via tmux with script-enforced safeguards. The active CC driver — replacing the older claude-code skill.
 通过 tmux 驱动 Claude Code，脚本强制护栏。当前主力 CC 驱动技能，取代旧版 claude-code。
 
 - **Turn内等待 · In-turn Wait:** Waits for CC response within the same tmux turn before proceeding / 同一 tmux turn 内等待 CC 响应再继续
 - **📡 Progress Reporting · 中间过程可视性:** Real-time visibility into CC's intermediate reasoning and tool calls / CC 中间推理与工具调用的实时可见性
-- **四阶段Hook演进:** Deploy automation → event-driven monitoring → passive contract — full hook lifecycle / 部署自动化→事件驱动监控→被动合约，完整 Hook 生命周期
-- **冻结检测:** THINK_TIME timer prevents silent hangs when CC freezes mid-reasoning / 检测 CC 推理卡死的静默冻结
-- **F1-F4 一致性修复 + Pre-Send 讨论可操作性:** Fixes function key consistency + pre-send discussion operability / 函数键一致性修复 + 发送前讨论可操作
-- **TDD implementation:** 32/33 tests green — test-driven from the ground up / 测试驱动开发，32/33 通过
-- **审计修复 F1-F9:** Full audit pass with 9 fixes across the codebase / 全量审计，9 项修复
+- **Hook 状态权威 (P1-1) · Status authority:** Hook events atomically write the authoritative `cc-status-<s>.json`; esc-to-interrupt gold standard for BUSY, capture-pane regex demoted to fallback / Hook 事件原子写权威状态文件 + esc 金标准判 BUSY，抓屏正则降级为兜底
+- **fswatch 事件驱动等待 (P1-2):** In-turn wait upgraded from sleep-poll to fswatch event-driven with ≤3s TOCTOU watchdog; THINK_TIME freeze detection / 等待从轮询升级为 fswatch 事件驱动 + 看门狗兜底，叠加 THINK_TIME 冻结检测
+- **用量管理 + Session GC (R8c/R9c/R9d):** cc-usage pre/post baseline-delta + cc-gc 4-trigger garbage collection with 3 safety rules / 用量基线增量汇报 + 会话垃圾回收四触发三安全规则
+- **R2.1 澄清式交接 · Clarifying handoff:** CC uses read-only tools (WRR/SuperMemory/OB/CodeGraph) to verify understanding before executing / CC 执行前用只读工具查证理解再开干
+- **R8b 配置自动化 · Config automation:** Signal→effort/model/mode decision tree (floor high / default Opus) / 信号→effort/模型/模式决策树（地板 high / 默认 Opus）
+- **R9b 会话复用 · Session reuse:** Topic↔Session registry — same topic reuses a live IDLE session, occupied/dead falls back to new / Topic↔Session 注册表，同 topic 复用存活 IDLE 会话，占用/已死则新建
+- **TDD implementation:** 136/136 tests green across 15 test files — test-driven from the ground up / 测试驱动开发，15 个测试文件 136/136 全绿
 
 → [`hermes/cc-tmux/`](hermes/cc-tmux/)
 
 ### 🔍 web-research-router · 检索总控 v3.11
 
-> **22 total commits, 3 recent** — 6-engine search router · 六引擎搜索路由
+> **1 commit in last 7 days (last 6/18)** — 6-engine search router · 六引擎搜索路由
 
 Multi-engine deep research router with anti-hallucination guardrails. Latest iterations: Agent-Reach platform mode + 6 deep-source optimizations.
 六引擎搜索路由 + 深度研究循环 + 反幻觉护栏。近期迭代：Agent-Reach 平台模式 + 六项深源分析优化。
@@ -130,23 +132,23 @@ Multi-engine deep research router with anti-hallucination guardrails. Latest ite
 
 → [`shared/web-research-router/`](shared/web-research-router/)
 
-### 📔 auto-diary · 自动化日记 v3.8.0
+### 📊 cqi-plan-writer · CQI 计划写作 v2.0
 
-> **26 total commits, 3 recent** — pyramid aggregation diary · 金字塔聚合日记
+> **1 commit in last 7 days (last 6/18) · v2.0** — domain-agnostic CQI methodology · 领域无关 CQI 方法论
 
-Automated daily/weekly/monthly/yearly diary generation from cron with pyramid aggregation from daily fragments to yearly retrospectives.
-从 cron 触发的日记生成到金字塔聚合的年报体系。
+General-purpose CQI (持续质量改进) writing methodology. Structured plan authoring with hard evidence anchoring and major decision protocol.
+通用持续质量改进写作方法论。结构化计划创作，硬证据锚定 + 重大决策协议。
 
-- **v3.8.0 Codex session collection:** Codex session auto-collection + dedup cron ID + doc drift fix / Codex 会话自动采集 + cron ID 去重 + 文档漂移修复
-- **v3.6.3 cron HOME fix:** `pwd.getpwuid()` bypass to survive cron's polluted HOME environment / 绕过 cron 污染的 HOME 环境变量
-- **DingTalk group ingestion · 钉钉群消息采集:** Decrypt local DingTalk SQLite → extract group messages → auto-include in daily diary / 解密本地加密 SQLite → 提取群消息 → 自动写入日记
-- **Silent cron failure fix · 静默故障修复:** Diagnosed and fixed silent skill degradation from empty array — documented in failure pattern library / 诊断修复空数组导致的静默退化，写入故障模式库
+- **v2.0 domain-agnostic:** Stripped domain assumptions — writes CQI plans for any field / 剥离领域假设，可为任何领域撰写 CQI 计划
+- **v1.2 restructure pattern:** Systematic restructuring methodology with hard evidence anchoring / 系统化重构方法论 + 硬证据锚定
+- **Completed appendix:** Mandatory completed-appendix section for traceability / 强制完成的附录章节，确保可追溯性
+- **Major decision protocol:** Structured protocol for capturing and justifying architectural decisions / 结构化协议，捕获并论证架构决策
 
-→ [`hermes/auto-diary/`](hermes/auto-diary/)
+→ [`shared/cqi-plan-writer/`](shared/cqi-plan-writer/)
 
-### 🏛️ vault-keeper · 知识库治理 NEW
+### 🏛️ vault-keeper · 知识库治理
 
-> **2 commits** — BRAND NEW skill · 全新技能
+> **0 commits in last 7 days · stabilized (last 6/15)** — three-gate governance · 三道闸治理
 
 Obsidian knowledge base lifecycle governance engine. Rapidly developing with three-gate architecture and confidence-matrix quality control.
 Obsidian 知识库生命周期治理引擎。快速迭代中，三道闸架构 + 置信矩阵质控。
@@ -159,19 +161,19 @@ Obsidian 知识库生命周期治理引擎。快速迭代中，三道闸架构 +
 
 → [`shared/vault-keeper/`](shared/vault-keeper/)
 
-### 📊 cqi-plan-writer · CQI 计划写作 v2.0
+### 📔 auto-diary · 自动化日记 v3.8.0
 
-> **v2.0 just landed** — domain-agnostic CQI methodology · 领域无关 CQI 方法论
+> **0 commits in last 7 days · stabilized (last 6/14)** — pyramid aggregation diary · 金字塔聚合日记
 
-General-purpose CQI (持续质量改进) writing methodology. Structured plan authoring with hard evidence anchoring and major decision protocol.
-通用持续质量改进写作方法论。结构化计划创作，硬证据锚定 + 重大决策协议。
+Automated daily/weekly/monthly/yearly diary generation from cron with pyramid aggregation from daily fragments to yearly retrospectives.
+从 cron 触发的日记生成到金字塔聚合的年报体系。
 
-- **v2.0 domain-agnostic:** Stripped domain assumptions — writes CQI plans for any field / 剥离领域假设，可为任何领域撰写 CQI 计划
-- **v1.2 restructure pattern:** Systematic restructuring methodology with hard evidence anchoring / 系统化重构方法论 + 硬证据锚定
-- **Completed appendix:** Mandatory completed-appendix section for traceability / 强制完成的附录章节，确保可追溯性
-- **Major decision protocol:** Structured protocol for capturing and justifying architectural decisions / 结构化协议，捕获并论证架构决策
+- **v3.8.0 Codex session collection:** Codex session auto-collection + dedup cron ID + doc drift fix / Codex 会话自动采集 + cron ID 去重 + 文档漂移修复
+- **v3.6.3 cron HOME fix:** `pwd.getpwuid()` bypass to survive cron's polluted HOME environment / 绕过 cron 污染的 HOME 环境变量
+- **DingTalk group ingestion · 钉钉群消息采集:** Decrypt local DingTalk SQLite → extract group messages → auto-include in daily diary / 解密本地加密 SQLite → 提取群消息 → 自动写入日记
+- **Silent cron failure fix · 静默故障修复:** Diagnosed and fixed silent skill degradation from empty array — documented in failure pattern library / 诊断修复空数组导致的静默退化，写入故障模式库
 
-→ [`shared/cqi-plan-writer/`](shared/cqi-plan-writer/)
+→ [`hermes/auto-diary/`](hermes/auto-diary/)
 
 > Previously featured skills like claude-code, skill-authoring, grill-with-docs, and memory-hub remain in the full catalog below but have been superseded or stabilized.
 > 此前入选的技能如 claude-code、skill-authoring、grill-with-docs、memory-hub 仍保留在下方完整目录中，但已被取代或趋于稳定。
