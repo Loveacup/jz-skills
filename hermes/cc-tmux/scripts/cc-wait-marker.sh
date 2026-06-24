@@ -20,6 +20,7 @@
 # Defaults: --after 0 (any marker newer than the epoch), --timeout 21600 (6h).
 
 set -euo pipefail
+source "$(dirname "$0")/lib/portability.sh"
 
 usage() {
   cat >&2 <<'EOF'
@@ -72,7 +73,7 @@ start=$(date +%s)
 # marker 是否存在且 mtime 严格 > AFTER
 is_newer() {
   [[ -f "$MARKER" ]] || return 1
-  local m; m=$(stat -f %m "$MARKER" 2>/dev/null || echo 0)
+  local m; m=$(get_mtime "$MARKER")
   [[ "$m" -gt "$AFTER" ]]
 }
 emit_and_exit0() { cat "$MARKER" 2>/dev/null || true; exit 0; }

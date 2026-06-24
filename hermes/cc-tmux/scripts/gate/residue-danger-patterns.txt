@@ -1,0 +1,52 @@
+# cc-finish residue danger patterns
+# Step 1 of cc-finish.sh scans the ❯ prompt for residual input before closing.
+# This file lists ERE patterns (one per line, # comments ignored) that trigger
+# the hard DANGER gate (exit 10) — same severity as gate-danger.sh.
+#
+# Non-dangerous residue (e.g. "ls", "echo hello") still warns (exit 1) but
+# doesn't block. These patterns mean "stop, check, do NOT press Enter".
+
+# ── File system destruction ────────────────────────
+rm[[:space:]]+-[a-z]*[rf]
+rmdir[[:space:]]
+mkfs\.
+dd[[:space:]]+if=
+>[[:space:]]*/dev/
+cp[[:space:]].*/dev/
+
+# ── Git destructive ─────────────────────────────────
+git[[:space:]]+push[[:space:]]+.*--force
+git[[:space:]]+push[[:space:]]+.*-f[[:space:]]
+git[[:space:]]+reset[[:space:]]+--hard
+git[[:space:]]+clean[[:space:]]+-[a-z]*[fd]
+
+# ── Privilege escalation ────────────────────────────
+sudo[[:space:]]
+su[[:space:]]+-[[:space:]]
+chmod[[:space:]]+777
+chmod[[:space:]]+[0-7]*7[0-7]*7[0-7]*7
+chown[[:space:]].*:.*/
+
+# ── Process / system ────────────────────────────────
+killall[[:space:]]
+kill[[:space:]]+-9
+pkill[[:space:]]
+reboot
+shutdown[[:space:]]
+halt[[:space:]]
+
+# ── Network / data exfiltration ─────────────────────
+curl[[:space:]].*-F[[:space:]].*@
+nc[[:space:]]+-[a-z]*[le]
+scp[[:space:]]
+wget[[:space:]].*-O[[:space:]]*/
+
+# ── Fork bomb / resource exhaustion ─────────────────
+:\(\)[[:space:]]*\{
+\)[[:space:]]*;[[:space:]]*:
+
+# ── Environment / config destruction ────────────────
+>[[:space:]]*~/.ssh/
+>[[:space:]]*~/.aws/
+>[[:space:]]*~/.hermes/
+>[[:space:]]*/etc/

@@ -131,6 +131,67 @@ fi
 tmux kill-session -t "$SESS4" 2>/dev/null || true
 rm -f "/tmp/cc-heartbeat-${SESS4}" "/tmp/cc-state-${SESS4}.log" "/tmp/cc-turn-done-${SESS4}"
 
+# ── Residue gate tests (Step 1 hard gate) ──────────────────
+echo ""
+echo "--- residue gate ---"
+
+# Helper: create a session with ❯ + given residual text
+make_residue_session() {
+  local name="$1" text="$2"
+  tmux new-session -d -s "$name" -x 100 -y 20 "echo 'some output'; printf '❯ ${text}'; sleep 999" 2>/dev/null
+  sleep 0.3
+}
+
+# Test R1: dangerous residue → exit 10
+RSESS="cctmux-test-residue-$$"
+make_residue_session "$RSESS" "rm -rf /tmp/test"
+set +e; out=$(bash "$FINISH" --session "$RSESS" 2>&1); rc=$?; set -e
+if [[ "$rc" -eq 10 ]] && printf '%s' "$out" | grep -q 'HARD GATE'; then
+  ok "危险残留 rm -rf → exit 10 (硬门)"
+else
+  bad "危险残留 rm -rf: rc=$rc (expected 10)"
+fi
+tmux kill-session -t "$RSESS" 2>/dev/null || true
+
+# Test R2: sudo → exit 10
+RSESS2="cctmux-test-residue2-$$"
+make_residue_session "$RSESS2" "sudo rm /var/log/syslog"
+set +e; out=$(bash "$FINISH" --session "$RSESS2" 2>&1); rc=$?; set -e
+if [[ "$rc" -eq 10 ]]; then
+  ok "危险残留 sudo → exit 10"
+else
+  bad "危险残留 sudo: rc=$rc (expected 10)"
+fi
+tmux kill-session -t "$RSESS2" 2>/dev/null || true
+
+# Test R3: harmless residue → exit 1 (not 10)
+RSESS3="cctmux-test-residue3-$$"
+make_residue_session "$RSESS3" "ls -la /tmp"
+# Fresh turn-done + heartbeat to pass monitoring gap gate
+echo "$(date +%s)|1|IDLE|0|0|0|0" > "/tmp/cc-heartbeat-${RSESS3}"
+date +%s > "/tmp/cc-turn-done-${RSESS3}"
+set +e; out=$(bash "$FINISH" --session "$RSESS3" 2>&1); rc=$?; set -e
+if [[ "$rc" -eq 1 ]] && printf '%s' "$out" | grep -q '残留为非危险'; then
+  ok "无害残留 ls → exit 1 (非硬门)"
+else
+  bad "无害残留 ls: rc=$rc (expected 1)"
+fi
+tmux kill-session -t "$RSESS3" 2>/dev/null || true
+rm -f "/tmp/cc-heartbeat-${RSESS3}" "/tmp/cc-turn-done-${RSESS3}"
+
+# Test R4: clean ❯ → no residue warning
+RSESS4="cctmux-test-residue4-$$"
+tmux new-session -d -s "$RSESS4" -x 100 -y 20 "echo 'output'; printf '❯ '; sleep 999" 2>/dev/null
+sleep 0.3
+set +e; out=$(bash "$FINISH" --session "$RSESS4" 2>&1); rc=$?; set -e
+# No residue → should NOT exit 1 or 10 due to residue. It might exit non-zero for missing heartbeat.
+if printf '%s' "$out" | grep -q '无残留输入'; then
+  ok "干净 ❯ → 检测为无残留"
+else
+  bad "干净 ❯: 未检测到 '无残留输入'"
+fi
+tmux kill-session -t "$RSESS4" 2>/dev/null || true
+
 echo ""
 echo "=== Results: $PASS/$((PASS+FAIL)) passed ==="
 [[ "$FAIL" -eq 0 ]] && exit 0 || exit 1

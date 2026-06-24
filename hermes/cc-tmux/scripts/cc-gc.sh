@@ -27,6 +27,7 @@
 #   GColdest session=.. age=..
 
 set -euo pipefail
+source "$(dirname "$0")/lib/portability.sh"
 
 MODE="scan"; APPLY=false
 while [[ $# -gt 0 ]]; do
@@ -74,7 +75,7 @@ classify() {
 hb_age() {
   local hb="$TMP/cc-heartbeat-$1" m
   [[ -f "$hb" ]] || { echo -1; return; }
-  m=$(stat -f %m "$hb" 2>/dev/null || echo 0)
+  m=$(get_mtime "$hb")
   echo $(( NOW - m ))
 }
 # count regular files under cc-output/<session>/

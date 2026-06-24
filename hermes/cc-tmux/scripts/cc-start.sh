@@ -16,6 +16,7 @@
 # recorded session is dead (force-killed CC no longer wedges the target).
 
 set -euo pipefail
+source "$(dirname "$0")/lib/portability.sh"
 
 # ── Parse args ──────────────────────────────────────────────
 TARGET="" EFFORT="high" TASK="" MODEL="claude-opus-4-8" AGENT="default" ACK_ACTIVE=false TOPIC=""
@@ -107,7 +108,7 @@ if [[ -n "$TOPIC" ]]; then
       # 心跳新鲜度（默认 2h，与 R9d IDLE>2h 对齐）
       HBF="/tmp/cc-heartbeat-${MAPPED}"; FRESH=false; HBAGE=999999
       if [[ -f "$HBF" ]]; then
-        HBAGE=$(( $(date +%s) - $(stat -f %m "$HBF" 2>/dev/null || echo 0) ))
+        HBAGE=$(( $(date +%s) - $(get_mtime "$HBF") ))
         [[ "$HBAGE" -lt "${CC_TOPIC_FRESH_S:-7200}" ]] && FRESH=true
       fi
       if [[ "$RST" == "IDLE" && "$FRESH" == true ]]; then

@@ -30,6 +30,7 @@
 #   HOOKITEM session=.. status=.. heartbeat=.. hb_age=.. statelog=.. turndone=.. context=.. verdict=ok|degraded
 
 set -euo pipefail
+source "$(dirname "$0")/lib/portability.sh"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -83,7 +84,7 @@ for s in $SESSIONS; do
   # 核心②：cc-heartbeat-<s> 存在（证热心跳 hook 在烧）；附心跳年龄（陈旧只 WARN）
   hb_v="missing"; hb_age="-"
   if [[ -f "$hb_f" ]]; then
-    m=$(stat -f %m "$hb_f" 2>/dev/null || echo 0)
+    m=$(get_mtime "$hb_f")
     hb_age=$(( NOW - m ))
     if [[ "$hb_age" -le "$FRESH_S" ]]; then hb_v="fresh"; else hb_v="stale"; fi
   fi

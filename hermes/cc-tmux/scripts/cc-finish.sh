@@ -15,6 +15,7 @@
 # "report on cadence" — silence has a script-level consequence.
 
 set -euo pipefail
+source "$(dirname "$0")/lib/portability.sh"
 
 SESSION="" TARGET="" RELEASE_LOCK=false KILL=false VERIFY_PATTERN="" FORCE=false CLEAN_TOPIC_MAP=false
 
@@ -54,13 +55,25 @@ if tmux has-session -t "$SESSION" 2>/dev/null; then
   # strip box borders + ❯ + surrounding space; whatever remains is typed residual
   RESIDUAL=$(printf '%s' "$INPUT_LINE" | sed -E 's/^[[:space:]│╎┃|]*❯[[:space:]]*//; s/[[:space:]│╎┃|]*$//')
   if [[ -n "$RESIDUAL" ]]; then
-    DANGER=$(printf '%s' "$RESIDUAL" | grep -ioE 'rm -rf|rm -fr|git push|git reset --hard|git clean|sudo |mkfs|dd if=|killall|kill -9|>[[:space:]]*/[A-Za-z]' | paste -sd',' - | sed 's/,/, /g' || true)
-    echo "⚠️  ❯ 残留输入: ${RESIDUAL:0:90}"
-    if [[ -n "$DANGER" ]]; then
-      echo "  ⛔ 危险模式命中: $DANGER"
-      echo "  → CC 建议/预填的危险操作 ≠ 你的授权。绝不要回车。"
+    echo "⚠️  ❯ 残留输入: ${RESIDUAL:0:120}"
+    # ── Hard gate: scan against residue-danger-patterns.txt ──
+    GATE_DIR="$(cd "$(dirname "$0")/gate" && pwd)"
+    PATTERNS_FILE="$GATE_DIR/residue-danger-patterns.txt"
+    if [[ -f "$PATTERNS_FILE" ]]; then
+      DANGER_HITS=$(printf '%s' "$RESIDUAL" | grep -iEf <(grep -v '^[[:space:]]*#' "$PATTERNS_FILE" | grep -v '^[[:space:]]*$') 2>/dev/null | paste -sd', ' - || true)
+    else
+      # Fallback inline patterns if pattern file missing
+      DANGER_HITS=$(printf '%s' "$RESIDUAL" | grep -ioE \
+        'rm[[:space:]]+-[a-z]*[rf]|git[[:space:]]+push[[:space:]]+.*(-f|--force)|git[[:space:]]+reset[[:space:]]+--hard|git[[:space:]]+clean[[:space:]]+-[a-z]*[fd]|sudo[[:space:]]|mkfs\.|dd[[:space:]]+if=|killall|kill[[:space:]]+-9|>[[:space:]]*/dev/|chmod[[:space:]]+777|chown[[:space:]].*:.*/' \
+        | paste -sd', ' - 2>/dev/null || true)
     fi
-    echo "  → 先 C-u 清行（tmux send-keys -t $SESSION C-u）再收尾，勿按 Enter。"
+    if [[ -n "$DANGER_HITS" ]]; then
+      echo "  🚫 HARD GATE (exit 10): 危险模式命中 → $DANGER_HITS"
+      echo "  → CC 残留的命令包含破坏性操作。绝不要回车。先 C-u 清行再收尾。"
+      echo "===📋 END cc-finish==="
+      exit 10
+    fi
+    echo "  → 残留为非危险内容（exit 1）。先 C-u 清行再收尾，勿按 Enter。"
     EXIT_CODE=1
   else
     echo "✓ ❯ 无残留输入（输入框干净）"
@@ -78,7 +91,7 @@ fi
 TURNDONE="/tmp/cc-turn-done-${SESSION}"
 TURN_DONE_FRESH=false; TD_AGE=-1
 if [[ -f "$TURNDONE" ]]; then
-  TD_MTIME=$(stat -f %m "$TURNDONE" 2>/dev/null || echo 0)
+  TD_MTIME=$(get_mtime "$TURNDONE")
   TD_AGE=$((NOW - TD_MTIME))
   [[ "$TD_AGE" -ge 0 && "$TD_AGE" -lt 300 ]] && TURN_DONE_FRESH=true
 fi

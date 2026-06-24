@@ -19,6 +19,7 @@
 #   goes to stderr so "relay all of stdout" is always exactly right.
 
 set -euo pipefail
+source "$(dirname "$0")/lib/portability.sh"
 
 SESSION="" LAST_TS="" FORCE_CAPTURE=false
 while [[ $# -gt 0 ]]; do
@@ -90,7 +91,7 @@ fi
 # (a pure-think gap, the one thing no hook can see) warrants the full freeze probe, so
 # the watcher and the freeze tests pass --force-capture to always take the slow path.
 if [[ "$FORCE_CAPTURE" != true && -f "$HB" ]]; then
-  HB_MTIME=$(stat -f %m "$HB" 2>/dev/null || echo 0)
+  HB_MTIME=$(get_mtime "$HB")
   HB_AGE=$((NOW - HB_MTIME)); [[ "$HB_MTIME" -eq 0 ]] && HB_AGE=999999
   FAST_S=${CC_MONITOR_FAST_S:-20}
   if [[ "$HB_AGE" -ge 0 && "$HB_AGE" -lt "$FAST_S" ]]; then

@@ -18,6 +18,7 @@
 #        cc-watcher.sh --watch <session> [--once] [--usage-check] [--stale <s>] [--interval <s>]
 
 set -euo pipefail
+source "$(dirname "$0")/lib/portability.sh"
 
 QUIET=false
 WATCH_SESSION="" ONCE=false USAGE_CHECK_NOW=false
@@ -118,7 +119,7 @@ if [[ -n "$WATCH_SESSION" ]]; then
     if ! tmux has-session -t "$s" 2>/dev/null; then RETIRE=1; return 0; fi
     local hb="/tmp/cc-heartbeat-${s}" age=999999 m
     if [[ -f "$hb" ]]; then
-      m=$(stat -f %m "$hb" 2>/dev/null || echo 0)
+      m=$(get_mtime "$hb")
       age=$(( $(date +%s) - m ))
     fi
     if [[ "$age" -ge "$STALE" ]]; then
