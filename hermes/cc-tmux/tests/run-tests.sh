@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # run-tests.sh — cc-tmux unified test runner
-# Aggregates all 17 test-*.sh suites, reports PASS/FAIL at both assertion and file-exit-code level.
+# Aggregates all 20 test-*.sh suites, reports PASS/FAIL at both assertion and file-exit-code level.
 # Exit codes: 0 = all passed, 1 = ≥1 failure.
 
 set -euo pipefail
