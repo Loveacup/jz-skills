@@ -38,7 +38,7 @@ esac
 STUB
   chmod +x "$D/stub-tmux.sh"
 }
-cleanup() { [[ -n "$D" && -d "$D" ]] && rm -rf "$D"; }
+cleanup() { [[ -n "$D" && -d "$D" ]] && rm -rf "$D"; return 0; }
 trap cleanup EXIT
 
 # add an ALIVE session with a given pane fixture

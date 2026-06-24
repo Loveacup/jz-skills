@@ -26,27 +26,40 @@ sid=$(printf '%s' "$in" | jq -r '.session_id // "unknown"' 2>/dev/null || echo "
 K="${CC_TMUX_SESSION:-$sid}"
 TOOL=$(printf '%s' "$in" | jq -r '.tool_name // empty' 2>/dev/null || echo "")
 [[ "$TOOL" == "null" ]] && TOOL=""
+# SessionStart 携带 .source（startup/resume/clear/compact）——compact = 压缩后续接，
+# 是「新 resume ID 已生成」的事后信号（CC 无 PostCompact 事件，靠 SessionStart:compact 识别）。
+SRC=$(printf '%s' "$in" | jq -r '.source // empty' 2>/dev/null || echo "")
+[[ "$SRC" == "null" ]] && SRC=""
 
 TMP="${CC_STATUS_TMPDIR:-/tmp}"
 STATUS="${TMP}/cc-status-${K}.json"
 NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-# ── event → state 映射（含未来事件，未来兼容、无害）──
+# ── event → state 映射（当前接线 8 事件：PreToolUse/PostToolUse/UserPromptSubmit/
+#    Notification/SessionStart/SessionEnd/Stop/PreCompact；其余为 future-compat，未接线）──
 case "$EVENT" in
-  PreToolUse|PostToolUse|PostToolUseFailure|SubagentStart|SubagentStop) STATE="TOOL" ;;
+  PreToolUse|PostToolUse)                          STATE="TOOL" ;;
+  # future-compat（未接线）：
+  PostToolUseFailure|SubagentStart|SubagentStop)   STATE="TOOL" ;;
   Notification)
     STATE="IDLE"
     printf '%s' "$in" | grep -qi 'permission' && STATE="BLOCKED" || true
     ;;
   UserPromptSubmit)             STATE="RECEIVED" ;;
   Stop)                         STATE="COMPLETED" ;;
-  StopFailure)                  STATE="ERROR" ;;
-  PermissionRequest|PermissionDenied) STATE="BLOCKED" ;;
-  SessionStart)                 STATE="ACTIVE" ;;
+  PreCompact)                   STATE="COMPACTING" ;;   # 压缩前：TUI 将暂停，标 COMPACTING 避免 watcher 误判 freeze
+  SessionStart)                 STATE="ACTIVE" ;;       # source=compact 时压缩已完成、session 续接 → 仍 ACTIVE，仅 last_event 标注
   SessionEnd)                   STATE="GONE" ;;
-  PreCompact)                   STATE="COMPACTING" ;;
+  # future-compat（未接线）：
+  StopFailure)                  STATE="ERROR" ;;
+  # future-compat（未接线）：
+  PermissionRequest|PermissionDenied) STATE="BLOCKED" ;;
   *)                            STATE="ACTIVE" ;;
 esac
+
+# last_event 标注：SessionStart:compact 让 cc-monitor/cc-finish 看出这次 ACTIVE 是压缩续接
+EV_LABEL="$EVENT"
+[[ "$EVENT" == "SessionStart" && "$SRC" == "compact" ]] && EV_LABEL="SessionStart:compact"
 
 # ── 读上一版（state_since 同态续接 + seq 自增 + last_tool 续接）──
 PREV_STATE=""; PREV_SINCE=""; PREV_SEQ=0; PREV_TOOL=""; PREV_TOOL_SINCE=""
@@ -73,7 +86,7 @@ fi
 # ── 原子写：jq -n 构造 → temp → mv ──
 tmpf="${STATUS}.tmp.$$"
 if jq -n \
-    --arg state "$STATE" --arg since "$SINCE" --arg ev "$EVENT" \
+    --arg state "$STATE" --arg since "$SINCE" --arg ev "$EV_LABEL" \
     --arg tool "$TOOL" --arg toolsince "$TOOL_SINCE" --argjson seq "$SEQ" --arg hb "$NOW" \
     '{state:$state, state_since:$since, last_event:$ev, last_tool:$tool, last_tool_since:$toolsince, seq:$seq, heartbeat:$hb}' \
     > "$tmpf" 2>/dev/null; then

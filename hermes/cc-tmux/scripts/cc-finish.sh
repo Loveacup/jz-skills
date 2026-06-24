@@ -110,8 +110,10 @@ fi
 
 # ── 3. State-transition summary (from JSONL log) ──────────────
 if [[ -f "$STATELOG" ]]; then
-  RUNS=$(grep -c '' "$STATELOG" 2>/dev/null || echo 0)
-  TRANSITIONS=$(grep -c '"changed":true' "$STATELOG" 2>/dev/null || echo 0)
+  # grep -c 在空文件时仍打印 "0" 后退出码 1 → `|| echo 0` 会再追加一个 0（得到 "0\n0"，污染算术）；
+  # 用 `|| true` 吞退出码、让 grep 自身的计数作唯一输出（照搬 cc-watcher.sh 兜底模式）。
+  RUNS=$(grep -c '' "$STATELOG" 2>/dev/null || true)
+  TRANSITIONS=$(grep -c '"changed":true' "$STATELOG" 2>/dev/null || true)
   SEQ_STATES=$(grep '"changed":true' "$STATELOG" 2>/dev/null | grep -oE '"state":"[^"]+"' | sed -E 's/"state":"([^"]+)"/\1/' | paste -sd'→' - 2>/dev/null || true)
   # max gap between consecutive monitor runs
   MAXGAP=0; PREV=0

@@ -26,10 +26,10 @@ MODE="" TRANSCRIPT="" TARGET="jz-skills" SESSION=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --mode)       MODE="$2"; shift 2 ;;
-    --transcript) TRANSCRIPT="$2"; shift 2 ;;
-    --target)     TARGET="$2"; shift 2 ;;
-    --session)    SESSION="$2"; shift 2 ;;
+    --mode)       MODE="${2:-}"; shift 2 ;;
+    --transcript) TRANSCRIPT="${2:-}"; shift 2 ;;
+    --target)     TARGET="${2:-}"; shift 2 ;;
+    --session)    SESSION="${2:-}"; shift 2 ;;
     *) shift ;;
   esac
 done
@@ -133,7 +133,7 @@ PASSES=0; TOTAL=3
 [[ "$REPORT_STATUS" == "pass" ]] && PASSES=$((PASSES + 1))
 [[ "$VERIFY_STATUS" == "pass" ]] && PASSES=$((PASSES + 1))
 
-SCORE=$(echo "scale=1; $PASSES / $TOTAL * 100" | bc 2>/dev/null || echo "$((PASSES * 100 / TOTAL))")
+SCORE=$(LC_NUMERIC=C echo "scale=1; $PASSES / $TOTAL * 100" | bc 2>/dev/null || echo "$((PASSES * 100 / TOTAL))")
 
 cat <<EOF
 {

@@ -63,7 +63,10 @@ DELTA=$((NOW - PREV_EPOCH)); [[ "$PREV_EPOCH" -eq 0 ]] && DELTA=0
 persist() {
   local st="$1" tk="$2" tce="$3" tt="$4" changed="false"
   [[ "$st" != "$PREV_STATE" ]] && changed="true"
-  echo "${NOW}|${RUNCOUNT}|${st}|${tk}|${tce}|${SEQ}|${tt}" > "$HB"
+  # atomically write heartbeat (temp+mv to prevent torn reads)
+  local hb_tmp="${HB}.tmp.$$"
+  echo "${NOW}|${RUNCOUNT}|${st}|${tk}|${tce}|${SEQ}|${tt}" > "$hb_tmp"
+  mv -f "$hb_tmp" "$HB"
   printf '{"ts":"%s","epoch":%s,"seq":%s,"state":"%s","from":"%s","changed":%s,"tokens":"%s","delta_s":%s}\n' \
     "$ISO" "$NOW" "$SEQ" "$st" "$PREV_STATE" "$changed" "$tk" "$DELTA" >> "$STATELOG"
   # stderr: machine metadata (NOT for relay)

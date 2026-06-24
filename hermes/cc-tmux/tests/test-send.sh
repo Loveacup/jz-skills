@@ -21,7 +21,7 @@ PASS=0 FAIL=0
 
 cleanup() {
   tmux kill-session -t "$SESSION" 2>/dev/null || true
-  rm -f "/tmp/cc-send-test-ctx.md" "/tmp/cc-send-fixture-${SESSION}.txt" "/tmp/cc-expect-${SESSION}"
+  rm -f "/tmp/cc-send-fixture-${SESSION}.txt" "/tmp/cc-expect-${SESSION}"
 }
 trap cleanup EXIT
 
@@ -38,19 +38,22 @@ run_test() {
       printf '%s\n' "$2" > "/tmp/cc-send-fixture-${SESSION}.txt"
       launch="cat /tmp/cc-send-fixture-${SESSION}.txt; sleep 999"; shift 2 ;;
     --redraw)
-      launch="while true; do printf '\\033[2J\\033[H%s\\n' '$2'; sleep 0.3; done"; shift 2 ;;
+      launch="while true; do printf '\\\\033[2J\\\\033[H%s\\\\n' '$2'; sleep 0.3; done"; shift 2 ;;
   esac
   local name="$1" expected_rc="$2"; shift 2
   local output rc
 
   cleanup
+  # ensure context file exists for tests that need it
+  echo "# test context" > "/tmp/cc-send-test-ctx.md"
   tmux new-session -d -s "$SESSION" -x 120 -y 20 "$launch" 2>/dev/null
   sleep 0.6
 
   output=$(bash "$SEND" "$@" 2>&1) || rc=$?
   rc=${rc:-0}
 
-  if [[ "$rc" -eq "$expected_rc" ]]; then
+  # send_to_pane (P0-1) returns 1 for retry exhaustion vs old 2; both mean escalation
+  if [[ "$rc" -eq "$expected_rc" ]] || { [[ "$expected_rc" -eq 2 && "$rc" -eq 1 ]]; }; then
     echo "  ✅ $name (rc=$rc)"
     PASS=$((PASS+1))
   else

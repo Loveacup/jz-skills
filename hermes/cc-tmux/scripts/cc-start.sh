@@ -46,6 +46,12 @@ case "$EFFORT" in
   *) echo "Invalid effort: $EFFORT (must be high, xhigh, or max)" >&2; exit 1 ;;
 esac
 
+# ── Validate --target chars (reject spaces and special chars that break lock/session names)
+if [[ "$TARGET" != "${TARGET//[^a-zA-Z0-9._-]/}" ]]; then
+  echo "❌ Invalid --target: '$TARGET' — contains characters outside [a-zA-Z0-9._-]. Use hyphens/underscores/dots only." >&2
+  exit 1
+fi
+
 # ── §3.8 #7: HERMES_HOME / HOME redirection self-check ────────
 # Pure read-only, runs BEFORE any lock/scan. Turns a mysterious runtime failure
 # (HOME redirected by a profile → skill scripts unfindable) into an explicit

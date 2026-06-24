@@ -106,11 +106,14 @@ docs: re-rank active skills by full-history commit count (12→12→10→9→7�
 
 ### Push (Hermes → repo)
 ```bash
-./deploy/sync-back.sh --dry-run   # Preview changes
-./deploy/sync-back.sh             # Apply + auto-sanitize
-git diff && git commit && git push
+./deploy/sync-back.sh --dry-run                 # Preview all runtime drift
+./deploy/sync-back.sh --apply --only shared/x   # Apply one reviewed scope
+./deploy/skill-drift-summary.sh                 # Summarize commit risk
+git diff
 ```
-`sync-back.sh` auto-sanitizes: `$HOME` → `~/`, emails → redacted, private IPs → redacted, API keys → redacted.
+`sync-back.sh` is report-only by default. Runtime → repo writeback must be scoped with `--only <repo-path>` unless Alex explicitly approves `--force-all`. It auto-sanitizes scoped writeback: `$HOME` → `~/`, emails → redacted, private IPs → redacted, API keys → redacted.
+
+Do not batch unrelated runtime drift into the current commit. If `--dry-run` shows multiple drifted skills, review them separately.
 
 ### Pull (repo → Hermes/CC/pi)
 ```bash
@@ -142,7 +145,8 @@ git pull && ./deploy/sync-all.sh <platform>
 
 - **Use `skill-authoring` for any skill work.** Load the skill before making changes.
 - **Prefer agent team for multi-file changes.** This repo has 60 skills with cross-references — a single-CC session can miss cascading impacts.
-- **Run `sync-back.sh --dry-run` before committing** to see what's changed from the live Hermes deployment.
+- **Run `deploy/skill-drift-summary.sh` before committing** to catch cross-skill drift, critical deletions, and sensitive additions.
+- **Run `sync-back.sh --dry-run` before scoped runtime writeback** to see what's changed from the live Hermes deployment.
 - **Test sync before pushing** if you changed sync mappings: `./deploy/sync-all.sh hermes && ./deploy/sync-back.sh --dry-run`.
 - **Bilingual commits are mandatory.** Single-language commits will be rejected on review.
 - **Don't touch `hermes-3S6M-profiles/`** unless explicitly asked — these are tightly coupled to the 三省六部 governance system and profile `config.yaml` files in `~/.hermes/profiles/`.

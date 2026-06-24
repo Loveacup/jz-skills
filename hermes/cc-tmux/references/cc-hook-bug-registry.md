@@ -50,6 +50,11 @@ cc-tmux 做了以下架构选择来规避这些问题：
 
 这些 bug 的状态应定期复查（建议每月）。若上游修复，cc-tmux 可以考虑将 hook 升级为 belt-and-suspenders 层——但**永远不作为唯一硬门**。
 
+> **复查已半自动化（2026-06-24）**：「hook 还在不在烧」这半客观复查已搬到 cron——每月 1 号自动跑
+> `scripts/cc-hook-check.sh`（被动检视活跃 session 的 hook 产物，疑似回归即 deliver 告警），不再靠人记得跑。
+> 安装/分工见 `references/cc-hook-cron-monthly.md`。**剩下需判断的那半**（下方 4 个上游 GitHub bug 是否修复、
+> 实测事实是否变化）仍需人工/agent——cron 的 no-agent 脚本读不了 GitHub issue 状态。
+
 ### 复查状态 — 2026-06-17（Phase 0-3 验证）
 
 | 项 | 状态 | 对监控的影响 |

@@ -46,63 +46,44 @@ if [[ -n "$EXPECT_GLOB" ]]; then
   printf '%s' "$EXPECT_GLOB" > "/tmp/cc-expect-${SESSION}"
 fi
 
-# ── Send payload (factored out so verify_delivered can re-send) ──
-send_payload() {
-  if [[ -n "$CONTEXT" && -f "$CONTEXT" ]]; then
-    tmux send-keys -t "$SESSION" \
-      "Please read $CONTEXT — $(head -1 "$CONTEXT" | cut -c1-80)" Enter
-  elif [[ -n "$MESSAGE" ]]; then
-    tmux send-keys -t "$SESSION" "$MESSAGE" Enter
-  else
-    echo "⚠️  No context file or message provided. Sending empty Enter to trigger." >&2
-    tmux send-keys -t "$SESSION" Enter
-  fi
+# ── Source cc-send-robust.sh for send_to_pane (P0-1: 根治 #5/#18 — 内化完整 send→classify→repair→retry 管道) ──
+SKILL_DIR="${CC_TMUX_SKILL_ROOT:-$(cd "$(dirname "$0")" && pwd)}"
+# shellcheck source=./cc-send-robust.sh
+. "$SKILL_DIR/cc-send-robust.sh" 2>/dev/null || {
+  echo "❌ cc-send: failed to source cc-send-robust.sh from $SKILL_DIR" >&2
+  exit 1
 }
 
-# ── §3.2: verify_delivered — post-send liveness check w/ bounded retry ──
-verify_delivered() {
-  local tries=0 max=4
-  while (( tries < max )); do
-    sleep 0.6
-    local tail4
-    tail4=$(tmux capture-pane -t "$SESSION" -p -S -6 2>/dev/null \
-            | grep -v '^[[:space:]]*$' | tail -4 || true)
+# ── Build the message to send ──
+if [[ -n "$CONTEXT" && -f "$CONTEXT" ]]; then
+  MSG="Please read $CONTEXT — $(head -1 "$CONTEXT" | cut -c1-80)"
+elif [[ -n "$MESSAGE" ]]; then
+  MSG="$MESSAGE"
+else
+  echo "⚠️  No context file or message provided." >&2
+  exit 1
+fi
 
-    # ① queue mode (Pitfall #1) — highest priority: Escape out, re-send payload
-    if printf '%s' "$tail4" | grep -q 'Press up to edit queued'; then
-      if [[ "$DRYRUN" -eq 1 ]]; then
-        echo "[dry-run] queue mode detected — would Escape + re-send payload" >&2
-        return 0
-      fi
-      tmux send-keys -t "$SESSION" Escape; sleep 0.3; send_payload
-      (( ++tries )); continue          # ← ++prefix: avoid set -e rc=1 abort at tries=0
-    fi
+# ── §3.2: send via send_to_pane (cc-send-robust.sh) — single call replaces send_payload + verify_delivered ──
+# P0-1 (Pitfall #5/#18): send_to_pane uses -l (literal) to prevent #/! interpretation,
+# has proper timing separation (literal sleep → Enter → verify), and built-in
+# classify→repair→retry loop (max 3 retries by default, robust handles both
+# queue-banner/Escape and residual-text/Enter stuck states).
+#
+# Exit codes from send_to_pane: 0=ok, 1=retry exhausted, 3=tmux error
+if [[ "$DRYRUN" -eq 1 ]]; then
+  echo "[dry-run] would send: $MSG"
+  echo "[dry-run] via send_to_pane() with classify→repair→retry pipeline"
+  exit 0
+fi
 
-    # ② ❯ prompt classification
-    local pl c=""
-    pl=$(printf '%s' "$tail4" | grep '❯' | tail -1 || true)
-    if [[ -n "$pl" ]]; then
-      c=$(printf '%s' "$pl" | sed -E 's/^[[:space:]│╎┃|]*❯[[:space:]]*//; s/[[:space:]│╎┃|]*$//')
-      if [[ -n "$c" ]]; then
-        # residual text after ❯ = Enter never registered → resend Enter
-        if [[ "$DRYRUN" -eq 1 ]]; then
-          echo "[dry-run] ❯ has residual text — would re-send Enter" >&2
-          return 0
-        fi
-        tmux send-keys -t "$SESSION" Enter
-        (( ++tries )); continue
-      fi
-    fi
+send_to_pane "$SESSION" "$MSG" 4    # max 4 retries (was 3 default; bump for safety)
+rc=$?
 
-    # ③ empty ❯, OR no ❯ at all (CC already consumed input and is working) = success
-    echo "✓ Sent to $SESSION (verified, tries=$tries)"
-    return 0
-  done
+if [[ "$rc" -eq 0 ]]; then
+  echo "✓ Sent to $SESSION (via send_to_pane)"
+  exit 0
+fi
 
-  echo "⚠️  Enter 未生效且自动重试 ${max} 次失败 — 人工 capture-pane 介入" >&2
-  return 2
-}
-
-# ── Send, then verify; verify_delivered's rc propagates as the script's rc ──
-send_payload
-verify_delivered
+echo "⚠️  send_to_pane 失败 (rc=$rc) — 人工 capture-pane 介入" >&2
+exit 2

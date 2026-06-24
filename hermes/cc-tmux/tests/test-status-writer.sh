@@ -17,7 +17,7 @@ ok() { echo "  ✅ $1"; PASS=$((PASS+1)); }
 no() { echo "  ❌ $1"; FAIL=$((FAIL+1)); }
 
 new_sandbox() { D=$(mktemp -d "/tmp/cc-sw-test.XXXXXX"); }
-cleanup() { [[ -n "$D" && -d "$D" ]] && rm -rf "$D"; }
+cleanup() { [[ -n "$D" && -d "$D" ]] && rm -rf "$D"; return 0; }
 trap cleanup EXIT
 
 # fire <EVENT> <stdin-json> [extra env assignments via CC_TMUX_SESSION already set by caller]
@@ -62,6 +62,17 @@ new_sandbox; CC_TMUX_SESSION="s1" fire SessionEnd '{"session_id":"uuid-x","reaso
 # ── TC7: SessionStart → ACTIVE ──
 new_sandbox; CC_TMUX_SESSION="s1" fire SessionStart '{"session_id":"uuid-x"}'
 [[ "$(jqf s1 .state)" == "ACTIVE" ]] && ok "TC7 SessionStart → ACTIVE" || no "TC7 got $(jqf s1 .state)"; cleanup
+
+# ── TC7b: PreCompact → COMPACTING（压缩前，避免 watcher 误判 freeze）──
+new_sandbox; CC_TMUX_SESSION="s1" fire PreCompact '{"session_id":"uuid-x"}'
+[[ "$(jqf s1 .state)" == "COMPACTING" ]] && ok "TC7b PreCompact → COMPACTING" || no "TC7b got $(jqf s1 .state)"; cleanup
+
+# ── TC7c: SessionStart(source=compact) → ACTIVE 且 last_event=SessionStart:compact ──
+new_sandbox; CC_TMUX_SESSION="s1" fire SessionStart '{"session_id":"uuid-x","source":"compact"}'
+if [[ "$(jqf s1 .state)" == "ACTIVE" ]] && [[ "$(jqf s1 .last_event)" == "SessionStart:compact" ]]; then
+  ok "TC7c SessionStart(compact) → ACTIVE · last_event=SessionStart:compact"
+else no "TC7c state=$(jqf s1 .state) last_event=$(jqf s1 .last_event)"; fi
+cleanup
 
 # ── TC8: state_since continuity + seq increment (same state) ──
 new_sandbox

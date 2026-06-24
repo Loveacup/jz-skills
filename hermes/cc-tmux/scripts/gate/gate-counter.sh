@@ -20,7 +20,8 @@
 #
 # 退出码： 0 成功且未达上限 · 20 自增后达到/超过上限（停循环、升级人工）· 3 参数错误
 # stdout： {key, kind, count, limit, over}
-# 存储：  /tmp/cc-counter-<key>.json（写临时文件再 mv，原子，防并发丢更新）
+# 存储：  /tmp/cc-counter-<key>.json（写临时文件再 mv——仅防撕裂读，不防并发 RMW 丢更新；
+#         当前 cc-tmux 串行调用故无碍；后续若并发复用，须补 mkdir 锁或 flock）
 #         清理：由调用方收尾负责 —— cc-tmux 下即 cc-finish.sh 随状态文件一并清。
 #
 # 示例：

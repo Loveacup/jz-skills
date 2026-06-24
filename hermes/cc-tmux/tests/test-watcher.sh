@@ -16,7 +16,8 @@ bad(){ echo "  ❌ $1"; FAIL=$((FAIL+1)); }
 cleanup(){
   tmux kill-session -t "$SESS" 2>/dev/null || true
   rm -f "/tmp/cc-heartbeat-${SESS}" "/tmp/cc-state-${SESS}.log" \
-        "/tmp/cc-fixture-${SESS}.txt" "/tmp/cc-freeze-${SESS}"
+        "/tmp/cc-fixture-${SESS}.txt" "/tmp/cc-freeze-${SESS}" \
+        "/tmp/cc-usage-alert-${SESS}"
 }
 trap cleanup EXIT
 cleanup
@@ -61,6 +62,46 @@ fi
 # Test 4: default audit mode (no --watch) still works (cron role preserved)
 out=$(bash "$WATCHER" --quiet 2>&1); rc=$?
 [[ "$rc" -eq 0 ]] && ok "default audit mode preserved (--quiet exit 0)" || bad "audit mode broke: rc=$rc"
+
+# ── §R8c③ usage-alert tests (--usage-check single sync entrypoint, stubbed ccusage) ──
+ALERT="/tmp/cc-usage-alert-${SESS}"
+
+# Test 5: cumulative tokens ≥ ceiling → writes /tmp/cc-usage-alert-<s>
+rm -f "$ALERT"
+CC_USAGE_CMD="printf {\"totals\":{\"totalTokens\":2000000000,\"totalCost\":9}}" CC_USAGE_CEIL=1500000000 \
+  bash "$WATCHER" --watch "$SESS" --usage-check >/dev/null 2>&1
+if [[ -f "$ALERT" ]] && grep -q '天花板' "$ALERT" 2>/dev/null; then
+  ok "tokens ≥ ceiling → usage-alert written"
+else
+  bad "ceiling breach did NOT write alert"
+fi
+
+# Test 6: cumulative below ceiling → clears stale alert
+echo "stale" > "$ALERT"
+CC_USAGE_CMD="printf {\"totals\":{\"totalTokens\":100,\"totalCost\":1}}" CC_USAGE_CEIL=1500000000 \
+  bash "$WATCHER" --watch "$SESS" --usage-check >/dev/null 2>&1
+[[ ! -f "$ALERT" ]] && ok "below ceiling → stale alert cleared" || bad "stale alert NOT cleared"
+
+# Test 7: 'approaching limit' text in raw output → alert (best-effort grep fallback)
+rm -f "$ALERT"
+CC_USAGE_CMD="echo you are approaching your limit now" CC_USAGE_CEIL=1500000000 \
+  bash "$WATCHER" --watch "$SESS" --usage-check >/dev/null 2>&1
+[[ -f "$ALERT" ]] && ok "'approaching limit' text → alert (grep fallback)" || bad "approaching-limit text did NOT alert"
+
+# Test 8: ccusage unavailable → silent degrade, does NOT fabricate alert, exit 0
+rm -f "$ALERT"
+CC_USAGE_CMD="cc-watcher-no-such-cmd-xyz" bash "$WATCHER" --watch "$SESS" --usage-check >/dev/null 2>&1; rc=$?
+if [[ "$rc" -eq 0 && ! -f "$ALERT" ]]; then
+  ok "ccusage failure → degrade (exit 0, no fabricated alert)"
+else
+  bad "ccusage-failure handling wrong: rc=$rc alert=$([ -f "$ALERT" ] && echo present || echo none)"
+fi
+
+# Test 9: ccusage failure must NOT clear a pre-existing alert (no false clear)
+echo "keep" > "$ALERT"
+CC_USAGE_CMD="cc-watcher-no-such-cmd-xyz" bash "$WATCHER" --watch "$SESS" --usage-check >/dev/null 2>&1
+[[ -f "$ALERT" ]] && ok "ccusage failure → pre-existing alert untouched" || bad "ccusage failure wrongly cleared alert"
+rm -f "$ALERT"
 
 echo ""
 echo "=== Results: $PASS/$((PASS+FAIL)) passed ==="

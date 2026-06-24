@@ -1,20 +1,72 @@
 #!/bin/bash
 # sync-back.sh — Reverse sync: Hermes → git repo (with auto-sanitize)
+#
+# Safe default: report-only. Applying changes requires `--apply` plus either
+# one or more `--only <repo-path>` scopes, or an explicit `--force-all`.
 set -eu
 set +H
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DRY_RUN=false
+DRY_RUN=true
 SANITIZE=true
+FORCE_ALL=false
+ONLY_PATHS=()
 
-for arg in "$@"; do
+usage() {
+  cat <<'EOF'
+Usage:
+  ./deploy/sync-back.sh [--dry-run] [--only <repo-path> ...]
+  ./deploy/sync-back.sh --apply --only <repo-path> [--only <repo-path> ...]
+  ./deploy/sync-back.sh --apply --force-all
+
+Examples:
+  ./deploy/sync-back.sh --dry-run
+  ./deploy/sync-back.sh --only shared/obsidian --dry-run
+  ./deploy/sync-back.sh --apply --only shared/obsidian
+
+Notes:
+  - Default is dry-run to avoid unrelated runtime drift polluting commits.
+  - Use --only for scoped writeback. Full writeback requires --force-all.
+EOF
+}
+
+while [ "$#" -gt 0 ]; do
+  arg="$1"
   case "$arg" in
     --dry-run) DRY_RUN=true ;;
+    --apply) DRY_RUN=false ;;
+    --force-all) FORCE_ALL=true ;;
+    --only)
+      shift
+      [ "$#" -gt 0 ] || { echo "ERROR: --only requires a repo path" >&2; exit 2; }
+      ONLY_PATHS+=("$1")
+      ;;
+    --only=*)
+      ONLY_PATHS+=("${arg#--only=}")
+      ;;
     --no-sanitize) SANITIZE=false ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "ERROR: unknown argument: $arg" >&2
+      usage >&2
+      exit 2
+      ;;
   esac
+  shift
 done
+
+if [ "$DRY_RUN" = false ] && [ "$FORCE_ALL" = false ] && [ "${#ONLY_PATHS[@]}" -eq 0 ]; then
+  echo "ERROR: refusing full sync-back without scope." >&2
+  echo "Use --apply --only <repo-path> for scoped writeback, or --apply --force-all after manual review." >&2
+  exit 2
+fi
 
 echo "🔍 Reverse sync: Hermes → jz-skills repo"
 [ "$DRY_RUN" = true ] && echo "   (DRY RUN — no files will be copied)"
+[ "${#ONLY_PATHS[@]}" -gt 0 ] && printf '   scope: %s\n' "${ONLY_PATHS[@]}"
+[ "$DRY_RUN" = false ] && [ "$FORCE_ALL" = true ] && echo "   ⚠️  FORCE ALL — applying every mapped drift"
 [ "$SANITIZE" = false ] && echo "   ⚠️  SANITIZE OFF — sensitive data will NOT be stripped"
 echo ""
 
@@ -43,6 +95,20 @@ sanitize_dir() {
 
 HERMES_BASE="$HOME/.hermes/skills"
 CHANGED=0
+DRIFT_COUNT=0
+SCOPE_DRIFT_COUNT=0
+
+in_scope() {
+  local repo_path="$1"
+  [ "${#ONLY_PATHS[@]}" -eq 0 ] && return 0
+  local wanted
+  for wanted in "${ONLY_PATHS[@]}"; do
+    if [ "$repo_path" = "$wanted" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
 
 PAIRS=(
   # === shared ===
@@ -101,6 +167,15 @@ for pair in "${PAIRS[@]}"; do
   [ ! -d "$dst" ] && { echo "  ⚠️  $repo_path → dest not found — skipped"; continue; }
 
   diff_output=$(diff -rq "$src" "$dst" 2>/dev/null) && continue
+  DRIFT_COUNT=$((DRIFT_COUNT + 1))
+
+  if ! in_scope "$repo_path"; then
+    SCOPE_DRIFT_COUNT=$((SCOPE_DRIFT_COUNT + 1))
+    echo "  ↪️  $repo_path (out of scope)"
+    echo "$diff_output" | sed 's/^/     /'
+    continue
+  fi
+
   echo "  📝 $repo_path"
   echo "$diff_output" | sed 's/^/     /'
 
@@ -118,12 +193,20 @@ done
 
 echo ""
 if [ "$DRY_RUN" = true ]; then
-  echo "🏁 Dry run complete. Run without --dry-run to apply."
+  echo "🏁 Dry run complete."
+  echo "   Apply with: ./deploy/sync-back.sh --apply --only <repo-path>"
 elif [ "$CHANGED" -eq 0 ]; then
   echo "✅ No changes — repo is up to date."
 else
   echo "✅ $CHANGED skill(s) synced back."
   [ "$SANITIZE" = true ] && echo "   🧹 Auto-sanitized: home paths → ~/, emails → redacted, private IPs → redacted, API keys → redacted"
   echo ""
-  echo "  cd $REPO_ROOT && git diff && git commit -am 'sync back' && git push"
+  echo "  cd $REPO_ROOT && ./deploy/skill-drift-summary.sh && git diff"
+fi
+
+if [ "$SCOPE_DRIFT_COUNT" -gt 0 ]; then
+  echo "⚠️  $SCOPE_DRIFT_COUNT drifted mapping(s) were outside the requested scope."
+  echo "   Review them separately; do not batch them into the current commit."
+elif [ "$DRIFT_COUNT" -gt 1 ] && [ "${#ONLY_PATHS[@]}" -eq 0 ] && [ "$DRY_RUN" = true ]; then
+  echo "⚠️  Multiple drifted mappings detected. Use scoped --only writeback to avoid commit pollution."
 fi

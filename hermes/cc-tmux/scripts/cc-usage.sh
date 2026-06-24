@@ -76,7 +76,7 @@ fetch_usage() {
   out=$(run_bounded "$BOUND" $CC_USAGE_CMD --json 2>/dev/null) || true
   if tok=$(printf '%s' "$out"  | jq -er '.totals.totalTokens' 2>/dev/null) \
      && cost=$(printf '%s' "$out" | jq -er '.totals.totalCost' 2>/dev/null) \
-     && [[ "$tok" =~ ^[0-9]+$ ]]; then
+     && [[ "$tok" =~ ^[0-9]+$ ]] && [[ "$cost" =~ ^[0-9.]+$ ]]; then
     USAGE_OK=true;  USAGE_TOK="$tok";  USAGE_COST="$cost"
   else
     USAGE_OK=false; USAGE_TOK=0;       USAGE_COST=0
