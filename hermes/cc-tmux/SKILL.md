@@ -87,9 +87,11 @@ CC 配置自动决策（R8b · 细则见 references/r8b-config-decision-guide.md
 > **解决的问题**：in-turn wait / 事件驱动唤醒下，用户只看到「派了任务」和「拿到产物」，中间 CC 的状态、Hermes 的判断、与 CC 的讨论全是黑盒。每次读 CC 状态 → 用下面的 📡 块汇报，**结构化总览 + Hermes 自主判断**，不要只说一句「CC 在干 X」。
 > 搬运并适配自旧 `claude-code` skill，详见 `references/progress-reporting.md`。
 
-### 🔴 长任务持续汇报与控制权（红线 — 不可沉默等 turn-done）
+### 🔴 长任务持续汇报（红线 — 不可沉默等 turn-done）
 
-**事件驱动完成通知不能替代中间可干预控制。** CC 可能在同一次 session 内花 15–45 分钟做多轮调研/实现；如果 Hermes 只等 turn-done，用户看到的是「派了任务」→ 长时间沉默 →「做完了」，更糟的是 Hermes 也失去处理 AskUserQuestion、queued input、路径读错、残留输入的机会。
+**事件驱动唤醒不能替代中间汇报。** 即使用了 `notify_on_complete=true` 的 waiter，CC 可能在 **同一次 session 内花 15-45 分钟做多轮调研/分析**——如果 Hermes 只在 turn-done 后才冒头，用户看到的将是「派了任务」→ 30 分钟沉默 →「做完了」。用户无法区分「在正常工作」和「卡死了（AskUserQuestion / 冻结 / 崩溃）」。
+
+**铁律**：派 CC 长任务（预计 >5 分钟）后，Hermes **不能结束 turn 然后静默等通知**。必须先用 in-turn control loop 校验起步阶段；进入稳态后才可切 checkpoint delegate 或完成唤醒。每次可见状态都要汇报 `cc-monitor` 输出（或 fallback 抓屏）+ 一句 Hermes 判断（「方向正常，继续等」/「发现异常，需干预」）。
 
 **三档选择**：
 
@@ -97,11 +99,33 @@ CC 配置自动决策（R8b · 细则见 references/r8b-config-decision-guide.md
 2. **稳态长任务：允许 async checkpoint delegate**。当 CC 已稳定工作但预计还需 10–30 分钟，派一个 one-shot `delegate_task` checkpoint worker：等待 120–180s → 读取 `/tmp/cc-status-*` / heartbeat / turn-done / freeze / `tmux capture-pane` → 返回 verdict → 注入回当前 Telegram 会话。主会话收到后决定继续/干预/收尾。
 3. **只要最终产物：可用事件驱动完成唤醒**。仅当上一轮已明确「预计 ≤10 分钟，下轮 turn-done 见」且不需要中途判断时，才可只挂 `notify_on_complete`。
 
+```
+正确姿势（长任务）：
+  起步 in-turn 校验 → 稳态 checkpoint delegate → 回叫后主会话判断/汇报/干预
+  用户每 2-3 分钟看到一条「CC 还在干 X，方向正常」= 安心。
+
+错误姿势（长任务）：
+  挂 event-driven wakeup → 结束 turn → 30 分钟沉默 → 用户「？」
+  → 用户不知道是卡了还是仍在跑，Hermes 也失去中途干预权。
+```
+
+**什么时候可用事件驱动唤醒代替中间汇报**：仅当**上一轮 📡 汇报已告知用户「CC 预计还需 N 分钟，下轮 turn-done 见」且 N ≤ 10**，才可以结束 turn 挂唤醒。否则必须 in-turn wait 持续汇报。
+
 ### ⏱️ R4c · async checkpoint delegate（稳态长任务回叫）
 
-当 CC 已经过起步阶段校验（`cc-send` 被消费、路径正确、理解没偏、无 AskUserQuestion/queued input），但预计还需 10–30 分钟时，可以使用 Hermes v0.17 顶层 `delegate_task` 的后台异步模式作为 **one-shot checkpoint worker**：等待 120–180s → 只读检查 `/tmp/cc-status-*`、heartbeat、turn-done、freeze，必要时 `tmux capture-pane -t <s> -p -S -80` → 输出 `OK / DONE / BLOCKED / SUSPICIOUS / ERROR` verdict → 注入回当前 Telegram 会话。
+当 CC 已经过起步阶段校验（`cc-send` 被消费、路径正确、理解没偏、无 AskUserQuestion/queued input），但预计还需 10–30 分钟时，可以使用 Hermes v0.17 顶层 `delegate_task` 的后台异步模式作为 **one-shot checkpoint worker**：
 
-**硬禁区**：cron 监控 CC、永久循环 delegate、子 agent 高风险干预、只挂 `notify_on_complete` 后沉默。`delegate_task` checkpoint 是「到点巡检员 / 回叫闹钟」，不是自动驾驶；主会话小黄仍保留 observe → decide → intervene/report 控制权。完整模式见 `references/delegate-task-checkpoint-monitoring.md`。
+1. 子 agent 等待 120–180 秒；
+2. 只读检查 `/tmp/cc-status-<s>.json`、heartbeat、turn-done、freeze，必要时 `tmux capture-pane -t <s> -p -S -80`；
+3. 输出 `OK / DONE / BLOCKED / SUSPICIOUS / ERROR` verdict 后结束；
+4. async delegation completion queue 把结果注入回当前 Telegram 会话；
+5. 主会话小黄继续判断：继续等、亲自干预、读取产物、或升级给 Alex。
+
+**定位**：checkpoint worker 是「到点巡检员 / 回叫闹钟」，不是自动驾驶。它不得 kill session、不得 C-c、不得替用户选择 AskUserQuestion、不得发语义纠偏指令给 CC；唯一允许的机械修复是明确残留输入时补一次 Enter，或 queued messages 时 Escape 清队列并报告。完整模板见 `references/delegate-task-checkpoint-monitoring.md`。
+
+**禁止**：cron 监控 CC、永久循环 delegate、子 agent 高风险干预、起步阶段直接退场、只挂 `notify_on_complete` 后沉默。
+
+**用户催进度 = 最高优先级状态请求**：如果用户中途问「进度？」「你没监控吧？」「怎么还没反应？」之类，不要继续解释背景或等下一轮工具自然返回；立刻读取当前 CC 状态并回一个 📡 块。若 `cc-monitor.sh` 自身报错/崩溃（例如 shell `unbound variable`），**不要把监控失败当成 CC 状态失败**，立即 fallback 到 `tmux capture-pane -t <session> -p -S -60`，根据 pane 的 spinner/tool/write diff/turn-done 现状给用户可见进度。监控工具失败时仍要汇报：「monitor 失败，我已切到 tmux 抓屏」。
 
 ### 状态 Emoji 映射（对齐 cc-monitor 6 状态机）
 
@@ -396,6 +420,19 @@ bash .../scripts/cc-gc.sh --mode gc --apply  # 仅清【僵尸孤儿文件】（
 
 > 裁断：`--apply` 是唯一会改文件系统的开关，且**只删已死 session 的孤儿锁+state**（绝不碰活 session）；默认所有模式只读。机器断言行走 stderr（`GCMETA`/`GCITEM`/`GCAPPLY`/`GColdest`），stdout 是 📡 relay 块。锁的真实约定是**锁目录 `/tmp/cc-lock-<target>/` + `session` 文件**（非扁平文件）。
 
+### 狗粮监测 — `scripts/cc-dogfood-report.sh`（v1.27.0）
+
+每次 `cc-finish.sh` 收尾时自动追加一条 JSON 记录到 `/tmp/cc-dogfood.jsonl`（残留/间隙/turn-done/状态序列/退出码）。Hermes 在每次 cc-finish 后跑 `cc-dogfood-report.sh`——累计 ≥5 条新记录时自动输出摩擦摘要，<5 条时静默积累。
+
+```bash
+bash .../scripts/cc-dogfood-report.sh             # ≥5 条新记录 → 输出摘要，否则静默
+bash .../scripts/cc-dogfood-report.sh --force       # 强制输出（即使 < 阈值）
+bash .../scripts/cc-dogfood-report.sh --reset       # 清空计数（标记全部已报）
+bash .../scripts/cc-dogfood-report.sh --threshold 3 # 自定义阈值
+```
+
+摘要包含：摩擦率、残留触发/监控间隙/危险残留/turn-done 缺失明细、状态序列分布、排查建议。路径可通过 `CC_DOGFOOD_LOG` / `CC_DOGFOOD_STATE` 环境变量覆盖（测试隔离）。
+
 ## 🔍 第 5 步：审核（委派包 → gate → auditor 验收）
 
 > 承接 D3 客观/主观分治：**客观半调 `scripts/gate/` 的硬脚本 gate（不可绕），主观半由 auditor 角色审（L1 起步）。**
@@ -504,7 +541,25 @@ independence_level: L1 | L2 | L3               # 隔离强度：readonly→L1 / 
 | 18 | `cc-send.sh` 返回 `✓ Sent` 且消息出现在 ❯ 后，但 CC 长时间不处理——消息残留 >8s 无 spinner | Pitfall #5 的特化高频形态：Enter 未生效时消息**原样显示**在 ❯ 后而非被 CC 消化。Hermes 可能误以为 CC「在思考这段指令」，实际 CC 根本没开始。**2026-06-17 单 session 触发 2+ 次。** | **加固存活验证**：`cc-send.sh` 后等 4-6s 抓屏——① 若 ❯ 后有残留文字且无 spinner（✻/✽/✶/⏺）→ Enter 未生效，**立即** `tmux send-keys Enter`；② 5s 后仍残留 → 再补一次 Enter。**宁多补一次 Enter 不白等一轮。** 存活验证失败时不要假定「CC 会自己消化」——它不会。 |
 | 19 | 用户问「你在轮巡吗？Hook 没有效果吗？已经 20 分钟了，一点反应都没有」 | **被动模型的结构性缺陷**：Hermes 不轮询、不主动查 turn-done 标记，turn-done 早已写好但 Hermes 不知道——用户在等 Hermes 汇报，Hermes 在等用户发消息，双方互等。CC 已经完成 20 分钟了但没人知道。**2026-06-17 实发——turn-done 09:41 写好，用户 09:51 质问才被发现。** | **根治**：用事件驱动唤醒（`terminal(background=true, notify_on_complete=true)` 后台子进程等 marker）替代纯被动等待——让 CC 完成时自动触发 Hermes 新 turn，而不是等用户发现沉默再问。详见 `references/event-driven-wakeup.md`。**在此之前**：用户发消息时立刻查 turn-done 标记，不要假定「还没完成」。
 | 20 | in-turn wait 循环里第二轮 `cc-wait-marker.sh` 立即返回旧 marker，没等到 CC 新一轮完成 | **mtime 比较陷阱**：marker 是同一个文件 `/private/tmp/cc-turn-done-<s>`，CC 每轮 Stop hook 覆盖它（mtime 刷新）。若第二轮仍复用上一轮的 `--after` 基线，waiter 看到的 marker（mtime=上一轮）已 > 旧基线 → 立即 exit 0，把**上一轮的旧结果**误判成本轮完成。 | **每轮发指令前重记基线**：`AFTER=$(stat -f %m /private/tmp/cc-turn-done-$S 2>/dev/null \|\| echo 0)` → `cc-send` → `cc-wait-marker.sh --after $AFTER`。脚本用**严格 `mtime > after`**，基线必须是「你上一轮 wait 返回时那一版 marker 的 mtime」，不能复用更早的值。`--after 0` 仅第一轮（尚无任何 marker）用。覆盖测试 `tests/test-wait-marker.sh`（Test 3/12）。 |
-| 21 | in-turn wait 全程沉默——派了 CC 就闷头 `process(action=wait)`，wait 超时就再 wait，直到 turn-done 才冒头。用户只看到「开始」和「结束」，看不到 CC 状态、Hermes 判断、和 CC 的讨论。**或反过来**：判断 CC 走偏后**不讨论直接 `C-c`**，事后才说「我中断了它」。**同类还包括**：写好任务就 send、不等 CC 读完不看理解就放任跑；turn-done 后把产物原样转发给用户、不讨论不把关。 | 「等一下就好了 / 让它先跑」**不是汇报**——它把中间过程变黑盒。**四个反模式（一一对应三段协议节点）**：① 写好任务直接 send、不等读完/不看理解就放任跑（节点①）；② wait 超时静默再等，用户以为卡死（节点②）；③ 在判断环节直接中断，绕过用户、可能误杀正常思考的 CC（节点②）；④ turn-done 后把产物原样丢给用户、不讨论不把关（节点③）。 | **三段协议（见 §3 in-turn wait）**：① 发任务前等 CC 读完 → 抓屏看理解 → 偏了先讨论再开干；② wait 超时 → 抓屏 + 📡 块汇报状态与判断，**不静默**；③ 判断走偏 → **先汇报用户等确认，再 `C-c`**，不在判断环节直接中断。每次读状态都用 📡 块（`## 📡 Progress Reporting`）输出「总览 + 树形详情 + Hermes 自主判断」。CC 正常思考（THINK_TIME 递增）时按用户偏好不打断。 |
+| 21 | in-turn wait 全程沉默——派了 CC 就闷头 `process(action=wait)`，wait 超时就再 wait，直到 turn-done 才冒头。用户只看到「开始」和「结束」，看不到 CC 状态、Hermes 判断、和 CC 的讨论。**或反过来**：判断 CC 走偏后**不讨论直接 `C-c`**，事后才说「我中断了它」。**同类还包括**：写好任务就 send、不等 CC 读完不看理解就放任跑；turn-done 后把产物原样转发给用户、不讨论不把关。 | 「等一下就好了 / 让它先跑」**不是汇报**——它把中间过程变黑盒。**四个反模式（一一对应三段协议节点）**：① 写好任务直接 send、不等读完/不看理解就放任跑（节点①）；② wait 超时静默再等，用户以为卡死（节点②）；③ 在判断环节直接中断，绕过用户、可能误杀正常思考的 CC（节点②）；④ turn-done 后把产物原样转发给用户、不讨论不把关（节点③）。 | **三段协议（见 §3 in-turn wait）**：① 发任务前等 CC 读完 → 抓屏看理解 → 偏了先讨论再开干；② wait 超时 → 抓屏 + 📡 块汇报状态与判断，**不静默**；③ 判断走偏 → **先汇报用户等确认，再 `C-c`**，不在判断环节直接中断。每次读状态都用 📡 块（`## 📡 Progress Reporting`）输出「总览 + 树形详情 + Hermes 自主判断」。CC 正常思考（THINK_TIME 递增）时按用户偏好不打断。 |
+| 22 | CC 弹出 AskUserQuestion 交互式选择题进入 BLOCKED 状态，Hermes 没及时发现 → 用户问「你在巡吗？」**变种**：选项超时消失后，Hermes 发送的确认消息在 ❯ 排队但 CC 不消费——看起来 IDLE，实际在等输入。**2026-06-24 累计触发 4 次，最严重一次排队 30+ 分钟。** | xhigh effort + Opus 在实现类任务上易触发深度思考 → 问出方案选择问题 → 选项超时消失后 CC ❯ 空闲但不再继续。变种根因：multi-select 被 dismiss 后，CC 停在等待输入态但无任何视觉提示，Hermes 的确认消息在 ❯ 排队不执行。 | **主动巡检**：等 turn-done 期间每 2-3min 查 `cc-status` 的 state + `capture-pane` 看 ❯ 是否有残留文字。`BLOCKED` 或 ❯有残留 → 立即响应。解除：① 选项还在 → `send-keys \"<n>\" Enter`；② 已消失 → `Escape` + 纯文本告知；③ **❯ 有残留排队 → 直接 `send-keys Enter`**（最常见、最高频、最简单）。详见 `references/cc-askuserquestion-unblock-pattern.md`。**预防**：实现类任务用 high（非 xhigh）；context 末尾加「禁用 AskUserQuestion，有决策点直接用纯文本提问」。 |
+| 23 | `grep -iEf pattern-file.txt` 把**空行和注释行**当匹配模式 → 空行（空 ERE）= 匹配一切 → 无害输入被误判为危险残留 | `grep -f` 不跳过空行/注释行——文件里的每一行都是 ERE。空行 = 空正则 = 匹配任何输入。`# 这是一条注释` 也是 ERE，`#` 是字面量（ERE 无注释语法），虽通常不匹配但语义错误。**2026-06-24 实发**：`residue-danger-patterns.txt` 行 8 空行导致 `ls -la /tmp` 被误判 exit 10。 | 用 `<()` process substitution 过滤：`grep -iEf <(grep -v '^[[:space:]]*#' "$FILE" \| grep -v '^[[:space:]]*$')`。**注释行和空行必须显式过滤**——不要依赖 grep 的 `-E` 或 `-f` 替你跳过。 |
+
+### 额外红线：路径纠偏与接管边界（2026-06-25 实发）
+
+> 详见 `references/cc-delegation-path-and-takeover-pitfall-20260625.md`。
+
+当 CC 读错目录、卡住或产物不对时，**先审 delegator 的委派包，不要把问题简化成“CC 不可信”**。路径敏感任务（Obsidian vault、monorepo、同名旧目录、多 profile）必须在首轮抓屏里核对 CC 实际读取的绝对路径；发现读错目录立即纠偏，不要只看“它在读文件/思考”。
+
+如果用户明确要求“让 CC 修改/让 CC 直接改”，Hermes 不得在 CC 失败后擅自接管写目标文件。正确流程是：暂停/停止 CC → 报告真实状态 → 修正委派包 → 重启/继续 CC；只有用户明确同意“改由你接管”后，Hermes 才能直接写文件。
+
+如果承诺“每 2-3 分钟报进度”，必须用 in-turn wait 循环落实；不能只挂 `notify_on_complete` 后结束 turn，让用户继续追问进度。
+
+### 下游项目文档同步（cc-tmux 更新后）
+
+> 详见 `references/downstream-doc-sync-after-skill-update-20260625.md`。
+
+当 cc-tmux skill / OB 文档在另一个 topic 更新后，依赖它的项目文档（如 agent-hub）必须同步更新**边界语言**：cc-tmux 负责单 CC session 裸金属编排；下游 hub 只负责多 session / 多 CLI / 多机的 Catalog、NATS 转发、生命周期与事件收敛。先搜索旧版本、旧监控口径、旧桥接机制，再 patch PRD/架构/AGENTS/Spec。不要只改版本号，也不要保留已定案的旧矛盾作为 warning。
 
 ## 👤 用户偏好与约束（不可协商）
 
@@ -535,19 +590,24 @@ independence_level: L1 | L2 | L3               # 隔离强度：readonly→L1 / 
 ---
 
 > 📦 **设计依据**：`references/design-principles.md`（6 原则 + 4 组件架构）
+> 💿 **Claude CLI 安装**：`references/claude-cli-install.md`（npm 安装 + 验证 + PATH 排障）
 > 🔍 **审核 Agent 槽位**：`references/audit-agent-slot-design-20260616.md`（通用 audit 槽位契约 + 独立性四档 + 灰度扩展）
 > ⚖️ **三问题裁决**：`references/audit-three-issue-verdict-20260616.md`（去 regent 化 / 切 auditor 身份机制 / 脚本物理落点）
 > 🔍 **审核 gate 脚本**：`scripts/gate/`（基质无关红线：gate-verify / gate-danger / gate-counter，零 tmux 耦合，遇第 2 消费者提升为独立 skill），见 5.0 / 5.5。
 > 📋 **Phase 分解**：`references/phases.md`（4 phase × ~7 义务）
 > 📊 **合规度量**：`scripts/eval-compliance.sh`（机器判定，同任务对比 v4 vs cc-tmux）
 > 🐛 **CC Hook Bug Registry**：`references/cc-hook-bug-registry.md`（4 个已知开放 bug）
+> 🐶 **狗粮监测设计**：`references/dogfood-design-notes.md`（每次使用回写 + 累积触发摘要，待实现）
 > 🧠 **CC 写作任务超长思考**：`references/cc-overthinking-writing-tasks.md`（xhigh 在文档任务上易冻结，恢复 Ctrl+C→重定向，预防用 high）
 > 📊 **V4 对比**：`references/v4-comparison-findings.md`（功能矩阵 + 尺寸对比 + 使用场景）
 > 🔄 **多轮 CC 设计迭代**：`references/multi-round-design-pattern.md`（4 轮模式：设计→优化→产出→终审）
 > 🔗 **源仓库**：`~/code/jz-skills/hermes/cc-tmux/`
 > 📡 **Relay Contract**：`references/relay-contract.md`（机械执行细则 + 反模式）
 > 📡 **Progress Reporting**：`references/progress-reporting.md`（中间过程可视化：6 状态机 emoji 映射 + 4 场景模板 + 信息密度原则 + in-turn wait 三段协议对应；搬运适配自 claude-code skill）
+> 📝 **CC 文档修改委派坑点**：`references/cc-doc-edit-delegation-pitfalls-20260625.md`（context 写好但未启动、同名目录读错、mtime 验收、用户指定 CC 时 Hermes 不越权代写）
+> 🔄 **下游文档同步**：`references/downstream-doc-sync-after-skill-update-20260625.md`（cc-tmux 更新后同步 agent-hub 等依赖项目：改边界语言、清旧口径、同步 PRD/架构/AGENTS/Spec）
 > ⏱️ **delegate_task checkpoint 巡检**：`references/delegate-task-checkpoint-monitoring.md`（Hermes v0.17 异步 delegation 作为 one-shot 回叫闹钟；起步 in-turn control、稳态 checkpoint、异常主会话接管）
+> 🚑 **进度催问与监控降级**：`references/progress-request-and-monitor-fallback.md`（用户催进度时立即汇报；`cc-monitor.sh` 失败时 fallback 到 `tmux capture-pane`，不可静默）
 > 🧪 **测试复现**：`references/test-repro-2026-06-16.md`（cc-send Enter 未生效 + monitor 盲区复现步骤）
 > 🔀 **路由对照**：`references/hermes-deck-routing-comparison.md`（hermes-deck Primer + AgentRouting 块 vs cc-tmux 长会话模型对照分析）
 > 🔍 **CC 审核模式**：`references/cc-audit-cross-evaluation-pattern.md`（用 CC 做多文档交叉审核：典型发现层级、常见误判、输出格式）
@@ -555,7 +615,7 @@ independence_level: L1 | L2 | L3               # 隔离强度：readonly→L1 / 
 > 🚀 **Ultracode Dynamic Workflow**：`references/ultracode-workflow-pattern.md`（用 CC 原生 ultracode 模式做 13-agent 并行深度调研的完整流程：触发方式、编排设计、监控、产出验收、适用/不适用场景）
 > 📊 **用量汇报**：`references/usage-reporting-pattern.md`（CC 无法自理 `/usage` 的根因 + 方案 3 实现细节 + npx ccusage 使用）
 > 📋 **优化方案（2026-06-16）**：Obsidian `02-Plan&CQI/cc-tmux优化方案_20260616.md`（ultracode 13-agent 深度调研产出：P0 脚本修复 + P1 CC hook 混合架构 + 基质无关内核收敛 + CQI 闭环 + 6 决策点）
-> 🧪 **TDD 测试套件**：`tests/test-hooks.sh`（§3.3-3.7+P2 心跳总线+P1-1 状态权威接线 22/22）· `tests/test-start.sh`（§3.8+D-4+P1 注入+P2 watcher 拉起 9/9）· `tests/test-finish.sh`（§3.7+D-4+P2 turn-done/watcher+P3 完成权威 10/10）· `tests/test-monitor.sh`（§3.1+P2 fast-path+P1-1 status fast-path 9/9）· `tests/test-monitor-freeze.sh`（§3.1 冻结+P2 freeze 标记 8/8）· `tests/test-monitor-esc.sh`（P0-4 状态金标准 esc to interrupt 4/4）· `tests/test-send.sh`（§3.2 9/9）· `tests/test-watcher.sh`（P2 --watch 守护探针 4/4）· `tests/test-eval.sh`（P3 被动评分 turn-done/freeze 5/5）· `tests/test-wait-marker.sh`（§3 in-turn wait marker 等待 + 参数校验 + P1-2 fswatch 事件驱动/回退/超时包裹 15/15）· `tests/test-send-robust.sh`（轨1 P0-1 send 原语库：回读校验+有界重试 6/6）· `tests/test-usage.sh`（P0-2 用量管理 pre/post 基线+delta+降级 4/4）· `tests/test-gc.sh`（P0-3 Session GC 僵尸/完成/IDLE>2h/超限/活跃跳过/安全规则 10/10）· `tests/test-status-writer.sh`（P1-1 Hook 状态权威 event→state/原子写/同态续接/D-4 12/12）· `tests/test-topic-map.sh`（R9b Topic↔Session 复用：注册表 CRUD/unset-by-session/cleanup + cc-start --topic 复用/新建/无topic 9/9）→ **136/136 全绿**（22+9+10+9+8+4+9+4+5+15+6+4+10+12+9，实跑核实，2026-06-22）
+> 🧪 **TDD 测试套件(21/21 文件, 202/202 断言, 2026-06-24 实跑核实)**
 > 🪝 **CC Hook 脚本**：`hooks/cc-posttool.sh`（§3.3 PostToolUse 归档）· `hooks/cc-stop-check.sh`（§3.7 Stop 软门）· `templates/settings.runtime.json`（§3.4/3.5 Notification+SessionStart 内联 + 两脚本路径经 `$CC_TMUX_HOOK_DIR` 自定位，**单一事实源**，由 cc-start `--settings` 会话级注入；stdin-jq + D-4 键统一 `${CC_TMUX_SESSION:-<stdin session_id>}`；**全局 hooks 已摘**避免 R1 双触发）· `hooks/README.md`（§3 `--settings` 部署 + D-4 + smoke 清单）
 > 🧪 **测试结果记录**：`references/test-results-33of33-20260617.md`（历史文件名；现为 **136/136**，含 D-4 键统一 + 冻结检测修复记录 + 部署 smoke 清单）
 > 🔬 **Hook 部署验证 (2026-06-17)**：`references/cc-hook-deployment-20260617.md`（部署流程 · CLAUDE_SESSION_ID 空值根因 · stdin 消费陷阱 · 验证方法 · 修复记录）
