@@ -43,6 +43,25 @@ HB="/tmp/cc-heartbeat-${SESSION}"
 STATELOG="/tmp/cc-state-${SESSION}.log"
 EXIT_CODE=0
 GAP_BLOCK=false
+
+# ── Dogfood instrumentation ───────────────────────────────────
+# One JSON record per finish, appended (>>) on EVERY exit path (10 / 2 / normal), so
+# real-world friction surfaces without waiting on a manual report. Path is env-overridable
+# for test isolation; defaults to the shared /tmp log cc-dogfood-report.sh reads.
+DOGFOOD_LOG="${CC_DOGFOOD_LOG:-/tmp/cc-dogfood.jsonl}"
+RESIDUE_DANGER=false
+RESIDUE_BENIGN=false
+emit_dogfood() {
+  local ec="$1" ts tdm
+  ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  # turn_done_missing = !TURN_DONE_FRESH (default missing=true when §2 hasn't run, e.g. exit 10).
+  if ${TURN_DONE_FRESH:-false}; then tdm=false; else tdm=true; fi
+  # All fields ${VAR:-default}-guarded: early exits (10) fire before §3 sets MAXGAP/SEQ_STATES.
+  printf '{"ts":"%s","session":"%s","target":"%s","residue_danger":%s,"residue_benign":%s,"monitor_gap_s":%s,"gap_blocked":%s,"turn_done_missing":%s,"states":"%s","exit_code":%s}\n' \
+    "$ts" "${SESSION:-}" "${TARGET:-}" "${RESIDUE_DANGER:-false}" "${RESIDUE_BENIGN:-false}" \
+    "${MAXGAP:-0}" "${GAP_BLOCK:-false}" "$tdm" "${SEQ_STATES:-}" "$ec" \
+    >> "$DOGFOOD_LOG" 2>/dev/null || true
+}
 # §Phase-2: read the resident watcher PID BEFORE §6 release-lock removes the lock dir,
 # so §7 can still kill it. Empty if no --target or no watcher recorded (harmless).
 WATCHER_PID=$(cat "/tmp/cc-lock-${TARGET}/watcher_pid" 2>/dev/null || echo "")
@@ -71,9 +90,12 @@ if tmux has-session -t "$SESSION" 2>/dev/null; then
       echo "  🚫 HARD GATE (exit 10): 危险模式命中 → $DANGER_HITS"
       echo "  → CC 残留的命令包含破坏性操作。绝不要回车。先 C-u 清行再收尾。"
       echo "===📋 END cc-finish==="
+      RESIDUE_DANGER=true
+      emit_dogfood 10
       exit 10
     fi
     echo "  → 残留为非危险内容（exit 1）。先 C-u 清行再收尾，勿按 Enter。"
+    RESIDUE_BENIGN=true
     EXIT_CODE=1
   else
     echo "✓ ❯ 无残留输入（输入框干净）"
@@ -149,6 +171,7 @@ if $GAP_BLOCK; then
   echo "⛔ 拒绝收尾：监控未达标。补跑一次 cc-monitor 再收尾，或加 --force 覆盖。"
   echo "   (lock 未释放、session 未杀——收尾未完成)"
   echo "===📋 END cc-finish==="
+  emit_dogfood 2
   exit 2
 fi
 
@@ -223,4 +246,5 @@ if $KILL; then
 fi
 
 echo "===📋 END cc-finish==="
+emit_dogfood "$EXIT_CODE"
 exit $EXIT_CODE

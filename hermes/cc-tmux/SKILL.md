@@ -121,7 +121,7 @@ CC 配置自动决策（R8b · 细则见 references/r8b-config-decision-guide.md
 4. async delegation completion queue 把结果注入回当前 Telegram 会话；
 5. 主会话小黄继续判断：继续等、亲自干预、读取产物、或升级给 Alex。
 
-**定位**：checkpoint worker 是「到点巡检员 / 回叫闹钟」，不是自动驾驶。它不得 kill session、不得 C-c、不得替用户选择 AskUserQuestion、不得发语义纠偏指令给 CC；唯一允许的机械修复是明确残留输入时补一次 Enter，或 queued messages 时 Escape 清队列并报告。完整模板见 `references/delegate-task-checkpoint-monitoring.md`。
+**定位**：checkpoint worker 是「到点巡检员 / 回叫闹钟」，不是自动驾驶。它不得 kill session、不得 C-c、不得替用户选择 AskUserQuestion、不得发语义纠偏指令给 CC；唯一允许的机械修复是明确残留输入时补一次 Enter，或 queued messages 时 Escape 清队列并报告。完整模板见 `references/delegate-task-checkpoint-monitoring.md`。真实验证流程见 `references/r4c-real-smoke-test-pattern.md`：必须启动真实 CC、完成起步 in-turn 校验、派 one-shot checkpoint、读磁盘产物、诚实区分「dispatch 已测」与「async callback 已回注」。
 
 **禁止**：cron 监控 CC、永久循环 delegate、子 agent 高风险干预、起步阶段直接退场、只挂 `notify_on_complete` 后沉默。
 
@@ -607,6 +607,7 @@ independence_level: L1 | L2 | L3               # 隔离强度：readonly→L1 / 
 > 📝 **CC 文档修改委派坑点**：`references/cc-doc-edit-delegation-pitfalls-20260625.md`（context 写好但未启动、同名目录读错、mtime 验收、用户指定 CC 时 Hermes 不越权代写）
 > 🔄 **下游文档同步**：`references/downstream-doc-sync-after-skill-update-20260625.md`（cc-tmux 更新后同步 agent-hub 等依赖项目：改边界语言、清旧口径、同步 PRD/架构/AGENTS/Spec）
 > ⏱️ **delegate_task checkpoint 巡检**：`references/delegate-task-checkpoint-monitoring.md`（Hermes v0.17 异步 delegation 作为 one-shot 回叫闹钟；起步 in-turn control、稳态 checkpoint、异常主会话接管）
+> 🧪 **R4c 真实烟测流程**：`references/r4c-real-smoke-test-pattern.md`（真实 CC 只读 smoke test：起步校验、残留输入恢复、checkpoint dispatch、磁盘产物验证、runtime/source drift 对齐、monitor 崩溃 fallback）
 > 🚑 **进度催问与监控降级**：`references/progress-request-and-monitor-fallback.md`（用户催进度时立即汇报；`cc-monitor.sh` 失败时 fallback 到 `tmux capture-pane`，不可静默）
 > 🧪 **测试复现**：`references/test-repro-2026-06-16.md`（cc-send Enter 未生效 + monitor 盲区复现步骤）
 > 🔀 **路由对照**：`references/hermes-deck-routing-comparison.md`（hermes-deck Primer + AgentRouting 块 vs cc-tmux 长会话模型对照分析）
@@ -617,7 +618,7 @@ independence_level: L1 | L2 | L3               # 隔离强度：readonly→L1 / 
 > 📋 **优化方案（2026-06-16）**：Obsidian `02-Plan&CQI/cc-tmux优化方案_20260616.md`（ultracode 13-agent 深度调研产出：P0 脚本修复 + P1 CC hook 混合架构 + 基质无关内核收敛 + CQI 闭环 + 6 决策点）
 > 🧪 **TDD 测试套件(21/21 文件, 202/202 断言, 2026-06-24 实跑核实)**
 > 🪝 **CC Hook 脚本**：`hooks/cc-posttool.sh`（§3.3 PostToolUse 归档）· `hooks/cc-stop-check.sh`（§3.7 Stop 软门）· `templates/settings.runtime.json`（§3.4/3.5 Notification+SessionStart 内联 + 两脚本路径经 `$CC_TMUX_HOOK_DIR` 自定位，**单一事实源**，由 cc-start `--settings` 会话级注入；stdin-jq + D-4 键统一 `${CC_TMUX_SESSION:-<stdin session_id>}`；**全局 hooks 已摘**避免 R1 双触发）· `hooks/README.md`（§3 `--settings` 部署 + D-4 + smoke 清单）
-> 🧪 **测试结果记录**：`references/test-results-33of33-20260617.md`（历史文件名；现为 **136/136**，含 D-4 键统一 + 冻结检测修复记录 + 部署 smoke 清单）
+> 🧪 **测试结果记录**：`references/test-results-33of33-20260617.md`（历史文件名；现为 **202/202**，含 D-4 键统一 + 冻结检测修复 + dogfood + R4c smoke 流程记录）
 > 🔬 **Hook 部署验证 (2026-06-17)**：`references/cc-hook-deployment-20260617.md`（部署流程 · CLAUDE_SESSION_ID 空值根因 · stdin 消费陷阱 · 验证方法 · 修复记录）
 > 📋 **状态审计 (2026-06-17)**：Obsidian `88-审计/cc-tmux 状态审计 20260617.md`（CC 自主审计：Readiness 6→8 · D-4 键分裂 · 测试失真 · 三步修复落地全记录）
 > 🚀 **Hook 演进方案 (2026-06-17)**：`references/hook-evolution-plan-20260617.md`（部署自动化 `--settings` 注入 + 事件驱动监控混合架构 + 4 阶段路线图，Pitfall #17 治本方案）

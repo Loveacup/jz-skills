@@ -123,10 +123,23 @@ NOWSP=$(date +%s)
 printf '%s|1|TOOL|?|%s|1\n' "$NOWSP" "$NOWSP" > "/tmp/cc-heartbeat-${SSP}"
 # hook 写的权威状态：COMPLETED（capture-pane 永远推不出这个 → 证明走的是 status 文件）
 printf '{"state":"COMPLETED","state_since":"2026-06-22T00:00:00Z","last_event":"Stop","last_tool":"Write","last_tool_since":"2026-06-22T00:00:00Z","seq":9,"heartbeat":"2026-06-22T00:00:00Z"}\n' > "/tmp/cc-status-${SSP}.json"
-err=$(bash "$MONITOR" --session "$SSP" 2>&1 >/dev/null || true)
+out_file="/tmp/cc-monitor-out-${SSP}.txt"
+err_file="/tmp/cc-monitor-err-${SSP}.txt"
+set +e
+bash "$MONITOR" --session "$SSP" >"$out_file" 2>"$err_file"
+rc=$?
+set -e
+out=$(cat "$out_file")
+err=$(cat "$err_file")
 st=$(echo "$err" | grep -o 'state=[A-Z_]*' | head -1 | cut -d= -f2 || true)
-[[ "$st" == "COMPLETED" ]] && { echo "  ✅ status fast path → state=COMPLETED（取自 hook 权威，非抓屏推断）"; PASS=$((PASS+1)); } \
-  || { echo "  ❌ status fast path 未生效: state=$st"; FAIL=$((FAIL+1)); }
+if [[ "$rc" -eq 0 && "$st" == "COMPLETED" && "$out" == *"last_tool=Write"* && "$err" != *"unbound variable"* ]]; then
+  echo "  ✅ status fast path → state=COMPLETED + last_tool 输出无 set -u 崩溃"
+  PASS=$((PASS+1))
+else
+  echo "  ❌ status fast path 异常: rc=$rc state=$st out='${out//$'\n'/ }' err='${err//$'\n'/ }'"
+  FAIL=$((FAIL+1))
+fi
+rm -f "$out_file" "$err_file"
 ssp_cleanup
 
 echo ""

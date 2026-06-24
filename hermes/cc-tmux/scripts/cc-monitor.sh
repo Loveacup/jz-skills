@@ -106,7 +106,7 @@ if [[ "$FORCE_CAPTURE" != true && -f "$HB" ]]; then
       [[ -z "$HS" || "$HS" == "null" ]] && HS="ACTIVE"
       persist "$HS" "$PREV_TOKENS" "$NOW" "$PREV_THINK_TIME"
       echo "===📡 BEGIN (relay verbatim)==="
-      echo "📡 CC #${SEQ} [距上次 ${DELTA}s] · hook 状态权威: ${HS}${HLT:+（last_tool=$HLT）}"
+      echo "📡 CC #${SEQ} [距上次 ${DELTA}s] · hook 状态权威: ${HS}${HLT:+（last_tool=${HLT}）}"
       echo "   (state 由 hook 事件直接写入 cc-status-${SESSION}.json，心跳 ${HB_AGE}s 前刷新；要强制抓屏诊断加 --force-capture)"
       echo "===📡 END==="
       exit 0
