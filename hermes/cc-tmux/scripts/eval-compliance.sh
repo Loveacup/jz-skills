@@ -37,6 +37,21 @@ done
 # ── Helpers ──────────────────────────────────────────────────
 int_or() { [[ "${1:-}" =~ ^[0-9]+$ ]] && printf '%s' "$1" || printf '%s' "$2"; }
 
+# get_mtime (cross-platform epoch mtime). Source the shared lib; if unavailable,
+# the S1 measurement just degrades to "na" (no -e here, so a missing source is safe).
+# shellcheck source=./lib/portability.sh
+source "$(dirname "$0")/lib/portability.sh" 2>/dev/null || true
+
+# ISO8601 (…Z / fractional secs / T-separated) → unix epoch (UTC); empty on failure.
+iso_to_epoch() {
+  local iso="${1:-}"
+  [[ -z "$iso" ]] && return
+  iso="${iso%Z}"; iso="${iso%.*}"; iso="${iso/T/ }"   # strip Z, fractional, T→space
+  date -u -d "$iso UTC" +%s 2>/dev/null \
+    || TZ=UTC date -j -f "%Y-%m-%d %H:%M:%S" "$iso" +%s 2>/dev/null \
+    || true
+}
+
 # ── Resolve session + artifact paths ─────────────────────────
 # If --session omitted, recover it from the transcript (first hermes-cc-* name).
 if [[ -z "$SESSION" && -f "$TRANSCRIPT" ]]; then
@@ -93,6 +108,37 @@ score_reporting() {
   fi
 }
 
+# ── 2b. S1 latency (PRD §342): turn-done marker mtime → first transcript report ──
+# Auto-measures the "CC done → Hermes reports ≤10s" delay that PRD §342 used to mark
+# as "测量=人工审计". start = mtime(turn-done marker); end = ISO8601 timestamp of the
+# FIRST transcript line that BOTH mentions completion AND carries a timestamp.
+# Sets globals: S1_LATENCY_S (int|empty) S1_STATUS (pass|fail|na).
+# This is an ADDITIVE, independent dimension — it does NOT change REPORT_STATUS, so the
+# event-driven pass/fail contract above is untouched.
+S1_BUDGET_S="${CC_S1_BUDGET_S:-10}"
+score_s1_latency() {
+  S1_LATENCY_S=""
+  S1_STATUS="na"
+  local marker="/tmp/cc-turn-done-${SESSION}"
+  [[ -n "$SESSION" && -f "$marker" && -f "$TRANSCRIPT" ]] || return
+  local start; start=$(get_mtime "$marker" 2>/dev/null || echo 0)
+  [[ "$start" =~ ^[0-9]+$ && "$start" -gt 0 ]] || return
+  # first completion-mention line that also carries an ISO8601 timestamp
+  local ts; ts=$(grep -iE '完成|done|finished|turn[_-]done|汇报|交付|relay' "$TRANSCRIPT" 2>/dev/null \
+    | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.0-9]*Z?' | head -1)
+  [[ -n "$ts" ]] || return
+  local end; end=$(iso_to_epoch "$ts")
+  [[ "$end" =~ ^[0-9]+$ ]] || return
+  S1_LATENCY_S=$(( end - start ))
+  if (( S1_LATENCY_S < 0 )); then
+    S1_STATUS="na"; S1_LATENCY_S=""     # report precedes completion → invalid measurement
+  elif (( S1_LATENCY_S <= S1_BUDGET_S )); then
+    S1_STATUS="pass"
+  else
+    S1_STATUS="fail"
+  fi
+}
+
 # ── 3. Verification: disk-check evidence AND no crash-to-shell ──
 # Sets globals: VERIFY_STATUS DISK_CHECK CRASH_DETECTED
 score_verification() {
@@ -126,6 +172,7 @@ fi
 
 OCCUPANCY=$(score_occupancy)
 score_reporting
+score_s1_latency
 score_verification
 
 PASSES=0; TOTAL=3
@@ -151,7 +198,10 @@ cat <<EOF
       "source": "$SOURCE",
       "turn_done_evidence": ${TURN_DONE_EVIDENCE},
       "bus_alive": ${BUS_ALIVE},
-      "freeze_unhandled": ${FREEZE_UNHANDLED}
+      "freeze_unhandled": ${FREEZE_UNHANDLED},
+      "s1_status": "${S1_STATUS}",
+      "s1_latency_s": ${S1_LATENCY_S:-null},
+      "s1_budget_s": ${S1_BUDGET_S}
     },
     "verification": {
       "status": "$VERIFY_STATUS",
