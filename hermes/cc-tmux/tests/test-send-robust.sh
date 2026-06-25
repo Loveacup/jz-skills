@@ -79,7 +79,7 @@ run_test() {
   local launch="$1" name="$2" expected_rc="$3"; shift 3
   local rc=0 output
   tmux kill-session -t "$SESSION" 2>/dev/null || true
-  tmux new-session -d -s "$SESSION" -x 120 -y 20 "$launch" 2>/dev/null
+  tmux new-session -d -s "$SESSION" -x 120 -y 20 "$launch" </dev/null >/dev/null 2>&1
   sleep 0.5
   output=$(bash "$ROBUST" "$@" 2>&1) || rc=$?
   tmux kill-session -t "$SESSION" 2>/dev/null || true

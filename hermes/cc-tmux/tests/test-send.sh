@@ -46,7 +46,7 @@ run_test() {
   cleanup
   # ensure context file exists for tests that need it
   echo "# test context" > "/tmp/cc-send-test-ctx.md"
-  tmux new-session -d -s "$SESSION" -x 120 -y 20 "$launch" 2>/dev/null
+  tmux new-session -d -s "$SESSION" -x 120 -y 20 "$launch" </dev/null >/dev/null 2>&1
   sleep 0.6
 
   output=$(bash "$SEND" "$@" 2>&1) || rc=$?
@@ -87,7 +87,7 @@ run_test "Dry-run mode accepted" 0 \
 # Test 5: --expect writes expected-artifacts file → rc 0
 run_test "--expect writes artifact file" 0 \
   --session "$SESSION" --context "/tmp/cc-send-test-ctx.md" --expect "output-*.md"
-tmux new-session -d -s "$SESSION" -x 120 -y 20 "sleep 999" 2>/dev/null
+tmux new-session -d -s "$SESSION" -x 120 -y 20 "sleep 999" </dev/null >/dev/null 2>&1
 bash "$SEND" --session "$SESSION" --context "/tmp/cc-send-test-ctx.md" --expect "output-*.md" >/dev/null 2>&1 || true
 if [[ -f "/tmp/cc-expect-${SESSION}" ]]; then
   echo "     ↳ expect file verified: $(cat /tmp/cc-expect-${SESSION})"

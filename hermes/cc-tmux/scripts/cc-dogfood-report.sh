@@ -82,7 +82,16 @@ while IFS= read -r line; do
   case "$line" in *'"residue_danger":true'*)    rd=$((rd + 1)); f=1 ;; esac
   case "$line" in *'"residue_benign":true'*)     rb=$((rb + 1)); f=1 ;; esac
   case "$line" in *'"gap_blocked":true'*)        gapblk=$((gapblk + 1)); f=1 ;; esac
-  case "$line" in *'"turn_done_missing":true'*)  tdm=$((tdm + 1)); f=1 ;; esac
+  # exit_code=10 is emitted inside the residue danger hard gate, before the
+  # completion audit can set TURN_DONE_FRESH. Its default turn_done_missing=true
+  # is a code-ordering artifact, not evidence that the Stop hook failed.
+  case "$line" in
+    *'"turn_done_missing":true'*)
+      if [[ "$line" != *'"exit_code":10'* ]]; then
+        tdm=$((tdm + 1)); f=1
+      fi
+      ;;
+  esac
   g=$(printf '%s' "$line" | grep -oE '"monitor_gap_s":[0-9]+' | grep -oE '[0-9]+' | head -1 || true)
   if [[ -n "${g:-}" && "$g" -gt 120 ]]; then gapover=$((gapover + 1)); f=1; fi
   [[ "$f" -eq 1 ]] && fric=$((fric + 1))

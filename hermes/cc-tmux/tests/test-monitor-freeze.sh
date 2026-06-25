@@ -28,7 +28,7 @@ check_freeze_reset() {
   # Round 1: establish baseline with fixture_a
   printf '%s\n' "$fixture_a" > "/tmp/cc-fixture-${SESSION}.txt"
   tmux new-session -d -s "$SESSION" -x 120 -y 20 \
-    "while true; do cat /tmp/cc-fixture-${SESSION}.txt 2>/dev/null; sleep 0.2; done" 2>/dev/null
+    "while true; do cat /tmp/cc-fixture-${SESSION}.txt 2>/dev/null; sleep 0.2; done" </dev/null >/dev/null 2>&1
   sleep 0.8
 
   # §Phase-2: --force-capture so the fresh-heartbeat fast path never short-circuits the
@@ -140,7 +140,7 @@ echo "§Phase-2 freeze marker — confirmed freeze writes a marker; recovery cle
 cleanup
 printf '✻ Thinking…（2m 0s · ?）\n' > "/tmp/cc-fixture-${SESSION}.txt"
 tmux new-session -d -s "$SESSION" -x 120 -y 20 \
-  "while true; do cat /tmp/cc-fixture-${SESSION}.txt; sleep 0.2; done" 2>/dev/null
+  "while true; do cat /tmp/cc-fixture-${SESSION}.txt; sleep 0.2; done" </dev/null >/dev/null 2>&1
 sleep 0.8
 bash "$MONITOR" --session "$SESSION" --force-capture >/dev/null 2>/dev/null || true
 # Age TOKCHG_EPOCH ~300s into the past (mirror check_freeze_reset: the 6th read var

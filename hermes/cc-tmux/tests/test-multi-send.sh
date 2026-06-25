@@ -36,7 +36,7 @@ echo ""
 
 # ── Helper: create a busy-looking session (no ❯, simulating CC working) ──
 start_busy_session() {
-  tmux new-session -d -s "$SESSION" -x 120 -y 30 "while true; do echo 'busy-output-line'; sleep 0.05; done" 2>/dev/null
+  tmux new-session -d -s "$SESSION" -x 120 -y 30 "while true; do echo 'busy-output-line'; sleep 0.05; done" </dev/null >/dev/null 2>&1
   sleep 0.3
 }
 

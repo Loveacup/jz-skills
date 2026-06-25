@@ -35,7 +35,7 @@ echo ""
 
 # Fixture: a live session + FRESH heartbeat (so the monitoring-gap gate passes) +
 # the full set of per-session state the hooks/scripts create, all keyed by tmux name.
-tmux new-session -d -s "$SESS" -x 120 -y 20 "sleep 999" 2>/dev/null
+tmux new-session -d -s "$SESS" -x 120 -y 20 "sleep 999" </dev/null >/dev/null 2>&1
 sleep 0.3
 NOW=$(date +%s)
 printf '%s|1|IDLE|?|%s|1\n' "$NOW" "$NOW"           > "/tmp/cc-heartbeat-${SESS}"
@@ -72,7 +72,7 @@ fi
 # ─── §Phase-2: turn-done marker is the completion authority ───
 echo ""
 echo "§Phase-2 turn-done marker overrides stale-heartbeat gap gate"
-tmux new-session -d -s "$SESS2" -x 120 -y 20 "sleep 999" 2>/dev/null
+tmux new-session -d -s "$SESS2" -x 120 -y 20 "sleep 999" </dev/null >/dev/null 2>&1
 sleep 0.3
 # Genuinely STALE heartbeat (real Unix epoch, 300s old) → would normally gap-block...
 OLD2=$(( $(date +%s) - 300 ))
@@ -96,7 +96,7 @@ bash "$FINISH" --session "$SESS2" --target "none-$$" --kill-session >/dev/null 2
 echo ""
 echo "§Phase-2 cc-finish kills the resident watcher (PID recorded in lock dir)"
 SESS3="cctmux-test-finish3-$$"; TGT3="cctmux-test-finish3-tgt-$$"
-tmux new-session -d -s "$SESS3" -x 120 -y 20 "sleep 999" 2>/dev/null; sleep 0.2
+tmux new-session -d -s "$SESS3" -x 120 -y 20 "sleep 999" </dev/null >/dev/null 2>&1; sleep 0.2
 mkdir -p "/tmp/cc-lock-${TGT3}"; echo "$SESS3" > "/tmp/cc-lock-${TGT3}/session"
 sleep 999 & WPID=$!; echo "$WPID" > "/tmp/cc-lock-${TGT3}/watcher_pid"
 NOW3=$(date +%s); printf '%s|1|IDLE|?|%s|1\n' "$NOW3" "$NOW3" > "/tmp/cc-heartbeat-${SESS3}"
@@ -116,7 +116,7 @@ rm -rf "/tmp/cc-lock-${TGT3}" "/tmp/cc-heartbeat-${SESS3}" "/tmp/cc-state-${SESS
 echo ""
 echo "§Phase-3 turn-done acknowledged as completion authority even with a FRESH heartbeat"
 SESS4="cctmux-test-finish4-$$"
-tmux new-session -d -s "$SESS4" -x 120 -y 20 "sleep 999" 2>/dev/null; sleep 0.2
+tmux new-session -d -s "$SESS4" -x 120 -y 20 "sleep 999" </dev/null >/dev/null 2>&1; sleep 0.2
 NOW4=$(date +%s)
 printf '%s|1|IDLE|?|%s|1\n' "$NOW4" "$NOW4" > "/tmp/cc-heartbeat-${SESS4}"   # FRESH heartbeat
 printf '{"ts":"now","event":"turn_done"}\n'  > "/tmp/cc-turn-done-${SESS4}"  # FRESH turn-done
@@ -138,7 +138,7 @@ echo "--- residue gate ---"
 # Helper: create a session with ❯ + given residual text
 make_residue_session() {
   local name="$1" text="$2"
-  tmux new-session -d -s "$name" -x 100 -y 20 "echo 'some output'; printf '❯ ${text}'; sleep 999" 2>/dev/null
+  tmux new-session -d -s "$name" -x 100 -y 20 "echo 'some output'; printf '❯ ${text}'; sleep 999" </dev/null >/dev/null 2>&1
   sleep 0.3
 }
 
@@ -181,7 +181,7 @@ rm -f "/tmp/cc-heartbeat-${RSESS3}" "/tmp/cc-turn-done-${RSESS3}"
 
 # Test R4: clean ❯ → no residue warning
 RSESS4="cctmux-test-residue4-$$"
-tmux new-session -d -s "$RSESS4" -x 100 -y 20 "echo 'output'; printf '❯ '; sleep 999" 2>/dev/null
+tmux new-session -d -s "$RSESS4" -x 100 -y 20 "echo 'output'; printf '❯ '; sleep 999" </dev/null >/dev/null 2>&1
 sleep 0.3
 set +e; out=$(bash "$FINISH" --session "$RSESS4" 2>&1); rc=$?; set -e
 # No residue → should NOT exit 1 or 10 due to residue. It might exit non-zero for missing heartbeat.

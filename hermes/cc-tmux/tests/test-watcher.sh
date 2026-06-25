@@ -36,7 +36,7 @@ fi
 # Live fixture session showing a THINKING spinner
 printf '✻ Thinking…（2m 0s · ?）\n❯ \n' > "/tmp/cc-fixture-${SESS}.txt"
 tmux new-session -d -s "$SESS" -x 120 -y 20 \
-  "while true; do cat /tmp/cc-fixture-${SESS}.txt; sleep 0.2; done" 2>/dev/null
+  "while true; do cat /tmp/cc-fixture-${SESS}.txt; sleep 0.2; done" </dev/null >/dev/null 2>&1
 sleep 0.6
 
 # Test 2: FRESH heartbeat → --once does NOT probe (cc-monitor not run → content untouched)

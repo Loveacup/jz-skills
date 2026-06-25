@@ -34,7 +34,7 @@ run_state_test() {
   cleanup
 
   printf '%s\n' "$fixture" > "/tmp/cc-fixture-${SESSION}.txt"
-  tmux new-session -d -s "$SESSION" -x 120 -y 20 "cat /tmp/cc-fixture-${SESSION}.txt; sleep 999" 2>/dev/null
+  tmux new-session -d -s "$SESSION" -x 120 -y 20 "cat /tmp/cc-fixture-${SESSION}.txt; sleep 999" </dev/null >/dev/null 2>&1
   sleep 0.8
 
   local stderr_file="/tmp/cc-monitor-stderr-${SESSION}.txt"
@@ -92,7 +92,7 @@ echo "TC3 esc + double-stall → freeze marker still written (no liveness exempt
 cleanup
 printf 'esc to interrupt\n' > "/tmp/cc-fixture-${SESSION}.txt"
 tmux new-session -d -s "$SESSION" -x 120 -y 20 \
-  "while true; do cat /tmp/cc-fixture-${SESSION}.txt; sleep 0.2; done" 2>/dev/null
+  "while true; do cat /tmp/cc-fixture-${SESSION}.txt; sleep 0.2; done" </dev/null >/dev/null 2>&1
 sleep 0.8
 bash "$MONITOR" --session "$SESSION" --force-capture >/dev/null 2>/dev/null || true
 # Age TOKCHG_EPOCH ~300s into the past (preserve 7-field schema; 6th read var absorbs SEQ|THINK_TIME)

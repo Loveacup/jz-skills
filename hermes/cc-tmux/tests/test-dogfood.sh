@@ -47,7 +47,7 @@ echo ""
 echo "--- cc-finish emits records (live) ---"
 
 # Fixture: clean ❯ pane + fresh turn-done/heartbeat → finish exits 0 (normal path).
-tmux new-session -d -s "$SESS" -x 100 -y 20 "printf '❯ '; sleep 999" 2>/dev/null
+tmux new-session -d -s "$SESS" -x 100 -y 20 "printf '❯ '; sleep 999" </dev/null >/dev/null 2>&1
 sleep 0.3
 NOW=$(date +%s)
 printf '%s|1|IDLE|?|%s|1\n' "$NOW" "$NOW" > "/tmp/cc-heartbeat-${SESS}"
@@ -70,7 +70,7 @@ fi
 
 # TC3: dangerous residue path → record exit_code=10, residue_danger=true (written before exit 10)
 DLOG="$TMP/danger.jsonl"
-tmux new-session -d -s "${SESS}-danger" -x 100 -y 20 "printf '❯ rm -rf /tmp/x'; sleep 999" 2>/dev/null
+tmux new-session -d -s "${SESS}-danger" -x 100 -y 20 "printf '❯ rm -rf /tmp/x'; sleep 999" </dev/null >/dev/null 2>&1
 sleep 0.3
 CC_DOGFOOD_LOG="$DLOG" bash "$FINISH" --session "${SESS}-danger" >/dev/null 2>&1
 drc=$?
@@ -146,6 +146,21 @@ for i in 1 2 3; do emit "2026-06-2${i}T10:00:00Z" false false 0 false false "STA
 printf '\n\n' >> "$LOG"   # two blank lines — must NOT push count to 5
 out9=$(CC_DOGFOOD_LOG="$LOG" CC_DOGFOOD_STATE="$STATE" bash "$REPORT" 2>&1); rc9=$?
 if [[ "$rc9" -eq 0 && -z "$out9" ]]; then ok "TC9 blank lines skipped (3 real records → still silent)"; else bad "TC9 blank lines miscounted: out='$out9'"; fi
+
+# TC10: exit 10 danger residue happens before completion audit; its default
+# turn_done_missing=true is a code-ordering artifact, not a Stop-hook signal.
+rm -f "$LOG" "$STATE"
+emit "2026-06-20T10:00:00Z" true  false 0 false true  "STARTING" 10
+emit "2026-06-21T10:00:00Z" false false 0 false false "STARTING→IDLE" 0
+emit "2026-06-22T10:00:00Z" false false 0 false false "STARTING→IDLE" 0
+emit "2026-06-23T10:00:00Z" false false 0 false false "STARTING→IDLE" 0
+emit "2026-06-24T10:00:00Z" false false 0 false false "STARTING→IDLE" 0
+out10=$(CC_DOGFOOD_LOG="$LOG" CC_DOGFOOD_STATE="$STATE" bash "$REPORT" 2>&1); rc10=$?
+if [[ "$rc10" -eq 0 ]] && printf '%s' "$out10" | grep -q '危险残留: 1 次' && printf '%s' "$out10" | grep -q 'turn-done 缺失: 0 次'; then
+  ok "TC10 exit 10 danger residue does not inflate turn-done-missing"
+else
+  bad "TC10 expected tdm=0 for exit10 artifact, rc=$rc10 out='$out10'"
+fi
 
 echo ""
 echo "=== Results: $PASS/$((PASS+FAIL)) passed ==="

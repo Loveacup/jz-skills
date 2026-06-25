@@ -56,7 +56,7 @@ fi
 # Test 4: an active OTHER CC session → exit 3 + paste-ready --ack-active command
 printf '⏺ Writing file…\n' > "/tmp/cc-start-fake-fixture.txt"
 tmux new-session -d -s "$FAKECC" -x 120 -y 20 \
-  "cat /tmp/cc-start-fake-fixture.txt; sleep 999" 2>/dev/null
+  "cat /tmp/cc-start-fake-fixture.txt; sleep 999" </dev/null >/dev/null 2>&1
 sleep 0.6
 out=$(CC_TMUX_SKILL_ROOT="$REAL_ROOT" bash "$START" \
         --target uniq-test-tgt-$$ --task "demo" 2>&1) && rc=0 || rc=$?

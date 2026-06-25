@@ -23,7 +23,7 @@ run_test() {
   
   # Write fixture to a file, then cat it in a tmux session so capture-pane sees it
   printf '%s\n' "$fixture" > "/tmp/cc-fixture-${SESSION}.txt"
-  tmux new-session -d -s "$SESSION" -x 120 -y 20 "cat /tmp/cc-fixture-${SESSION}.txt; sleep 999" 2>/dev/null
+  tmux new-session -d -s "$SESSION" -x 120 -y 20 "cat /tmp/cc-fixture-${SESSION}.txt; sleep 999" </dev/null >/dev/null 2>&1
   sleep 0.8  # let cat display the content
   
   # Run monitor, capture stderr
@@ -91,7 +91,7 @@ fp_cleanup(){ tmux kill-session -t "$SFP" 2>/dev/null || true; rm -f "/tmp/cc-he
 fp_cleanup
 
 # Test 7: fresh heartbeat present → fast path → state=ACTIVE_HOOK, no capture
-tmux new-session -d -s "$SFP" -x 120 -y 20 "sleep 999" 2>/dev/null
+tmux new-session -d -s "$SFP" -x 120 -y 20 "sleep 999" </dev/null >/dev/null 2>&1
 sleep 0.3
 NOWFP=$(date +%s); printf '%s|1|TOOL|?|%s|1\n' "$NOWFP" "$NOWFP" > "/tmp/cc-heartbeat-${SFP}"
 err=$(bash "$MONITOR" --session "$SFP" 2>&1 >/dev/null || true)
@@ -102,7 +102,7 @@ st=$(echo "$err" | grep -o 'state=[A-Z_]*' | head -1 | cut -d= -f2 || true)
 # Test 8: --force-capture bypasses fast path even with a fresh heartbeat → real capture
 printf '⏺ Writing…\n❯ \n' > /tmp/cc-fixture-fp.txt
 tmux kill-session -t "$SFP" 2>/dev/null || true
-tmux new-session -d -s "$SFP" -x 120 -y 20 "cat /tmp/cc-fixture-fp.txt; sleep 999" 2>/dev/null
+tmux new-session -d -s "$SFP" -x 120 -y 20 "cat /tmp/cc-fixture-fp.txt; sleep 999" </dev/null >/dev/null 2>&1
 sleep 0.6
 NOWFP=$(date +%s); printf '%s|1|TOOL|?|%s|1\n' "$NOWFP" "$NOWFP" > "/tmp/cc-heartbeat-${SFP}"
 err=$(bash "$MONITOR" --session "$SFP" --force-capture 2>&1 >/dev/null || true)
@@ -117,7 +117,7 @@ echo "§P1-1 status fast path (fresh hb + status file → state 直接取自 hoo
 SSP="cctmux-test-statusfp-$$"
 ssp_cleanup(){ tmux kill-session -t "$SSP" 2>/dev/null || true; rm -f "/tmp/cc-heartbeat-${SSP}" "/tmp/cc-state-${SSP}.log" "/tmp/cc-status-${SSP}.json"; }
 ssp_cleanup
-tmux new-session -d -s "$SSP" -x 120 -y 20 "sleep 999" 2>/dev/null
+tmux new-session -d -s "$SSP" -x 120 -y 20 "sleep 999" </dev/null >/dev/null 2>&1
 sleep 0.3
 NOWSP=$(date +%s)
 printf '%s|1|TOOL|?|%s|1\n' "$NOWSP" "$NOWSP" > "/tmp/cc-heartbeat-${SSP}"
