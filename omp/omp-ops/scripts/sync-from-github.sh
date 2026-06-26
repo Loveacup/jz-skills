@@ -38,9 +38,21 @@ if ! git -C "$JZ_ROOT" ls-tree "origin/$GITHUB_BRANCH" "$GITHUB_SKILL_DIR" >/dev
   exit 0
 fi
 
-# Checkout the remote skill tree into the working copy. This overwrites local
-# tracked files under omp/omp-ops with the contents from origin/main.
-git -C "$JZ_ROOT" checkout "origin/$GITHUB_BRANCH" -- "$GITHUB_SKILL_DIR"
+# Refuse to overwrite uncommitted local changes under the skill path.
+if git -C "$JZ_ROOT" status --porcelain "$GITHUB_SKILL_DIR" | grep -q .; then
+  jq -n \
+    --arg dir "$GITHUB_SKILL_DIR" \
+    '{status:"error", message:("Local skill directory has uncommitted changes; refusing to overwrite: " + $dir)}' >&2
+  exit 1
+fi
+
+# Checkout the remote skill tree into the working copy.
+if ! git -C "$JZ_ROOT" checkout "origin/$GITHUB_BRANCH" -- "$GITHUB_SKILL_DIR"; then
+  jq -n \
+    --arg dir "$GITHUB_SKILL_DIR" \
+    '{status:"error", message:("Failed to checkout " + $dir + " from origin/main.")}' >&2
+  exit 1
+fi
 
 jq -n \
   --arg dir "$GITHUB_SKILL_DIR" \

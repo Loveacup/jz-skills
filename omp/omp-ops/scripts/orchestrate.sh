@@ -34,7 +34,10 @@ acquire_lock || exit 0
 # Check version / state
 # -----------------------------------------------------------------------------
 
-STATUS_JSON="$("$SCRIPT_DIR/check-version.sh")"
+if ! STATUS_JSON="$("$SCRIPT_DIR/check-version.sh")"; then
+  jq -n '{status:"error", message:"check-version.sh failed"}' >&2
+  exit 1
+fi
 
 # Validate JSON.
 if ! python3 -c 'import sys, json; json.load(sys.stdin)' <<<"$STATUS_JSON" >/dev/null 2>&1; then

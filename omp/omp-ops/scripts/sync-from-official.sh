@@ -20,7 +20,7 @@ mkdir -p "$OFFICIAL_DIR"
 # Fetch official version
 # -----------------------------------------------------------------------------
 
-OFFICIAL_VERSION="$(curl -fsSL "$VERSION_URL" | python3 -c 'import sys, json; print(json.load(sys.stdin).get("version", "unknown"))')"
+OFFICIAL_VERSION="$(curl -fsSL "$VERSION_URL" 2>/dev/null | python3 -c 'import sys, json; print(json.load(sys.stdin).get("version", "unknown"))' || echo 'unknown')"
 
 if [[ -z "$OFFICIAL_VERSION" || "$OFFICIAL_VERSION" == "unknown" ]]; then
   jq -n \
@@ -48,8 +48,13 @@ DOCS=(
 )
 
 for doc in "${DOCS[@]}"; do
-  curl -fsSL "https://raw.githubusercontent.com/$OFFICIAL_REPO/$OFFICIAL_BRANCH/docs/$doc" \
-    -o "$OFFICIAL_DIR/$doc"
+  if ! curl -fsSL "https://raw.githubusercontent.com/$OFFICIAL_REPO/$OFFICIAL_BRANCH/docs/$doc" \
+      -o "$OFFICIAL_DIR/$doc"; then
+    jq -n \
+      --arg doc "$doc" \
+      '{status:"error", message:("Failed to download doc: " + $doc)}' >&2
+    exit 1
+  fi
 done
 
 # First 500 lines of the coding-agent CHANGELOG.

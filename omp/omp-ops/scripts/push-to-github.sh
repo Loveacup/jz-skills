@@ -11,6 +11,7 @@ REFS_DIR="$SKILL_DIR/references"
 
 GITHUB_BRANCH="main"
 GITHUB_SKILL_DIR="omp/omp-ops"
+DIRTY_MARKER="$SKILL_DIR/.dirty"
 
 VERSION="$(cat "$REFS_DIR/VERSION" 2>/dev/null | tr -d '[:space:]' || echo "0.0.0-0")"
 [[ -n "$VERSION" ]] || VERSION="0.0.0-0"
@@ -23,8 +24,22 @@ if [[ -z "$JZ_ROOT" ]]; then
   exit 1
 fi
 
+# Helpers to keep the dirty marker in sync with the actual push outcome.
+mark_dirty() { touch "$DIRTY_MARKER"; }
+unmark_dirty() { rm -f "$DIRTY_MARKER"; }
+
 # Remove the dirty marker before staging so it is never committed.
-rm -f "$SKILL_DIR/.dirty"
+unmark_dirty
+
+# If commit/push fails later, restore the marker so the next check-version run
+# will retry.
+restore_dirty_on_error() {
+  jq -n \
+    --arg version "$VERSION" \
+    '{status:"error", message:("Failed to push omp-ops " + $version + ". Dirty marker restored.")}' >&2
+  mark_dirty
+  exit 1
+}
 
 # If there is nothing to commit under this skill path, we are done.
 if ! git -C "$JZ_ROOT" status --porcelain "$GITHUB_SKILL_DIR" | grep -q .; then
@@ -44,13 +59,12 @@ if git -C "$JZ_ROOT" diff --cached --quiet; then
   exit 0
 fi
 
-git -C "$JZ_ROOT" commit -m "sync: omp-ops $VERSION"
+if ! git -C "$JZ_ROOT" commit -m "sync: omp-ops $VERSION"; then
+  restore_dirty_on_error
+fi
 
 if ! git -C "$JZ_ROOT" push origin "$GITHUB_BRANCH"; then
-  jq -n \
-    --arg branch "$GITHUB_BRANCH" \
-    '{status:"error", message:("Failed to push to origin/" + $branch + ".")}' >&2
-  exit 1
+  restore_dirty_on_error
 fi
 
 jq -n \

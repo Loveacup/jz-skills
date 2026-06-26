@@ -45,12 +45,15 @@ This skill teaches agents how to operate, configure, and troubleshoot
           and references/providers/ for quick provider matrices
 ```
 
-## Forced entry: `scripts/orchestrate.sh`
+## Forced entry: discover and run `scripts/orchestrate.sh`
 
-Every trigger **must** begin by executing:
+Every trigger **must** begin by discovering the local skill path and executing
+its orchestrator. Do **not** hard-code a path; the skill may live under
+`~/.agents/pools/hermes-ops/omp-ops/` or another custom directory.
 
 ```bash
-bash /Users/alexcai/code/jz-skills/omp/omp-ops/scripts/orchestrate.sh
+OMP_OPS_SCRIPT=$(find ~/.agents -path "*/omp-ops/scripts/orchestrate.sh" 2>/dev/null | head -n 1)
+[ -n "$OMP_OPS_SCRIPT" ] && bash "$OMP_OPS_SCRIPT"
 ```
 
 The script:
