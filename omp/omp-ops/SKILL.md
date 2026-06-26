@@ -52,7 +52,7 @@ its orchestrator. Do **not** hard-code a path; the skill may live under
 `~/.agents/pools/hermes-ops/omp-ops/` or another custom directory.
 
 ```bash
-OMP_OPS_SCRIPT=$(find ~/.agents -path "*/omp-ops/scripts/orchestrate.sh" 2>/dev/null | head -n 1)
+OMP_OPS_SCRIPT=$(find -L ~/.agents -name orchestrate.sh -path "*/omp-ops/*" 2>/dev/null | head -n 1)
 [ -n "$OMP_OPS_SCRIPT" ] && bash "$OMP_OPS_SCRIPT"
 ```
 
