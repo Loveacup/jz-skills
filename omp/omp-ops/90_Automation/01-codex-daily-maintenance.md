@@ -99,7 +99,8 @@ wrappers for macOS/Git Bash/WSL and Windows PowerShell respectively.
 7. Generate a maintenance plan from official diffs.
 8. Use Codex semantic review to update authored references.
 9. Run verification.
-10. Release only scoped, verified `omp/omp-ops/` changes.
+10. Bump `references/VERSION` for every released update.
+11. Release only scoped, verified `omp/omp-ops/` changes.
 
 ## Helper Script Contract
 
@@ -143,6 +144,15 @@ The following concerns belong to this automation document rather than
 
 Dirty state is detected by both the `.dirty` marker used by sync scripts and
 the git worktree state under `omp/omp-ops/`.
+
+Versioning is mandatory:
+
+- Every committed update to this skill must update `references/VERSION`.
+- Official OMP version bumps use `<official-version>-0`.
+- Skill-maintenance changes that do not change the official OMP base increment
+  the revision suffix, for example `16.1.23-0` -> `16.1.23-1`.
+- `scripts/push-to-github.sh` must refuse to release staged `omp/omp-ops/`
+  changes unless `omp/omp-ops/references/VERSION` is part of the staged diff.
 
 Partial failure behavior:
 

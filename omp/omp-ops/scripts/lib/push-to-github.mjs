@@ -31,6 +31,19 @@ function main() {
     return;
   }
 
+  result = run("git", ["-C", root, "diff", "--cached", "--name-only", "--", GITHUB_SKILL_DIR]);
+  const stagedFiles = result.stdout.split(/\r?\n/).filter(Boolean);
+  if (!stagedFiles.includes(`${GITHUB_SKILL_DIR}/references/VERSION`)) {
+    touch(dirtyMarker());
+    jsonOut({
+      status: "error",
+      message: "Refusing to release omp-ops changes without a references/VERSION update.",
+      required_file: `${GITHUB_SKILL_DIR}/references/VERSION`,
+      staged_files: stagedFiles,
+    }, process.stderr);
+    process.exit(1);
+  }
+
   result = run("git", ["-C", root, "commit", "-m", `sync: omp-ops ${version}`], { stdio: "inherit" });
   if (result.status !== 0) restoreDirtyOnError(version);
 
