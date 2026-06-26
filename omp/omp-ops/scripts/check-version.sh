@@ -39,21 +39,27 @@ version_revision() {
   fi
 }
 
-# Compare two semver-ish strings. Returns 0 if $1 > $2.
+# Compare two semver-ish x.y.z strings. Returns 0 if $1 > $2.
 version_gt() {
   local a="$1" b="$2"
   [[ -n "$a" && -n "$b" && "$a" != "unknown" && "$b" != "unknown" ]] || return 1
-  local max
-  max="$(printf '%s\n%s\n' "$a" "$b" | sort -V | tail -n 1)"
-  [[ "$max" == "$a" && "$a" != "$b" ]]
+  local a1 a2 a3 b1 b2 b3
+  IFS='.' read -r a1 a2 a3 <<<"$a"
+  IFS='.' read -r b1 b2 b3 <<<"$b"
+  a1=$((10#${a1:-0})); a2=$((10#${a2:-0})); a3=$((10#${a3:-0}))
+  b1=$((10#${b1:-0})); b2=$((10#${b2:-0})); b3=$((10#${b3:-0}))
+  (( a1 > b1 )) && return 0
+  (( a1 < b1 )) && return 1
+  (( a2 > b2 )) && return 0
+  (( a2 < b2 )) && return 1
+  (( a3 > b3 )) && return 0
+  return 1
 }
 
 version_lt() {
   local a="$1" b="$2"
   [[ -n "$a" && -n "$b" && "$a" != "unknown" && "$b" != "unknown" ]] || return 1
-  local max
-  max="$(printf '%s\n%s\n' "$a" "$b" | sort -V | tail -n 1)"
-  [[ "$max" == "$b" && "$a" != "$b" ]]
+  version_gt "$b" "$a"
 }
 
 add_action() {
