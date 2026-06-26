@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed garbled casing in auto-generated session titles. `normalizeGeneratedTitle` (`packages/coding-agent/src/tiny/text.ts`) used to force Title Case via a `\b\p{Ll}` regex, capitalizing function words ("for" → "For") and amplifying stray model capitals ("dAemon" → "DAemon"). It now reconciles each title token against the user's own message: tokens typed verbatim are kept; proper nouns the user cased distinctively are restored when the model flattened them ("tinyvmm" → "TinyVMM"); lowercase words carrying a stray interior capital the user never wrote are flattened ("dAemon" → "daemon"); and model-cased PascalCase proper nouns ("GitHub", "OAuth") are left untouched. Restoration is limited to distinctively cased source tokens so a message that merely starts with "For" can't force a mid-title "for" to "For". Applies to both the local tiny-model and online pi/smol title paths.
+
 ## [16.1.23] - 2026-06-26
 
 ### Added
@@ -494,7 +498,3 @@
 - Fixed the Agent Hub transcript viewer rendering the transcript body one column right of the "Agent Hub" title (and the title appearing to shift when scrolled to the top): the fullscreen viewer added its own outer gutter on top of the transcript rows, which already carry a 1-column left pad, so the header and body no longer shared a gutter. The viewer now renders the scroll body at full width without the extra gutter, and the file-mention row carries the same 1-column pad as every other row.
 - Fixed the bash tool failing with `pi-natives:command: syntax error at end of input` on a valid `&&`/`;` chain whose later pipeline stage is a compound command, e.g. `echo x && git log | while read h; do …; done | head`. The minimizer's segmented-chain runner rebuilds each chain segment from the brush AST via `pipeline.to_string()` and re-executes that string, but `simple_segment` only validated the *first* pipeline stage — so a compound later stage (`while`/`for`/`if`/subshell) was re-serialized without its terminator and re-run as broken shell. Every stage is now required to be a Display-safe simple command, and — as a general guard against the recurring class of brush `Display` round-trip divergences (previously: quoted here-doc close tags, multi-byte char/byte offsets) — each reconstructed segment is now re-parsed and must match the original pipeline shape before the chain runner executes it; any divergence runs the command whole, unsegmented, instead of corrupting it.
 - Fixed `Ctrl+T` (toggle thinking blocks) and the `/settings` "Hide Thinking Blocks" toggle only collapsing/expanding thinking in the live region: blocks that had scrolled into committed native scrollback on ED3-risk terminals kept their pre-toggle snapshot, so scrolling up showed the old thinking state. Both paths now `resetDisplay()` after flipping each block's flag, forcing a full clear + replay of the whole transcript (matching the tool-output expansion toggle) so every block above the fold re-renders at its new height.
-- Fixed ACP mobile voice settings being unable to call `speech.models.list` by exposing the local STT/TTS model and voice catalog without triggering setup or downloads ([#3011](https://github.com/can1357/oh-my-pi/issues/3011)).
-- Fixed the collapsed inline arg preview used by tools without a custom renderer (e.g. `advise`, MCP tools) truncating every value at a fixed 24 columns, so a long note was cut to `note="Your “stric…"` even on a wide card with empty space to spare. Each value now grows into the width the card actually has, reserving only a small slice for the keys that still follow so a long leading value can't hide them.
-
-### Removed

@@ -76,3 +76,5 @@ All validation `curl` commands above use a test query. When running them, ensure
 - The command is not captured in shell history containing the real key.
 - The output does not include the key or full response payloads in tool results.
 - Errors are inspected for auth/permission issues, not just connectivity.
+- These commands are human verification examples and should not be run by
+  `omp-ops` maintenance automation.

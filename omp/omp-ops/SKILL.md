@@ -3,9 +3,7 @@ name: omp-ops
 description: |
   Operations skill for Oh My Pi (OMP). Trigger when the user asks about OMP
   configuration, model providers, API keys, search providers, `config.yml`,
-  `models.yml`, `agent.db`, `.env` precedence, `modelRoles`, or syncing this
-  skill from the official OMP repository. Always run `scripts/orchestrate.sh`
-  first and follow its actions.
+  `models.yml`, `agent.db`, `.env` precedence, or `modelRoles`.
 ---
 
 # omp-ops
@@ -17,70 +15,23 @@ This skill teaches agents how to operate, configure, and troubleshoot
 
 | Do not... | Why |
 |---|---|
-| Skip `scripts/orchestrate.sh` at the start of a trigger. | It syncs this skill from official OMP docs and GitHub before you answer. |
 | Hard-code API keys or tokens in any file. | `agent.db`, `.env`, and `/login` exist precisely to avoid that. |
-| Assume the local OMP version matches the skill version. | Check `local_omp` from `orchestrate.sh` output. |
+| Assume the local OMP version matches this skill's reference version. | Check `omp --version` when local/runtime compatibility matters. |
 | Edit `references/official/*` manually. | They are overwritten by the sync action. |
 | Disable `secrets.enabled` to simplify output. | It leaks keys into provider requests. |
 
 ## Decision tree (core workflow)
 
 ```text
-1. User triggers omp-ops (config, providers, keys, search, modelRoles, sync, etc.)
+1. User triggers omp-ops (config, providers, keys, search, modelRoles, etc.)
    |
    v
-2. Run scripts/orchestrate.sh
-   |-- prints JSON status
-   |-- may run actions: sync-from-official, push-to-github, sync-from-github
-   |
-   v
-3. Read orchestrate output
-   |-- local_omp, official_omp, status, actions, message
-   |
-   v
-4. If sync happened or is needed, re-read references/official/ and this SKILL.md
-   |
-   v
-5. Answer using references/official/ for authoritative OMP behavior
+2. Answer using references/official/ for authoritative OMP behavior
           and references/providers/ for quick provider matrices
+   |
+   v
+3. Check local OMP version only when the answer depends on installed runtime behavior
 ```
-
-## Forced entry: discover and run `scripts/orchestrate.sh`
-
-Every trigger **must** begin by discovering the local skill path and executing
-its orchestrator. Do **not** hard-code a path; the skill may live under
-`~/.agents/pools/hermes-ops/omp-ops/` or another custom directory.
-
-```bash
-OMP_OPS_SCRIPT=$(find -L ~/.agents -name orchestrate.sh -path "*/omp-ops/*" 2>/dev/null | head -n 1)
-[ -n "$OMP_OPS_SCRIPT" ] && bash "$OMP_OPS_SCRIPT"
-```
-
-The script:
-
-1. Calls `scripts/check-version.sh`, which emits a single JSON object:
-
-   ```json
-   {
-     "local_omp": "16.1.22",
-     "local_skill": "16.1.23-0",
-     "github_skill": "16.1.23-0",
-     "official_omp": "16.1.23",
-     "status": "synced",
-     "actions": [],
-     "local_dirty": false,
-     "recent_sync": false,
-     "message": "All aligned."
-   }
-   ```
-
-2. If `actions` is non-empty, runs each action in order from
-   `scripts/<action>.sh` (`sync-from-official`, `push-to-github`,
-   `sync-from-github`).
-3. Uses a file lock and a 5-minute cache to avoid redundant syncs.
-
-Follow the output. If `status` is not `synced`, wait for the actions to
-complete and then re-read the references before answering.
 
 ## When to use this skill
 
@@ -94,7 +45,6 @@ Use this skill when the user asks about any of the following:
 - `modelRoles`, `cycleOrder`, `modelProviderOrder`, `enabledModels`,
   `disabledProviders`.
 - `.env` precedence, `PI_CODING_AGENT_DIR`, profiles.
-- Syncing or updating this skill from the official OMP repository.
 
 ## Reference file rules
 
@@ -176,7 +126,6 @@ explicitly configured or listed in `disabledProviders`.
 
 Before answering, confirm:
 
-- [ ] `scripts/orchestrate.sh` has been executed and its JSON output inspected.
 - [ ] No real API key, token, or password appears in the final response.
 - [ ] `references/official/` was consulted for behavior that may have changed.
 - [ ] `references/providers/` was consulted for provider-specific env vars.
