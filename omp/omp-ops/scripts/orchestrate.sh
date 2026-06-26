@@ -46,16 +46,12 @@ fi
 # Extract the actions array.
 ACTIONS="$(python3 -c 'import sys, json; d=json.load(sys.stdin); print("\n".join(d.get("actions", [])))' <<<"$STATUS_JSON")"
 
+
 if [[ -z "$ACTIONS" ]]; then
+  date +%s > "$CACHE_FILE"
   echo "$STATUS_JSON"
   exit 0
 fi
-
-# -----------------------------------------------------------------------------
-# Execute actions in order
-# -----------------------------------------------------------------------------
-
-ACTION_ARRAY=()
 while IFS= read -r line; do
   [[ -n "$line" ]] && ACTION_ARRAY+=("$line")
 done <<<"$ACTIONS"
