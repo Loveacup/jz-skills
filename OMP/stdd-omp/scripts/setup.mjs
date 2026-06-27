@@ -19,6 +19,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const orchestratePath = fileURLToPath(new URL('./orchestrate.mjs', import.meta.url));
 const o = await import(pathToFileURL(orchestratePath).href);
 
+const gatesPath = fileURLToPath(new URL('./gates.mjs', import.meta.url));
+const g = await import(pathToFileURL(gatesPath).href);
+
 const STDD_DIR_NAME = '.stdd';
 const CONFIG_FILE_NAME = 'config.json';
 
@@ -128,7 +131,7 @@ function yamlHas(text, pattern) {
 function detectOmpConfig() {
   const text = readConfigYaml();
   const checks = {
-    memory_backend_local: /memory:\s*\n(?:\s+\S+\n)*?\s+backend:\s*local\b/m.test(text),
+    memory_backend_local: /memory:\s*\n(?:\s+\S+:\s*\S+\n)*?\s+backend:\s*local\b/m.test(text),
     modelRoles_plan: /modelRoles:\s*\n(?:\s+\S+:\s*\S+\n)*?\s+plan:/m.test(text),
     modelRoles_task: /modelRoles:\s*\n(?:\s+\S+:\s*\S+\n)*?\s+task:/m.test(text),
     modelRoles_advisor: /modelRoles:\s*\n(?:\s+\S+:\s*\S+\n)*?\s+advisor:/m.test(text),
@@ -140,6 +143,81 @@ function detectOmpConfig() {
     config_path: path.join(nativeAgentDir(), 'config.yml'),
     present: fileExists(path.join(nativeAgentDir(), 'config.yml')),
     checks,
+  };
+}
+
+async function detectGatesSelfTest() {
+  const results = {
+    artifact_ok: false,
+    test_pass_ok: false,
+    test_fail_ok: false,
+    danger_detected: false,
+    clean_pass: false,
+    counter_ok: false,
+  };
+  const reasons = [];
+
+  try {
+    const artifact = g.verifyArtifact(path.join(skillRoot(), 'scripts', 'gates.mjs'));
+    results.artifact_ok = artifact.ok;
+    if (!artifact.ok) reasons.push(`verifyArtifact: ${artifact.message}`);
+  } catch (e) {
+    reasons.push(`verifyArtifact exception: ${e.message}`);
+  }
+
+  try {
+    const pass = await g.verifyTest('node -e "process.exit(0)"', { shell: false });
+    results.test_pass_ok = pass.ok && pass.code === 0;
+    if (!results.test_pass_ok) reasons.push(`verifyTest pass: code ${pass.code}`);
+  } catch (e) {
+    reasons.push(`verifyTest pass exception: ${e.message}`);
+  }
+
+  try {
+    const fail = await g.verifyTest('node -e "process.exit(1)"', { shell: false });
+    results.test_fail_ok = !fail.ok && fail.code === 1;
+    if (!results.test_fail_ok) reasons.push(`verifyTest fail: code ${fail.code}`);
+  } catch (e) {
+    reasons.push(`verifyTest fail exception: ${e.message}`);
+  }
+
+  try {
+    const danger = g.scanDanger('git push origin main');
+    results.danger_detected = danger.matches.length > 0;
+    if (!results.danger_detected) reasons.push('scanDanger did not detect git push');
+  } catch (e) {
+    reasons.push(`scanDanger exception: ${e.message}`);
+  }
+
+  try {
+    const clean = g.scanDanger('ls -la');
+    results.clean_pass = clean.matches.length === 0;
+    if (!results.clean_pass) reasons.push(`scanDanger false positive: ${clean.matches.join(', ')}`);
+  } catch (e) {
+    reasons.push(`scanDanger clean exception: ${e.message}`);
+  }
+
+  try {
+    const prevStateDir = process.env.STDD_STATE_DIR;
+    const tmpState = path.join(os.tmpdir(), `stdd-selftest-${Date.now()}`);
+    process.env.STDD_STATE_DIR = tmpState;
+    const testKey = 'setup-selftest';
+    const c1 = g.bumpCounter({ key: testKey, kind: 'regen', max: 3, action: 'incr' });
+    const c2 = g.bumpCounter({ key: testKey, kind: 'regen', max: 3, action: 'reset' });
+    const c3 = g.bumpCounter({ key: testKey, kind: 'regen', max: 3, action: 'get' });
+    results.counter_ok = c1.ok && c1.count === 1 && c2.ok && c2.count === 0 && c3.ok && c3.count === 0;
+    if (!results.counter_ok) reasons.push(`counter state mismatch: ${JSON.stringify({ c1, c2, c3 })}`);
+    process.env.STDD_STATE_DIR = prevStateDir;
+    fs.rmSync(tmpState, { recursive: true, force: true });
+  } catch (e) {
+    reasons.push(`counter exception: ${e.message}`);
+  }
+
+  const allOk = Object.values(results).every(Boolean);
+  return {
+    ok: allOk,
+    results,
+    reasons,
   };
 }
 
@@ -207,6 +285,7 @@ async function detect() {
     rules: detectRules(),
     watchdog: detectWatchdog(),
     omp_config: detectOmpConfig(),
+    gates_selftest: await detectGatesSelfTest(),
   };
 }
 
@@ -331,6 +410,17 @@ function formatReport(report) {
   lines.push(`  file present        : ${report.omp_config.present ? 'yes' : 'no'} (${report.omp_config.config_path})`);
   for (const [k, v] of Object.entries(report.omp_config.checks)) {
     lines.push(`  ${k.padEnd(18)} : ${v ? 'yes' : 'no'}`);
+  }
+  lines.push('');
+
+  lines.push(`gates.mjs self-test : ${report.gates_selftest.ok ? 'PASS' : 'FAIL'}`);
+  for (const [k, v] of Object.entries(report.gates_selftest.results)) {
+    lines.push(`  ${k.padEnd(18)} : ${v ? 'ok' : 'no'}`);
+  }
+  if (!report.gates_selftest.ok && report.gates_selftest.reasons.length > 0) {
+    for (const r of report.gates_selftest.reasons) {
+      lines.push(`  ! ${r}`);
+    }
   }
   lines.push('');
 
