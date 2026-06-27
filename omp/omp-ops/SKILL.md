@@ -143,6 +143,23 @@ Before answering, confirm:
 - [ ] The user was directed to `/login` or env vars instead of being told to
       paste a key into a committed file.
 
+## When this skill doesn't have the answer
+
+If the user's question is not covered by `references/official/` or `references/providers/`, guide them to search existing issues on the upstream OMP repository before guessing:
+
+- Use GitHub issue search: `https://github.com/can1357/oh-my-pi/issues?q=is%3Aissue+<keywords>`
+- Common filters:
+  - `is:issue is:open <error message>`
+  - `is:issue <provider name> <config key>`
+  - `is:issue modelRoles`
+  - `is:issue search provider`
+- If no matching issue exists and the problem is reproducible, suggest opening a new issue with:
+  - `omp --version`
+  - Minimal config / `.omp/config.yml` snippet (redact keys)
+  - Exact error message or unexpected behavior
+
+Do not invent workarounds that are not documented or verified by an existing issue/PR.
+
 ## See also
 
 - `references/architecture.md` — config layout, `config.yml`, `agent.db`, `.env`, `modelRoles`.
