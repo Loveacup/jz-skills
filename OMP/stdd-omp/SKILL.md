@@ -157,6 +157,8 @@ const status = await o.run();
 | 经验回写 | `memory.backend: local` + `retain`/`recall` | 全过后写经验，后续任务先 recall |
 | Web 验收 | `browser` | E2E 断言加入 Acceptance checklist |
 
+> **OMP 配置细节**（modelRoles、providers、API keys、search、profiles、`config.yml` 层级等）见 **`/skill:omp-ops`**。stdd-omp 给出推荐值，具体写法/密钥管理让 omp-ops 处理。
+
 推荐 `~/.omp/agent/config.yml`：
 
 ```yaml
@@ -205,6 +207,7 @@ task:
 - 问题陈述：`problem-statement`
 - 调研：`web_search` + `agent-reach`
 - 澄清/对赌：`ask` / `oracle`
+- **OMP 配置/密钥/模型/搜索 provider / profile：调用 `/skill:omp-ops`**
 - 若对应 skill 不可用，降级为自写，不阻塞流程。
 
 ## 经验回写

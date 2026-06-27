@@ -3,6 +3,38 @@
 本 skill 默认安装在 **agents lane**：`~/.agents/skills/stdd-omp/`。
 如需 profile 隔离，可改用 **native lane**：`~/.omp/agent/skills/stdd-omp/`。
 
+## 首次使用：快速配置
+
+安装 skill 后，先跑一次 setup 脚本做「体检 + 生成配置」：
+
+```bash
+# 只读体检：看当前环境缺哪些组件、OMP 版本是否兼容
+node scripts/setup.mjs
+
+# 一键应用推荐配置（安装 hook/auditor/rules/WATCHDOG 并写入 ~/.stdd/config.json）
+node scripts/setup.mjs --apply
+
+# 自定义（示例）
+node scripts/setup.mjs --apply \
+  --with-hook \
+  --with-auditor \
+  --with-rules \
+  --with-watchdog \
+  --approval-mode write \
+  --github-repo owner/repo
+```
+
+setup 脚本会：
+
+1. 检测 OMP 版本、`~/.agents/skills/stdd-omp/` 或 `~/.omp/agent/skills/stdd-omp/` 安装位置。
+2. 检查 opt-in 组件是否已安装：hook、auditor、rules、WATCHDOG。
+3. 检查 `~/.omp/agent/config.yml` 中 `memory.backend`、`modelRoles`、`tools.approvalMode`、`task.isolation`、`task.async` 等关键项。
+4. 生成 `~/.stdd/config.json`（用户偏好与版本源）。
+5. `--apply` 时把缺失的 opt-in 组件复制到 `~/.omp/agent/` 下；**不会覆盖已有文件**（除非加 `--force`）。
+6. 打印人类可读的体检报告和下一步建议。
+
+> setup 脚本本身不会改 `~/.omp/agent/config.yml`。如果检测到你还没配 `memory.backend: local` 等关键项，它会打印一段推荐 YAML，让你手动合并或调用 **`/skill:omp-ops`** 协助配置。
+
 ## 自动检测 / 安装模式（推荐先跑）
 
 skill 加载后，先运行 orchestrator 做只读检测：
@@ -183,6 +215,8 @@ tools:
     edit: ask
     write: ask
 ```
+
+> 对 `config.yml`、modelRoles、API keys、search providers、profiles 等 OMP 配置有疑问，调用 **`/skill:omp-ops`**。stdd-omp 只给出与 STDD 流程相关的最小推荐值，具体 provider/key/profile 配置让 omp-ops 处理。
 
 ## 如何确认已生效
 

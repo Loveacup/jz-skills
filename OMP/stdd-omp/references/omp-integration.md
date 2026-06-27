@@ -125,6 +125,8 @@ task:
     enabled: true
 ```
 
+> **OMP 配置写法/密钥/provider/profile 细节** 见 **`/skill:omp-ops`**。本页只列出 STDD 流程所需的最小键。
+
 ## 与 SKILL.md 的对应
 
 - `SKILL.md` 的“四步微循环”已按上表接线；
