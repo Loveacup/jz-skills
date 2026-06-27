@@ -16,6 +16,8 @@ metadata:
 
 # Web Research Router v3.11
 
+> 🆕 **v3.12 (2026-06-27)**: 🛟 **引擎 fallback 从文档落地为运行时**。`extension.ts` 的 `web_search`/`web_fetch` 现实现**自动 fallback**：未显式指定 provider 时按 `exa → brave → searxng` 降级（任一引擎抛异常**或命中 0 条**即切下一个，每引擎只试一次防雪崩）；**显式指定 provider 时禁用 fallback**（尊重意图，向后兼容）；Tavily 限流，不入自动链，仅作显式 provider；SearXNG 需 `SEARXNG_URL`，未配置则在链中自动跳过。返回值新增 `details.actualProvider` / `details.fallbackChain` 保证可观测。**技术债修复**：`extension.ts` 的 Brave key 由错误的 `BRAVE_SEARCH_API_KEY` 统一为 `BRAVE_API_KEY`（与 profile `.env` / 本文档一致；旧命名导致 brave provider 一直取不到 key）。**运行态澄清**：本文档大量出现的 `mcp_brave_search_*` / `mcp_tavily_*` / `mcp_searxng_*` 为历史 MCP 文档；`config.yaml` 实际无 `mcpServers` 块、`web:` 段为空，运行时搜索由 `toolsets: [hermes-cli]` 加载的 `extension.ts` 提供。验证：`scripts/test-engines.sh`（连通性）+ `scripts/fallback-logic-test.mjs`（控制流 7/7）。详见 `references/engine-fallback-strategy.md`。
+
 > 🆕 **v3.11 (2026-06-17)**: 🧲 **last30days 源码吸收（6 机制，一条链）**。在不碰 wrr-core 核心约束的前提下吸收 [last30days-skill](https://github.com/mvanhorn/last30days-skill) v3.3.2 的 6 项机制，全部 prompt/脚本层、向后兼容：**①Step 0.6 预搜索实体接地**（命名实体类 query 主搜前解析官方域/repo/subreddit/handle，喂主搜+platform 通道定向）→ **②ENTITY_MISS 闸**（deep loop 不提实体的漂移结果不进 facts.jsonl）；**④SOURCE_QUALITY 权威度权重表** + **⑤intent-aware 融合权重** → **③weighted RRF**（`dedup_rrf.py --weights`，默认均权向后兼容）；**⑧薄源重试**（命中 <3 先简化 query 重试同引擎再切）。**唯一红线**：engagement/social 权重永不抬 `source_tier`（封顶 0.50，CQI §14.6）。改动文件：SKILL.md / research-modes.md / source-map-schema.md / deep-research-loop.md / platform-mode.md / dedup_rrf.py / trigger-tests.md。新机制是 wrr-core 阶段 1 `route()`/registry 将**吸收而非推翻**的 prompt spec（CQI §14.5 许可的 Week-1 落地）。
 
 > 🆕 **v3.10 (2026-06-17)**: 🔌 集成 **Agent-Reach platform mode**——5 引擎全在公网搜索空间的结构性盲区（Twitter/X 口碑、Reddit 讨论、B站/小红书/YouTube 内容、V2EX/雪球垂直社区、小宇宙播客、RSS）现由第 6 个 `platform` mode 补齐，调用 Agent-Reach 11/13 可用通道（doctor 实测：linkedin/exa_search 为 off，exa_search 与本 router Exa 重叠故无需）。**platform mode 是 5 mode 之外的补充模式，不替换 Exa/Brave/Tavily 主链路**；CLI 原始信源统一经 WRR 标准管线（extractor → source map `source_tier: social` → cross-check → 三分栏 → `[s<id>]` citation）。每次激活先跑 `agent-reach doctor`，不可用通道静默跳过。新增 `references/platform-mode.md`。
@@ -44,6 +46,7 @@ Before calling ANY search tool, check this table. If any excuse below sounds fam
 | "I already know the answer" | Training data is stale. Current facts need current search. |
 | "I already loaded the skill, that's enough" | Loading ≠ following. Loading tells you WHAT to do; you still need to DO it. |
 | "The loaded skill / context already has info on this — I can answer from that" ★ | **2026-06-01 真实违规。用户追问"你搜索了吗"。** 加载了 claude-code skill 后，基于 skill 内容和先验知识直接回答了 CC agent team 模型选择机制——但这是关于外部产品当前能力的 factual 问题。skill 里的信息可能过期、不完整或被后续更新推翻。**任何外部事实/版本/能力/当前状态的问题，即使已加载的 skill 看似覆盖了该领域，也必须走 Step 0 + 公网搜索。skill 是工作流指南，不是事实权威来源。** |
+| "我已经本机实测过 CLI/help，所以可以开始设计" ★ | **2026-06-26 真实违规边缘。用户提醒“你要搜索”。** 本机 `--help` / config path / probe 只能证明当前安装行为，不能替代官方 docs/source。涉及外部工具机制、profile/config/auth/permission 边界、版本能力、模板设计等需求讨论时，必须在本地实测后补官方 docs/source 搜索与源码 fetch，再下设计结论。 |
 | "The decision tree is too complicated for this" | It's 4 branches. Pick one. Takes 5 seconds. |
 | "I'll cross-check later" | Cross-checking after the fact is twice the work. Do it in the right order now. |
 | "我直接 Exa 单引擎一次到位" | 单引擎容易遗漏独立索引盲区（Exa 的神经索引 vs Brave 的独立爬虫覆盖不同源）。默认双主力 Exa + Brave 交叉，web_search 广扫兜底。 |
@@ -476,6 +479,7 @@ hermes mcp test searxng --query "claude 4.7 release notes"
 |-----------------|---------|
 | Detailed mode instructions (default paths, examples) | `references/research-modes.md` |
 | **🔌 platform mode**（Agent-Reach 通道速查 + 触发词→通道映射 + doctor 自检 + CLI 输出→source map + 交互环境标注 + DO/DON'T） | `references/platform-mode.md` |
+| **🆕 跨平台热门扫描模式**（5 平台并行 fan-out + 可靠性分级 + 踩坑记录） | `references/cross-platform-trending-scan.md` |
 | **🆕 last30days 源码深度分析 — WRR 可吸收机制**（5 项可偷 + 4 项不偷 + CQI 对照） | `references/last30days-analysis.md` |
 | Query patterns for common tasks | `references/query-patterns.md` |
 | Academic lane policy (arXiv, Semantic Scholar, PubMed, etc.) | `references/academic-lane.md` |
@@ -484,6 +488,7 @@ hermes mcp test searxng --query "claude 4.7 release notes"
 | Full Source Map Schema JSON（含 `citation_id` / `extracted_quotes` / `budget` 字段） | `references/source-map-schema.md` |
 | MCP tool names by profile | `references/tool-names.md` |
 | **MCP 配置与部署**（config.yaml + .env + 同步 + 验证四件套） | 本文 §MCP Configuration & Deployment |
+| **🆕 多范式比较研究**（比较 N 个工程范式：起源→框架→学术→社区→对比→工具栈映射） | `references/multi-paradigm-comparison.md` |
 | Deployment & Sync instructions (legacy) | `references/deployment.md` |
 | **抓页面后如何抽 verbatim quote**（防幻觉最大杠杆）★ | `references/fetch-extract-pattern.md` |
 | **多轮 deep research loop SOP v3.4**（plan → section(facts.jsonl) → CoV验证 → merge(盲区补搜) → 颗粒度Gate） | `references/deep-research-loop.md` |
@@ -499,7 +504,9 @@ hermes mcp test searxng --query "claude 4.7 release notes"
 | **🆕 新闻管线抓取断裂根因（2026-06-02）**（web_extract SSRF 守卫 → 伪引用 → 模型脑补 → 产出不可信 — 三省六部早新闻案例诊断） | `references/news-pipeline-extraction-failure.md` |
 | **Telegram 客户端差异排查**（PC 可见但 iOS 不可见的 topic typing indicator：先分离 API 正确性 vs 客户端渲染） | `references/telegram-client-specific-topic-typing.md` |
 | **🆕 跨项目架构分析方法论**（四阶段：表层→源码→模式提取→反模式提取，含决策输出格式模板） | `references/cross-project-analysis-methodology.md` |
+| **🆕 生成式 UI / 流式 UI 赛道全景 2026**（A2UI·OpenUI·Vercel·CopilotKit·TokUI·cosui 对比 + 选型决策树） | `references/generative-ui-landscape-2026.md` |
 | **🆕 MCP 合并 vs CLI 化分析**（CC Agent Team + 太子双视角，82进程/1.56GB实测，引擎 API curl 矩阵，三方向评分） | `references/mcp-consolidation-analysis.md` |
+| **🆕 引擎故障 Fallback 策略**（web_search HTTP 432→Exa→Brave→SearXNG 降级链，含快速诊断命令） | `references/engine-fallback-strategy.md` |
 
 ---
 
@@ -517,6 +524,7 @@ hermes mcp test searxng --query "claude 4.7 release notes"
 10. **Client-specific behavior ≠ backend failure.** If the user reports “works on PC/Desktop but not iOS/mobile” (or vice versa), immediately split the investigation into API/backend correctness vs client rendering/metadata behavior. Search with explicit client terms (`iOS`, `Android`, `Desktop`, version) and avoid declaring the server-side fix failed when one client already renders correctly. For Telegram topic/DM typing indicators, PC visibility plus iOS invisibility strongly suggests client-rendering limitations; keep native API calls as ground truth and treat visible placeholder fallbacks as opt-in only.
 11. **platform mode 跳过 doctor 直接调 CLI。** 🔌 OpenCLI 类通道（twitter/reddit/xiaohongshu）的 `active_backend` 随登录态/环境变化；不先跑 `agent-reach doctor --json` 就硬调 → 在无头/cron 环境必挂死或报 AUTH_REQUIRED。**先体检 → 按 `active_backend` 选命令组 → 不可用静默跳过 / 回退 web_search**。详见 `references/platform-mode.md`。
 12. **社交信源当事实直接写。** 🔌 平台 CLI 吐出的推文/帖子/笔记是**社交信源（`source_tier: social`）**，不是已验证事实——观点、口碑、单方说法占多数。绝不能让 CLI 输出绕过 extractor 直接进结论。**必须经 WRR 管线**：extractor 抽 verbatim quote → source map → 关键 claim 用 Exa/Brave 公网 cross-check → 三分栏（社交口碑入"推断"或"冲突缺口"，非"已确认"）。
+13. **引擎故障时不做 fallback。** 当 `web_search` 返回 HTTP 432/429 或任意引擎报错时，**立即按 fallback 链切换**：Exa → Brave → SearXNG，而不是重复重试同一引擎或报告"搜索不可用"。2026-06-27 实测：web_search HTTP 432 → Exa 正常工作。详见 `references/engine-fallback-strategy.md`。
 
 Full pitfalls (33 items, 含 v3.4 新增 deep loop 质量 8 项): `references/common-pitfalls.md`
 
