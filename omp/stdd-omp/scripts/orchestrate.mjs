@@ -9,7 +9,7 @@
  * Responsibilities:
  * 1. Detect whether the opt-in native-lane hook and custom auditor are installed.
  * 2. Compare local `references/VERSION` with the latest GitHub release
- *    (requires `STDD_OMP_GITHUB_REPO=owner/repo` or `--repo owner/repo`).
+ *    (requires `STDD_OMP_GITHUB_REPO=Loveacup/jz-skills` or `--repo Loveacup/jz-skills`).
  * 3. Emit a JSON status object; perform installs only when explicitly requested.
  *
  * Exit codes (status mode):
@@ -20,10 +20,10 @@
  *
  * Usage:
  *   node scripts/orchestrate.mjs                         # status only, read-only
- *   node scripts/orchestrate.mjs --repo owner/repo       # include version check
+ *   node scripts/orchestrate.mjs --repo Loveacup/jz-skills       # include version check
  *   node scripts/orchestrate.mjs --install               # install missing only
  *   node scripts/orchestrate.mjs --install --force       # install + overwrite
- *   STDD_OMP_GITHUB_REPO=owner/repo node scripts/orchestrate.mjs --install
+ *   STDD_OMP_GITHUB_REPO=Loveacup/jz-skills node scripts/orchestrate.mjs --install
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -215,7 +215,7 @@ function httpsGetJson(url) {
       {
         headers: {
           Accept: 'application/vnd.github+json',
-          'User-Agent': 'stdd-omp-orchestrator/0.1.0',
+          'User-Agent': `stdd-omp-orchestrator/${readLocalVersion() || '0.1.2'}`,
         },
       },
       (res) => {
@@ -350,7 +350,7 @@ export async function run({ githubRepo = process.env.STDD_OMP_GITHUB_REPO || pro
   if (githubRepo && !remote.configured) {
     actions.push({
       type: 'warning',
-      message: `Invalid GitHub repo format: ${githubRepo}; expected owner/repo or https://github.com/owner/repo`,
+      message: `Invalid GitHub repo format: ${githubRepo}; expected a string like Loveacup/jz-skills or https://github.com/Loveacup/jz-skills`,
     });
   }
   if (ompCompat.compatible === false) {

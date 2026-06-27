@@ -30,7 +30,7 @@ OMP 的 plan 模式会在存在待审批 plan 文件时切换提示词，强制�
 
 `task.isolation.mode` 支持 `auto/apfs/btrfs/overlayfs/projfs/...`，让 executor 在 copy-on-write workspace 里跑。
 
-- L2/L3 Build 推荐启用 `isolated: true`。
+- L2/L3 Build 推荐启用 `task.isolation.mode`。
 - 隔离后 executor 的改动以 patch/branch 形式返回；**Verify 全过再合并**，失败则丢弃 patch。
 - 这与 STDD 的“证据优先、失败回退”天然匹配。
 

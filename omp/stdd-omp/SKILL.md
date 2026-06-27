@@ -40,7 +40,7 @@ const status = await o.run();
 `status.actions` 可能包含：
 
 - `install-hook`：opt-in 危险命令 hook 未安装（建议安装）
-- `sync-version`：本地版本落后于 GitHub 最新 release（需配置 `STDD_OMP_GITHUB_REPO`，向后兼容 `STDD_OMP_REPO`）
+- `sync-version`：本地版本落后于 GitHub 最新 release（默认读取 `Loveacup/jz-skills`，可用 `STDD_OMP_GITHUB_REPO` 覆盖，向后兼容 `STDD_OMP_REPO`）
 - `warning`：native agent 根目录（默认 `~/.omp/agent/`，可被 `PI_CODING_AGENT_DIR` / `PI_CONFIG_DIR` 覆盖）为空，或 GitHub repo 格式无效
 
 **两阶段纪律**：
@@ -150,7 +150,7 @@ const status = await o.run();
 | STDD 步骤 | OMP 机制 | 用法 |
 |---|---|---|
 | Spec+Accept | Plan 工件 + `resolve(apply)` | L2/L3 写成 `.stdd/plan.md` 或 `L3-control.md`，分节：Spec/Accept/Build slices/Verify/Escalation |
-| Build | `task` + `isolated: true` + `async.enabled` | L2/L3 默认隔离执行，失败不污染父 workspace |
+| Build | `task` + `task.isolation.mode` + `task.async.enabled` | L2/L3 默认隔离执行，失败不污染父 workspace |
 | 完成信号 | `irc send` / `irc wait` / `send await:true` | executor turn-done；coordinator 超时未收 = 失败 |
 | 审计 | `reviewer`/`oracle` + `agent://<id>` | auditor 读 executor 输出 artifact，不看自辩；模型角色用 `advisor` |
 | 模型选择 | `modelRoles` | Spec=plan，Build=task，Audit=advisor |
@@ -187,7 +187,7 @@ task:
 |---|---|
 | Spec+Accept 人审 | Plan 工件（`.stdd/plan.md` 或 `L3-control.md`）+ `resolve(apply)`；轻量用 `ask` |
 | 任务分阶段 | `todo`：父 agent 用 `init`/`start`/`done`，文本精确匹配；子代理不继承 todo |
-| 委派 Build | `task` batch：agent=`task`/`oracle`；`isolated: true` 默认开；async 长任务 |
+| 委派 Build | `task` batch：agent=`task`/`oracle`；`task.isolation.mode` 默认开；async 长任务 |
 | 完成信号 | `irc` send turn-done；等待方用 `irc wait` 或 `send await:true`；超时无响应 = 失败 |
 | 审计独立 | auditor 必须不含 `edit`/`write`；默认用内置 `reviewer`/`oracle`，读取 `agent://<id>`；可选 `stdd-auditor` |
 | P0 单点 vs P1 批处理 | P0：单 executor → 自审/他审；P1：批量 task → 全部 turn-done → 一次性 auditor |

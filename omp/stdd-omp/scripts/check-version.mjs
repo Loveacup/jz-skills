@@ -16,8 +16,8 @@
  *
  * Usage:
  *   node scripts/check-version.mjs
- *   node scripts/check-version.mjs --repo owner/repo
- *   STDD_OMP_GITHUB_REPO=owner/repo node scripts/check-version.mjs
+ *   node scripts/check-version.mjs --repo Loveacup/jz-skills
+ *   STDD_OMP_GITHUB_REPO=Loveacup/jz-skills node scripts/check-version.mjs
  */
 import {
   readLocalVersion,

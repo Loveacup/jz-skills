@@ -21,7 +21,7 @@ node scripts/setup.mjs --apply \
   --with-rules \
   --with-watchdog \
   --approval-mode write \
-  --github-repo owner/repo
+  --github-repo Loveacup/jz-skills
 ```
 
 setup 脚本会：
@@ -66,9 +66,9 @@ node scripts/orchestrate.mjs
 配置 GitHub 仓库源（可选）：
 
 ```bash
-export STDD_OMP_GITHUB_REPO=owner/repo
+export STDD_OMP_GITHUB_REPO=Loveacup/jz-skills
 # 或完整 URL
-export STDD_OMP_GITHUB_REPO=https://github.com/owner/repo
+export STDD_OMP_GITHUB_REPO=https://github.com/Loveacup/jz-skills
 ```
 
 ## 路径约定
@@ -242,7 +242,7 @@ tools:
 ### 快速检查
 
 ```bash
-node scripts/check-version.mjs --repo owner/repo
+node scripts/check-version.mjs --repo Loveacup/jz-skills
 ```
 
 输出示例：
@@ -250,8 +250,8 @@ node scripts/check-version.mjs --repo owner/repo
 ```text
 STDD-OMP version check
 ======================
-Skill (local) : 0.1.0
-GitHub repo   : owner/repo
+Skill (local) : 0.1.2
+GitHub repo   : Loveacup/jz-skills
 GitHub latest : 0.2.0
 Sync status   : behind
 OMP (local)   : 16.2.0
@@ -273,7 +273,7 @@ Action: local skill is behind remote; run `git pull` or re-install from GitHub.
 ### orchestrator 综合检查
 
 ```bash
-node scripts/orchestrate.mjs --repo owner/repo
+node scripts/orchestrate.mjs --repo Loveacup/jz-skills
 ```
 
 除版本外，还会检测 hook/auditor 安装状态和 OMP 兼容性，返回 JSON。

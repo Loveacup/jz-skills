@@ -13,7 +13,7 @@
 
 ```bash
 node scripts/orchestrate.mjs                         # status only, read-only
-node scripts/orchestrate.mjs --repo owner/repo       # include version check
+node scripts/orchestrate.mjs --repo Loveacup/jz-skills       # include version check
 node scripts/orchestrate.mjs --install --dry-run     # preview installs
 node scripts/orchestrate.mjs --install               # install missing only
 node scripts/orchestrate.mjs --install --force       # install + overwrite
@@ -26,7 +26,7 @@ node scripts/orchestrate.mjs --install --force       # install + overwrite
 ```js
 const o = await import('file:///path/to/scripts/orchestrate.mjs');
 const status = await o.run();
-const status = await o.run({ githubRepo: 'owner/repo' });
+const status = await o.run({ githubRepo: 'Loveacup/jz-skills' });
 ```
 
 | 函数 | 用途 |
@@ -46,7 +46,7 @@ const status = await o.run({ githubRepo: 'owner/repo' });
 node scripts/orchestrate.mjs
 
 # 包含 GitHub 版本检查
-node scripts/orchestrate.mjs --repo owner/repo
+node scripts/orchestrate.mjs --repo Loveacup/jz-skills
 
 # 查看会安装什么，但不写文件
 node scripts/orchestrate.mjs --install --dry-run
@@ -71,10 +71,10 @@ node scripts/orchestrate.mjs --install --force
 
 ```bash
 # 环境变量
-export STDD_OMP_GITHUB_REPO=owner/repo
+export STDD_OMP_GITHUB_REPO=Loveacup/jz-skills
 
 # 或完整 URL
-export STDD_OMP_GITHUB_REPO=https://github.com/owner/repo
+export STDD_OMP_GITHUB_REPO=https://github.com/Loveacup/jz-skills
 ```
 
 未配置时，`remote_version` 为 `null`，`sync_status` 为 `unknown`，不会报错。

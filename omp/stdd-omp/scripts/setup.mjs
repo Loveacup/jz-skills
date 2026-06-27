@@ -494,7 +494,7 @@ Options:
   --with-watchdog          Enable/install WATCHDOG.md for Advisor.
   --approval-mode MODE     Set preferred approval mode in ~/.stdd/config.json
                            (always-ask | write | yolo). Default: write.
-  --github-repo OWNER/REPO Set GitHub repo for version sync.
+  --github-repo Loveacup/jz-skills Set GitHub repo for version sync.
   --json                   Output full status as JSON (machine-readable).
   --help                   Show this message.
 
