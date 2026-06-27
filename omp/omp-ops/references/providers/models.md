@@ -90,6 +90,7 @@ providers:
         input: [text]
         contextWindow: 128000
         maxTokens: 8192
+```
 
 ### Custom LiteLLM gateway
 
