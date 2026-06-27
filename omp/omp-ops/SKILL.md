@@ -108,9 +108,9 @@ runtime override (e.g. --api-key)
 
 ### Built-in model roles
 
-`default`, `smol`, `slow`, `vision`, `plan`, `designer`, `commit`, `title`,
-`task`, `advisor`. Values may append `:minimal`, `:low`, `:medium`, `:high`,
-`:xhigh`.
+`default`, `smol`, `slow`, `vision`, `plan`, `designer`, `commit`, `tiny`,
+`title`, `task`, `advisor`. Values may append `:minimal`, `:low`, `:medium`, `:high`,
+  `:xhigh`.
 
 ### Local engines
 

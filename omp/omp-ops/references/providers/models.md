@@ -132,6 +132,7 @@ Built-in roles:
 | `plan` | Model used for planning phases. |
 | `designer` | UI/UX or architecture work. |
 | `commit` | Commit-message generation. |
+| `tiny` | Lightweight background tasks such as titles, memory, and auto-classification. |
 | `title` | Session-title generation. |
 | `task` | Task-tool subagent model. |
 | `advisor` | Advisor/WATCHDOG reviewer model. |
@@ -148,6 +149,7 @@ modelRoles:
   plan: anthropic/claude-opus-4-5
   designer: anthropic/claude-sonnet-4-5
   commit: openai/gpt-4.1-mini
+  tiny: openai/gpt-4.1-mini
   title: openai/gpt-4.1-mini
   task: anthropic/claude-sonnet-4-5
   advisor: anthropic/claude-sonnet-4-5:medium
@@ -170,6 +172,7 @@ Append `:minimal`, `:low`, `:medium`, `:high`, or `:xhigh` to a role value to se
 ```yaml
 modelRoles:
   slow: anthropic/claude-opus-4-5:high
+  tiny: openai/gpt-4.1-mini
   advisor: anthropic/claude-sonnet-4-5:medium
 ```
 

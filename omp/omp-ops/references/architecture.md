@@ -165,12 +165,17 @@ OLLAMA_BASE_URL=http://127.0.0.1:11434
 ## `modelRoles`
 
 `modelRoles` maps a role alias to a concrete or canonical model selector.
+Official 16.2.2 adds a `tiny` role for lightweight background tasks such as
+session titles, memory, auto-thinking difficulty classification, and
+unexpected-stop detection. When it is unset, those flows fall back to
+`pi/smol`.
 
 ```yaml
 modelRoles:
   default: anthropic/claude-sonnet-4-5
   smol: openai/gpt-4.1-mini
   slow: anthropic/claude-opus-4-5:high
+  tiny: openai/gpt-4.1-mini
   advisor: anthropic/claude-sonnet-4-5:medium
 ```
 
