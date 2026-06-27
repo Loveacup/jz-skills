@@ -42,6 +42,9 @@ Local engines are discovered automatically if not explicitly configured in `mode
 | `ollama` | `OLLAMA_BASE_URL`, then `OLLAMA_HOST` | `http://127.0.0.1:11434` | keyless |
 | `llama.cpp` | `LLAMA_CPP_BASE_URL` | `http://127.0.0.1:8080` | keyless |
 | `lm-studio` | `LM_STUDIO_BASE_URL` | `http://127.0.0.1:1234/v1` | keyless |
+| `litellm` | `LITELLM_BASE_URL` | `http://127.0.0.1:4000/v1` | `LITELLM_API_KEY` (when proxy requires key) |
+
+`litellm` discovery probes LiteLLM management metadata first (`GET /model_group/info`, then `GET /v2/model/info`), then falls back to the OpenAI-compatible `GET /models` list. Rich metadata maps `max_input_tokens`, `max_output_tokens`, `supports_vision`, and `supports_reasoning`; bare fallback ids are enriched against bundled reference metadata when available.
 
 ## Quick `models.yml` examples
 
@@ -87,6 +90,20 @@ providers:
         input: [text]
         contextWindow: 128000
         maxTokens: 8192
+
+### Custom LiteLLM gateway
+
+```yaml
+providers:
+  litellm-gateway:
+    baseUrl: http://gateway.example:4000/v1
+    apiKey: LITELLM_API_KEY
+    api: openai-completions
+    discovery:
+      type: litellm
+```
+
+LiteLLM metadata endpoints use the configured base URL with a trailing `/v1` stripped for discovery only, preserving any preceding proxy path. Runtime model calls keep the configured OpenAI-compatible `/v1` base URL.
 
 ## Allowed `api` values
 

@@ -2,9 +2,75 @@
 
 ## [Unreleased]
 
+## [16.2.0] - 2026-06-27
+
+### Breaking Changes
+
+- Renamed the `search` tool to `grep` and the `find` tool to `glob`. Existing user settings are automatically migrated to the new configuration keys.
+
+### Added
+
+- Added `ssh://host/path` support to `read`, `search`, and `write` tools for single text files and directory listings on pre-configured POSIX SSH hosts.
+- Added an interactive `/move` overlay with path autocompletion and directory creation prompts, starting a fresh session in the target directory while leaving the previous session resumable.
+- Added support for file deletion and moving within file editing operations.
+- Added `providers.maxInFlightRequests` setting to cap concurrent LLM requests per provider across local OMP processes.
+- Added support for `discovery.type: litellm` in `models.yml` to automatically discover model metadata from LiteLLM gateways.
+- Added `models.yml` configuration options `remoteCompaction` and `compactionModel` to run compaction on a separate model or opt into provider-native compaction.
+- Added project, user, and plugin-level `dap.json` and `dap.yaml` support for defining or overriding debugger adapters used by the `debug` tool.
+- Added TinyFish, DuckDuckGo, xAI, and Firecrawl web search providers.
+- Added an Appearance setting for OSC 9;4 native terminal progress indicators during active agent turns and context maintenance.
+- Added Loop Guard "Tool-Call Reminder" to automatically interrupt Gemini reasoning loops that generate excessive planning headers without acting.
+
+### Changed
+
+- Redesigned the persistent Todo HUD as a compact connector tree with fixed-budget stage previews
+- Anchored status and HUD containers to prevent redundant UI elements in terminal scrollback
+- Redesigned the persistent Todo HUD to render active stages as a connector tree, capping the number of displayed stages and tasks to keep the plan overview concise and stable.
+- Anchored the status row container directly between the HUD and the editor to prevent redundant UI elements from piling up in terminal scrollback.
+- Optimized edit tool UI: delete and single-file move operations now render as compact status rows
+- Improved terminal output for file-level edits (delete/move) to display accurate paths and state
+- Refined edit renderer to prevent misleading "No changes" messages in multi-file operations
+- Changed the `inlineToolDescriptors` setting from a boolean to a three-way enum (`auto` | `on` | `off`), defaulting to `auto` to inline descriptors only for Gemini models.
+- Added caching for successful document conversions (PDFs, Office documents, EPUBs) to avoid redundant conversions on repeated reads.
+- Moved the `Working…` activity indicator below the sticky todo and subagent HUDs so it sits just above the editor instead of floating atop the todo panel.
+
 ### Fixed
 
+- Fixed Z.AI web search to initialize the Streamable HTTP MCP session before calling `web_search_prime`, preserving the returned session ID for authenticated tool calls. ([#3619](https://github.com/can1357/oh-my-pi/issues/3619))
+- Fixed terminal hangs on Ctrl+Z (SIGTSTP) after running bash tool calls, and insulated MCP stdio servers from terminal job-control signals.
+- Fixed macOS `Cmd+V` silently dropping image-only clipboard pastes in supported terminals.
+- Fixed an infinite loop in auto-compaction when a single recent turn exceeded the compaction threshold.
+- Fixed an issue where the advisor could enter a spam loop of repeated blocker injections, polluting the transcript.
+- Fixed Claude API and Anthropic classifier refusals polluting the replayed session context or persisting as assistant dialogue.
+- Fixed MCP tool calls failing with strict-schema servers by stripping internal metadata fields at the MCP boundary.
+- Fixed a terminal freeze/hang when a subagent abort was triggered.
+- Fixed thinking blocks appearing in the UI when thinking level is "off" for providers that return them anyway.
+- Fixed GitLab Duo Agent namespace/project discovery and authentication flow hangs.
+- Hardened and improved `ssh://` protocol handling, including support for IPv6 brackets, percent-encoded hosts, port validation, and POSIX shell restrictions, while preventing unsupported tools from attempting SSH connections.
+- Fixed TUI usage display fraction resolution and added expiry dates for banked Codex rate-limit resets to the `/usage` display.
+- Fixed a rendering issue where long-running SSH commands left stale pending headers in terminal scrollback.
+- Fixed garbled casing in auto-generated session titles by reconciling title tokens against the user's original messages.
+- Fixed IRC broadcasts rendering twice in the main agent's transcript.
+- Improved the persistent Todo HUD styling and progress indicators to make it self-describing and visually distinct.
+- Fixed browser screenshots reporting `0x0` dimensions when image headers expose real dimensions.
+- Fixed `snapcompact` compaction silently falling back to LLM summaries when local preflight rejects the archive.
+- Fixed `snapcompact` compaction silently falling back to an LLM summary when local preflight rejects the archive; manual and auto snapcompact now fail locally with the blocker instead of making provider calls. ([#3599](https://github.com/can1357/oh-my-pi/issues/3599))
 - Fixed garbled casing in auto-generated session titles. `normalizeGeneratedTitle` (`packages/coding-agent/src/tiny/text.ts`) used to force Title Case via a `\b\p{Ll}` regex, capitalizing function words ("for" → "For") and amplifying stray model capitals ("dAemon" → "DAemon"). It now reconciles each title token against the user's own message: tokens typed verbatim are kept; proper nouns the user cased distinctively are restored when the model flattened them ("tinyvmm" → "TinyVMM"); lowercase words carrying a stray interior capital the user never wrote are flattened ("dAemon" → "daemon"); and model-cased PascalCase proper nouns ("GitHub", "OAuth") are left untouched. Restoration is limited to distinctively cased source tokens so a message that merely starts with "For" can't force a mid-title "for" to "For". Applies to both the local tiny-model and online pi/smol title paths.
+- Fixed IRC broadcasts (`to: "all"`) rendering twice in the main agent's transcript. A subagent broadcast fans out one `bus.send` per live peer, and `listVisibleTo` always includes `Main`, so the main agent received the body once as its own `irc:incoming` card *and* once per other recipient as an `irc:relay` observation of the sibling legs (`Sender → Other`) — identical text shown N+1 times. `IrcTool.#executeSend` now sets `suppressRelay` on every broadcast leg when `Main` is among the targets (it already has the body via its direct incoming card), and `IrcBus.send` skips `#relayToMainUi` for suppressed legs. Direct sub→sub relays, direct messages to `Main`, and `Main`'s own outbound sends are unaffected.
+- Fixed Claude API refusals polluting the replayed session context and causing later prompts to refuse again. ([#3592](https://github.com/can1357/oh-my-pi/issues/3592))
+- Fixed browser screenshots reporting `0x0` dimensions when `Bun.Image` rejects an image whose PNG/JPEG header still exposes real dimensions. ([#3577](https://github.com/can1357/oh-my-pi/issues/3577))
+- Fixed Anthropic classifier refusals being persisted as assistant dialogue after no fallback handled them; refusal stops are now displayed as errors but pruned from active and saved context before the next prompt. ([#3591](https://github.com/can1357/oh-my-pi/issues/3591))
+- Fixed the `eval` `tool.*` bridge leaking the harness-internal `i` ("intent") field into MCP `tools/call` requests, so strict-schema servers (Linear, anything with `additionalProperties:false` / Zod `.strict()`) rejected every call with `-32602 unrecognized_keys: ["i"]` while the same call via the direct model tool-call path succeeded. `MCPTool.execute` / `DeferredMCPTool.execute` (`packages/coding-agent/src/mcp/tool-bridge.ts`) now strip `INTENT_FIELD` at the MCP boundary, so an MCP call behaves identically whether issued by the model directly or via the eval `tool.*` bridge; servers that legitimately declare `i` as a real parameter keep it untouched. ([#3575](https://github.com/can1357/oh-my-pi/issues/3575))
+- Fixed the advisor entering a spam loop in which it emitted hundreds of repeated `Stop.`, `Done.`, and `No issue; continue.` `<advisory severity="blocker">` injections, polluting the primary transcript and destabilizing the watched agent after the task was already complete. The advisor system prompt's rules ("at most one `advise` per update", "NEVER send the same advice twice") are now enforced in code by a new `AdvisorEmissionGuard` on the `enqueueAdvice` boundary in `AgentSession`: it normalizes each note (case-insensitive, punctuation-folded), drops content-free self-talk filler (`stop`/`done`/`no issue continue`/`lgtm`/etc.), dedupes by exact normalized text across the session (bounded FIFO history), and rate-limits to one accepted note per advisor model prompt cycle. Reset on advisor reset (compaction, session switch, `/new`) so a re-primed reviewer can re-raise old issues. ([#3520](https://github.com/can1357/oh-my-pi/issues/3520))
+- Fixed auto-compaction thrashing on a session whose single most-recent kept turn already exceeds the compaction threshold. `prepareCompaction` keeps that turn verbatim (`findCutPoint` never cuts at tool results), so the rewritten context stays above threshold; the context-full / snapcompact success tail scheduled the agent-authored auto-continue (and the overflow/incomplete retry) unconditionally, so the next `agent_end` re-entered `#checkCompaction` over the same oversized tail and re-fired forever. This is the residual loop left after #3247 capped snapcompact's own frame projection — once the frame cap drops below one frame, snapcompact is skipped and the context-full summarizer path still made no headroom. `#runAutoCompaction` now gates the threshold auto-continue on a post-maintenance headroom check (`#compactionCreatedHeadroom`, sharing shake's `COMPACTION_RECOVERY_BAND` hysteresis from #2275) and the overflow/incomplete retry on a separate fit check (`#compactionCreatedRetryFit`, measured after the failed turn is dropped) so a recoverable overflow that fits the window still retries; when a pass frees too little for the relevant path it pauses automatic maintenance and emits a single warning instead of looping. The post-turn threshold check also ignores an assistant's stale pre-compaction `usage` so the scheduled auto-continue cannot re-trip on the kept assistant's old high token count. The headroom check now treats any residual at or below the recovery band as progress: the band sits strictly under the compaction threshold, so a stale/tool-output prune that already pushed the trigger sub-band no longer makes a residual that merely holds the line report a false "no progress" and suppress a valid auto-continue.
+- Fixed the advisor prompt allowing confident root-cause claims about tool-call arguments absent from its reviewed transcript, so timeout advice now has to cite observed fields instead of inventing mechanisms like `paths[0]` array flattening. ([#3483](https://github.com/can1357/oh-my-pi/issues/3483))
+- Fixed eval `agent()` helper subagents remaining visible as idle/IRC-revivable peers after the helper call returns; one-shot eval subagents now dispose and unregister at completion. ([#3407](https://github.com/can1357/oh-my-pi/pull/3407))
+- Fixed the parent interactive prompt wedging (frozen, 0% CPU) after a subagent's yield-triggered abort. The executor's abort monitor and abort listener each called `session.abort()` fire-and-forget, so `runSubprocess` could resolve and adopt the subagent before its abort cleanup finished clearing in-flight session state. Active-subagent aborts are now deduped through a single cached cleanup promise that the subprocess awaits (bounded) before finalizing. ([#2805](https://github.com/can1357/oh-my-pi/issues/2805))
+- Fixed thinking blocks appearing in the UI when thinking level is "off". Some providers (MiniMax, GLM, DeepSeek) return thinking blocks even with reasoning disabled; thinking blocks are now auto-hidden when the thinking level is "off", regardless of the `hideThinkingBlock` setting. Toggling thinking block visibility while thinking is off shows a status message instead of silently no-op'ing. ([#626](https://github.com/can1357/oh-my-pi/issues/626))
+- Fixed the TUI usage display failing to resolve a used fraction for limits that only populate `remainingFraction` (no `usedFraction`, `used`/`limit`, or `percent`+`used`). The TUI's local `resolveFraction` was missing the inverted-remaining fallback that the shared `resolveUsedFraction` from `@oh-my-pi/pi-ai` already handles — replaced the local copy with the shared function so the TUI and CLI paths resolve fractions identically.
+- Fixed long-running SSH command boxes leaving a stale `⏳ SSH: [host]` header above the final `⇄ SSH: [host]` header in terminal scrollback. The SSH renderer now keeps its partial-result chrome on the pending icon/state and opts the block out of stream-commit while `isPartial` holds (via the new `ToolRenderer.provisionalPartialResult` flag honored by `ToolExecutionComponent.isTranscriptBlockCommitStable`), so the stable-prefix ratchet can't promote the partial header to native scrollback only to have the final render strand it above the settled frame ([#3177](https://github.com/can1357/oh-my-pi/issues/3177)).
+- Fixed Gemini over-planning runs that emit long chains of thinking headers (`**Refining …**`, `## Examining …`) without ever issuing a tool call. The session now interrupts that stream, discards the partial reasoning turn, injects a hidden tool-call reminder, and continues with the corrective context instead of burning the full budget on planning.
+- Fixed `Cmd+V` on macOS silently dropping image-only clipboard pastes (screenshot via `Cmd+Shift+5` "save to clipboard", Chrome image copy, …) — the user had to fall back to `Ctrl+V`. Follow-up to #3506: that fix handled clipboards exposing a file URL or path; the screenshot path leaves only raw image bytes on the pasteboard. macOS terminals (iTerm2, Terminal.app, Warp, Ghostty without OSC 5522, Windows Terminal forwarding, …) intercept `Cmd+V` and read `NSPasteboardTypeString` first; for an image-only clipboard that read returns `""`, so the terminal forwards a complete-but-empty bracketed paste (`\x1b[200~\x1b[201~`). `CustomEditor.handleInput` inserted the empty payload and the keystroke disappeared. `CustomEditor` now runs its own `BracketedPasteHandler` ahead of the inherited handler so the assembled paste payload is routed regardless of whether the start marker, payload, and end marker arrive in one stdin chunk or are fragmented across several (Windows Terminal under load, certain SSH muxes, tmux extended-keys passthrough, …). Strict-zero-length assembled payloads route to the same `onPasteImage` smart reader the `app.clipboard.pasteImage` keybind uses (attaches the clipboard image, or falls back to the #1628 smart text paste / "clipboard is empty" diagnostic); explicit image-file paths route to `onPasteImagePath` (the #3506 path also benefits from split-chunk assembly); everything else hands off to the base editor's `pasteText` so `[Paste #N]` markers, autocomplete, and undo state stay intact. Whitespace-only pastes are preserved as literal text. Trailing keystrokes that arrive in the same stdin read as the paste (a user hitting `Enter` right after `Cmd+V`) are queued behind the in-flight clipboard read and only dispatched once the image has reached `pendingImages`, so submit can't fire against an empty draft and leave the image stranded on the next prompt. ([#3601](https://github.com/can1357/oh-my-pi/issues/3601))
 
 ## [16.1.23] - 2026-06-26
 
@@ -432,69 +498,3 @@
 - Fixed `omp bench` resolving an ambiguous model selector — a bare or canonical id shared by several providers (e.g. `gpt-oss-20b` or `openai/gpt-oss-20b`) — to a provider you have no credentials for. Bench resolves against the full catalog (credentials are ignored), so the default pick was decided by provider-priority order alone. It now redirects such selectors to an equivalent model under a provider with configured auth (honoring `modelProviderOrder` and canonical cross-provider variants), while an explicit `provider/id` selector is still benchmarked verbatim so forced/unauthenticated runs keep working.
 - Resuming a session whose project directory no longer exists (deleted or renamed worktree) no longer crashes with an unhandled `ENOENT … chdir` rejection. The resume now keeps the current working directory instead of trying to `chdir` into the missing path, across the in-session selector, the `--resume` startup picker, and `SessionManager.open`/`continueRecent`.
 - Fixed streaming reflowing Markdown — a fenced mermaid diagram or a GFM table — stranding stale fragments in native scrollback once the reply scrolled past the viewport (cleared only by a full repaint / Ctrl+L). While streaming, the assistant block defaulted to commit-stable, so the transcript advertised its scrolled-off rows as durable snapshot content and the renderer committed an intermediate layout to immutable terminal history; the later re-layout (a diagram reshaping, a table re-aligning its columns) then froze that superseded fragment in scrollback. A still-streaming reply whose Markdown carries a mermaid fence or a table — detected outside fenced code blocks so ordinary code snippets are unaffected — is now commit-unstable, so it stays wholly in the repaintable live region and commits once, at its final layout, when the turn finalizes.
-- Fixed `SYSTEM.md` prompt customization going through the raw system prompt override path, which dropped sections rendered by `custom-system-prompt.md` such as skills and rules ([#3014](https://github.com/can1357/oh-my-pi/issues/3014)).
-
-## [16.1.1] - 2026-06-19
-
-### Changed
-
-- Migrated legacy macOS power settings to a single sleep prevention enum
-- Defaulted `display.cacheMissMarker` setting to `false` to suppress the cache-miss marker by default.
-- Replaced the four separate `power.preventIdleSleep`, `power.preventSystemSleep`, `power.declareUserActive`, and `power.preventDisplaySleep` boolean settings with a single cumulative `power.sleepPrevention` enum (`off` → `idle` → `display` → `system`). Each level adds the caffeinate flags of all lower levels. Existing configs are migrated automatically.
-
-### Fixed
-
-- Cache-miss marker no longer fires on providers with implicit, best-effort prompt caching (Google/Gemini, OpenAI, Fireworks). Those report `cacheWrite: 0` and drop `cacheRead` to zero intermittently as routine propagation noise that self-heals the next turn. Only explicit, prefix-controlled caches (Anthropic/Bedrock `cache_control`), which re-create the prefix on a cold turn as `cacheWrite > 0`, now surface a marker — where a zero `cacheRead` genuinely means the prefix broke.
-- Fixed advisor dependent settings staying visible while `advisor.enabled` is off ([#3027](https://github.com/can1357/oh-my-pi/issues/3027)).
-- Fixed LSP servers that dynamically register capabilities, including Expert, hanging semantic requests after `client/registerCapability` was rejected ([#3029](https://github.com/can1357/oh-my-pi/issues/3029)).
-
-## [16.1.0] - 2026-06-19
-
-### Added
-
-- Added a prompt-cache miss marker: a slim `⊘ cache miss · <n> tokens` divider above an assistant turn whose request lost the provider prompt cache. Detected from per-turn usage — the previous turn cached a meaningful prefix but this request read none of it back and reprocessed the prompt (e.g. after a thinking-level / service-tier / model change, tool or system-prompt change, or a history rewrite). Reports the reprocessed token count. Toggle with the `display.cacheMissMarker` setting (Appearance → Display, on by default).
-
-### Changed
-
-- Optimized preview workflows by removing forced tool choices, reducing prompt cache invalidations
-- Unified injected message styling with consistent rounded outlines and icon-tagged headers
-- Refreshed branch summary messages with a uniform banner style to match compaction points
-- Updated skill invocation UI with a compact header, home-shortened paths, and dynamic line counts
-- Refined session context to utilize history blocks instead of raw images for snapcompact summaries
-- Refreshed the skill-prompt transcript message to match the rest of the TUI: an icon-tagged `✦ skill <name>` header (with invocation args trailing), a single meta line with a home-shortened, click-to-open path in the accent color and the prompt size in muted, and a rounded outline around the card. Replaces the old `[skill]` label with the flat `Skill:`/`Path:`/`Prompt:` key/value dump (which also leaked the absolute home directory).
-- Refreshed the default custom/hook transcript message frame to a rounded, icon-tagged card: the `[customType]` bracket label is replaced by an `<icon> <type>` header (📦 for extension messages, 🪝 for legacy hook-role messages) with a subtle outline, matching the skill card. Covers every extension/hook custom type without a bespoke renderer.
-- Refreshed the branch-summary transcript message to render as the same slim divider banner as `/compact`, handoff, and snapcompact (`⑂ branch · ctrl+o`, summary revealed on expand) instead of a `[branch]` box.
-- Optimized network traffic by stripping tool descriptions from provider tool schemas
-- Renamed the prompt setting from `repeatToolDescriptions` / "Repeat Tool Descriptions" to `inlineToolDescriptors` / "Inline Tool Descriptors" and enabled inline descriptors by default.
-- Snapcompact compaction summaries now reach the model as ordered history blocks instead of one lead-in text block plus appended images: plain text at the oldest edge, an imaged middle, then plain text at the newest edge. This matches the new text-first snapcompact archive layout and preserves chronological order in the provider prompt.
-- Fixed `/dump` output repeating the tool inventory twice when `inlineToolDescriptors` is enabled.
-- Unified TUI border corners on the rounded style: tool-result frames, overlays, code fences, debug frames, and the interactive bash box now draw rounded corners (`╭╮╰╯`) to match the editor and message cards, instead of mixing rounded boxes with sharp (`┌┐└┘`) ones. `boxRound` now carries the sharp tee/cross junction glyphs (no rounded variant exists), so dividers still honor `boxSharp.tee*`/`cross` theme overrides. Markdown tables intentionally keep the fully sharp `boxSharp` set; its corner tokens now affect tables only.
-
-## [16.0.11] - 2026-06-19
-
-### Added
-
-- Added `__advisor.jsonl` transcript persistence for advisor model usage attribution and visibility in the Agent Hub
-- Added defensive reservation against naming a task `__advisor` to prevent filesystem collisions with internal transcripts
-- Added `mode` property to the `CompactOptions` interface for extension-based compaction control
-- Updated `/compact` slash command to support `soft`, `remote`, and `snapcompact` subcommands for per-run strategy overrides
-- Added `/compact` mode subcommands so a manual compaction can override the configured `compaction.strategy`/`remoteEnabled` for that one run: `/compact soft` (summarize locally, skip remote endpoints), `/compact remote` (summarize via the remote endpoint / provider-native compaction; warns and falls back to a local summary when no remote path is available), and `/compact snapcompact` (archive history onto dense bitmap images, no LLM call). Bare `/compact` and `/compact <focus text>` keep their existing behavior; `soft`/`remote` still accept trailing focus instructions, `snapcompact` rejects them. The subcommands are advertised to ACP clients and surface in TUI autocomplete. Extensions can pass the same selection via `compact(instructions, { mode })`.
-- The advisor now persists its own turns to a subagent-style transcript (`<session>/__advisor.jsonl`) so the advisor model's usage is attributed in `omp stats` and its transcript is observable in the Agent Hub (read-only). The transcript follows session switches (`/new`, resume, branch) and is drained/released before a `/drop` deletes the old artifacts dir. The advisor remains a non-peer: it is hidden from agent-facing rosters (`irc` list, `history://`, subagent peer prompt, broadcast targets), is not messageable (`irc send` / collab chat), and is not revivable/killable from the Hub or collab.
-
-### Changed
-
-- Standardized file elision markers to a compact `[…Nln elided…]` format
-- Updated transcript viewer to clear cached content if the session file is deleted while opened
-- Refactored agent hub to use a fullscreen overlay for agent transcripts instead of inline chat
-- Improved transcript rendering stability by using a non-incremental builder for viewer replays
-- Advisor transcripts are now excluded from agent-facing surfaces like `irc`, `history://`, and peer rosters
-- Advisor transcripts are read-only and cannot be messaged, revived, or killed via the Agent Hub or IRC
-- Refined `/compact` argument parsing to reject focus instructions for modes that do not support them (e.g., `snapcompact`)
-- Protocol hosts (RPC/`rpc-ui`/ACP) now host-default the full advisor settings group — `advisor.syncBacklog` and `advisor.immuneTurns` in addition to `advisor.enabled`/`advisor.subagents` — so a host that opts the advisor in gets the default tuning instead of inheriting the user's local advisor preferences.
-
-### Fixed
-
-- Fixed memory-leaking stale transcripts in the agent viewer when underlying files are deleted
-- Fixed the Agent Hub transcript viewer rendering the transcript body one column right of the "Agent Hub" title (and the title appearing to shift when scrolled to the top): the fullscreen viewer added its own outer gutter on top of the transcript rows, which already carry a 1-column left pad, so the header and body no longer shared a gutter. The viewer now renders the scroll body at full width without the extra gutter, and the file-mention row carries the same 1-column pad as every other row.
-- Fixed the bash tool failing with `pi-natives:command: syntax error at end of input` on a valid `&&`/`;` chain whose later pipeline stage is a compound command, e.g. `echo x && git log | while read h; do …; done | head`. The minimizer's segmented-chain runner rebuilds each chain segment from the brush AST via `pipeline.to_string()` and re-executes that string, but `simple_segment` only validated the *first* pipeline stage — so a compound later stage (`while`/`for`/`if`/subshell) was re-serialized without its terminator and re-run as broken shell. Every stage is now required to be a Display-safe simple command, and — as a general guard against the recurring class of brush `Display` round-trip divergences (previously: quoted here-doc close tags, multi-byte char/byte offsets) — each reconstructed segment is now re-parsed and must match the original pipeline shape before the chain runner executes it; any divergence runs the command whole, unsegmented, instead of corrupting it.
-- Fixed `Ctrl+T` (toggle thinking blocks) and the `/settings` "Hide Thinking Blocks" toggle only collapsing/expanding thinking in the live region: blocks that had scrolled into committed native scrollback on ED3-risk terminals kept their pre-toggle snapshot, so scrolling up showed the old thinking state. Both paths now `resetDisplay()` after flipping each block's flag, forcing a full clear + replay of the whole transcript (matching the tool-output expansion toggle) so every block above the fold re-renders at its new height.
