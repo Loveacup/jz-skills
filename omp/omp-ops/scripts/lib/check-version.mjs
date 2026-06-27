@@ -65,25 +65,25 @@ async function main() {
     status = "sync-official";
     addAction("sync-from-official");
     addAction("push-to-github");
-    message = `Official OMP (${officialOmp}) is newer than jz-skills skill (${githubSkill}). Syncing from official.`;
+    message = `Official OMP (${officialOmp}) is newer than jz-skills skill (${githubSkill}). Recommended: sync-from-official, then push-to-github.`;
   } else if (versionGt(githubBase, localBase)) {
     status = "sync-github";
     addAction("sync-from-github");
-    message = `jz-skills skill (${githubSkill}) is newer than local (${localSkill}). Pulling from GitHub.`;
+    message = `jz-skills skill (${githubSkill}) is newer than local (${localSkill}). Recommended: sync-from-github.`;
   } else if (githubBase === localBase) {
     if (githubRev > localRev) {
       status = "sync-github";
       addAction("sync-from-github");
-      message = `jz-skills skill revision (${githubSkill}) is newer than local (${localSkill}). Pulling from GitHub.`;
+      message = `jz-skills skill revision (${githubSkill}) is newer than local (${localSkill}). Recommended: sync-from-github.`;
     } else if (localRev > githubRev) {
       status = "push-github";
       addAction("push-to-github");
-      message = `Local skill revision (${localSkill}) is newer than jz-skills (${githubSkill}). Pushing to GitHub.`;
+      message = `Local skill revision (${localSkill}) is newer than jz-skills (${githubSkill}). Recommended: push-to-github.`;
     }
   } else if (versionGt(localBase, githubBase)) {
     status = "push-github";
     addAction("push-to-github");
-    message = `Local skill (${localSkill}) is newer than jz-skills (${githubSkill}). Pushing to GitHub.`;
+    message = `Local skill (${localSkill}) is newer than jz-skills (${githubSkill}). Recommended: push-to-github.`;
   }
 
   const root = gitRoot();
@@ -91,9 +91,10 @@ async function main() {
   if (localDirty && status === "synced") {
     status = "push-github";
     addAction("push-to-github");
-    message = "Local skill has uncommitted changes. Pushing to GitHub.";
+    message = "Local skill has uncommitted changes. Recommended: push-to-github.";
   }
 
+  // Cache handling (informational only; does not override status/actions)
   let recentSync = false;
   const cfile = cacheFile();
   if (existsSync(cfile)) {
@@ -101,11 +102,6 @@ async function main() {
     const now = Math.floor(Date.now() / 1000);
     if (Number.isFinite(last) && now - last < CACHE_TTL_SECONDS) {
       recentSync = true;
-      if (status !== "synced") {
-        status = "synced";
-        actions.length = 0;
-        message = `Sync skipped: synced ${now - last}s ago (cache TTL ${CACHE_TTL_SECONDS}s).`;
-      }
     }
   }
   mkdirSync(cacheDir(), { recursive: true });

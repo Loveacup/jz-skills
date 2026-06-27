@@ -8,6 +8,14 @@ description: |
 
 # omp-ops
 
+> [!note]
+> 同步与更新已改为手动触发。需要时运行 `scripts/orchestrate.sh`（Windows 用 `scripts/orchestrate.ps1`），它会检查本地、GitHub 与上游 OMP 三方的版本关系并给出建议动作；没有待处理动作时直接返回 `synced`。
+>
+> 对齐规则：
+> 1. 若 GitHub 领先本地 → 从 GitHub 拉取。
+> 2. 若本地领先 GitHub → 推送到 GitHub。
+> 3. 若上游 OMP 领先且两端都旧 → 先按上游 OMP 更新官方文档，再推送到 GitHub。
+
 This skill teaches agents how to operate, configure, and troubleshoot
 [Oh My Pi](https://github.com/can1357/oh-my-pi) (OMP).
 
