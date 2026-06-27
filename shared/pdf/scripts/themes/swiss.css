@@ -1,0 +1,109 @@
+/*
+[theme]
+name = swiss
+description = Swiss International Typographic Style: bold black sans headings, tight grid, generous whitespace, red accent, minimalist rules and tables
+hljs_theme = github
+*/
+
+/* swiss — 仿 deck-swiss-international：瑞士国际主义风格，
+   无衬线粗黑标题、网格化留白、红色 (#e30613) 强调，适合技术方案 / Deck */
+
+body {
+  font-family: "Helvetica Neue", "Inter", Helvetica, Arial,
+               "PingFang SC", "Hiragino Sans GB", "Noto Sans SC",
+               "Microsoft YaHei", sans-serif;
+  font-size: 14px; line-height: 1.7; color: #111111;
+  background: #ffffff;
+  max-width: 760px; margin: 0 auto; padding: 8px 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+h1, h2, h3, h4 { break-after: avoid; font-weight: 700; }
+h1 {
+  color: #000000; font-size: 34px; font-weight: 800;
+  line-height: 1.1; letter-spacing: -0.6px;
+  margin: 0 0 16px 0; padding-bottom: 10px;
+  border-bottom: 4px solid #000000;
+}
+h2 {
+  color: #000000; font-size: 22px; font-weight: 700;
+  line-height: 1.2; letter-spacing: -0.2px;
+  margin: 32px 0 10px 0;
+}
+/* H2 红色短标记线，呼应瑞士风格强调色 */
+h2::before {
+  content: ""; display: block;
+  width: 36px; height: 4px; background: #e30613;
+  margin-bottom: 8px;
+}
+h3 { color: #000000; font-size: 17px; font-weight: 700; margin: 22px 0 8px 0; }
+h4 {
+  color: #e30613; font-size: 13px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1px; margin: 18px 0 6px 0;
+}
+
+p { margin: 11px 0; orphans: 2; widows: 2; }
+strong { color: #000000; font-weight: 700; }
+em { font-style: italic; }
+mark { background: #ffe5e7; padding: 1px 4px; }
+a { color: #e30613; text-decoration: underline; text-underline-offset: 2px; }
+
+blockquote {
+  border-left: 4px solid #e30613; background: #f7f7f7;
+  color: #333333; padding: 12px 18px; margin: 18px 0;
+  font-weight: 500;
+}
+blockquote p { margin: 6px 0; }
+
+hr { border: none; border-top: 2px solid #000000; margin: 28px 0; }
+
+table {
+  border-collapse: collapse; width: 100%;
+  margin: 16px 0; font-size: 13px; line-height: 1.55;
+  page-break-inside: auto;
+}
+th {
+  background: #000000; color: #ffffff; font-weight: 700;
+  padding: 9px 11px; text-align: left; border: none;
+  border-bottom: 2px solid #000000;
+  text-transform: uppercase; letter-spacing: 0.6px; font-size: 12px;
+}
+td {
+  padding: 8px 11px; border: none; border-bottom: 1px solid #dddddd;
+  vertical-align: top; overflow-wrap: break-word;
+}
+tr { page-break-inside: avoid; }
+
+ul, ol { margin: 11px 0; padding-left: 22px; }
+li { margin: 5px 0; }
+li ul, li ol { margin: 3px 0; }
+
+code {
+  font-family: "SF Mono", "Fira Code", "Menlo", monospace;
+  background: #f2f2f2; color: #e30613;
+  padding: 1px 5px; border-radius: 0; font-size: 12.5px;
+}
+pre {
+  background: #f7f7f7; border: 1px solid #dddddd; border-radius: 0;
+  border-left: 4px solid #000000;
+  padding: 14px 16px; margin: 16px 0;
+  font-size: 12.5px; line-height: 1.55; overflow-x: auto;
+}
+pre code, pre code.hljs {
+  background: transparent !important; color: #1a1a1a !important; padding: 0;
+}
+
+.callout {
+  margin: 16px 0; padding: 12px 16px;
+  border-left: 4px solid #000000; background: #f7f7f7;
+}
+.callout-title {
+  font-weight: 700; color: #000000; margin-bottom: 6px;
+  text-transform: uppercase; letter-spacing: 0.6px; font-size: 13px;
+}
+.callout-content { color: #1a1a1a; }
+.callout-content p:first-child { margin-top: 0; }
+.callout-content p:last-child { margin-bottom: 0; }
+
+.mermaid { margin: 18px auto; text-align: center; }
+img { max-width: 100%; height: auto; }

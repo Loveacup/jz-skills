@@ -1,6 +1,6 @@
 ---
 name: pdf
-description: Comprehensive PDF manipulation toolkit for extracting text and tables, creating new PDFs, merging/splitting documents, and handling forms. When Claude needs to fill in a PDF form or programmatically process, generate, or analyze PDF documents at scale.
+description: Comprehensive PDF manipulation toolkit for extracting text and tables, creating new PDFs, merging/splitting documents, and handling forms. Also converts Markdown / Obsidian notes into beautiful CJK-safe styled PDF (and PNG/HTML/WeChat) with themes, Mermaid, and bookmarks. When Claude needs to fill a PDF form, process/generate/analyze PDFs at scale, or turn Markdown/Obsidian notes into PDF. Triggers: md to pdf, markdown to pdf, 转 PDF, Obsidian 导出 PDF, 笔记转 PDF, export note to PDF.
 license: Proprietary. LICENSE.txt has complete terms
 ---
 
@@ -34,19 +34,50 @@ for page in reader.pages:
 Convert Obsidian Flavored Markdown to styled PDF with perfect Chinese/Japanese/Korean rendering.
 
 **Script**: `scripts/md2pdf_chrome.py`
-**Prerequisites**: Python 3 + `markdown` + `pypdf` (`pip install markdown pypdf`) + Node.js + Playwright (`npm install playwright && npx playwright install chromium`)
+**Prerequisites**: Python 3 + `markdown` + `pypdf` (+ `css_inline` for `--format wechat`) — `pip install markdown pypdf css_inline`. Plus Node.js + Playwright (`npm install playwright && npx playwright install chromium`); a system Chrome enables the `--browser chrome|auto` fallback, and `pandoc` powers the last-resort `--fallback pandoc`.
+
+> ⚠️ The default `python3` may lack these deps. Run `python scripts/md2pdf_chrome.py --preflight` first — it checks the **current interpreter** + deps + browsers — or use a venv with the deps installed.
 
 ### Usage
 
 ```bash
-python scripts/md2pdf_chrome.py <md_file> [pdf_file] [header_text] [--theme blue|dark|academic] [--sm PATTERN] [--xs PATTERN] [--sm-after PATTERN] [--xs-after PATTERN]
+python scripts/md2pdf_chrome.py <md_file> [pdf_file] [header_text] \
+  [--format pdf|png|html|wechat] [--browser playwright|chrome|auto] \
+  [--theme NAME] [--page-size A4|430x932] \
+  [--verify] [--no-metadata] [--fallback pandoc] \
+  [--sm PATTERN] [--xs PATTERN] [--sm-after PATTERN] [--xs-after PATTERN]
+
+# Preflight: check current interpreter + deps + browsers BEFORE rendering
+python scripts/md2pdf_chrome.py --preflight            # human-readable
+python scripts/md2pdf_chrome.py --preflight --json     # machine-readable (CI/quality gate)
 
 # Examples
 python scripts/md2pdf_chrome.py report.md
 python scripts/md2pdf_chrome.py report.md ~/output/report.pdf "My Report Title"
-python scripts/md2pdf_chrome.py report.md output.pdf --sm "Phase 2" --sm "Phase 3"
+python scripts/md2pdf_chrome.py note.md out.pdf --browser auto --verify   # resilient render + quality gate
 python scripts/md2pdf_chrome.py report.md output.pdf --theme academic --sm "开发路线图" --xs-after "变更历史"
 ```
+
+### Output formats & resilience
+
+| Flag | Effect |
+|------|--------|
+| `--format pdf\|png\|html\|wechat` | Output format. `pdf` (default), `png` (full-page screenshot), `html` (standalone), `wechat` (CSS inlined for WeChat paste) |
+| `--browser playwright\|chrome\|auto` | Rendering engine. `playwright` (default, bundled Chromium); `chrome` (system Chrome via `executablePath`); `auto` tries bundled → system Chrome → (pdf only) pandoc, surviving runtime launch failures. Prints actual `engine` + `executable` to stderr |
+| `--page-size A4\|WxH` | `A4` (default) or a custom mobile size like `430x932`. Validated up front |
+| `--preflight [--json]` | Health-check current interpreter, deps, browsers, pandoc, mermaid cache — no rendering. Exit 0 ok / 1 fatal / 2 missing doc |
+| `--verify` | After rendering PDF, run delivery quality gate (`verify_pdf.py`): Mermaid-source leak, file size/magic, page count, metadata |
+| `--fallback pandoc` | Force the pandoc lifeboat (pandoc → HTML+CSS → system Chrome print-to-pdf). Style NOT faithful, no Mermaid, A4 only. Also auto-triggered by `--browser auto` when no Chromium can launch |
+| `--no-metadata` | Skip writing source frontmatter into PDF metadata |
+
+**Themes** auto-discover from `scripts/themes/*.css` (currently 11: academic, blue, dark, editorial, kami, minimalist, newsletter, social-card, swiss, warm-academic, wechat-article).
+
+**Source frontmatter → PDF metadata**: `title` / `author` / `description` / `tags` / `aliases` / `created` / `modified` map to `/Title /Author /Subject /Keywords /CreationDate /ModDate`. `/Author` is written only when frontmatter explicitly declares `author` (privacy guard); `--no-metadata` disables the whole step.
+
+**Three-tier fallback** (rendering resilience — the 6-13 incident hardening):
+1. **Primary** — Playwright bundled Chromium (`--browser playwright`, default).
+2. **System Chrome** — `--browser chrome`, or `auto` when bundled Chromium fails to launch.
+3. **Pandoc lifeboat** — `--fallback pandoc`, or `auto` when no Chromium launches (pdf only). Style not faithful; emergency use.
 
 ### Claude Code Relay Workflow
 

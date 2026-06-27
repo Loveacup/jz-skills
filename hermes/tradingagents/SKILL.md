@@ -1,6 +1,8 @@
 ---
+
 name: tradingagents
 description: "Use when the user wants AI-assisted stock analysis, TradingAgents setup, or to run TauricResearch/TradingAgents locally. Guides installation, API keys, non-interactive runs, report summarization, and risk disclaimers."
+type: routine
 version: 1.0.0
 author: Hermes Agent
 license: MIT
@@ -8,7 +10,8 @@ metadata:
   hermes:
     tags: [trading, finance, stocks, research, langgraph, multi-agent]
     homepage: https://github.com/TauricResearch/TradingAgents
-    related_skills: [financial-research-agents, arxiv, polymarket]
+    related_skills: [financial-research-agents, web-research-router, polymarket]
+
 ---
 
 # TradingAgents

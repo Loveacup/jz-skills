@@ -107,6 +107,10 @@ Built-in themes:
 | `dark` | Charcoal background, blue accents, VS Code-inspired | atom-one-dark |
 | `academic` | Serif fonts (Palatino), minimal styling, traditional | atom-one-light |
 
+Themes auto-discover from `scripts/themes/*.css`; the full current set (11) also includes
+`warm-academic`, `editorial`, `kami`, `minimalist`, `newsletter`, `swiss`, `social-card`, `wechat-article`.
+Run `--theme <unknown>` to print the live list (each CSS file carries a `[theme]` metadata header with its `hljs_theme`).
+
 ## Footnote Support
 
 Standard Markdown footnotes via the `footnotes` extension:
@@ -160,12 +164,12 @@ Styling features in the script:
 
 | Method | CJK Support | Notes |
 |--------|-------------|-------|
-| **Chrome headless** | Perfect | Uses system fonts natively, recommended |
-| Playwright Chromium | Perfect | Alternative, requires `npm install playwright` |
+| Playwright bundled Chromium | Perfect | **Default** (`--browser playwright`); uses system fonts natively |
+| System Chrome | Perfect | `--browser chrome`, or `auto` fallback when bundled Chromium can't launch |
 | WeasyPrint | Broken on macOS | Font embedding bug — text extraction OK but visual garbled |
 | pandoc + LaTeX | OK if fonts configured | Requires CJK LaTeX packages |
 
-**WeasyPrint CJK 已知问题**: macOS 上 PingFang SC 等系统字体存于 AssetV2 哈希路径，WeasyPrint/Pango 无法正确嵌入，导致 PDF 中文显示乱码（但 pypdf 提取文本正常）。**务必使用 Chrome headless 方案。**
+**WeasyPrint CJK 已知问题**: macOS 上 PingFang SC 等系统字体存于 AssetV2 哈希路径，WeasyPrint/Pango 无法正确嵌入，导致 PDF 中文显示乱码（但 pypdf 提取文本正常）。**务必使用 Chromium 系方案（Playwright bundled 默认，或 `--browser chrome` 用系统 Chrome），不要用 WeasyPrint。**
 
 ## Page Headers/Footers
 

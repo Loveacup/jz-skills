@@ -1,10 +1,13 @@
 ---
+
 name: calendar-manager
 description: |
+type: routine
   管理 macOS Calendar.app 和 Apple Reminders 的智能助手。自动识别重复日程、智能判断日历归属（个人/工作/Naomi/Zelda）、医疗类日程特殊处理、网球课地点自动匹配、待办事项自动分流。
   
   触发场景：添加日历、日程、网球课、脱敏治疗、删除日程、改时间、这周安排、Naomi、Zelda
   DO NOT use for: 查询天气、设置闹钟、纯文档编辑、非日历类查询
+
 ---
 
 # Calendar Manager - 智能日历管理
@@ -80,6 +83,19 @@ icalBuddy -ic "Naomi1,Zelda1" eventsToday | grep "网球"
 ```
 
 **写入/修改/删除：AppleScript osascript。** 详见 `references/applescript-operations.md`。
+
+⚠️ **AppleScript 日期陷阱**：`date "Thursday, June 4, 2026 at 9:00:00 AM"` 格式在 osascript 中会报 `-30720` 语法错误。不要用字符串日期，改用 `current date` + 逐属性设置：
+
+```applescript
+set startDate to current date
+set month of startDate to June
+set day of startDate to 4
+set year of startDate to 2026
+set hours of startDate to 9
+set minutes of startDate to 0
+set seconds of startDate to 0
+set endDate to startDate + (3 * hours)  -- 3h 医疗默认
+```
 
 ## 智能询问规则
 
@@ -163,3 +179,36 @@ Naomi/Zelda 的医疗预约/随访提醒**必须写入对应孩子日历**（Nao
 - [ ] 网球课是否匹配了正确地点（默认冠享，水印城/钱江湾→乐不思）？
 - [ ] 孩子医疗提醒是否写入对应孩子日历而非 Reminders？
 - [ ] 是否向用户展示了结果并等待确认？
+
+## ⚠️ 已记录陷阱
+
+### AppleScript 日期格式不可靠
+
+`date "Thursday, June 4, 2026 at 9:00:00 AM"` 这种字符串格式在部分 macOS 语言/区域设置下会报 `无效的日期与时间` 错误（-30720）。
+
+**可靠替代**：用 `current date` + 逐属性设置。
+
+```applescript
+-- ❌ 不可靠
+set startDate to date "Thursday, June 4, 2026 at 9:00:00 AM"
+
+-- ✅ 可靠
+set startDate to current date
+set month of startDate to June
+set day of startDate to 4
+set year of startDate to 2026
+set hours of startDate to 9
+set minutes of startDate to 0
+set seconds of startDate to 0
+set endDate to startDate + (3 * hours)
+```
+
+> 2026-06-01 实测：`date "Thursday, June 4, 2026 at 9:00:00 AM"` 在 macOS 26.2 (zh-CN) 下失败，程序化方式成功。
+
+### 移动事件：不要直接修改 start/end date
+
+直接 `set start date of ev to newStart` + `set end date of ev to newEnd` 会报 `-10025` 错误（"开始日期必须早于结束日期"），即使 newStart 确实早于 newEnd。
+
+**可靠替代**：delete + recreate（详见 `references/applescript-operations.md` 的「移动事件」章节）。
+
+> 2026-06-04 实测：移「🏥 省口腔·张睿（检查）」从 6/4 到 6/5，直接改日期连续失败 4 次，delete+recreate 一次成功。

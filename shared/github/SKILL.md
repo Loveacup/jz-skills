@@ -1,6 +1,8 @@
 ---
+
 name: github
 description: "GitHub 全操作入口：认证、issues、PR、仓库管理、代码审查、源码探索、代码库统计、README 写作规范。Use when working with any GitHub repository — opening issues, creating PRs, reviewing code, searching source code, cloning repos, managing CI, creating releases, counting LOC, writing or reviewing README files. Do NOT use for: local git-only operations (no GitHub remote), generic code review principles (without GitHub context), or non-GitHub platforms (GitLab/Bitbucket)."
+type: routine
 version: 3.0.0
 author: Hermes Agent
 license: MIT
@@ -9,6 +11,7 @@ metadata:
   hermes:
     tags: [GitHub, Git, Issues, PR, Code-Review, CI/CD, Repositories, Code-Exploration]
     replaces: [github-auth, github-issues, github-pr-workflow, github-repo-management, github-code-review, github-code-explorer, codebase-inspection]
+
 ---
 
 # GitHub Operations v3.0
@@ -102,6 +105,20 @@ See `references/auth.md` for full setup (HTTPS tokens, SSH keys, `gh auth login`
 | `references/code-explorer.md` | Search/read/browse source code (L1→L4 escalation), git archaeology |
 | `references/codebase-inspection.md` | LOC count, language breakdown, code/comment ratios via pygount |
 | `references/readme-guide.md` | Write or review README: section guide, bilingual patterns, anti-patterns, checklist |
+
+## ⚠️ Profile Isolation Pitfall
+
+When running from a non-default Hermes profile (e.g., cron-worker whose `HERMES_HOME` redirects `~`), `gh` commands silently fail or appear unauthenticated because `gh` reads auth from `~/.config/gh/` — which resolves to the profile's redirected home, not the real macOS user home.
+
+Always prefix `gh` and `git` commands with `HOME=/Users/<username>`:
+
+```bash
+HOME=/Users/alexcai gh auth status
+HOME=/Users/alexcai git push fork branch-name
+HOME=/Users/alexcai gh pr create --base main --head user:branch ...
+```
+
+The real home path is discoverable via `dscl . -read "/Users/$(id -un)" NFSHomeDirectory` if unsure.
 
 ## ✅ Verification Checklist (RUN BEFORE RETURNING RESULTS)
 

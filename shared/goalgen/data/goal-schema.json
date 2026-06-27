@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "goalgen 输出契约 — 19 字段 goal + role_bindings + gate_modes",
+  "_doc": "对齐 Obsidian 方法论 04 §4.2。「19 字段」=业务契约总字段数（task_id…forbidden）=方法论设计基线 [I]（origin 已归档 regent-3s6m task-brief，物理文件已删；live 后继=Hermes 官方 Kanban metadata + delegate_task goal format）。注意：required 数组列的是 14 项（11 个核心业务字段 + schema_version/role_bindings/gate_modes 三个基础设施字段）；其余 8 个业务字段（inputs/context_refs/constraints/budget/allowed_tools/required_output_*）为 optional——勿照「19」去数 required。criterion/verifier/threshold 三元组锚 askills STDD + CrewAI + Osmani。",
+  "type": "object",
+  "required": ["schema_version", "task_id", "from", "to", "type", "objective", "scope", "acceptance_criteria", "timeout", "roadmap_node", "escalation", "forbidden", "role_bindings", "gate_modes"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "description": "schema 版本，演进时旧 goal 可识别" },
+    "task_id": { "type": "string", "description": "工作单元唯一标识 (P7)" },
+    "from": { "type": "string", "description": "派发者(编排者角色)，从 role_bindings 取 (P4)" },
+    "to": { "type": "string", "description": "执行者(目标角色)，从 role_bindings 取 (P4)" },
+    "type": { "type": "string", "description": "任务类型(拓扑路由) (P1)" },
+    "objective": { "type": "string", "description": "客观目标，一句可裁决的做什么 (P1)；含模糊词须已补判据" },
+    "scope": { "type": "object", "required": ["includes", "excludes"], "properties": { "includes": { "type": "array", "items": { "type": "string" } }, "excludes": { "type": "array", "items": { "type": "string" } } }, "description": "双向边界:包含/不包含 (P1/P7)" },
+    "inputs": { "type": "array", "items": { "type": "string" }, "description": "输入数据/文件 (P3)" },
+    "context_refs": { "type": "array", "items": { "type": "string" }, "description": "上下文引用(载荷自包含所需)" },
+    "constraints": { "type": "array", "items": { "type": "string" }, "description": "约束条件 (P1)" },
+    "acceptance_criteria": {
+      "type": "array", "minItems": 1,
+      "description": "每条三元组 (P2 验收不可省)",
+      "items": {
+        "type": "object", "required": ["criterion", "verifier", "threshold"], "additionalProperties": false,
+        "properties": {
+          "criterion": { "type": "string", "description": "可裁决判定语句" },
+          "verifier": { "type": "string", "enum": ["test", "review", "demo", "inspection"] },
+          "threshold": { "type": "string", "description": "通过阈值" },
+          "evidence_grade": { "type": "string", "enum": ["[C]", "[I]"], "description": "[I] 不可单独构成 approval" }
+        }
+      }
+    },
+    "timeout": { "type": "string", "description": "时间硬顶 (P6)" },
+    "budget": { "type": "object", "description": "token/成本预算 (P6)" },
+    "allowed_tools": { "type": "array", "items": { "type": "string" }, "description": "工具白名单 (P9)" },
+    "required_output_format": { "type": "string", "description": "产出格式 (P2/P3)" },
+    "required_output_destination": { "type": "string", "description": "产出落盘位置 (P3 实态)" },
+    "required_output_artifacts": { "type": "array", "items": { "type": "string" }, "description": "产出工件清单(区分 artifact vs history) (P3)" },
+    "roadmap_node": { "type": "string", "description": "映射的 roadmap 节点 (P7 溯源)；映射不出来不得生成" },
+    "escalation": {
+      "type": "object", "required": ["mode", "triggers"],
+      "description": "升级出口 + gate_mode (P6)",
+      "properties": {
+        "mode": { "type": "string", "enum": ["human", "auto"] },
+        "triggers": { "type": "array", "items": { "type": "string" } },
+        "escalation_target": { "type": "string", "enum": ["stronger-consensus", "higher-tier-AI", "human"], "description": "auto 不达共识/证据不足→默认 block；升级目标可配" },
+        "bounded_outcome": { "type": "array", "items": { "type": "string", "enum": ["pass", "block", "escalate"] } }
+      }
+    },
+    "forbidden": { "type": "array", "minItems": 1, "items": { "type": "string" }, "description": "禁止副作用声明 deny list (P4/P9)；非 publisher 自动注入" },
+    "role_bindings": {
+      "type": "array", "minItems": 1,
+      "description": "角色↔参与者+执行配置 (本 goal 的组队结果)；支持 N、开放角色、一对多/多对一",
+      "items": {
+        "type": "object", "required": ["role", "cli"], "additionalProperties": false,
+        "properties": {
+          "role": { "type": "string", "description": "开放集:内建 orchestrator/executor/reviewer-auditor/publisher + 自定义" },
+          "cli": { "type": "string", "description": "参与者 CLI identity.id" },
+          "model": { "type": "string" },
+          "effort": { "type": "string", "description": "须 ∈ 该 CLI execution_options.effort_levels" },
+          "work_mode": { "type": "string", "description": "CC 正交拆 orchestration/permission_mode/reasoning；Codex N/A" },
+          "driver_skill": { "type": ["string", "null"], "description": "被驱动绑定:取自 cross_cli_drivers[(caller→target)]；自托管/进程内/N=1 时 null" }
+        }
+      }
+    },
+    "gate_modes": {
+      "type": "object",
+      "description": "本 goal 每类门的 mode (确认门模式，方法论 01 §1.13)",
+      "required": ["gate_default"],
+      "properties": {
+        "gate_default": { "type": "string", "enum": ["human", "auto", "hybrid"] },
+        "per_gate": {
+          "type": "object",
+          "description": "binding/audit/termination/escalation/publish/install 各自 {mode, strength, escalation_target?, audit_trail?, block_on_uncertainty?}",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "mode": { "type": "string", "enum": ["human", "auto"] },
+              "strength": { "type": "string", "enum": ["single-auditor", "n-vote-multi-lens"] },
+              "escalation_target": { "type": "string" },
+              "audit_trail": { "type": "boolean" },
+              "block_on_uncertainty": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "_reproducibility": { "type": "object", "description": "稳定排序 + 可注入时钟 + 可注入 run_id (P3/可复现)", "properties": { "run_id": { "type": "string" }, "stable_sorted": { "type": "boolean" } } }
+  }
+}

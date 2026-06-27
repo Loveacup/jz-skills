@@ -1,0 +1,140 @@
+{
+  "_comment": "cc-tmux driven-CC hook config (§3.3-3.7 + §Phase-2 event-driven monitoring + §P1-1 hook-as-state-authority). SINGLE SOURCE OF TRUTH for the L2 hook layer, injected at launch via `claude --settings <this file>` by cc-start.sh — NO global ~/.claude merge, NO cp, NO 'remember to restart' (each task spawns a fresh CC that reads the latest skill copy). Script-path hooks SELF-LOCATE via $CC_TMUX_HOOK_DIR (cc-start exports CC_TMUX_HOOK_DIR=<skill>/hooks; verified to expand in the hook shell at fire time — references/cc-hook-facts-v2.1.178-20260617.md R2). PHASE-2 STATE BUS: hooks OWN the freshness signal so Hermes never has to poll. PreToolUse (async, R3/R4 verified) + PostToolUse + UserPromptSubmit + Notification + SessionEnd all `touch /tmp/cc-heartbeat-<key>` → mtime = last-sign-of-life, which cc-watcher --watch reads to decide whether to probe (capture-pane freeze detection is the ONLY thing a hook cannot do — no hook can read the TUI think-timer). Stop writes /tmp/cc-turn-done-<key> = Hermes's 'go look at results' signal + cc-finish's completion authority. UserPromptSubmit clears a stale turn-done (new turn). Low-freq lifecycle events append to /tmp/cc-state-<key>.log; high-freq PreToolUse only touches (no log bloat). P1-1 STATE AUTHORITY: every event ALSO appends `cc-status-writer.sh <EVENT>` (event name passed as ARG, not read from stdin) which atomically writes /tmp/cc-status-<key>.json {state,state_since,last_event,last_tool,last_tool_since,seq,heartbeat} — the AUTHORITATIVE state, so cc-monitor reads it as a fast path and bash capture-pane regex degrades to fallback. The writer ALSO refreshes the heartbeat (status+heartbeat stay in sync); turn-done/state-log/re-block stay with the existing hooks (no dual ownership). The writer reads its own stdin (in=$(cat)); each hook command in an array receives the payload independently. All hooks NON-deny, exit 0, degrade silently. CLAUDE_SESSION_ID is EMPTY in hook env (CC v2.1.178) — read session_id from stdin JSON; stdin consumed once → 'in=$(cat)' before any jq. D-4 key = ${CC_TMUX_SESSION:-<stdin session_id>}. R1 (verified): --settings hooks ACCUMULATE with global ~/.claude hooks → the global cc-tmux hooks block MUST stay removed. COMPACTION AWARENESS: PreCompact (real CC event; fires BEFORE the TUI pauses for conversation compaction) writes /tmp/cc-compacted-<key> marker + STATE=COMPACTING via the writer + refreshes heartbeat, so cc-watcher's freeze detector doesn't mistake the compaction pause for a wedge. There is NO PostCompact event in CC v2.1.178 (references/cc-hook-facts-v2.1.178-20260617.md line 77 lists it as unverified/likely-absent) — the AFTER-compaction signal is SessionStart carrying source=compact (same running session continues, new resume conversation ID minted): the SessionStart hook re-touches the marker + logs an ACTIVE/compacted line, and the writer labels last_event=SessionStart:compact. The marker is a 'a compaction happened here' flag any future resume/cleanup logic can read; it is intentionally NOT auto-removed by these hooks.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "async": true,
+            "command": "in=$(cat); sid=$(printf '%s' \"$in\" | jq -r '.session_id // \"unknown\"'); k=\"${CC_TMUX_SESSION:-$sid}\"; touch \"/tmp/cc-heartbeat-${k}\" 2>/dev/null"
+          },
+          {
+            "type": "command",
+            "async": true,
+            "command": "bash \"$CC_TMUX_HOOK_DIR/cc-status-writer.sh\" PreToolUse"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "in=$(cat); sid=$(printf '%s' \"$in\" | jq -r '.session_id // \"unknown\"'); k=\"${CC_TMUX_SESSION:-$sid}\"; d=\"${CC_OUTPUT_ROOT:-/tmp/cc-output}/${k}\"; mkdir -p \"$d\" 2>/dev/null; resp=$(printf '%s' \"$in\" | jq -r '.tool_response // empty' 2>/dev/null); [ \"${#resp}\" -gt 4096 ] && printf '%s\\n' \"$resp\" >> \"$d/responses-$(date +%s).log\" 2>/dev/null; touch \"/tmp/cc-heartbeat-${k}\" 2>/dev/null; exit 0"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CC_TMUX_HOOK_DIR/cc-posttool.sh\"",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CC_TMUX_HOOK_DIR/cc-status-writer.sh\" PostToolUse"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "in=$(cat); sid=$(printf '%s' \"$in\" | jq -r '.session_id // \"unknown\"'); k=\"${CC_TMUX_SESSION:-$sid}\"; touch \"/tmp/cc-heartbeat-${k}\" 2>/dev/null; printf '{\"ts\":\"%s\",\"event\":\"received\",\"session\":\"%s\"}\\n' \"$(date -u +%FT%TZ)\" \"$k\" >> \"/tmp/cc-state-${k}.log\" 2>/dev/null; rm -f \"/tmp/cc-turn-done-${k}\" 2>/dev/null"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CC_TMUX_HOOK_DIR/cc-status-writer.sh\" UserPromptSubmit"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "idle_prompt|permission_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "in=$(cat); sid=$(printf '%s' \"$in\" | jq -r '.session_id // \"unknown\"'); k=\"${CC_TMUX_SESSION:-$sid}\"; printf '{\"ts\":\"%s\",\"event\":\"notification\",\"session\":\"%s\"}\\n' \"$(date -u +%FT%TZ)\" \"$k\" >> \"/tmp/cc-state-${k}.log\"; touch \"/tmp/cc-heartbeat-${k}\""
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CC_TMUX_HOOK_DIR/cc-status-writer.sh\" Notification"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "in=$(cat); sid=$(printf '%s' \"$in\" | jq -r '.session_id // \"unknown\"'); k=\"${CC_TMUX_SESSION:-$sid}\"; src=$(printf '%s' \"$in\" | jq -r '.source // \"\"' 2>/dev/null); [ \"$src\" = \"compact\" ] && { touch \"/tmp/cc-compacted-${k}\" 2>/dev/null; printf '{\"ts\":\"%s\",\"event\":\"compacted\",\"state\":\"ACTIVE\",\"source\":\"compact\",\"session\":\"%s\"}\\n' \"$(date -u +%FT%TZ)\" \"$k\" >> \"/tmp/cc-state-${k}.log\" 2>/dev/null; }; echo \"[cc-tmux] 你是被 cc-tmux 驱动的 CC。session=${k}。约定:大输出(>8KB)必须 Write 到 /tmp/cc-output/${k}/ 下文件,不要只打进对话(scrollback 会丢)。最近状态:\"; tail -3 \"/tmp/cc-state-${k}.log\" 2>/dev/null || true"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CC_TMUX_HOOK_DIR/cc-status-writer.sh\" SessionStart"
+          },
+          {
+            "type": "command",
+            "command": "in=$(cat); sid=$(printf '%s' \"$in\" | jq -r '.session_id // \"unknown\"'); tp=$(printf '%s' \"$in\" | jq -r '.transcript_path // empty' 2>/dev/null); [ -n \"$tp\" ] && printf '%s' \"$tp\" > \"/tmp/cc-transcript-path-${CC_TMUX_SESSION:-$sid}\" 2>/dev/null; exit 0"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "in=$(cat); sid=$(printf '%s' \"$in\" | jq -r '.session_id // \"unknown\"'); k=\"${CC_TMUX_SESSION:-$sid}\"; rsn=$(printf '%s' \"$in\" | jq -r '.reason // \"?\"' 2>/dev/null); printf '{\"ts\":\"%s\",\"event\":\"end\",\"state\":\"GONE\",\"reason\":\"%s\",\"session\":\"%s\"}\\n' \"$(date -u +%FT%TZ)\" \"$rsn\" \"$k\" >> \"/tmp/cc-state-${k}.log\" 2>/dev/null"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CC_TMUX_HOOK_DIR/cc-status-writer.sh\" SessionEnd"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CC_TMUX_HOOK_DIR/cc-stop-check.sh\"",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CC_TMUX_HOOK_DIR/cc-status-writer.sh\" Stop"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "in=$(cat); sid=$(printf '%s' \"$in\" | jq -r '.session_id // \"unknown\"'); k=\"${CC_TMUX_SESSION:-$sid}\"; touch \"/tmp/cc-compacted-${k}\" 2>/dev/null; printf '{\"ts\":\"%s\",\"event\":\"precompact\",\"state\":\"COMPACTING\",\"session\":\"%s\"}\\n' \"$(date -u +%FT%TZ)\" \"$k\" >> \"/tmp/cc-state-${k}.log\" 2>/dev/null; touch \"/tmp/cc-heartbeat-${k}\" 2>/dev/null; exit 0"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CC_TMUX_HOOK_DIR/cc-status-writer.sh\" PreCompact"
+          }
+        ]
+      }
+    ]
+  }
+}

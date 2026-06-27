@@ -1,12 +1,14 @@
 ---
+
 name: mac-doctor
 description: |-
-  macOS 设备巡检 v2.0 — 评分/巡检/审计/清理/追踪/告警六层。Use when:
+type: routine
+  macOS 设备巡检 v2.4 — 评分/巡检/审计/清理/追踪/告警六层。Use when:
   check my mac, system health, mac slow, disk full, cleanup mac, 设备巡检,
   系统评分, 健康检查, 磁盘空间, 内存压力, swap, 清理缓存, brew/npm/uv cache,
   CPU 大户, 安全检查, 电池健康, 网络配置审计, 历史趋势, 异常检测, 臃肿/隐私扫描。
   Do NOT use for: GUI 操作, 实时网络诊断 (ping/traceroute), 清理孤儿 App 数据。
-version: 2.2.0
+version: 2.4.2
 author: Hermes Agent
 platforms: [macos]
 metadata:
@@ -14,9 +16,10 @@ metadata:
     tags: [macos, system-inspection, disk-audit, cache-cleanup, health-check, apfs,
            security-audit, hardware-audit, network-audit, history-tracking, smart-alerts]
     category: apple
+
 ---
 
-# macOS 设备巡检 v2.0
+# macOS 设备巡检 v2.4
 
 六级体系：看分 → 快查 → 深挖 → 清理 → 追踪 → 告警。
 
@@ -123,10 +126,12 @@ ps -eo pid,%cpu,%mem,comm -r | head -12
 
 # 归一化聚合（Chrome Helper×30 → Chrome×N；列：CPU% MEM% 进程数 名称）
 ps -eo %cpu,%mem,comm -r 2>/dev/null | awk 'NR>1 {
-  gsub(/ (Helper( \([A-Za-z]+\))?|Renderer|Web Content( \(Prewarmed\))?|Worker|\(GPU\)|\(Plugin\))$/,"",$0)
-  n=split($0,f,/[ \t]+/); k=f[n]; c[k]+=$1; m[k]+=$2; n_[k]++
-} END { for (k in c) printf "%6.1f %6.1f %3d  %s\n",c[k],m[k],n_[k],k }' | sort -rn | head -10
+  gsub(/ (Helper( \\([A-Za-z]+\\))?|Renderer|Web Content( \\(Prewarmed\\))?|Worker|\\(GPU\\)|\\(Plugin\\))$/,"",$0)
+  n=split($0,f,/[ \\t]+/); k=f[n]; c[k]+=$1; m[k]+=$2; n_[k]++
+} END { for (k in c) printf "%6.1f %6.1f %3d  %s\\n",c[k],m[k],n_[k],k }' | sort -rn | head -10
 ```
+
+**僵尸进程:** 如发现 `defunct` (Z 状态) 进程，参见 `references/zombie-process-cleanup.md` — 杀父进程让 launchd 回收。
 
 ### Tier 1 输出格式
 
@@ -142,7 +147,7 @@ ps -eo %cpu,%mem,comm -r 2>/dev/null | awk 'NR>1 {
 
 ## Tier 2a: Dev 审计
 
-> ⚠️ **路径警告**: 在非 default profile（如 cron-worker）下，`~` 指向 profile home 而非用户 home。所有 `~/Library/` / `~/.cache/` 必须替换为绝对路径（如 `/Users/alexcai/Library/Caches/`）。详见 Tier 3「清理陷阱 — 跨 Profile 路径陷阱」。
+> ⚠️ **路径警告**: 在非 default profile（如 cron-worker）下，`~` 指向 profile home 而非用户 home。所有 `~/Library/` / `~/.cache/` 必须替换为绝对路径（如 `~/Library/Caches/`）。详见 Tier 3「清理陷阱 — 跨 Profile 路径陷阱」。
 
 ### Dev 缓存
 
@@ -153,6 +158,25 @@ du -sh ~/.npm 2>/dev/null
 ```
 
 判断：npm/uv >2G 可清。qmd/huggingface 模型不删。
+
+### Profile 缓存（Tier 2a 补充检查）
+
+多 profile 架构下，每个 profile 的 `home/` 下各自累积 `.npm`、`Library/Caches`、`.cache/uv`。这些在用户级 `du ~/.cache` 中看不到（`~` 不指向 profile home），是常见的隐性磁盘大户。
+
+```bash
+# 检查各 profile home 缓存
+for d in ~/.hermes/profiles/*/home/; do
+  [ -d "$d" ] || continue
+  total=$(du -sm "$d" 2>/dev/null | cut -f1)
+  [ "$total" -gt 200 ] && echo "${total}M  $d"
+done | sort -rn
+
+# 逐个查看具体占用
+du -sh ~/.hermes/profiles/*/home/.{npm,cache} 2>/dev/null
+du -sh ~/.hermes/profiles/*/home/Library/Caches 2>/dev/null
+```
+
+> [!TIP] 💡 典型回收：regent home 的 .npm + Library/Caches + .cache 约 5G，cron-worker 约 2.3G。全部可安全清理。
 
 ### Homebrew
 
@@ -181,6 +205,26 @@ done
 tmutil listlocalsnapshots /
 ```
 
+### Hermes Profile 缓存重复 ⚠️
+
+当多个 Hermes profile 存在时，每个 profile 的 home 目录会独立缓存模型（qmd/huggingface）和开发工具（npm/playwright/uv/pip），导致磁盘被静默膨胀。
+
+**诊断**（见 `references/disk-space-patterns.md` §Hermes Profile 缓存重复）：
+```bash
+# 快速排查
+for p in ~/.hermes/profiles/*/; do
+  name=$(basename "$p")
+  du -sh "$p/home/.cache/" 2>/dev/null
+  du -sh "$p/home/.npm/" 2>/dev/null
+done
+```
+
+**常见重复**：qmd 模型 ×3（用户 + regent + cron-worker = 5.6G，实际只需 2.3G）、ms-playwright ×2（1.5G）。
+
+**安全清理**：见 `references/disk-space-patterns.md` §安全清理。**qmd/huggingface 模型不动**，只清 dev 缓存。
+
+**根治**：`external_dirs` — 让 profile 共享用户级缓存。需 CC 审计后执行。
+
 ---
 
 ## Tier 2b/2c/2d: 安全 + 硬件 + 网络审计
@@ -201,13 +245,16 @@ tmutil listlocalsnapshots /
 
 | 项目 | 命令 | 安全? | 注意事项 |
 |------|------|:-----:|---------|
-| npm | `npm cache clean --force` | ✅ | 纯缓存。⚠️ cron profile 下 npm 指向 `~/.hermes/profiles/cron-worker/home/.npm` → 系统缓存在 `/Users/alexcai/.npm` |
+| npm | `npm cache clean --force` | ✅ | 纯缓存。⚠️ cron profile 下 npm 指向 `~/.hermes/profiles/cron-worker/home/.npm` → 系统缓存在 `~/.npm` |
 | npm _npx | 保留当前用版本，删其余 | 🟡 | `ps aux \| grep` 找到在用 codegraph hash → 删 `_npx/` 下其他所有目录。1.7G+ 典型回收 |
 | uv | `uv cache clean` → `--force` | ✅ | 先 `lsof ~/.cache/uv` |
 | brew | `brew cleanup` | ✅ | 通常 300-400MB |
 | Chrome | `rm -rf ~/Library/Caches/Google/Chrome/*` | ✅ | 运行中可能超时 |
-| qmd models | **不删** | ❌ | 生产模型 |
-| huggingface | **不删** | ❌ | Whisper/embedding |
+| qmd models | **不删用户级**。Profile 副本 → `models/` symlink 去重。详见 `references/qmd-model-dedup.md` | 🟡 | 模型 2.1G/份。**不设 XDG_CACHE_HOME**（会合并索引导致 WAL 写冲突）。`external_dirs` 是 skills 专用，无效 |
+| huggingface | **不删用户级** | ❌ | 生产模型。Profile 副本同理用 symlink 去重 |
+| Profile dev 缓存 | `rm -rf .../home/.cache/{uv,puppeteer}` | ✅ | npm/uv/playwright/pip。见 disk-space-patterns §安全清理 |
+| Profile npm | `rm -rf .../home/.npm/_cacache` | ✅ | 每 profile 一份，清完回收 2G+ |
+| s6m/unused 归档 | `rm -rf ~/.hermes/archives/...` | ✅ | 旧 profile 残留，确认无用后直接删 |
 | Xcode | 需确认 | ⚠️ | DerivedData |
 | iOS backups | 需确认 | ⚠️ | 不可恢复 |
 
@@ -221,15 +268,17 @@ tmutil listlocalsnapshots /
 
 磁盘大户清单 & 轻量扫描技巧见 `references/disk-space-patterns.md`（Claude vm_bundles / Chrome / IDE 残留 / Discord 等）。
 
+Profile 缓存重复诊断（profile home 下 `.cache/` 异常膨胀的根因与修复）：见 `references/profile-cache-duplication.md`。
+
 ### ⚠️ 跨 Profile 路径陷阱
 
-当 session 运行在非 default profile（如 cron-worker）下时，`~` 指向该 profile 的 home（如 `/Users/alexcai/.hermes/profiles/cron-worker/home/`），**不是用户真实的 home**。
+当 session 运行在非 default profile（如 cron-worker）下时，`~` 指向该 profile 的 home（如 `~/.hermes/profiles/cron-worker/home/`），**不是用户真实的 home**。
 
 | 写法 | cron-worker 下解析为 | 正确写法 |
 |------|------|------|
-| `~/Library/Caches/` | `.../profiles/cron-worker/home/Library/Caches/` ❌ | `/Users/alexcai/Library/Caches/` |
-| `~/.cache/` | `.../profiles/cron-worker/home/.cache/` ❌ | `/Users/alexcai/.cache/` |
-| `~/Library/LaunchAgents/` | profile 的 agents ❌ | `/Users/alexcai/Library/LaunchAgents/` |
+| `~/Library/Caches/` | `.../profiles/cron-worker/home/Library/Caches/` ❌ | `~/Library/Caches/` |
+| `~/.cache/` | `.../profiles/cron-worker/home/.cache/` ❌ | `~/.cache/` |
+| `~/Library/LaunchAgents/` | profile 的 agents ❌ | `~/Library/LaunchAgents/` |
 
 **Tier 2a 的所有 `~` 路径在非 default profile 下都无效。** 遇到 `du` 结果异常小（如 56M 总缓存）时，第一时间怀疑路径错误。
 
@@ -237,13 +286,20 @@ tmutil listlocalsnapshots /
 
 | 陷阱 | 表现 | 解法 |
 |------|------|------|
-| **Swap >90% 时 `du` 超时** | `du -sh ~/Library/` 15s+ 不返回 | 系统 I/O 被 swap 打满，改用轻量命令：`ls -lt /System/Volumes/VM/swapfile*` 查 swap 增速、`diskutil info /` 查磁盘。深度目录扫描等高 swap 消退后再做。 |
-| **非 default profile 下 `~` 指向错误** | `~/Library/Caches/` 只显示 56M，实际用户缓存 1.4G | 全部改用绝对路径：`/Users/alexcai/Library/Caches/`、`/Users/alexcai/.cache/` |
+| **磁盘满时 `du`/`find` 全超时** | `du -sh ~/Library/` 60s 不返回，`find -size +100M` 30s 超时 | 磁盘 <15% 导致 I/O 拥塞。改用轻量方法：`ls -lht` 看指定目录、逐项 `du -sh <target>` 单目录扫描、先查已知大户再深挖。详见 `references/disk-space-patterns.md` §扫描技巧。 |
+| **磁盘 <10% 时 `du`/`find` 超时（即使 swap 不高）** | `du -sh ~/Library/`、`find ~ -size +100M` 60s+ 不返回 | APFS 严重碎片化 + 低剩余空间导致 I/O 拥塞。**优先清理而非深挖**：先 thin TM 快照、清已知可删缓存，再重试 `du`。超时期间改用 `ls -lhS <已知大目录>` 逐个检查。 |
+| **非 default profile 下 `~` 指向错误** | `~/Library/Caches/` 只显示 56M，实际用户缓存 1.4G | 全部改用绝对路径：`~/Library/Caches/`、`~/.cache/` |
+| **Anomaly 误报：baseline 不成熟** | 新装 collector < 7 天，夜间基线被白天正常活动打破 → z > σ 但绝对值健康 | σ 提到 3.0。watchdog 区分 threshold/anomaly：纯异常 + diagnosis "All clear" → 静默 |
+| **Profile 缓存隔离 → 磁盘膨胀** | 多 profile 各自克隆 qmd 模型（×3）、npm（×3）、playwright（×2）。.hermes 从 11G 膨胀到 32G+，其中 5.6G 的 qmd 模型只需 2.3G | 短期：清 dev 缓存（不动模型）— `references/disk-space-patterns.md` §安全清理。根治：配 `external_dirs` 让 profile 共享用户级缓存。每次新增 profile 后检查 `references/disk-space-patterns.md` §诊断命令。 |
+| **跨 Profile config 不同步** | 手动改 `~/.hermes/inspection/config.json` 但 cron job 读的是 `.../profiles/cron-worker/home/.hermes/inspection/config.json` → 行为不一致 | 修改阈值时两份 config 同步改。详见 `references/cron-module.md` §跨 Profile 配置陷阱 |
 | `du ~/*/` 超时 | 15s+ 不返回 | 加 `-d 1` |
 | `uv cache clean` 卡住 | "Cache is currently in-use" | `lsof` → `--force` |
 | `brew upgrade` exit 1 | 以为是失败 | 看底部升级数 |
 | 磁盘误判 | df 显示 28% | 用 `diskutil info` |
-| **`npm cache clean --force` 无效** | 清理前后 `du -sh ~/.npm` 不变 | cron profile 下 `npm config get cache` 指向 profile home；系统缓存在 `/Users/alexcai/.npm`。对 `_npx/` 直接 `rm -rf /Users/alexcai/.npm/_npx/<旧hash>` |
+|| **`npm cache clean --force` 无效** | 清理前后 `du -sh ~/.npm` 不变 | cron profile 下 `npm config get cache` 指向 profile home；系统缓存在 `~/.npm`。对 `_npx/` 直接 `rm -rf ~/.npm/_npx/<旧hash>` |
+|| **macOS 沙盒 Container 删不动** | `rm -rf ~/Library/Containers/com.xxx.yyy` → `Operation not permitted` | macOS Container Manager 锁定沙盒目录。`sudo` 无终端不可用（cron/session），`xattr -rc` 无效，`osascript Finder delete` 弹 TCC 权限框超时。**解法：内容 <100KB 时忽略；否则在桌面端 Finder 手动拖废纸篓。** 卸载 App 优先用 App 自带的卸载器或 `AppCleaner` 等工具。 |
+|| **Telegram Group Containers 误判为缓存** | `du` 显示 `~/Library/Group Containers/...Telegram/` 占 8GB，以为是可清理媒体缓存 | 8GB 在 `stable/account-*/postbox/db/` — 这是**消息数据库**，不是缓存。删 = 本地聊天记录全丢。媒体缓存（`postbox/media/`）通常只有几十 MB。真正的清理入口在 Telegram 客户端内：设置 → 数据和存储 → 存储用量。 |
+| **TM 快照积压（磁盘急剧下降的主因）** | 磁盘从 70% → 90% 仅数小时；`tmutil listlocalsnapshots` 显示 20+ 快照 | 备份盘未连接时 macOS 每小时拍快照。`tmutil thinlocalsnapshots` 一次只薄一个，需 Python 批量 `tmutil deletelocalsnapshots`。详见 `references/tm-snapshot-cleanup.md`。 |
 
 ### 清理后验证
 
@@ -276,7 +332,7 @@ SQLite 数据库 `~/.hermes/inspection/history.db`，10 分钟/次快照（~5MB/
 | 条件 | 级别 | 参考 |
 |------|:---:|------|
 | CPU >80% 持续 5min / 内存 critical / 磁盘 <10% | 🔴 | `references/tier5-smart-alerts.md` |
-| Swap >4GB / 电池 <80% / 异常触发 | 🟡 | 同上 |
+| Swap >4GB / 电池 <80% / 异常触发（σ=3.0，纯异常不推送） | 🟡 | 同上 |
 
 通过 LaunchAgent 或 Hermes Cron Job 调度。
 

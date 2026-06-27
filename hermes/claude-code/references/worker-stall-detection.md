@@ -31,3 +31,24 @@ tmux send-keys -t hermes-claude-longterm \
 ## Key Insight
 
 **Don't wait 2 minutes.** 60s of stalled tokens + file on disk = worker done. The completion-notification mechanism is unreliable; file writes are atomic. Every extra minute waiting is wasted context window.
+
+---
+
+## ⚠️ Deep Thinking ≠ Stalling (2026-05-31)
+
+**Symptom:** Worker tool count unchanged for 2-4 minutes, but token count still growing.
+
+**Diagnosis:** This is normal deep analysis, NOT a stall. LLM is processing large context, comparing files, or reasoning through complex logic.
+
+**Discrimination table:**
+
+| Signal | Deep Thinking (normal) | True Stall (needs intervention) |
+|--------|:----------------------:|:-------------------------------:|
+| Token count | Growing steadily | Completely frozen >3min |
+| Tool count | May be unchanged | Unchanged |
+| Shell count | May be unchanged | Unchanged |
+| Wait before acting | Wait 5+ min | Act after 2-3min of frozen tokens |
+
+**Rule:** If tokens are growing → continue waiting and report normally. If BOTH tokens AND tool count are frozen >5min → treat as stall.
+
+> **2026-05-31 case:** 3 lens workers all completed within 8min timeout. During execution, tool count stayed at 1 for 2-3min stretches while workers deep-read and analyzed files. Token count grew from ~10.8k to ~46k during these \"quiet\" periods. All workers finished successfully — no stalling, just thinking.

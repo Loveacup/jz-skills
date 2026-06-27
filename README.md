@@ -1,112 +1,257 @@
 # 🏛️ jz-skills · AI Agent Skills Hub
 
-<p align="center">
-  <b>🇺🇸 English</b> · <b>🇨🇳 中文</b>
-</p>
+![skills](https://img.shields.io/badge/skills-47-blue)
+![platforms](https://img.shields.io/badge/platforms-Hermes_|_CC_|_pi-8A2BE2)
+![sync](https://img.shields.io/badge/sync-bidirectional-green)
+![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
-<p align="center">
-  <img src="https://img.shields.io/badge/skills-56-blue" alt="56 skills">
-  <img src="https://img.shields.io/badge/profiles-15%20三省六部-orange" alt="15 profiles">
-  <img src="https://img.shields.io/badge/platforms-Hermes%20%7C%20CC%20%7C%20pi-lightgrey" alt="platforms">
-  <img src="https://img.shields.io/badge/sync-bidirectional-green" alt="bidirectional sync">
-  <img src="https://img.shields.io/badge/license-MIT-brightgreen" alt="MIT license">
-</p>
-
-> 🤖 **AI agent skills for Hermes (三省六部 15-profile governance), Claude Code, and pi — one repo, four layers, three platforms.**
+> **A personal, multi‑CLI skill hub where AI agents author, audit, and evolve their own capabilities — deployed across Hermes, Claude Code, and pi (Windows).**
 >
-> 🏯 **服务于 Hermes（三省六部 15 部门多智能体体系）、Claude Code 和 pi 的 AI 技能仓库 — 一库四层，三端同步。**
+> 一个面向多 CLI AI Agent 的个人技能中心：技能由 AI Agent 自行编写、审计与演进，同时部署至 Hermes、Claude Code 与 pi (Windows) 三个平台。
 
 ---
 
-## 🌲 Full Structure · 全结构视图
+## 📂 Structure
 
 ```
 jz-skills/
-├── shared/                        # 🌐 跨平台通用 (Hermes + CC + pi) — 14 skills
-│   ├── github/                    # GitHub 全操作
-│   ├── grill-with-docs/           # 设计审查
-│   ├── skill-authoring/           # 合规创作
-│   ├── pdf/                       # PDF 处理
-│   ├── strategic-insight-longform/# 战略洞察长文
-│   ├── voice-to-markdown-workflow/# 语音转文稿
-│   ├── audio-transcriber/         # 音频转录 (pyannote + Qwen3-MLX)
-│   ├── china-legal-optimized/     # 中国法务七大领域
-│   ├── destiny-matrix/            # 命运矩阵 (荣格八维 + 八字 + 紫微)
-│   ├── methodology-writer/        # 方法论文创作
-│   ├── obsidian/                  # Obsidian vault ops + CLI + Bases + Defuddle
-│   ├── obsidian-md-ac/            # Obsidian Markdown + Mermaid + JSON Canvas
-│   ├── supermemory-maintenance/      # Supermemory 通用参考 + 诊断 v6 · 4 refs
-│   ├── xiaohongshu-cards/         # 小红书图文卡片
-├── hermes/                        # ⚙️ Hermes 平台通用 — 14 skills
-│   ├── web-research-router/       # v3.7 · Exa+Brave 双主力 / SearXNG 降级 / Step 0 强制 / Output Contract [s<id>]
-│   ├── tradingagents/             # 交易分析
-│   ├── llm-wiki/                  # LLM 知识库
-│   ├── arxiv/                     # 论文检索
-│   ├── auto-diary/                # 日记生成
-│   ├── bilibili-video-analyzer/   # B站视频分析
-│   ├── xhs-crawler/               # 小红书爬虫
-│   ├── calendar-manager/          # 智能日历
-│   ├── cron-worker/               # 🕐 定时任务分离 profile + 三种心跳 + 变更检测
-│   ├── de-slop/                   # 中英双语去 AI 味
-│   ├── reply-context-retrieval/   # TG 引用回溯
-│   ├── claude-code/               # CC 编排
-│   ├── supermemory-hermes/         # Cabinet Memory 全手册 v1.1
-│   ├── mac-doctor/                 # 🩺 macOS 六级巡检：评分/安全/硬件/网络/隐私/告警/历史追踪
-├── hermes-3S6M-profiles/          # 🏯 三省六部体系
-│   ├── common/                    # 全部门通用 — 2 skills
-│   │   ├── three-provinces-constitution/  # 三省六部宪法 v3.0
-│   │   └── financial-research-agents/     # 金融研究 Kanban 调度
-│   └── <dept>/                    # 部门专属 — 21 skills
-│       ├── regent/ (5)            # 👑 监国太子 · 唯一有 gateway 的 3S6M profile
-│       │   └── morning-news-briefing/ v4.0 · SearXNG + verbatim + Sherman Kent
-│       ├── gongbu/ (5)            # 🛠️ 工部 · 内部调度
-│       ├── tester/ (2)            # ⚖️ 刑部 · 内部调度
-│       ├── jiangzuojian/ (2)      # 🔧 将作监 · 内部调度
-│       ├── archivist/ (1)         # 📖 史馆 · 内部调度
-│       ├── auditor/ (1)           # 🔎 御史台 · 内部调度
-│       ├── budget/ (1)            # 💰 户部 · 内部调度
-│       ├── hanlinyuan/ (1)        # 🎓 翰林院 · 内部调度
-│       ├── protocol/ (1)          # 🎭 礼部 · 内部调度
-│       ├── registry/ (1)          # 👥 吏部 · 内部调度
-│       └── shangshu/ (1)          # 📡 尚书省 · 内部调度
-└── pi/                            # 🪟 Pi (Windows) — 5 skills
-    ├── web-research-router/       # 检索总控 (TypeScript SDK)
-    ├── pi-grill/                  # 歧义守护
-    ├── skill-creator/             # 合规创作
-    ├── pi-hermes-setup/           # 联动架构
-    └── pi-supermemory/            # Supermemory 集成维护
+├── shared/          ← 🧩 Cross‑platform skills (Hermes + CC + pi)
+├── hermes/          ← ⚡ Hermes‑exclusive skills
+├── pi/              ← 🪟 Windows / pi‑exclusive skills
+├── _archived-hermes-3S6M-profiles/  ← 🗄️ Archived 三省六部 profiles
+└── deploy/          ← 🔧 Sync‑back & drift tooling
 ```
 
-> 🛂 **Gateway 治理：** 三省六部 15 profile 中**只有 `regent`（监国太子）** 配置了对外 gateway（Telegram / iMessage / 邮件 等通道）。其余 14 个 profile 走 **内部调度，无对外通信**——由 regent 统一收发、按职能转派。`default`（小黄_主频道，非 3S6M）独立配 gateway，与 regent 互通走 A2A。
+| Layer | Directory | Skills | Scope |
+|-------|-----------|--------|-------|
+| 🧩 Shared | `shared/` | 25 | Works across Hermes, Claude Code, and pi |
+| ⚡ Hermes | `hermes/` | 20 | Hermes‑only (macOS orchestrator) |
+| 🪟 Pi | `pi/` | 2 | Windows / pi‑only |
+| 🗄️ Archived | `_archived-hermes-3S6M-profiles/` | 12 profiles | Retired 三省六部 governance profiles |
+| **Total** | | **47 skills** | |
+
+<details>
+<summary>🌳 Full skill tree</summary>
+
+```
+shared/                              🧩 25 skills
+├── audio-transcriber            # 音频转录：降噪+声纹+中文ASR
+├── bilibili-video-analyzer      # B站视频深度分析
+├── bookmark-organizer           # 书签策展
+├── china-legal-optimized        # 中国法务（7大领域）
+├── cqi-plan-writer              # 通用 CQI 写作方法论
+├── de-slop                      # 中英双语去AI味
+├── destiny-matrix               # 命运矩阵：荣格八维+八字+紫微
+├── github                       # GitHub 全操作
+├── goalgen                      # 多CLI通用 goal 指令生成器
+├── grill-with-docs              # 基于治理文档的设计审查
+├── memory-hub                   # CC×CQI 自动归集回路（Jz-Plugin内核）
+├── methodology-writer           # 经验→结构化方法论
+├── obsidian                     # Vault 操作、CLI、Bases、Defuddle
+├── obsidian-md-ac               # OFM + Mermaid + JSON Canvas 参考
+├── pdf                          # PDF 全处理：OCR/提取/Markdown→PDF
+├── skill-authoring              # 11步合规创作+七维评分
+├── supermemory-maintenance      # Supermemory v7 参考
+├── surge-gateway                # Surge 家庭代理网关
+├── unifi-ops                    # UniFi AP/交换机/Controller 运维
+├── vault-keeper                 # Obsidian 知识库生命周期治理
+├── voice-to-markdown-workflow   # 语音/视频→结构化 Markdown
+├── web-research-router          # 六引擎搜索路由+深度研究循环
+├── xhs-crawler                  # 小红书 CDP 提取（CloakBrowser）
+├── xhs-tech-writer              # 小红书 AI/科技短图文
+└── xiaohongshu-cards            # 文章→小红书图文卡片
+
+hermes/                              ⚡ 20 skills
+├── arxiv                        # arXiv + Semantic Scholar 论文检索
+├── auto-diary                   # 自动化日记：日→周→月→年金字塔聚合
+├── calendar-manager             # 智能日历+提醒
+├── cc-tmux                      # tmux 驱动 CC v1.22.0：脚本强制护栏 · 11 脚本 / 136 测试
+├── cccmux                       # cmux 原生 CC agent team 编排
+├── claude-code                  # CC 编排桥（已由 cc-tmux 取代）
+├── cron-worker                  # 定时任务 profile + 技能池看门狗
+├── dingtalk-message-monitor     # 钉钉本地DB解密+消息监控
+├── kanban-codex-lane            # Kanban→Codex CLI 通道
+├── kanban-orchestrator          # 任务分解+Kanban 编排
+├── llm-wiki                     # Karpathy's LLM Wiki 知识库
+├── mac-doctor                   # macOS 六级健康巡检
+├── morning-news-briefing        # 每日早新闻简报
+├── openwrt-router               # OpenWrt/iStoreOS 路由器运维
+├── supermemory-hermes           # Hermes Supermemory 配置
+├── teach-hermes                 # Telegram 跨会话教学
+├── tech-support-email           # 调查驱动的技术支持邮件
+├── telegram-topic-manager       # Telegram Topic CRUD + /topic 命令
+├── tradingagents                # A股/市场分析
+└── tts-manager                  # TTS 供应商注册+语音测试
+
+pi/                                  🪟 2 skills
+├── pi-grill                     # 歧义守护 v3.1
+└── pi-hermes-setup              # Pi↔Hermes SSH+MCP 联动
+
+_archived-hermes-3S6M-profiles/      🗄️ 12 profiles — 已归档的三省六部治理体系
+```
+
+</details>
 
 ---
 
-## 📖 目录
+## 🔥 Active Skills · 高频迭代
 
-- [🌲 Full Structure · 全结构视图](#-full-structure--全结构视图)
-- [✨ Features · 特性](#-features--特性)
-- [🚀 Quick Start · 快速开始](#-quick-start--快速开始)
-- [📐 Architecture · 四层结构](#-architecture--四层结构)
-- [📋 Skill Catalog · 技能目录](#-skill-catalog--技能目录)
-- [🏯 三省六部 · 15 Profiles](#-三省六部--15-profiles)
-- [🔄 Sync Workflow · 同步流程](#-sync-workflow--同步流程)
-- [📦 Skill Format · 技能格式](#-skill-format--技能格式)
-- [🤝 Contributing · 贡献](#-contributing--贡献)
+> Ranked by recent activity (last 7 days). Not hand-picked — data-driven.
+> 按近 7 天活跃度排序，数据驱动而非人工挑选。
+
+### 🖥️ cc-tmux · tmux 驱动 CC v1.22.0
+
+> **21 commits in last 7 days (12 in last 3)** — THE hottest skill · 最活跃技能
+
+Drive Claude Code via tmux with script-enforced safeguards. The active CC driver — replacing the older claude-code skill.
+通过 tmux 驱动 Claude Code，脚本强制护栏。当前主力 CC 驱动技能，取代旧版 claude-code。
+
+- **Turn内等待 · In-turn Wait:** Waits for CC response within the same tmux turn before proceeding / 同一 tmux turn 内等待 CC 响应再继续
+- **📡 Progress Reporting · 中间过程可视性:** Real-time visibility into CC's intermediate reasoning and tool calls / CC 中间推理与工具调用的实时可见性
+- **Hook 状态权威 (P1-1) · Status authority:** Hook events atomically write the authoritative `cc-status-<s>.json`; esc-to-interrupt gold standard for BUSY, capture-pane regex demoted to fallback / Hook 事件原子写权威状态文件 + esc 金标准判 BUSY，抓屏正则降级为兜底
+- **fswatch 事件驱动等待 (P1-2):** In-turn wait upgraded from sleep-poll to fswatch event-driven with ≤3s TOCTOU watchdog; THINK_TIME freeze detection / 等待从轮询升级为 fswatch 事件驱动 + 看门狗兜底，叠加 THINK_TIME 冻结检测
+- **用量管理 + Session GC (R8c/R9c/R9d):** cc-usage pre/post baseline-delta + cc-gc 4-trigger garbage collection with 3 safety rules / 用量基线增量汇报 + 会话垃圾回收四触发三安全规则
+- **R2.1 澄清式交接 · Clarifying handoff:** CC uses read-only tools (WRR/SuperMemory/OB/CodeGraph) to verify understanding before executing / CC 执行前用只读工具查证理解再开干
+- **R8b 配置自动化 · Config automation:** Signal→effort/model/mode decision tree (floor high / default Opus) / 信号→effort/模型/模式决策树（地板 high / 默认 Opus）
+- **R9b 会话复用 · Session reuse:** Topic↔Session registry — same topic reuses a live IDLE session, occupied/dead falls back to new / Topic↔Session 注册表，同 topic 复用存活 IDLE 会话，占用/已死则新建
+- **TDD implementation:** 136/136 tests green across 15 test files — test-driven from the ground up / 测试驱动开发，15 个测试文件 136/136 全绿
+
+→ [`hermes/cc-tmux/`](hermes/cc-tmux/)
+
+### 🔍 web-research-router · 检索总控 v3.11
+
+> **1 commit in last 7 days (last 6/18)** — 6-engine search router · 六引擎搜索路由
+
+Multi-engine deep research router with anti-hallucination guardrails. Latest iterations: Agent-Reach platform mode + 6 deep-source optimizations.
+六引擎搜索路由 + 深度研究循环 + 反幻觉护栏。近期迭代：Agent-Reach 平台模式 + 六项深源分析优化。
+
+- **6-engine cascade · 六引擎级联:** Exa + Brave (dual-primary) → Tavily (deep) → web_search (broad) → Sogou/WeChat → SearXNG (fallback) / 双主力→深度→广扫→微信/搜狗→兜底
+- **v3.10 Agent-Reach · 智能可达:** Platform-mode integration — mandatory 4-step local check before any web call / 平台模式集成，强制四步本地检查
+- **v3.11 6 optimizations:** Deep source analysis driven — coverage, latency, and dedup improvements / 深源分析驱动，覆盖率、延迟、去重优化
+- **Anti-hallucination · 反幻觉:** Verbatim quote extraction + `[s<id>]` inline citation + WeChat/Sogou encrypted link decryption / 逐字引用 + 内联标注 + 微信/搜狗加密链接解密
+
+→ [`shared/web-research-router/`](shared/web-research-router/)
+
+### 📊 cqi-plan-writer · CQI 计划写作 v2.0
+
+> **1 commit in last 7 days (last 6/18) · v2.0** — domain-agnostic CQI methodology · 领域无关 CQI 方法论
+
+General-purpose CQI (持续质量改进) writing methodology. Structured plan authoring with hard evidence anchoring and major decision protocol.
+通用持续质量改进写作方法论。结构化计划创作，硬证据锚定 + 重大决策协议。
+
+- **v2.0 domain-agnostic:** Stripped domain assumptions — writes CQI plans for any field / 剥离领域假设，可为任何领域撰写 CQI 计划
+- **v1.2 restructure pattern:** Systematic restructuring methodology with hard evidence anchoring / 系统化重构方法论 + 硬证据锚定
+- **Completed appendix:** Mandatory completed-appendix section for traceability / 强制完成的附录章节，确保可追溯性
+- **Major decision protocol:** Structured protocol for capturing and justifying architectural decisions / 结构化协议，捕获并论证架构决策
+
+→ [`shared/cqi-plan-writer/`](shared/cqi-plan-writer/)
+
+### 🏛️ vault-keeper · 知识库治理
+
+> **0 commits in last 7 days · stabilized (last 6/15)** — three-gate governance · 三道闸治理
+
+Obsidian knowledge base lifecycle governance engine. Rapidly developing with three-gate architecture and confidence-matrix quality control.
+Obsidian 知识库生命周期治理引擎。快速迭代中，三道闸架构 + 置信矩阵质控。
+
+- **三道闸 · Three Gates:** Capture gate → Judgment gate → Backfill gate — full lifecycle governance / 采集闸→判定闸→回填闸，全生命周期治理
+- **置信矩阵 · Confidence Matrix:** Quantified confidence scoring for every knowledge assertion / 每条知识断言的量化置信度评分
+- **Lint巡检 · Lint Patrol:** Automated quality patrol across the vault with rule-based checks / 基于规则的自动化质量巡检
+- **抽样自校准 · Sampling Self-Calibration:** Periodic random sampling to verify and recalibrate confidence scores / 定期随机抽样验证并重校准置信度
+- **判定/确定性两层拆分:** Judgment (subjective assessment) vs. Determinism (objective verification) — two-layer architecture / 主观判定与客观确定性分离的双层架构
+
+→ [`shared/vault-keeper/`](shared/vault-keeper/)
+
+### 📔 auto-diary · 自动化日记 v3.8.0
+
+> **0 commits in last 7 days · stabilized (last 6/14)** — pyramid aggregation diary · 金字塔聚合日记
+
+Automated daily/weekly/monthly/yearly diary generation from cron with pyramid aggregation from daily fragments to yearly retrospectives.
+从 cron 触发的日记生成到金字塔聚合的年报体系。
+
+- **v3.8.0 Codex session collection:** Codex session auto-collection + dedup cron ID + doc drift fix / Codex 会话自动采集 + cron ID 去重 + 文档漂移修复
+- **v3.6.3 cron HOME fix:** `pwd.getpwuid()` bypass to survive cron's polluted HOME environment / 绕过 cron 污染的 HOME 环境变量
+- **DingTalk group ingestion · 钉钉群消息采集:** Decrypt local DingTalk SQLite → extract group messages → auto-include in daily diary / 解密本地加密 SQLite → 提取群消息 → 自动写入日记
+- **Silent cron failure fix · 静默故障修复:** Diagnosed and fixed silent skill degradation from empty array — documented in failure pattern library / 诊断修复空数组导致的静默退化，写入故障模式库
+
+→ [`hermes/auto-diary/`](hermes/auto-diary/)
+
+> Previously featured skills like claude-code, skill-authoring, grill-with-docs, and memory-hub remain in the full catalog below but have been superseded or stabilized.
+> 此前入选的技能如 claude-code、skill-authoring、grill-with-docs、memory-hub 仍保留在下方完整目录中，但已被取代或趋于稳定。
 
 ---
 
-## ✨ Features · 特性
+## 📋 Full Catalog · 完整目录
 
-| Category · 类别 | What you get · 你得到的 |
-|:---|:---|
-| 🌐 **Cross-platform** · 跨平台 | One skill, three agents — Hermes, Claude Code, and pi deploy from the same source |
-| 🏯 **15-profile governance** · 三省六部 | 监国三省六部制: task routing, escalation, handoff across 15 specialized profiles |
-| 🔄 **Bidirectional sync** · 双向同步 | `sync-back.sh` (local → GitHub, auto-sanitized) + `sync-all.sh` (GitHub → local) |
-| 📋 **50 compliance-reviewed skills** · 合规审计 | Every skill passes 7-dimension audit: progressive disclosure, anti-rationalization, positioning |
-| 🧹 **Auto-sanitization** · 自动脱敏 | Home paths → `~/`, emails → redacted, private IPs → redacted, API keys stripped before commit |
-| 🤖 **AI-authored** · AI 创作 | Skills created, audited, evolved by AI agents — following skill-authoring v3.0 |
-| 🔬 **Deep research** · 深度研究 | Multi-step research loop with verbatim quote extraction, anti-refusal, query decomposition — based on 5 OSS projects · 多步深度研究：逐字引用、反拒绝、查询分解 |
-| 🛂 **Gateway governance** · 网关治理 | 15 profile 中**仅 `regent` 配 gateway**（Telegram/iMessage/邮件），其余 14 个内部调度无对外通信。external 通信收口于太子 + A2A 走 `default` · Only `regent` has external gateway; all other 14 profiles are internal-only, dispatched by regent |
+> **47 skills** across three platforms — shared foundations, Hermes agent operations, and pi extensions.
+> **47 个技能**覆盖三大平台 — 共享基础层、Hermes 智能体操作层、pi 扩展层。
+
+### shared/ — Cross-Platform Foundations · 跨平台基础技能 (25 skills)
+
+| | Skill | Purpose · 用途 |
+|---|-------|----------------|
+| 🐙 | [github](shared/github/) | Full GitHub ops / GitHub 全操作 |
+| 📋 | [grill-with-docs](shared/grill-with-docs/) | Design review against governance docs / 设计审查 |
+| ✍️ | [skill-authoring](shared/skill-authoring/) | 11-step, 7-dim scoring / 合规创作 |
+| 🎯 | [goalgen](shared/goalgen/) | Multi-CLI goal instruction generator / 通用 goal 生成器 |
+| 📄 | [pdf](shared/pdf/) | OCR, extract, markdown→PDF / PDF 全处理 |
+| 🎙️ | [voice-to-markdown-workflow](shared/voice-to-markdown-workflow/) | Speech→structured markdown / 语音转文稿 |
+| 🔊 | [audio-transcriber](shared/audio-transcriber/) | Denoise+diarization+Chinese ASR / 音频转录 |
+| 📺 | [bilibili-video-analyzer](shared/bilibili-video-analyzer/) | Bilibili video analysis / B站视频分析 |
+| ⚖️ | [china-legal-optimized](shared/china-legal-optimized/) | 7 legal domains / 中国法务 |
+| 📊 | [cqi-plan-writer](shared/cqi-plan-writer/) | Signal-driven CQI writing / CQI 计划写作 |
+| 🔮 | [destiny-matrix](shared/destiny-matrix/) | Jungian+BaZi+ZiWei+Astrology / 命运矩阵 |
+| 📐 | [methodology-writer](shared/methodology-writer/) | Experience→structured methodology / 经验框架化 |
+| 🧲 | [memory-hub](shared/memory-hub/) | CC→CQI auto-ingest loop / 自动归集回路 |
+| 💎 | [obsidian](shared/obsidian/) | Vault ops, CLI, Bases, Defuddle / Obsidian 全操作 |
+| 📓 | [obsidian-md-ac](shared/obsidian-md-ac/) | OFM + Mermaid + JSON Canvas / OFM 参考 |
+| 🧠 | [supermemory-maintenance](shared/supermemory-maintenance/) | Supermemory v7 reference / 记忆参考 |
+| 🚪 | [surge-gateway](shared/surge-gateway/) | Household proxy gateway / 家庭代理网关 |
+| 🛜 | [unifi-ops](shared/unifi-ops/) | UniFi network operations / 网络运维 |
+| 🧹 | [de-slop](shared/de-slop/) | Bilingual AI writing detection / 中英去 AI 味 |
+| 🟥 | [xiaohongshu-cards](shared/xiaohongshu-cards/) | Article→RED card images / 小红书图文卡片 |
+| 📱 | [xhs-tech-writer](shared/xhs-tech-writer/) | RED AI/tech short-form content / 小红书科技短图文 |
+| 🏛️ | [vault-keeper](shared/vault-keeper/) | Obsidian lifecycle governance / 知识库治理 |
+| 🌐 | [web-research-router](shared/web-research-router/) | 6-engine search + deep loop / 检索总控 |
+| 🕷️ | [xhs-crawler](shared/xhs-crawler/) | XHS CDP extraction / 小红书爬虫 |
+| 🔖 | [bookmark-organizer](shared/bookmark-organizer/) | Bookmark curation / 书签策展 |
+
+### hermes/ — Agent Operations · 智能体操作技能 (20 skills)
+
+| | Skill | Purpose · 用途 |
+|---|-------|----------------|
+| 📔 | [auto-diary](hermes/auto-diary/) | Daily→yearly diary pyramid / 自动化日记 |
+| 🍎 | [mac-doctor](hermes/mac-doctor/) | 6-tier macOS health / macOS 巡检 |
+| ⏰ | [cron-worker](hermes/cron-worker/) | Cron profile + pool watchdog / 定时任务 |
+| 🤖 | [claude-code](hermes/claude-code/) | CC orchestration v4.2.1 / CC 编排 |
+| 🖥️ | [cc-tmux](hermes/cc-tmux/) | Drive CC via tmux / tmux 驱动 CC |
+| 🎛️ | [cccmux](hermes/cccmux/) | cmux-native CC agent teams / cmux 原生团队编排 |
+| 💾 | [supermemory-hermes](hermes/supermemory-hermes/) | Hermes Supermemory setup / 记忆配置 |
+| 🗣️ | [tts-manager](hermes/tts-manager/) | TTS provider registry / TTS 管理 |
+| ✉️ | [tech-support-email](hermes/tech-support-email/) | Investigation-first vendor emails / 技术支持邮件 |
+| 📈 | [tradingagents](hermes/tradingagents/) | A-share market analysis / 交易分析 |
+| 📅 | [calendar-manager](hermes/calendar-manager/) | Smart calendar + reminders / 智能日历 |
+| 🌅 | [morning-news-briefing](hermes/morning-news-briefing/) | Daily news briefing / 早新闻简报 |
+| 💬 | [telegram-topic-manager](hermes/telegram-topic-manager/) | Telegram Topic CRUD / 话题管理 |
+| 📚 | [arxiv](hermes/arxiv/) | arXiv + Semantic Scholar / 论文检索 |
+| 📡 | [dingtalk-message-monitor](hermes/dingtalk-message-monitor/) | Decrypt + monitor DingTalk DB / 钉钉解密监控 |
+| 📶 | [openwrt-router](hermes/openwrt-router/) | OpenWrt/iStoreOS router ops / 路由器运维 |
+| 🧪 | [llm-wiki](hermes/llm-wiki/) | Karpathy's LLM Wiki / LLM Wiki 知识库 |
+| 📋 | [kanban-orchestrator](hermes/kanban-orchestrator/) | Decomposition playbook / Kanban 编排 |
+| 🛤️ | [kanban-codex-lane](hermes/kanban-codex-lane/) | Kanban→Codex CLI lane / Kanban Codex 通道 |
+| 🎓 | [teach-hermes](hermes/teach-hermes/) | Cross-session teaching in Telegram / Telegram 教学 |
+
+### pi/ — Personal Intelligence Extensions · 个人智能扩展
+
+| | Skill | Purpose · 用途 |
+|---|-------|----------------|
+| 🛡️ | [pi-grill](pi/pi-grill/) | Ambiguity guardian v3.1 / 歧义守护 |
+| 🔗 | [pi-hermes-setup](pi/pi-hermes-setup/) | Pi↔Hermes SSH+MCP / 联动设置 |
+
+### 📦 Archived · 已归档
+
+The [`_archived-hermes-3S6M-profiles/`](_archived-hermes-3S6M-profiles/) directory preserves the **三省六部** (Three Departments & Six Ministries) governance system — a 15-profile Hermes architecture for structured, role-separated agent operations. See the companion repo for the full A2A protocol: [hermes-s6m-a2a](https://github.com/Loveacup/hermes-s6m-a2a).
+
+[`_archived-hermes-3S6M-profiles/`](_archived-hermes-3S6M-profiles/) 目录保存了**三省六部**治理体系 —— 一套 15-profile 的 Hermes 架构。完整 A2A 协议实现见配套仓库：[hermes-s6m-a2a](https://github.com/Loveacup/hermes-s6m-a2a)。
 
 ---
 
@@ -114,229 +259,67 @@ jz-skills/
 
 ```bash
 git clone git@github.com:Loveacup/jz-skills.git ~/code/jz-skills
-
-# Deploy everything · 全量部署
-cd ~/code/jz-skills && ./deploy/sync-all.sh all
-
-# Deploy one platform · 单平台部署
-./deploy/sync-all.sh hermes   # → ~/.hermes/skills/ + all 15 profiles
+cd ~/code/jz-skills && ./deploy/sync-all.sh hermes   # → ~/.hermes/skills/
 ./deploy/sync-all.sh cc        # → ~/.claude/skills/
 ./deploy/sync-all.sh pi        # → ~/.pi/skills/
 ```
 
-> **Prerequisites:** Hermes Agent, Claude Code CLI, or pi runtime. Each platform resolves its own dependencies.
+> ⚠️ **Before creating or modifying skills, read [CLAUDE.md](CLAUDE.md).** All skills must pass [skill-authoring](shared/skill-authoring/) compliance.
+> 创作或修改 skill 前，先读 [CLAUDE.md](CLAUDE.md)。所有 skill 必须通过 [skill-authoring](shared/skill-authoring/) 合规审查。
 
 ---
 
-## 📐 Architecture · 四层结构
+## 🔄 Sync · 双向同步
 
-```
-🌐 Layer 1: shared/                    跨平台通用 (Hermes + CC + pi)
-⚙️ Layer 2: hermes/                    Hermes 平台通用 (非三省六部)
-🏯 Layer 3: hermes-3S6M-profiles/      三省六部体系
-           ├── common/                全部门通用
-           └── <dept>/                部门专属
-🪟 Layer 4: pi/                        Pi (Windows) 专属
-```
-
-| Layer · 层 | Directory | Skills | Scope · 范围 |
-|:---|:---|:---:|:---|
-| 🌐 1 | `shared/` | 14 | Cross-platform — deployed to all 3 agents · 三端同步 |
-| ⚙️ 2 | `hermes/` | 14 | Hermes platform — not 3S6M-specific · 平台通用 |
-| 🏯 3a | `hermes-3S6M-profiles/common/` | 2 | 3S6M-wide — deployed to all 15 profiles · 全部门 |
-| 🏷️ 3b | `hermes-3S6M-profiles/<dept>/` | 21 | Department-specific — deployed to one profile · 部门专属 |
-| 🪟 4 | `pi/` | 5 | Pi (Windows) platform — authored by Pi itself · Pi 自创作 |
-
----
-
-## 📋 Skill Catalog · 技能目录
-
-### 🌐 Layer 1 — `shared/` · 跨平台通用
-
-Deployed to Hermes + Claude Code + Pi · 三端同步。
-
-| Skill | Purpose · 用途 | Refs · 引用 |
-|:---|:---|:---|
-| 🐙 [`github`](shared/github/) | Full GitHub operations: auth, issues, PR, code review, exploration, README — 7 skills consolidated | ← `web-research-router` `grill-with-docs` `skill-authoring` |
-| 📋 [`grill-with-docs`](shared/grill-with-docs/) | Design review against governance docs + ADR · 设计审查 | → `web-research-router` `github` |
-| ✍️ [`skill-authoring`](shared/skill-authoring/) | Skill compliance: 11-step flow, 7-dim scoring, deployment-grounded audit · 合规创作 | → `grill-with-docs` `web-research-router` `github` |
-| 📄 [`pdf`](shared/pdf/) | PDF manipulation: OCR, extract, edit, convert · PDF 处理 | |
-| 📝 [`strategic-insight-longform`](shared/strategic-insight-longform/) | Long-form strategy analysis with multi-agent pipeline · 战略洞察长文 | |
-| 🎙️ [`voice-to-markdown-workflow`](shared/voice-to-markdown-workflow/) | Speech/audio transcript → structured markdown · 语音转文稿 | |
-| 🎧 [`audio-transcriber`](shared/audio-transcriber/) | Noise-gated denoise + speaker diarization (pyannote 4.x) + Chinese ASR (Qwen3-MLX) · 音频转录、声纹分离、降噪 | |
-| ⚖️ [`china-legal-optimized`](shared/china-legal-optimized/) | 中国法务综合：合同审核 / 劳动 / 知产 / 公司 / 诉讼 / 个人 / 物业七大领域 · China legal review across 7 domains | |
-| 🔮 [`destiny-matrix`](shared/destiny-matrix/) | 性格本位多维命运解析：荣格八维 + 八字 + 紫微 + 占星 · Multi-modal personality-first destiny analysis | |
-| 📐 [`methodology-writer`](shared/methodology-writer/) | Turn lived experience into structured, evidence-backed methodology documents · 经验框架化、方法论成稿 | |
-| 📓 [`obsidian`](shared/obsidian/) | Obsidian vault ops: read/search/create notes, CLI, plugin dev, Bases (`.base`), Defuddle web extraction · vault 全操作 | `references/obsidian-cli.md` `references/obsidian-bases.md` |
-| 🧷 [`obsidian-md-ac`](shared/obsidian-md-ac/) | Obsidian Flavored Markdown + Mermaid full reference + JSON Canvas (`.canvas`) · OFM 完整参考 + 画布 | `references/json-canvas.md` |
-| 🧠 [`supermemory-maintenance`](shared/supermemory-maintenance/) | Supermemory 通用参考 v6：架构、SDK、容器标签、管线、诊断铁律。含 4 refs（SDK 分歧诊断、迁移配方、json-schema、三测协议）· 跨平台（Hermes + CC + pi） | ← `hermes-agent` |
-| 🎴 [`xiaohongshu-cards`](shared/xiaohongshu-cards/) | Article → Notion-style 1080×1440 RED card images via Playwright + QA loop · 小红书图文卡片 | |
-
-### ⚙️ Layer 2 — `hermes/` · 平台通用
-
-Deployed to main Hermes + all 15 profiles. Not tied to 三省六部 governance.
-
-| Skill | Purpose · 用途 | Refs · 引用 |
-|:---|:---|:---|
-| 🔍 [`web-research-router`](hermes/web-research-router/) | Multi-engine search router (Exa + Brave 双主力 / Tavily 深研 / web_search 广扫 / SearXNG 兜底) + deep research with verbatim quote extraction · 检索总控：多引擎聚合 + 深度研究 + 反幻觉 · v3.7.0（跨平台交叉验证 / Step 0 强制四步本地 / Output Contract `[s<id>]` 三分栏 / MCP Configuration & Deployment / SearXNG 降级）· 22 refs | ← `skill-authoring` `grill-with-docs` → `github` |
-| 📈 [`tradingagents`](hermes/tradingagents/) | A-share / market analysis via TradingAgents · 交易分析 | |
-| 🧠 [`llm-wiki`](hermes/llm-wiki/) | LLM knowledge base builder (Karpathy's wiki) · LLM 知识库 | |
-| 📚 [`arxiv`](hermes/arxiv/) | Academic paper search and retrieval · 论文检索 | |
-| 📔 [`auto-diary`](hermes/auto-diary/) | Automated daily diary + weekly summary generation · 日记生成 | |
-| 📺 [`bilibili-video-analyzer`](hermes/bilibili-video-analyzer/) | Bilibili video deep analysis with subtitle/transcription · B站视频分析 | |
-| 📕 [`xhs-crawler`](hermes/xhs-crawler/) | Xiaohongshu (RED) content extraction via CDP · 小红书爬虫 | |
-| 📅 [`calendar-manager`](hermes/calendar-manager/) | Smart calendar & reminders management for family · 智能日历管理 | |
-| ✂️ [`de-slop`](hermes/de-slop/) | Bilingual EN/ZH AI writing detector & humanizer · 中英双语去 AI 味 | |
-| 🤖 [`claude-code`](hermes/claude-code/) | Orchestrate Claude Code CLI: print mode, interactive tmux, agent team · CC 编排 | |
-| 🧠 [`supermemory-hermes`](hermes/supermemory-hermes/) | Supermemory setup, migration, cabinet architecture, cross-pool wrapper, cache layer · 记忆架构全手册（高层设计，日常运维参见 `supermemory-maintenance`）| ← `cross-profile-api-bridge` `hermes-agent` |
-| 🩺 [`mac-doctor`](hermes/mac-doctor/) | macOS 六级巡检体系 v2.2：健康评分+根因诊断 / 安全审计 (27项) / 硬件诊断 / 网络检查 / 隐私扫描 / 历史追踪 / 智能告警 (E1 窗口告警) — 50+ 检查项，19 文件/2134 行，双层 Cron 调度 (LLM + Silent Watchdog) · 已吸收 9 个开源项目 (mole/mactop P0 落地) · macOS system health monitor v2.2 with root-cause diagnosis, sustained CPU window alerts, cleanup safety gates | |
-
-### 🏯 Layer 3a — `hermes-3S6M-profiles/common/` · 全部门通用
-
-Deployed to all 15 profiles. Foundation of the governance system · 治理体系基石。
-
-| Skill | Purpose · 用途 |
-|:---|:---|
-| 📜 `three-provinces-constitution` | 三省六部 governance constitution v3.0 — task routing, escalation, handoff · 三省六部治理宪法 — 任务路由、升级、交接 |
-| 💹 `financial-research-agents` | Financial research via Kanban multi-profile orchestration · 金融研究多部门调度，Kanban 多 profile 编排 |
-
-### 🏷️ Layer 3b — `hermes-3S6M-profiles/<dept>/` · 部门专属
-
-Deployed only to matching profile · 仅部署到对应部门。
-
-| Department · 部门 | Profile | Skills | Role · 职责 |
-|:---|:---|:---|:---|
-| 👑 监国太子 | `regent` | `kanban-orchestrator` `kanban-worker` `kanban-gate` `6m-smoke-test` `morning-news-briefing` **v4.0** | 总揽仲裁、任务编排、六部巡检、晨报生成 · Oversight & orchestration · 🛂 唯一 gateway |
-| 🛠️ 工部 | `gongbu` | `disk-cleanup` `infra-health-check` `infra-monitoring` `surge-gateway` `agent-observability` | 基础设施运维、部署监控、网关管理 · Infrastructure & monitoring |
-| ⚖️ 刑部 | `tester` | `code-review-toolkit` `agent-security-audit` | 代码审查、测试、安全审计 · Code review & security |
-| 🔧 将作监 | `jiangzuojian` | `delivery-gate` `specialist-engineer` | 交付把关、专家评审 · Delivery gate & expert review |
-| 📡 尚书省 | `shangshu` | [`a2a-protocol`](https://github.com/Loveacup/hermes-a2a) | Agent 间互通协议、任务派发 · [A2A interop](https://github.com/Loveacup/hermes-a2a) |
-| 🎭 礼部 | `protocol` | `md-to-pdf.archived` → `shared/pdf` | 文档编制、PDF 渲染 · Document formatting（已吸收进 shared/pdf） |
-| 🔎 御史台 | `auditor` | `agent-audit-evaluation` | 独立审计、合规评估 · Audit & compliance |
-| 📖 史馆 | `archivist` | `agent-memory-manager` | 全程归档、记忆管理 · Archival & memory |
-| 💰 户部 | `budget` | `agent-cost-manager` | 数据搜索、成本管理 · Data & cost tracking |
-| 👥 吏部 | `registry` | `agent-registry` | Agent 注册、培训管理 · Registry & training |
-| 🎓 翰林院 | `hanlinyuan` | `deep-research-agent.archived` → `web-research-router` | 深度研究、知识探索 · Deep research（已吸收进 web-research-router v3.7） |
-
-### 🪟 Layer 4 — `pi/` · Windows 专属
-
-Authored by Pi itself · Pi 自行创作。Deployed only to `~/.pi/skills/`.
-
-| Skill | Purpose · 用途 |
-|:---|:---|
-| 🔍 `web-research-router` | Pi-native search routing (TypeScript SDK) · 检索总控 |
-| 🛡️ `pi-grill` | Proactive ambiguity guardian v3.1 · 歧义守护 |
-| ✍️ `skill-creator` | Compliance-first skill authoring v6.0 · 合规创作 |
-| 🔗 `pi-hermes-setup` | Pi ↔ Hermes cross-machine SSH + MCP · 联动架构 |
-| 🧠 `pi-supermemory` | Configure, debug, and maintain the pi-supermemory extension on Windows · pi-supermemory 扩展维护（日常运维参见 `supermemory-maintenance`）|
-
----
-
-## 🏯 三省六部 · 15 Profiles
-
-> 监国三省六部制 Agent 架构 — 用户授权，监国统筹；中书拟案，门下封驳，尚书派工；六部分职，御史监察，史馆留痕。
->
-> 🛂 **Gateway 说明：** 表中 🛂 标志位 = 配置了对外 gateway（Telegram/iMessage/邮件）。仅 `regent` 一个。其余 14 profile 走 **内部调度，无对外通信**——由太子统一收发、A2A 转派。
-
-| 三省 | Profile | 职能 | 通信 |
-|:---|:---|:---|:---|
-| 📝 中书省 | `planner` | 拟制方案 | 内部调度 |
-| 🚫 门下省 | `reviewer` | 封驳审核 | 内部调度 |
-| 📡 尚书省 | `shangshu` | 派工调度、[A2A interop](https://github.com/Loveacup/hermes-a2a) | 内部调度（A2A 协议层） |
-
-| 六部 | Profile | 职能 | 通信 |
-|:---|:---|:---|:---|
-| ⚔️ 兵部 | `engineer` | 代码实现、架构、重构 | 内部调度 |
-| 🛠️ 工部 | `gongbu` | 基础设施、部署、监控 | 内部调度 |
-| 💰 户部 | `budget` | 数据搜索、统计、报表 | 内部调度 |
-| 🎭 礼部 | `protocol` | 文档编制、PDF 渲染 | 内部调度 |
-| ⚖️ 刑部 | `tester` | 代码审查、测试、安全 | 内部调度 |
-| 👥 吏部 | `registry` | Agent 管理、培训 | 内部调度 |
-
-| 独立机构 | Profile | 职能 | 通信 |
-|:---|:---|:---|:---|
-| 👑 监国太子 | `regent` | 总揽仲裁、外部通信收口 | 🛂 **gateway**（Telegram + iMessage + 邮件 + ...） |
-| 🔎 御史台 | `auditor` | 独立审计 | 内部调度 |
-| 📖 史馆 | `archivist` | 全程归档 | 内部调度 |
-| 🔧 将作监 | `jiangzuojian` | 外聘工程专家 | 内部调度 |
-| 🎓 翰林院 | `hanlinyuan` | 知识研究 | 内部调度 |
-
-> v0.13 · 15/15 active · 1 gateway profile (regent) + 14 internal-dispatch profiles · 六部 smoke test 全线闭环 · [A2A 架构 →](https://github.com/Loveacup/hermes-a2a)
-
----
-
-## 🔄 Sync Workflow · 同步流程
-
-Bidirectional sync between GitHub and local agents · GitHub ↔ 本地双向同步。
+**Always dry-run first · 始终先预览：**
 
 ```bash
-# 📤 Push: local changes → GitHub (auto-sanitized · 自动脱敏)
-./deploy/sync-back.sh --dry-run   # 👀 preview · 预览
-./deploy/sync-back.sh             # ✅ apply (strips home paths, emails, IPs, API keys)
-git diff && git add <changed skills> && git commit -m "sync: <what changed>" && git push
+# 📤 Push: Hermes → repo (required before commit · 提交前必做)
+./deploy/sync-back.sh --dry-run   # ① Preview changes / 预览变更
+./deploy/sync-back.sh             # ② Apply + auto-sanitize / 执行+脱敏
+git diff && git commit -m '...' && git push
 
-# 📥 Pull: GitHub → local
-git pull && ./deploy/sync-all.sh hermes
+# 📥 Pull: repo → Hermes/CC/pi
+git pull && ./deploy/sync-all.sh <platform>
 ```
 
-> 🧹 **Auto-sanitization:** `/Users/<name>/` → `~/`, emails → `<redacted>`, private IPs → `<redacted>`, API keys → `<redacted>`
+`sync-back.sh` auto-sanitizes before commit: `$HOME` → `~/`, emails → redacted, private IPs → redacted, API keys → redacted.
 
-### 🛂 Gateway Restart · 网关重启提醒
-
-部署改动若涉及 `regent` 或 `default` 的 skill / MCP / 凭据，**必须重启 gateway**（否则 Telegram / iMessage 等通道仍走旧 agent context）：
+🛂 **Gateway restart** when skills change for `regent` or `default`:
 
 ```bash
-# Regent (太子) — 外部通信收口
 hermes gateway restart -p regent
-
-# Default (小黄_主频道) — A2A 对端
 hermes gateway restart -p default
-
-# 重启期间 TG 服务中断 10-30 秒；重启后建议跑健康检查：
-curl -s --max-time 3 http://127.0.0.1:8939/health   # regent A2A
-curl -s --max-time 3 http://127.0.0.1:8945/health   # default A2A
-```
-
-> ⚠️ 其它 13 个 profile 是 internal-dispatch（无对外 gateway）—— 改它们的 skill 不需要 gateway restart，但若涉及 A2A 通信仍建议跑健康检查。
-
----
-
-## 📦 Skill Format · 技能格式
-
-All skills follow the [Agent Skills standard](https://skills.sh):
-
-```
-skill-name/
-├── 📄 SKILL.md          ← YAML frontmatter + markdown body (required)
-├── 📁 references/        ← Progressive disclosure docs
-├── 🐍 scripts/           ← Runnable helpers
-├── 🖼️ templates/         ← Output templates
-└── 🎨 assets/            ← Static assets
-```
-
-SKILL.md frontmatter:
-
-```yaml
----
-name: my-skill
-description: "What it does · 做什么"
-version: 1.0.0
-platforms: [macos, linux]
-metadata:
-  hermes:
-    tags: [research, github]
----
 ```
 
 ---
 
-## 🤝 Contributing · 贡献
+## 📏 Governance · 治理规则
 
-1. ✏️ Edit skills on your agent, or directly in the repo
-2. 👀 `./deploy/sync-back.sh --dry-run` — preview changes
-3. ✅ `./deploy/sync-back.sh` — sync back with auto-sanitization
-4. 📦 Commit and push
-5. 🔄 Other machines: `git pull && ./deploy/sync-all.sh <platform>`
+> **Full rules → [CLAUDE.md](CLAUDE.md)** · 完整规则见 CLAUDE.md
+
+| # | Rule · 规则 | Requirement · 要求 |
+|---|-------------|---------------------|
+| 1 | **Naming · 命名** | `lowercase-hyphens` only. No `_`, no CamelCase. |
+| 2 | **YAML frontmatter** | Every SKILL.md must have `name` + `description` + `version` + `author` + `license`. |
+| 3 | **Compliance · 合规** | All skills must pass [skill-authoring v3.0](shared/skill-authoring/) (11-step, 7-dim). |
+| 4 | **Cross-platform · 跨平台** | `shared/` skills: no hardcoded paths, no platform-specific tools. |
+| 5 | **Commits · 提交** | Bilingual: `type(scope): EN description / 中文描述`. |
+| 6 | **Sync · 同步** | Always `sync-back.sh --dry-run` before commit. Never skip sanitize. |
+| 7 | **Archive · 归档** | Deprecate with `_archived-{name}/`, never delete. |
+| 8 | **Active · 高频** | Ranked by recent activity (last 7 days). Data-driven, not hand-picked. |
+
+### 🔥 Active Skill Criteria · 高频标准
+
+Skills in the **Active Skills** section are ranked by **recent activity** — not total historical commits:
+
+- **Last 7 days** — activity window, reflecting what's being actively developed *right now*
+- **Commit velocity** — higher commit frequency in the window ranks higher, regardless of lifetime totals
+- **New skills welcome** — brand-new skills with rapid iteration can appear alongside mature ones
+
+A skill with 50 lifetime commits but zero in the last week won't appear. A skill with 2 commits but both this week will. This keeps the section focused on what's hot *now*, not what was hot 3 months ago.
+
+高频技能按近 7 天活跃度排序——反映当下而非历史。全新技能与成熟技能同台竞技，只看近期迭代速度。
 
 ---
 

@@ -1,0 +1,69 @@
+{
+  "schema_version": "0.1.0",
+  "_doc": "goalgen 自审清单 — 对齐 Obsidian 方法论 04 §4.5。5 维 × 5 = 25 检查点。结构=方法论设计基线 [I]（origin 已归档御史台 audit-checklist，文件已删；live 后继=当前 Hermes Kanban regent review gate + Kanban metadata 完整性 + CQI 检查点）。仅安全红线维 hard_block。自审=producer 视角，真正放行须独立 auditor (P5)。",
+  "tri_state": ["通过", "有条件通过", "阻断"],
+  "severity": ["P0", "P1", "P2"],
+  "dimensions": [
+    {
+      "name": "结果真实性",
+      "hard_block": false,
+      "fail_action": "补证据",
+      "checks": [
+        { "check": "验收可验证(criterion/verifier/threshold 三元组完整)", "pillar": "P2" },
+        { "check": "有可独立复算的证据句柄(文件路径/exit code/diff ref)", "pillar": "P3" },
+        { "check": "可复现(稳定排序+可注入时钟/run_id)", "pillar": "P3" },
+        { "check": "引用可达(context_refs/artifacts 真实存在)", "pillar": "P3" },
+        { "check": "无幻觉(不引用 phantom 不存在的证据)", "pillar": "P3" }
+      ]
+    },
+    {
+      "name": "安全红线",
+      "hard_block": true,
+      "fail_action": "阻断",
+      "_note": "唯一硬阻断维度——任一命中即 block，不可降级",
+      "checks": [
+        { "check": "无破坏性操作", "pillar": "P4" },
+        { "check": "无强制 git 重置/改写历史", "pillar": "P4" },
+        { "check": "无凭证泄露", "pillar": "P9" },
+        { "check": "无未授权网络", "pillar": "P9" },
+        { "check": "无提权", "pillar": "P9" }
+      ]
+    },
+    {
+      "name": "质量红线",
+      "hard_block": false,
+      "fail_action": "修复",
+      "checks": [
+        { "check": "有测试/验证命令", "pillar": "P2" },
+        { "check": "有文档同步", "pillar": "P7" },
+        { "check": "无语法错误", "pillar": "P2" },
+        { "check": "范围最小化(不超 scope 边界)", "pillar": "P1" },
+        { "check": "有回滚方案", "pillar": "P8" }
+      ]
+    },
+    {
+      "name": "预算红线",
+      "hard_block": false,
+      "fail_action": "降级",
+      "checks": [
+        { "check": "未超时(timeout)", "pillar": "P6" },
+        { "check": "未超 token", "pillar": "P6" },
+        { "check": "未超成本", "pillar": "P6" },
+        { "check": "无无限递归(depth/iteration 硬顶)", "pillar": "P6" },
+        { "check": "有终止条件声明", "pillar": "P6" }
+      ]
+    },
+    {
+      "name": "合规红线",
+      "hard_block": false,
+      "fail_action": "修复",
+      "checks": [
+        { "check": "符合 policy", "pillar": "P7" },
+        { "check": "符合架构约束", "pillar": "P7" },
+        { "check": "隐私(不读他人 session 等红线)", "pillar": "P7" },
+        { "check": "许可证合规", "pillar": "P7" },
+        { "check": "可追溯(映射 roadmap 节点)", "pillar": "P7" }
+      ]
+    }
+  ]
+}

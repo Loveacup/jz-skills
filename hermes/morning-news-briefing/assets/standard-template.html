@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+:root {
+  --paper: #fafaf8; --ink: #0a0a0a;
+  --grey-1: #f0f0ee; --grey-2: #d4d4d2; --grey-3: #737373;
+  --accent: #002FA7; --accent-on: #fff;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+@page { size: A4; margin: 18mm 16mm 16mm; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+body {
+  font-family: "Noto Serif SC", "Source Han Serif SC", Georgia, serif;
+  font-size: 10pt; line-height: 1.65;
+  color: var(--ink); background: var(--paper);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ═══ COVER — full A4 ═══ */
+.cover-wrap {
+  position: relative; width: 210mm; height: 297mm; margin: -18mm 0 0 -16mm;
+  background: var(--accent); color: var(--accent-on);
+  display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
+  padding: 80px 60px; page-break-after: always;
+}
+.cover-wrap .kicker { font-family: "IBM Plex Mono", monospace; font-size: 11pt; font-weight: 600; letter-spacing: 4px; color: rgba(255,255,255,0.5); margin-bottom: 28px; }
+.cover-wrap h1 { font-size: 56pt; font-weight: 200; line-height: 1.08; letter-spacing: 2px; margin-bottom: 16px; }
+.cover-wrap .date { font-size: 14pt; color: rgba(255,255,255,0.4); margin-bottom: 60px; font-family: "IBM Plex Mono", monospace; }
+.cover-wrap .hairline { width: 48px; height: 1px; background: rgba(255,255,255,0.25); margin-bottom: 20px; }
+.cover-wrap .attr { font-size: 13pt; color: rgba(255,255,255,0.35); }
+.cover-wrap .stat-row { margin-top: auto; display: flex; gap: 48px; }
+.cover-wrap .stat-item .num { font-size: 32pt; font-weight: 200; font-family: "IBM Plex Mono", monospace; }
+.cover-wrap .stat-item .label { font-size: 10pt; letter-spacing: 3px; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-top: 4px; }
+
+/* ═══ Common ═══ */
+.section-label { font-family: "IBM Plex Mono", monospace; font-size: 7pt; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: var(--accent); margin-bottom: 3px; }
+
+.kpi-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin: 4px 0 8px; text-align: center; }
+.kpi-row .k { background: var(--grey-1); padding: 5px 3px; }
+.kpi-row .k .val { font-size: 11pt; font-weight: 300; font-family: "IBM Plex Mono", monospace; color: var(--ink); }
+.kpi-row .k .tag { font-size: 6pt; letter-spacing: 1px; text-transform: uppercase; color: var(--grey-3); font-family: "IBM Plex Mono", monospace; margin-top: 1px; }
+
+/* 2-column layout for news */
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+.lead { font-size: 10.5pt; line-height: 1.65; margin-bottom: 6px; }
+.lead p { margin-bottom: 3px; }
+
+/* Section timeline */
+.sec-timeline { background: var(--grey-1); border-left: 3px solid var(--accent); padding: 6px 10px; margin: 5px 0 7px; }
+.sec-timeline .tl-title { font-family: "IBM Plex Mono", monospace; font-size: 7pt; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 3px; font-weight: 600; }
+.sec-timeline .tl-row { font-size: 8pt; line-height: 1.4; margin-bottom: 1px; display: flex; align-items: baseline; gap: 5px; }
+.sec-timeline .tl-row .date { font-family: "IBM Plex Mono", monospace; font-size: 7pt; color: var(--accent); font-weight: 500; white-space: nowrap; min-width: 42px; }
+.sec-timeline .tl-arrow { font-family: "IBM Plex Mono", monospace; font-size: 6pt; color: var(--grey-3); text-align: center; margin: 1px 0 1px 5px; letter-spacing: 2px; }
+
+.story-tl { font-family: "IBM Plex Mono", monospace; font-size: 7pt; color: var(--grey-3); margin-bottom: 1px; line-height: 1.2; }
+.story-tl .tl-date { color: var(--accent); font-weight: 500; }
+.story-tl .tl-arr { color: var(--grey-2); margin: 0 2px; }
+
+.sec-head { font-family: Inter, "Helvetica Neue", "PingFang SC", sans-serif; font-size: 14pt; font-weight: 500; letter-spacing: 0.3px; color: var(--ink); border-bottom: 1px solid var(--grey-2); padding-bottom: 2px; margin: 8px 0 5px 0; }
+
+.news-item { margin-bottom: 4px; padding-bottom: 3px; border-bottom: 1px dotted var(--grey-2); }
+.news-item:last-child { border-bottom: none; }
+.news-item .content { font-size: 9pt; line-height: 1.6; color: var(--ink); }
+.news-item .src { font-size: 6.5pt; color: var(--grey-3); font-family: "IBM Plex Mono", monospace; margin-top: 1px; }
+
+.ana { margin-bottom: 10px; padding-left: 10px; border-left: 2px solid var(--accent); }
+.ana .title { font-family: Inter, sans-serif; font-size: 12pt; font-weight: 500; margin-bottom: 2px; color: var(--ink); }
+.ana .body { font-size: 9pt; line-height: 1.6; color: var(--ink); }
+.ana .body b { font-family: "IBM Plex Mono", monospace; font-size: 7.5pt; letter-spacing: 0.5px; color: var(--accent); font-weight: 600; }
+.ana .trend { font-family: Inter, sans-serif; font-size: 8.5pt; font-weight: 500; color: var(--accent); margin-top: 2px; }
+
+/* Market grid — 3 columns on A4 */
+.mkt-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin: 5px 0; }
+.mkt-card { background: var(--grey-1); padding: 8px 10px; }
+.mkt-card .mkt-label { font-family: "IBM Plex Mono", monospace; font-size: 6pt; letter-spacing: 2px; text-transform: uppercase; color: var(--grey-3); margin-bottom: 3px; }
+.mkt-card .mkt-val { font-family: "IBM Plex Mono", monospace; font-size: 12pt; font-weight: 300; color: var(--ink); }
+.mkt-card .mkt-change { font-size: 8pt; font-weight: 500; margin: 2px 0 1px; }
+.mkt-card .mkt-change.up { color: #2e7d32; }
+.mkt-card .mkt-change.down { color: #c62828; }
+.mkt-card .mkt-change.warn { color: #e65100; }
+.mkt-card .mkt-note { font-size: 6.5pt; color: var(--grey-3); }
+
+.card-ink { background: var(--ink); color: var(--accent-on); padding: 10px 14px; margin: 6px 0; }
+.card-ink .label { font-family: "IBM Plex Mono", monospace; font-size: 7pt; letter-spacing: 3px; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 5px; }
+.card-ink p { font-size: 10pt; line-height: 1.7; }
+
+.src-ledger { font-family: "IBM Plex Mono", monospace; font-size: 6pt; line-height: 1.5; color: var(--grey-3); columns: 3; column-gap: 10px; }
+hr { border: none; border-top: 1px solid var(--grey-2); margin: 5px 0; }
+</style>
+</head>
+<body>
+
+<!-- ═══ COVER ═══ -->
+<div class="cover-wrap">
+  <div class="kicker">Daily Briefing</div>
+  <h1>早新闻简报</h1>
+  <div class="date">2026.06.04 · 星期四</div>
+  <div class="hairline"></div>
+  <div class="attr">Alex Cai</div>
+  <div class="stat-row">
+    <div class="stat-item"><div class="num">{{NEWS_COUNT}}</div><div class="label">新闻条目</div></div>
+    <div class="stat-item"><div class="num">{{SOURCE_COUNT}}</div><div class="label">信源</div></div>
+    <div class="stat-item"><div class="num">{{ANALYSIS_COUNT}}</div><div class="label">深度分析</div></div>
+  </div>
+</div>
+
+<!-- ═══ Executive Summary ═══ -->
+<div class="section-label">Executive Summary</div>
+<div class="lead">
+  <p>{{EXEC_SUMMARY}}</p>
+</div>
+<div class="section-label">Market Data · World</div>
+<div class="kpi-row">{{KPI_WORLD}}</div>
+<div class="section-label">Market Data · China</div>
+<div class="kpi-row">{{KPI_CHINA}}</div>
+
+<!-- ═══ Content sections ═══ -->
+{{CONTENT_SECTIONS}}
+
+<!-- ═══ Market Data Grids ═══ -->
+<div class="sec-head">🌍 国际市场</div>
+<div class="mkt-grid">{{MKT_WORLD}}</div>
+
+<div class="sec-head" style="margin-top:8px;">🇨🇳 中国市场</div>
+<div class="mkt-grid">{{MKT_CHINA}}</div>
+
+<!-- ═══ Deep Analysis ═══ -->
+<div class="section-label" style="margin-top:10px;">Deep Analysis</div>
+{{ANALYSIS}}
+
+<!-- ═══ Summary ═══ -->
+<div class="card-ink">
+  <div class="label">今日总结 · 核心张力</div>
+  <p>{{SUMMARY}}</p>
+</div>
+
+<div class="card-ink" style="background: var(--accent);">
+  <div class="label">前瞻 · Looking Ahead</div>
+  <p>{{OUTLOOK}}</p>
+</div>
+
+<hr>
+<div class="section-label">Sources</div>
+<div class="src-ledger">{{SOURCES}}</div>
+<p style="font-size:6.5pt;color:var(--grey-3);text-align:center;margin:5px 0;">Hermes Agent · web-research-router v3.9 · 多引擎交叉验证</p>
+
+</body>
+</html>

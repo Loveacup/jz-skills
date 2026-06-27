@@ -1,5 +1,42 @@
 # Auto-Diary Changelog
 
+## v3.6.2 (2026-06-07)
+- 🔴 **管线 stdout 混合文本 + set -euo pipefail 崩溃修复**：`dingtalk-media-pipeline.py` 的 `print()` 状态日志和 `print(json.dumps())` 数据输出混在 stdout。Monitor 脚本 `json.loads()` 吃到混合文本抛 JSONDecodeError → `set -euo pipefail` 放大为 exit 1 → cron 报 `Script exited with code 1`。
+  - **管线修复**：所有状态输出（`Found N images/files`、`[skip img]`、`[img]`、`[skip file]`、`[file]`、`Done`）切到 `file=sys.stderr`，stdout 只留纯 JSON。
+  - **Monitor 脚本修复**：媒体提取段加 `|| true` 防护；新增智能 JSON 提取逻辑（从混合文本中找 JSON 数组、匹配括号深度），即使管线再出问题也不会炸。
+  - 已验证：手动跑脚本 exit 0，下一个 cron tick（05:45）正常。
+
+## v3.6.0 (2026-06-05)
+- 🆕 **日记入记忆**：Workflow A 步骤 10 新增 `scripts/write_diary_to_supermemory.py`，日记校验 PASS + 写 vault 后，把日记写进 supermemory `hermes` 池，让小黄(default profile)能检索每日日记。
+  - 背景：memory provider 的 `_write_enabled = agent_context not in {cron,flush,subagent}` 把 **cron session 的自动 capture 关了** → 日记 cron 内容从不进 supermemory(hermes 池此前只有对话写入)。本脚本直接用 SDK 绕过此限制。
+  - 幂等(`custom_id=hermes-diary-<date>`,重跑覆盖)、失败不阻塞交付、走 Surge 代理避 fake-ip、兜底 venv site-packages。⚠️ 必须用 venv python 调用(系统 python3 缺 SDK 会 skip)。
+  - 已端到端测试：2026-06-04 日记成功写入 hermes 池(venv python ✓;系统 python3 因 pydantic_core C 扩展不兼容而 skip,符合预期)。
+
+## v3.5.0 (2026-06-01)
+- 🆕 **周/月/年报聚合金字塔**：建 3 个线上 cron(均在 cron-worker profile scheduler)——周报(周一 09:00, `4f5b5607912d`, 周←日)、月报(1 号 09:30, `59a992daaa55`, 月←日避开 ISO 周跨月)、年报(1/1 10:00, `b6659cd1c94c`, 年←月)。补齐此前"周报无 cron"的空白。⚠️ 注意：周/月/年报在 cron-worker profile，`hermes cron list` 默认根视角看不到，需 `--profile cron-worker`。
+- 🆕 **format spec**：新增 `references/monthly-format.md`、`references/yearly-format.md`（对齐 diary/weekly 倒金字塔风格，遵循库 CLAUDE.md 不写 class）。
+- 🆕 **`verify_report.py`**：周/月/年报结构校验脚本，按文件名自动判类型，宽松设计避免误伤。负向测试通过；现有 8 篇老周报如实抓出早期格式瑕疵（2/8 PASS，新格式 W08/W21/W22 PASS）。
+- 🆕 **目录**：新建 `50-Self/06_月报/`、`07_年报/`（与 02_周报 平级，遵循编号规范）。
+- 🆕 **cron 存档**：`config/reports-cron.json`（3 个 job 的 prompt + schedule + 真实 job_id）。
+- ✅ **端到端冒烟测试**：实跑 W22 周报（5/25-5/31，读 7 篇日记→按 spec 生成→verify PASS），整条闭环验证通过。
+- 📄 **设计文档**：重写 `[[日记系统-三机架构与路线图]]`（取代过时的 Auto-Diary-Local-设计方案，后者已加 aliases 重定向防断链），含 hub-and-spoke 单写者三机架构 + P0/P1/P2/P3 路线图。
+- 🔴 关键约束固化：所有聚合 cron 直接 Read 日记/月报（`collect_data.py weekly` 未实现），写前先 Read 目标文件保合并安全，写后跑 verify_report 闭环。
+
+## v3.4.0 (2026-06-01)
+- 🔴 **质量事故复盘**：5 月全月日记批量重写翻车（缺 callout、三问缩写、CC 未分组、底部拍扁）。根因不是"凭记忆"，是**无机器校验闭环**。
+- ✅ **重写 `verify_diary_compliance.py` v2.0**：修复"传单文件即 NotADirectoryError"崩溃；从"标题存在性扫描"升级为深度结构校验——新增三问三条齐全、CC 三组拆分、各体系 info callout、底部 `---` 分隔、abstract 速览四要素、禁折叠 callout 共 6 项。3 篇达标日记(05-29/30/31)回归全 PASS、不误报。
+- 🔧 **修 SKILL.md 三处自相矛盾**：①"8 sections" → 10 sections（verify 查 13 项）；②删除"每周一 12:00 自动周报"幽灵描述（实际无此 cron，周报纯手动）；③`references/changelog.md` 悬空引用 → `CHANGELOG.md`。
+- 🔧 **cron prompt v3.4 闭环**：写前先 `Read` 已有日记（合并安全）→ 写入 → 跑 verify → FAIL 重写直到 PASS。修正 CC 数据路径为 `ai_logs.claude_overview.*`。
+- ⚠️ **已知 bug 记录**：`collect_data.py` 的 `existing_content`/`obsidian_sync` 恒为 `None`（硬编码），合并逻辑依赖 prompt 显式 Read 兜底。
+- 🔀 **版本对齐**：部署端 v3.3 回流 git（此前 git 落后于生产）；确认两版 `collect_data.py` 输出 md5 一致、功能等价。
+
+## v3.3.0 (2026-06-01)
+- 🔴 新增红旗："NEVER write from memory" —— 凭记忆写日记导致全月重写。写任何日记前必须加载 `diary-format.md` 逐段对照。
+- ✅ 新增 `references/batch-generation-pitfall.md`：批量脚本生成 = 垃圾，必须逐天 LLM 加工。
+
+## v3.2.0
+- 💻 CC 三组分类：🤝 Agent Team 协作 / 💻 独立对话 / 🤖 程序调用，基于 CC 元数据(entrypoint + parentUuid)。
+
 ## v1.0.1 (2026-02-02)
 - 🔧 修复天气获取：添加 User-Agent header 和更长超时，解决 wttr.in 请求被拒绝问题
 - 🔧 修复 AI 日志噪声：过滤系统指令（SYSTEM DIRECTIVE、system-reminder 等），仅保留有效对话摘要

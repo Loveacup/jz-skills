@@ -143,6 +143,27 @@ story.append(Paragraph("Content for page 2", styles['Normal']))
 doc.build(story)
 ```
 
+#### Subscripts and Superscripts
+
+**IMPORTANT**: Never use Unicode subscript/superscript characters (₀₁₂₃₄₅₆₇₈₉, ⁰¹²³⁴⁵⁶⁷⁸⁹) in ReportLab PDFs. The built-in fonts do not include these glyphs, causing them to render as solid black boxes.
+
+Instead, use ReportLab's XML markup tags in Paragraph objects:
+
+```python
+from reportlab.platypus import Paragraph
+from reportlab.lib.styles import getSampleStyleSheet
+
+styles = getSampleStyleSheet()
+
+# Subscripts: use <super> tag (note: ReportLab XML uses <super> for subscripts)
+chemical = Paragraph("H<super>2</super>O", styles['Normal'])
+
+# Superscripts: use <super> tag (note: ReportLab XML uses <super> for superscripts)
+squared = Paragraph("x<super>2</super> + y<super>2</super>", styles['Normal'])
+```
+
+For canvas-drawn text (not Paragraph objects), manually adjust font size and position rather than using Unicode subscripts/superscripts.
+
 ## Command-Line Tools
 
 ### pdftotext (poppler-utils)

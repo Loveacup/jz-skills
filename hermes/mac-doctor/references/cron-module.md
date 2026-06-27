@@ -54,11 +54,11 @@ rm ~/Library/LaunchAgents/com.hermes.inspection-collector.plist
 - 修改 `~/.hermes/inspection/config.json` → `collection.interval_seconds`
 - 修改后需 reload LaunchAgent
 
-### 告警类型
+### 告警类型 (v2.2)
 
 | 触发条件 | 级别 | 安静时段 |
 |---------|:---:|:---:|
-| CPU >80% | 🔴 | 不受限 |
+| CPU 单进程持续 ≥5min 超阈值（E1 窗口告警） | 🔴 | 不受限 |
 | 内存 critical | 🔴 | 不受限 |
 | 磁盘 <10% | 🔴 | 不受限 |
 | Swap >4GB | 🟡 | 遵守 |
@@ -75,22 +75,34 @@ rm ~/Library/LaunchAgents/com.hermes.inspection-collector.plist
 
 通过 `cronjob` 工具在 cron-worker profile 中配置。详见 SKILL.md Tier 0-3 的决策树。
 
-### 建议调度
+### 当前配置（5 Jobs）
 
-| Job | 频率 | 说明 |
-|-----|------|------|
-| inspection-quick | 每 30 分钟 | **静默看门狗**（v2.2）— 问题才推送，0 tokens 💰 |
-| inspection-deep | 每天 03:00 | Tier 2 全量审计（安全+硬件+网络），LLM 推 Telegram |
-| inspection-weekly | 每周一 09:00 | 周报汇总，LLM 引用 history.db 趋势数据 |
+| Job ID | 频率 | 模式 | 说明 |
+|--------|:--:|:--:|------|
+| `mac-doctor-quick` | 30min | 🔇 Watchdog | 静默看门狗 — 问题才推送，0 tokens |
+| `check-skill-copies` | 1h | 🔇 Watchdog | cron-worker 本地副本扫描 — 残留才推送 |
+| `system-health-watchdog` | 1h | 🔇 Watchdog | 三检合一看门狗：Kanban 完整性 + 僵尸进程 + SWAP 防崩 |
+| `mac-doctor-deep` | 每日 03:00 | 🤖 LLM | Tier 2 全量审计（安全+硬件+网络） |
+| `mac-doctor-weekly` | 周一 09:00 | 🤖 LLM | 周报 + history.db 趋势分析 |
 
-### 静默看门狗模式 (v2.2) 🆕
+#### system-health-watchdog 三检
+
+| 检查项 | 方法 | 阈值 | 来源 |
+|--------|------|------|------|
+| Kanban 完整性 | `sqlite3 PRAGMA integrity_check` | ≠ `ok` 报警 | Kanban 损坏根因报告 |
+| 僵尸进程 | `ps aux` 查 `Z` 状态 | >0 报警 | A2A BUG-006 / P2-12 |
+| SWAP 防崩 | `sysctl vm.swapusage` | >5GB 或 >80% | Swap 危机事件报告 05-30 |
+
+脚本：`~/.hermes/profiles/cron-worker/scripts/system-health-watchdog.py`
+
+### 静默看门狗模式 (v2.3) 🆕
 
 高频巡检（≤30min）推荐用 `no_agent + script` 替代 LLM agent，大幅节省 token：
 
 ```
 Watchdog 脚本 → collector-daemon.py --json → 检查 alerts
-  ├── 无告警 → stdout 空 → 不发消息（静默）
-  └── 有告警 → 输出摘要 → 推送 Telegram
+  ├── 无 hard alert + diagnosis 健康 → 静默
+  └── 有 hard alert 或 diagnosis 有问题 → 推送
 ```
 
 | 对比 | LLM Agent | Silent Watchdog |
@@ -113,19 +125,82 @@ cronjob update:
   skills: []  # 清空 skills，纯脚本模式
 ```
 
-#### 原理
+#### 原理 (v2.3)
 
 `cronjob` 的 `no_agent=True` 模式：
 - **stdout 非空** → 内容作为消息体推送到 Telegram
 - **stdout 为空** → 完全静默，不消耗任何消息
 - **exit ≠ 0** → 发送错误通知
 
-Watchdog 脚本调用 `collector-daemon.py --json`，检查 `alerts` 数组：
+Watchdog 脚本调用 `collector-daemon.py --json`，**区分两种告警**：
+
+| 类型 | 判断 | 行为 |
+|------|------|------|
+| **threshold alert** | `is_anomaly=False` | 硬伤 — 不管 diagnosis 说什么都推送 |
+| **anomaly alert** | `is_anomaly=True`（z > σ 统计偏差）| 软信号 — 仅当 diagnosis ≠ "All clear" 时附带 |
+
 ```python
-if not alerts and diagnosis == "All clear":
-    sys.exit(0)  # 静默
-# 否则 print 摘要 → 自动推送
+threshold_alerts = [a for a in alerts if not a.get("is_anomaly", False)]
+
+if not threshold_alerts and diagnosis == "All clear":
+    sys.exit(0)  # 静默：diagnosis 说健康，无硬伤
 ```
+
+> ⚠️ **为什么不能只用 `not alerts`：** 纯统计异常（如 CPU 从夜间安静基线 15% 跳到早晨 28%，z=2.2 > σ 但绝对值健康）不是系统问题。`diagnose()` 综合判断比 anomaly 单指标更可靠。旧逻辑 `not alerts` 会把这类低信号推送出去。
+
+> ⚠️ **容错：** 脚本使用显式 `is not None` 判断而非 `dict.get(key, default)`。`get()` 只在 key 不存在时用 default，但 key 存在且 value 为 `null` 时返回 `None`，会导致 `NoneMB`/`NoneGB` 脏数据。
+
+> ⚠️ **sysctl swapusage 正则陷阱：** `sysctl vm.swapusage` 输出格式为 `total = 3072.00M  used = 1741.44M` — **`total` 在 `used` 前面**，不是直觉中的 `used 在 total 前`。正则必须匹配 `total.*used` 顺序，否则永远匹配不到。
+
+### 去重冷却 (v2.4) 🆕
+
+高频 watchdog（30min）在同类告警持续期间会产生重复推送。为解决这个问题，watchdog 引入了**基于 state file 的去重冷却机制**：
+
+```
+去重逻辑（mac-doctor-watchdog.py）：
+├── 仅对纯 Disk low 告警生效（kanban/zombie/mcp 问题不受影响）
+├── 冷却窗口: 3 小时
+├── 磁盘变化阈值: 1GB（变化超过此值视为新告警，即使在冷却期内仍推送）
+└── State file: ~/.hermes/profiles/cron-worker/state/mac-doctor-watchdog-state.json
+```
+
+**对比诊断类型而非精确字符串**：`collector-daemon.py` 的 `diagnosis` 包含动态磁盘值，如 `"Disk low — 17.7GB free (7%)"` vs `"Disk low — 17.6GB free (7%)"`。精确字符串匹配会导致每轮变化 0.1GB 就绕过冷却，**必须以诊断前缀（`"Disk low"`）做类型匹配**。
+
+> 🐛 **v2.4 修复 (2026-06-15)：** `is_duplicate_disk_alert()` 原实现用 `diagnosis != prev_diag` 做精确字符串比较。由于 diagnosis 包含实时磁盘值，每轮都不同 → 去重从未生效。修复为 `"Disk low" in diagnosis and "Disk low" in prev_diag`。
+
+---
+
+## 跨 Profile 配置陷阱 ⚠️ (v2.3)
+
+`collector-daemon.py` 使用 `Path.home() / ".hermes" / "inspection" / "config.json"` 读取配置。
+**在 cron-worker profile 下 `HOME` 指向 profile home**（如 `.../profiles/cron-worker/home/`），不是 `/Users/alexcai`。
+
+**存在两份 config.json，修改阈值时必须同步：**
+
+| 路径 | 谁读 |
+|------|------|
+| `~/.hermes/inspection/config.json` | LaunchAgent / 手动执行 / 非 cron 环境 |
+| `~/.hermes/profiles/cron-worker/home/.hermes/inspection/config.json` | cron job 执行时 |
+
+不同步的后果：手动测试和 cron job 看到不同的阈值，行为不一致。
+
+---
+
+## Anomaly Detection 参数 (v2.3)
+
+| 参数 | 值 | 说明 |
+|------|:--:|------|
+| `anomaly.sigma` | **3.0** | 3σ ≈ 0.3% 误报率。旧值 2.0 对新基线（<7 天数据）过于敏感 |
+| `anomaly.baseline_days` | 7 | 基线窗口 |
+| `anomaly.enabled` | true | 保留开启——配合 watchdog 的 threshold-vs-anomaly 静默策略，纯异常不推送 |
+
+### 基线成熟度陷阱
+
+新装 collector 的前几周，baseline 不具代表性——夜间数据多、白天少。此时即使 σ=3.0，白天正常活动仍可能触发异常 z-score。
+
+**缓解方案：** watchdog 已区分 threshold/anomaly，纯异常静默。anomaly detector 作为"趋势指示器"而非告警源——当 diagnosis 也认为有问题时，anomaly 数据提供佐证。
+
+---
 
 ### 添加 Cron Job 示例（LLM Agent 模式）
 
@@ -159,10 +234,18 @@ cronjob create:
     "disk_threshold_percent": 10,
     "battery_health_threshold": 80
   },
+  "cpu_sustained": {
+    "enabled": true,
+    "threshold": 80,
+    "window_minutes": 5
+  },
   "anomaly": {
     "enabled": true,
     "baseline_days": 7,
-    "sigma": 2.0
+    "sigma": 3.0
+  },
+  "cleanup_safety": {
+    "oplog_enabled": true
   }
 }
 ```

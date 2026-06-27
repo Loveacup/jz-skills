@@ -5,11 +5,12 @@
 
 ---
 
-## 前置：查设计文档
+## 前置：查文档
 
-在动手诊断前，先读 Obsidian 中的架构设计文档：
-- 路径：`20-Areas/10_AI实践/三省六部_Hermes/10_制度/Supermemory三省六部记忆架构设计_v2.0.md`
-- 检查：当前部署阶段（Phase 1/2/3）、`supermemory.json` 完整性、LRU 缓存部署状态、已知缺口
+在动手诊断前，先读 Obsidian 中的运维文档（`20-Areas/40_技术项目/Supermemory/`）：
+- `[[Supermemory双池审计]]` — 双池/sanitize/重启类故障的首选排查参考（常青）
+- `[[Supermemory记忆架构_Hermes]]` — 两池模型 + 历史设计（含现状校准）
+- 检查：`supermemory.json` 是否含当前 profile、`_sanitize_tag` 正则是否保留连字符、长驻进程是否已重启
 
 ---
 
@@ -54,9 +55,12 @@ cat ~/.hermes/supermemory.json | python3 -c "import json,sys; d=json.load(sys.st
 grep SUPERMEMORY_API_KEY ~/.hermes/profiles/<profile>/.env
 # 完整 key 格式: sm_ + ~86 chars，不应含字面量 '...'
 
-# 3. 检查 LRU 缓存是否存在
-ls ~/.hermes/cache/<profile>.lmdb 2>/dev/null || echo "CACHE MISSING"
+# 3. 检查 _sanitize_tag 正则是否保留连字符（双池 bug 防线）
+grep -n "sanitize_tag" -A3 ~/.hermes/hermes-agent/plugins/memory/supermemory/__init__.py
+# 正确应为 [^a-zA-Z0-9_-]（含 -）；若是 [^a-zA-Z0-9_] 则 hermes-cabinet 会被写成 hermes_cabinet
 ```
+
+> 注：v2.0 设计稿提到的 `~/.hermes/cache/<profile>.lmdb` LRU 缓存**未落地线上**，不要据此判断故障。
 
 ---
 

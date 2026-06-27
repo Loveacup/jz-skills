@@ -1,0 +1,111 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://jz-skills/memory-hub/event.schema.json",
+  "title": "memory-hub event envelope",
+  "description": "Shared append-only event envelope for the Jz-Plugin v4.0 memory/log loop. Single write entry (mem_write.py), sharded by `type` into issue-log.jsonl / evolution-log.jsonl. This file is the SPEC; validate_logs.py enforces an equivalent subset in pure stdlib (no jsonschema dependency).",
+  "type": "object",
+  "required": ["id", "type", "skill", "source", "evidence", "ts"],
+  "additionalProperties": true,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable record id. Convention: ISSUE-<skill>-<NNN> or EVO-<skill>-<NNN>. Also the CQI join key.",
+      "examples": ["ISSUE-skill-authoring-001", "EVO-memory-hub-001"]
+    },
+    "type": {
+      "type": "string",
+      "enum": ["issue", "evolution", "status_event"],
+      "description": "Shard selector. issue -> issue-log.jsonl ; evolution -> evolution-log.jsonl ; status_event -> status-log.jsonl"
+    },
+    "skill": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Target skill name (lowercase-hyphen)."
+    },
+    "source": {
+      "type": "string",
+      "enum": ["user", "cc", "agent", "hook", "runtime", "audit"],
+      "description": "Origin channel of the signal."
+    },
+    "evidence": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Verbatim original wording / transcript pointer / runtime trace. For user-correction events, preserve the original text, not a summary."
+    },
+    "ts": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp WITH timezone offset, e.g. 2026-06-04T13:40:00+08:00. Must be parseable by datetime.fromisoformat."
+    },
+    "requester": {
+      "type": "string",
+      "enum": ["user", "cc", "agent", "cron", "kanban"],
+      "description": "Who triggered the record (defaults to `source` when omitted)."
+    },
+    "source_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "sha256:<hex> of the implicated skill file, when a specific SKILL.md is in scope."
+    },
+    "trigger": {
+      "type": "string",
+      "enum": ["manual_review", "runtime_failure", "scheduled_audit", "user_correction"],
+      "description": "What kind of event produced this record."
+    },
+    "skill_version": {
+      "type": "string",
+      "description": "SemVer of the target skill at record time."
+    },
+    "session_id": {
+      "type": "string",
+      "description": "Optional session/transcript pointer."
+    },
+    "payload": {
+      "type": "object",
+      "description": "Type-specific fields. issue: { implicated_rule, change_type? }. evolution: { change_type, validation_score, changelog_ref }. status_event: { issue_id, status, by? }.",
+      "additionalProperties": true,
+      "properties": {
+        "implicated_rule": { "type": "string" },
+        "change_type": {
+          "type": "string",
+          "enum": ["rule_add", "rule_edit", "rule_remove", "refactor", "version_bump", "doc"]
+        },
+        "validation_score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "changelog_ref": { "type": "string" },
+        "issue_id": {
+          "type": "string",
+          "description": "For status_event: the issue id whose status this record transitions (CQI join key)."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["new", "acknowledged", "in_progress", "resolved", "wontfix", "duplicate"],
+          "description": "For status_event: the new lifecycle state of the referenced issue."
+        },
+        "by": {
+          "type": "string",
+          "description": "For status_event: who/what performed the transition, e.g. cqi-auto."
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "evolution" } } },
+      "then": {
+        "properties": {
+          "payload": { "required": ["change_type"] }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "status_event" } } },
+      "then": {
+        "required": ["payload"],
+        "properties": {
+          "payload": { "required": ["issue_id", "status"] }
+        }
+      }
+    }
+  ]
+}

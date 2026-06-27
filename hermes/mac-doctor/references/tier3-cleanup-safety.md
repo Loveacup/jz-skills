@@ -11,9 +11,9 @@ mac-doctor Tier 3 安全清理的三道安全闸，防止误删和生产数据�
 
 ```
 将删除 3 项，预计回收 5.7 GB:
-  /Users/alexcai/.npm/_npx/abc123 → 1.2 GB
-  /Users/alexcai/.cache/uv/old-version → 3.1 GB
-  /Users/alexcai/Library/Caches/Chrome → 1.4 GB
+  ~/.npm/_npx/abc123 → 1.2 GB
+  ~/.cache/uv/old-version → 3.1 GB
+  ~/Library/Caches/Chrome → 1.4 GB
 
 确认执行？(yes/no)
 ```
@@ -33,15 +33,15 @@ du -sh <target> 2>/dev/null
 
 ## 2. Whitelist（白名单）
 
-清理时自动跳过白名单路径。配置在 `/Users/alexcai/.hermes/inspection/cleanup-whitelist.txt`。
+清理时自动跳过白名单路径。配置在 `~/.hermes/inspection/cleanup-whitelist.txt`。
 
 ### 格式
 
 ```
 # 每行一个绝对路径前缀，# 开头为注释
-/Users/alexcai/.cache/huggingface
-/Users/alexcai/.cache/qmd
-/Users/alexcai/.npm/_npx/<当前在用hash>
+~/.cache/huggingface
+~/.cache/qmd
+~/.npm/_npx/<当前在用hash>
 ```
 
 ### 当前默认保护
@@ -62,14 +62,14 @@ du -sh <target> 2>/dev/null
 
 ### 位置
 
-`/Users/alexcai/Library/Logs/mac-doctor/operations.log`
+`~/Library/Logs/mac-doctor/operations.log`
 
 ### 格式
 
 ```
-[2026-05-30 20:33:15] DELETE 1.2G /Users/alexcai/.npm/_npx/abc123
-[2026-05-30 20:33:16] DELETE 3.1G /Users/alexcai/.cache/uv/old-version
-[2026-05-30 20:33:16] SKIP  0.5G /Users/alexcai/.cache/huggingface (whitelist)
+[2026-05-30 20:33:15] DELETE 1.2G ~/.npm/_npx/abc123
+[2026-05-30 20:33:16] DELETE 3.1G ~/.cache/uv/old-version
+[2026-05-30 20:33:16] SKIP  0.5G ~/.cache/huggingface (whitelist)
 ```
 
 每行：[时间戳] 操作 大小 路径 (备注)

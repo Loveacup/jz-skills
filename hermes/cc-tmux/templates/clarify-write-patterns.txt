@@ -1,0 +1,19 @@
+# gate-danger patterns for R2.1 clarification read-only constraint
+# 澄清阶段 CC 只能读/搜/查，不得写/删/改/发。命中以下模式 → 退回重做。
+# 使用方法: gate-danger.sh --scan-file <transcript-or-log> --patterns-file <this-file>
+#
+# 每行一条 ERE（扩展正则），空行和 # 开头行忽略。
+
+# CC 写操作工具
+^[[:space:]]*(Write|Edit|MultiEdit)[[:space:]]*
+^[[:space:]]*Bash.*(rm[[:space:]]+-|git[[:space:]]+push|git[[:space:]]+commit|sudo[[:space:]]|chmod[[:space:]]|mv[[:space:]])
+^[[:space:]]*Bash.*(tee[[:space:]]|>|>>|cp[[:space:]])
+^[[:space:]]*Bash.*(npm[[:space:]]+install|pip[[:space:]]+install|brew[[:space:]]+install)
+
+# 任何危险操作（即使不在 Write/Bash 工具里出现）
+rm[[:space:]]+-[a-z]*[rf]
+git[[:space:]]+push
+git[[:space:]]+commit
+
+# 意外产物——澄清阶段不应生成的文件
+^[[:space:]]*Created[[:space:]]|^[[:space:]]*Wrote[[:space:]]|^[[:space:]]*Saved[[:space:]]

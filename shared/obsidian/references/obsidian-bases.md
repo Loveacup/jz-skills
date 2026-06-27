@@ -223,6 +223,17 @@ views:
       - status
 ```
 
+### Map 视图
+
+```yaml
+views:
+  - type: map
+    name: "Locations"
+    # 需要 latitude/longitude 属性 + Maps 社区插件
+```
+
+map 视图需要笔记含 `latitude`/`longitude` 属性，且依赖 Maps 社区插件。
+
 ## 默认汇总公式
 
 | 名称 | 适用类型 | 说明 |
@@ -233,6 +244,7 @@ views:
 | `Sum` | Number | 总和 |
 | `Range` | Number/Date | 极差 |
 | `Median` | Number | 中位数 |
+| `Stddev` | Number | 标准差 |
 | `Earliest` | Date | 最早日期 |
 | `Latest` | Date | 最晚日期 |
 | `Checked` | Boolean | 真值计数 |
@@ -300,6 +312,29 @@ views:
         - 'status == "dropped"'
 ```
 
+### 每日笔记索引（Daily Notes Index）
+
+```yaml
+filters:
+  and:
+    - file.inFolder("Daily Notes")
+    - '/^\d{4}-\d{2}-\d{2}$/.matches(file.basename)'
+formulas:
+  word_estimate: '(file.size / 5).round(0)'
+  day_of_week: 'date(file.basename).format("dddd")'
+views:
+  - type: table
+    name: "Recent Notes"
+    limit: 30
+    order:
+      - file.name
+      - formula.day_of_week
+      - formula.word_estimate
+      - file.mtime
+```
+
+kepano 原版示例：用正则 `/^\d{4}-\d{2}-\d{2}$/` 匹配 `YYYY-MM-DD` 文件名锁定每日笔记，用 `file.size / 5` 粗估字数，用 `date(file.basename).format("dddd")` 把文件名解析成日期并取星期。
+
 ## YAML 引用规则
 
 - 含双引号的公式用单引号包裹：`'if(done, "Yes", "No")'`
@@ -312,3 +347,15 @@ views:
 - **缺少 null 检查**：属性可能不存在，用 `if()` 保护
 - **引用未定义公式**：`formula.total` 在 `order` 中出现但 `formulas` 中未定义 → 静默失败
 - **YAML 特殊字符**：`:` 在未引号字符串中会破坏解析
+
+## 嵌入 Bases
+
+在普通笔记中嵌入 base 视图：
+
+```
+![[MyBase.base]]
+![[MyBase.base#View Name]]
+```
+
+- `![[MyBase.base]]` 嵌入整个 base（含其所有视图）
+- `![[MyBase.base#View Name]]` 嵌入指定名称的单个视图

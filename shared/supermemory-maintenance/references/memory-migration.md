@@ -117,8 +117,15 @@ for cat in categories:
 
 ## 容器配置
 
+**Hermes**（`provider: supermemory`）：
+
 | Profile | Container Tag | 用途 |
 |---------|---------------|------|
-| regent | `hermes-cabinet` | 三省六部共享记忆池 |
-| default | `hermes` | 小黄独立池 |
-| pi | `Pi`, `sm_project_cli` | Windows 机器 |
+| regent / auditor | `hermes-cabinet` | cabinet 共享记忆池（三省六部 16-profile 已退役，见 `[[Supermemory记忆架构_Hermes]]`） |
+| default / cron-worker | `hermes` | 小黄私域池 |
+
+**多机 Claude Code / Codex / pi**（supermemory 插件，非 Hermes）：
+
+| 端 | Container Tag | 来源标记 |
+|----|---------------|----------|
+| MacBook / Mac mini CC、Codex、Windows pi | `sm_project_cli` | `sm_source`：`claude-code-macbook` / `-macmini` / `pi-supermemory-pi` |

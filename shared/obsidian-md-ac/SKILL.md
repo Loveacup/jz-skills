@@ -1,12 +1,13 @@
 ---
 name: obsidian-md-ac
-description: "Obsidian Flavored Markdown 完整参考，涵盖 Obsidian 独有语法（wikilinks、embeds、callouts、frontmatter、properties、tags、LaTeX 数学公式、footnotes、comments），全面的 Mermaid 图表支持（flowchart 流程图、sequence 时序图、class 类图、ERD 数据库建模、C4 架构、architecture 基础设施、state 状态机、gantt 时间线、pie 饼图），以及 JSON Canvas（.canvas 画布）可视化。触发场景：创建或编辑 Obsidian .md 文件、笔记美化、diagram、visualize、model、architecture、database、schema、流程图、关系建模、图表绘制、canvas、.canvas、画布。"
-version: 1.0.0
+description: "Obsidian Markdown/content authority: Obsidian-specific syntax (wikilinks, embeds, callouts, frontmatter, properties, tags, LaTeX, footnotes, comments), Mermaid diagrams, JSON Canvas, and note beautification. Use when drafting or formatting content for an Obsidian note, diagram, model, architecture, database schema, flowchart, canvas, or .canvas file. Pair with obsidian for vault path resolution, file IO, sync, CLI, Bases, Defuddle, or qmd indexing. DO NOT use as the vault-operation skill."
+version: 1.3.0
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos]
 metadata:
   hermes:
+    related_skills: [obsidian]
     tags: [obsidian, markdown, mermaid, diagram, note-taking, visualization, canvas]
 ---
 
@@ -22,10 +23,20 @@ metadata:
 | "Mermaid 语法记住了，不用加载 reference" | 具体图表类型语法易记错，必须按需加载 reference |
 | "我直接画就行，不用走决策树" | 用错图表类型返工成本高 |
 | "美化规则太啰嗦，跳过" | 用户没说明确"简洁"时默认全面美化，这是核心价值
+| "我要保存到 vault，所以只加载这个 skill" | 本 skill 只管内容格式；vault 路径、写入、同步要配合 `obsidian` |
+
+## 边界决策
+
+| 用户需求 | 使用 |
+|---|---|
+| 写出好看的 Obsidian 笔记内容、Callout、wikilinks、frontmatter | `obsidian-md-ac` |
+| Mermaid / Canvas / schema / 架构图 / 流程图 | `obsidian-md-ac` |
+| 找 vault、读写文件、同步、Obsidian CLI、Bases、Defuddle、qmd | `obsidian` |
+| 把美化后的笔记保存进 vault | 两者联用：本 skill 定内容，`obsidian` 执行 IO |
 
 ## 默认行为：全面美化
 
-**当用户请求创建或编辑 Obsidian 笔记但没有明确指定格式要求时，默认执行以下全部美化：**
+**当用户请求生成、改写或美化 Obsidian 笔记内容且没有明确指定格式要求时，默认执行以下全部美化：**
 
 ### 结构美化
 - 合理使用标题层级（`#` ~ `####`），确保结构清晰
@@ -100,7 +111,8 @@ metadata:
 - 换行用 `<br>` — **绝对不要用 `\n`**（在 Obsidian 中显示为字面文本）
 - 注释用 `%%`（不是 `//` 或 `#`）
 - 未知关键词会**静默破坏**图表 — 不显示任何错误
-- 配置统一使用 **YAML frontmatter**，不要用旧版 `%%{init}%%` 语法
+- 配置统一使用 **YAML frontmatter**（`---` 块），不要用旧版 `%%{init}%%` 语法
+- **`---` frontmatter 需要 Mermaid ≥ 10.5**。旧的 Obsidian 捆绑版本（如 Mermaid <10.5）不识别 `---` config 块，会报 `Parse error … got 'LINK'`。当前 Obsidian 1.12+ 捆绑 Mermaid 11.4.1，已完全支持 `---` config。如需最大兼容性，可用裸 `flowchart` + `classDef` 显式样式——无需任何 config 块即可在所有版本下正常渲染
 - 主题：`default` | `forest` | `dark` | `neutral` | `base`
 - 布局：**仅 `dagre`**（Obsidian 不支持 ELK 布局引擎）
 - 外观：`classic`（默认）| `handDrawn`（手绘风格）
@@ -131,6 +143,8 @@ flowchart LR
 - 过度复杂的图 → 拆成多个小图
 - 特殊字符的标签 → 用 `""` 引号包裹
 - 增量开发 → 每加几个节点就预览一次
+- 🔴 **节点标签含 `N. ` 触发 Obsidian「Unsupported markdown: list」** — Obsidian Live Preview 的 CM6 markdown 解析器会把 Mermaid 代码块内的 `1. ` `2. ` 等当成有序列表来解析，即使图表渲染本身正常，编辑器里也会报红条。修法：改 `N. ` → `N、`（中文顿号）或 `(N)` `[N]`。这是 Obsidian 已确认 bug（[论坛 #112325](https://forum.obsidian.md/t/bug-render-mermaid-unsupported-markdown-list/112325)）
+- 🔴 **References 区 `  →` 缩进箭头触发列表警告** — 参考来源用 `[1]` 等编号后跟缩进 `→` 时，Obsidian 可能将其解释为列表续行。修法：`→` 顶格写，去掉缩进
 
 ## Best Practices
 
@@ -252,40 +266,106 @@ stateDiagram-v2
 
 ## JSON Canvas（.canvas 画布）
 
-创建 Obsidian Canvas 文件——节点（text/file/link/group）、边（箭头+标签）、分组、颜色。
+创建 Obsidian Canvas 文件——节点（text/file/link/group）、边（箭头+标签）、分组、颜色。基于 [JSON Canvas Spec 1.0](https://jsoncanvas.org/spec/1.0/)。
 
-流程：创建 `{"nodes":[],"edges":[]}` → 生成 16 字符 hex ID → 添加节点（id/type/x/y/width/height）→ 添加边（fromNode/toNode）→ 验证（JSON 有效 + 边引用存在 + ID 唯一）。
+### ① 4 步工作流
 
-> 🪤 JSON 换行用 `\n`，不用字面 `\\n`。坐标可为负。
+1. **create** — 新建 `.canvas`，基础结构 `{"nodes": [], "edges": []}`；每个 node/edge 生成唯一 16 字符小写 hex ID（如 `"6f0ad84f44ce9c17"`）
+2. **add node** — 追加节点到 `nodes`，必填 `id`/`type`/`x`/`y`/`width`/`height`
+3. **connect** — 追加边到 `edges`，设 `fromNode`/`toNode` 引用已存在节点 ID
+4. **edit / validate** — 读取并解析现有文件再改；落盘前过校验清单（见 ⑥）
 
-完整 schema、节点类型、边属性、颜色预设、布局指南、验证清单：`references/json-canvas.md`
+### ② 4 种 node type 速查
+
+| type | 必填属性 | 可选属性 |
+|------|---------|---------|
+| `text` | `text`（支持 Markdown）| `color` |
+| `file` | `file`（vault 内路径）| `subpath`（`#标题`/`#^块`）、`color` |
+| `link` | `url`（外部链接）| `color` |
+| `group` | —（仅通用字段）| `label`、`background`、`backgroundStyle`（`cover`/`ratio`/`repeat`）、`color` |
+
+```json
+{ "id": "6f0ad84f44ce9c17", "type": "text", "x": 0, "y": 0,
+  "width": 400, "height": 200, "text": "# 标题\n\n**Markdown** 正文" }
+```
+
+```json
+{ "id": "d4e5f6789012345a", "type": "group", "x": -50, "y": -50,
+  "width": 1000, "height": 600, "label": "Project Overview", "color": "4" }
+```
+
+> 🪤 JSON 换行用 `\n`，不用字面 `\\n`。坐标可为负（x 向右增、y 向下增，canvas 无限延伸）。
+
+### ③ edge 属性速查
+
+| 属性 | 必需 | 默认 | 取值 |
+|------|:--:|------|------|
+| `fromNode` | ✅ | - | 源节点 ID |
+| `toNode` | ✅ | - | 目标节点 ID |
+| `fromSide` / `toSide` | ❌ | - | `top` / `right` / `bottom` / `left` |
+| `fromEnd` | ❌ | `none` | `none` / `arrow` |
+| `toEnd` | ❌ | `arrow` | `none` / `arrow` |
+| `color` | ❌ | - | 预设 `"1"`-`"6"` 或 hex |
+| `label` | ❌ | - | 边上文字 |
+
+```json
+{ "id": "0123456789abcdef", "fromNode": "6f0ad84f44ce9c17", "fromSide": "right",
+  "toNode": "a1b2c3d4e5f67890", "toSide": "left", "toEnd": "arrow", "label": "leads to" }
+```
+
+### ④ 6 色预设
+
+| `"1"` | `"2"` | `"3"` | `"4"` | `"5"` | `"6"` |
+|:--:|:--:|:--:|:--:|:--:|:--:|
+| 红 | 橙 | 黄 | 绿 | 青 | 紫 |
+
+预设值有意未定义——应用用各自品牌色渲染。也可直接写 hex（如 `"#FF0000"`）。node 与 edge 都支持 `color`。
+
+### ⑤ 布局指南
+
+- 节点间距 **50–100px**；分组内边距 **20–50px**；子节点放在 group 边界内
+- 对齐网格（坐标取 **10 / 20 的倍数**）更整洁；`x` 向右增、`y` 向下增，坐标可为负
+- `nodes` 数组顺序决定 z-index（第一个=底层，最后一个=顶层）
+
+| 节点类型 | 推荐宽 | 推荐高 |
+|---------|------|------|
+| 小文本 | 200–300 | 80–150 |
+| 中文本 | 300–450 | 150–300 |
+| 大文本 | 400–600 | 300–500 |
+| 文件预览 | 300–500 | 200–400 |
+| 链接预览 | 250–400 | 100–200 |
+
+### ⑥ 校验清单（落盘前必过）
+
+- [ ] 所有 `id`（nodes + edges）唯一
+- [ ] 每个 `fromNode` / `toNode` 引用的节点存在
+- [ ] 各 type 必填字段完整（text→`text`、file→`file`、link→`url`）
+- [ ] `type` ∈ `text` / `file` / `link` / `group`
+- [ ] `fromSide` / `toSide` ∈ `top` / `right` / `bottom` / `left`
+- [ ] `fromEnd` / `toEnd` ∈ `none` / `arrow`
+- [ ] `color` 为 `"1"`-`"6"` 或合法 hex
+- [ ] JSON 可解析
+
+> 完整 schema、ID 生成、逐节点示例与字段细节：`references/json-canvas.md`
 
 ## 生态协作
 
-本 skill 属于**展示层**，在 Skill 生态中的位置：
+本 skill 属于**内容展示层**，在 Skill 生态中的位置：
 
 - **上游**：`voice-to-markdown-workflow`（产出转录文本）→ 本 skill（格式化为 Obsidian 笔记）
-- **平行**：`obsidian`（vault 操作、Bases 结构化视图、CLI）、`pdf`（导出）
+- **下游执行**：`obsidian`（vault 路径、文件写入、同步、Bases、CLI）、`pdf`（导出）
 - **联动**：收到 voice-to-markdown 产出时，优先做结构美化和 Callout 标注
+
+> [!important] 🤝 `obsidian-md-ac` ↔ `obsidian` 职责分工
+> - **`obsidian-md-ac`（本 skill）= 内容/格式权威**：Obsidian 语法、Callout、wikilinks、frontmatter、Mermaid、JSON Canvas、美化决策。
+> - **`obsidian` = vault 操作权威**：路径解析、文件 IO、同步、CLI、Bases（.base）、Defuddle、qmd 索引。
+> - **联用顺序**：先用 `obsidian-md-ac` 定内容与格式 → 再用 `obsidian` 执行写入 / 同步 / 验证。
 
 ---
 
 ## Obsidian Markdown 基础
 
-Obsidian 在 CommonMark + GFM + LaTeX 基础上扩展了独有语法。
-
-**标准 Markdown（标题、加粗、斜体、列表、表格、引用、代码块）按预期工作，无需参考。**
-
-需要 Obsidian 独有语法时，加载 `references/obsidian-syntax.md`，涵盖：
-- **Internal Links**：`[[Note]]`, `[[Note#Heading]]`, `[[Note|Display]]`
-- **Embeds**：`![[Note]]`, `![[image.png|300]]`, `![[doc.pdf#page=3]]`
-- **Callouts**：`> [!note]`, `> [!warning]`，支持折叠和嵌套
-- **Properties**：`title:`, `tags:`, `date:` 等 YAML frontmatter 元数据
-- **Tags**：`#tag`, `#nested/tag`
-- **Math**：`$x^2$`（行内）、`$$...$$`（块级）
-- **Footnotes**：`[^1]`, `^[inline footnote]`
-- **Comments**：`%%hidden text%%`
-- **Highlight**：`==highlighted==`
+标准 Markdown（标题、加粗、斜体、列表、表格、引用、代码块）无需参考。需要 Obsidian 独有语法时，加载 `references/obsidian-syntax.md`，不要在主体里凭记忆补全。
 
 ---
 
@@ -296,6 +376,6 @@ Obsidian 在 CommonMark + GFM + LaTeX 基础上扩展了独有语法。
 - [ ] 全面美化执行了（除非用户明确说"简洁"）？含 emoji、结构、格式、内容美化
 - [ ] Mermaid 关键规则遵守：`\n`→`<br>`、注释用 `%%`、不用 ELK 布局？
 - [ ] Canvas 创建时：JSON 验证通过 + 所有边引用存在 + ID 唯一？
-- [ ] 用错图表类型时意识到并更正（如用 flowchart 画 ERD）？
+- [ ] 如果要保存进 vault，是否交给 `obsidian` 处理路径、写入、同步和验证？
 
 **Every box must honestly pass before returning results. If unchecked, go back.**

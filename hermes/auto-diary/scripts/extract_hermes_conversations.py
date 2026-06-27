@@ -5,12 +5,21 @@ Queries Hermes state.db SQLite databases (main + profiles) for sessions.
 v2.0: migrated from JSON file reading to SQLite (JSON files deprecated May 2026).
 """
 
-import os
-import sqlite3
+import os, pwd, sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 from zoneinfo import ZoneInfo
+
+
+def _real_home() -> Path:
+    """Return the real user home directory from passwd DB, bypassing env vars.
+
+    🔴 v3.6.3: Path.home() reads the HOME env var, which cron-worker profile
+    overrides to its chroot (~/.hermes/profiles/cron-worker/home/).
+    pwd.getpwuid() always returns the OS-level home directory.
+    """
+    return Path(pwd.getpwuid(os.getuid()).pw_dir)
 
 
 def _get_state_dbs() -> list[tuple[str, Path]]:
@@ -18,8 +27,11 @@ def _get_state_dbs() -> list[tuple[str, Path]]:
 
     Main DB = "default". Profile DBs are named after the profile directory.
     """
-    hermes_home = os.environ.get("HERMES_HOME", str(Path.home() / ".hermes"))
-    hermes_home = Path(hermes_home)
+    # 🔴 v3.6.3: 使用 _real_home() 代替 Path.home()。
+    # v3.6.0 的 Path.home() 修复在 cron 场景下仍然失败：cron-worker profile
+    # 启动时 HOME 环境变量被覆盖为 chroot 路径，Path.home() 返回错误路径。
+    # pwd.getpwuid() 读取系统 passwd 数据库，绕过所有环境变量污染。
+    hermes_home = _real_home() / ".hermes"
     dbs: list[tuple[str, Path]] = []
 
     # Main state.db
@@ -189,12 +201,12 @@ def build_profile_overview(summaries: list) -> dict:
             "total_sessions": 0,
             "total_messages": 0,
             "total_user_turns": 0,
-            "default": None,
+            "assistant": None,
             "governance": None,
         }
 
-    default_sessions = [s for s in summaries if s.get("profile") == "default"]
-    profile_sessions = [s for s in summaries if s.get("profile") != "default"]
+    assistant_sessions = [s for s in summaries if s.get("profile") in ("default", "cron-worker")]
+    governance_sessions = [s for s in summaries if s.get("profile") not in ("default", "cron-worker")]
 
     def pack(items: list, label: str) -> Optional[dict]:
         if not items:
@@ -213,8 +225,8 @@ def build_profile_overview(summaries: list) -> dict:
         "total_sessions": len(summaries),
         "total_messages": sum(s.get("message_count", 0) for s in summaries),
         "total_user_turns": sum(s.get("user_turns", 0) for s in summaries),
-        "default": pack(default_sessions, "Hermes / default"),
-        "governance": pack(profile_sessions, "太子 / 三省六部工作概览"),
+        "assistant": pack(assistant_sessions, "🐴 助理体系（小黄 + cron-worker）"),
+        "governance": pack(governance_sessions, "🏛️ 治理体系（regent + 多 profile）"),
     }
 
 
@@ -229,16 +241,16 @@ def format_for_diary(summaries: list) -> str:
     lines.append(f"- 总消息数: {overview['total_messages']}")
     lines.append(f"- 用户轮次: {overview['total_user_turns']}")
 
-    default = overview.get("default")
+    default = overview.get("assistant")
     if default:
-        lines.append("\n#### Hermes / default")
+        lines.append("\n#### 🐴 助理体系（小黄 + cron-worker）")
         lines.append(f"- 会话数: {default['session_count']}")
         if default["topics"]:
             lines.append("- 主题: " + "；".join(default["topics"][:5]))
 
     governance = overview.get("governance")
     if governance:
-        lines.append("\n#### 太子 / 三省六部工作概览")
+        lines.append("\n#### 🏛️ 治理体系（regent + 多 profile）")
         lines.append(f"- 覆盖 profiles: {', '.join(governance['profiles'])}")
         lines.append(f"- 会话数: {governance['session_count']}")
         lines.append(f"- 消息数: {governance['message_count']}")
@@ -246,7 +258,7 @@ def format_for_diary(summaries: list) -> str:
         if governance["topics"]:
             lines.append("- 重点: " + "；".join(governance["topics"][:8]))
         else:
-            lines.append("- 重点: 太子治理、派工、审校、归档与三省六部 kanban 子任务执行。")
+            lines.append("- 重点: regent 治理、派工、审校、归档与 kanban 子任务执行。")
 
     return "\n".join(lines)
 

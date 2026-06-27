@@ -1,0 +1,104 @@
+/*
+[theme]
+name = wechat-article
+description = WeChat official-account article style: 16px body, 1.75 line-height, teal accent, left color-bar section headings, inline-friendly simple CSS
+hljs_theme = atom-one-light
+*/
+
+/* wechat-article — 自研微信公众号文章风格。
+   注意：微信会剥离并内联 CSS，故全程使用简单、广泛兼容的属性，
+   不用 var()/CSS 变量，尽量用普通 border 代替伪元素。 */
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
+               "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei",
+               sans-serif;
+  font-size: 16px; line-height: 1.75; color: #2c3338;
+  background: #ffffff;
+  max-width: 700px; margin: 0 auto; padding: 10px 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+h1 {
+  color: #1f2d2b; font-size: 22px; font-weight: 700;
+  line-height: 1.4; margin: 0 0 16px 0;
+  padding-bottom: 10px; border-bottom: 2px solid #07a98a;
+}
+/* 章节标题用左侧色条，border 比伪元素更适合微信内联环境 */
+h2 {
+  color: #1f2d2b; font-size: 19px; font-weight: 700;
+  line-height: 1.4; margin: 26px 0 12px 0;
+  padding: 2px 0 2px 12px; border-left: 5px solid #07a98a;
+}
+h3 {
+  color: #07876f; font-size: 17px; font-weight: 700;
+  margin: 20px 0 8px 0;
+}
+h4 { color: #4a5358; font-size: 15px; font-weight: 700; margin: 16px 0 6px 0; }
+
+p { margin: 14px 0; }
+strong { color: #07876f; font-weight: 700; }
+em { color: #4a5358; font-style: italic; }
+mark { background: #c9f3e9; padding: 1px 4px; }
+a { color: #07a98a; text-decoration: underline; }
+
+blockquote {
+  border-left: 4px solid #07a98a; background: #f0faf7;
+  color: #4a5358; padding: 12px 16px; margin: 16px 0;
+}
+blockquote p { margin: 6px 0; }
+
+hr { border: none; border-top: 1px solid #e2e6e8; margin: 22px 0; }
+
+/* 表格：全宽自适应，简单边框，移动端友好 */
+table {
+  border-collapse: collapse; width: 100%;
+  margin: 16px 0; font-size: 14px; line-height: 1.6;
+  page-break-inside: auto;
+}
+th {
+  background: #07a98a; color: #ffffff; font-weight: 600;
+  padding: 9px 11px; text-align: left; border: 1px solid #07a98a;
+  font-size: 13px;
+}
+td {
+  padding: 8px 11px; border: 1px solid #dce3e1;
+  vertical-align: top; overflow-wrap: break-word;
+}
+tr:nth-child(even) td { background: #f3f8f6; }
+tr { page-break-inside: avoid; }
+
+ul, ol { margin: 14px 0; padding-left: 24px; }
+li { margin: 6px 0; }
+li ul, li ol { margin: 4px 0; }
+
+code {
+  font-family: "SF Mono", "Menlo", Consolas, monospace;
+  background: #eef4f2; color: #07876f;
+  padding: 1px 5px; border-radius: 3px; font-size: 14px;
+}
+/* 浅底代码块，明确深色文字，避免继承近白色文字不可见 */
+pre {
+  background: #f6f8f7; border: 1px solid #dce3e1; border-radius: 6px;
+  padding: 14px 16px; margin: 16px 0;
+  font-size: 13px; line-height: 1.6; overflow-x: auto;
+}
+pre code, pre code.hljs {
+  background: transparent; color: #2c3338; padding: 0;
+}
+
+/* callout：用纯 border + 背景实现，全部 26 种类型通用 */
+.callout {
+  margin: 16px 0; padding: 12px 16px;
+  border-left: 4px solid #07a98a; background: #f0faf7;
+  border-radius: 0 4px 4px 0;
+}
+.callout-title {
+  font-weight: 700; color: #07876f; margin-bottom: 6px;
+}
+.callout-content { color: #2c3338; }
+.callout-content p:first-child { margin-top: 0; }
+.callout-content p:last-child { margin-bottom: 0; }
+
+.mermaid { margin: 16px auto; text-align: center; }
+img { max-width: 100%; height: auto; }

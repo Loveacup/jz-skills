@@ -42,9 +42,25 @@ External project identified?
 
 **Result:** Absorbed only vertical-domains.md (1 reference file, 0 SKILL.md changes). Rejected 5/6 features.
 
-## Case Study: ECC → jz-skills (2026-05-27)
+## Case Study: ECC → Jz-Plugin engineering shell (updated 2026-06-05)
 
-**Result:** ECC validates our path (SKILL.md + checklist + Red Flags) but doesn't challenge it. No absorption needed — our architecture (三省六部 governance) is intentionally narrower and deeper than ECC's broad marketplace approach.
+**Context:** ECC is not just a skill checklist repository; it is a cross-harness operator system with manifests, component installation plans, validators, hook definitions, and adapters for multiple AI coding harnesses. For Jz-Plugin, the right comparison target is NOT memory-hub's truth-source kernel, but the engineering shell around it.
+
+**Decision:** Absorb selectively at the P2/P6 engineering-shell layer. Do NOT absorb ECC as a new memory layer, judge layer, or agent-control-plane core.
+
+| ECC Mechanism | Fit? | Jz-Plugin absorption rule |
+|:---|:---|:---|
+| Cross-harness adapters | ✅ | Use as pattern for `core/` + `adapters/{hermes,claude-code,codex}` separation. Core must not know target-platform paths. |
+| `install-plan` / dry-run / apply / repair | ✅ | Add plan-first installer flow: discover → plan → apply → repair. Default to dry-run; apply only after user confirmation. |
+| Component manifest | ✅ | Treat manifest as L1 writing discipline/index, not truth. It records component type, source, target harnesses, provenance, and whether it can touch L0. |
+| Validators/test matrix | ✅ | High-value absorption: validate manifests, skill frontmatter, logs, hooks, cross-profile writes, and smoke install plans before deployment. |
+| Hook organization | ⚠️ | Learn routing/cooldown patterns only. Jz hooks may emit events and trigger audits, but must not auto-resolve, auto-edit skill bodies, or become quality judges. |
+| TUI/control plane/auto-dispatch | ⏸️ | Defer. Start with `jz doctor/status/plan/validate`; avoid new orchestration until the log/manual CQI loop is stable. |
+| Marketplace-scale command/agent sprawl | ❌ | Reject. Jz should stay narrower and deeper; avoid importing dozens of agents/commands. |
+
+**Rule of thumb:** ECC is useful as an engineering wrapper for Jz-Plugin (`manifest + validator + installer + adapter + repair`), not as a replacement for Jz's existing `append-only JSONL truth source + schema/provenance discipline + CQI judge separation` kernel.
+
+**Recommended first deliverable:** an `ECC → Jz-Plugin 可迁移矩阵` reference or plan with four columns: ECC mechanism, Jz current state, absorb/reject/defer, minimal implementation path.
 
 ## Case Study: taste-skill → jz-skills (2026-05-27)
 

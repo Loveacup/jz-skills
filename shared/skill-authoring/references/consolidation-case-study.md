@@ -13,7 +13,7 @@
 
 Agent had to decide *which* github skill to load — auth first, then the operational one. Cross-domain tasks (triage an issue then open a PR) required loading 2+ skills.
 
-三省六部 governance risk: agents could load an ops skill (e.g., `github-issues`) without loading `github-auth`, causing silent 401 failures.
+multi-profile governance risk: agents could load an ops skill (e.g., `github-issues`) without loading `github-auth`, causing silent 401 failures.
 
 ## Design Options Evaluated
 
@@ -26,7 +26,7 @@ Auth separate from ops skills. Rejected: hidden auth dependency in multi-profile
 ### Option 3: Single monolithic file
 All ~1,500 lines in one SKILL.md. Rejected: >300 line compliance violation.
 
-**Deciding factor:** Governance lens — in 三省六部 multi-profile dispatch, Option 1 guarantees every profile that loads `github` gets auth detection. Option 2 requires remembering to pair auth + ops, which fails silently.
+**Deciding factor:** Governance lens — in multi-profile dispatch, Option 1 guarantees every profile that loads `github` gets auth detection. Option 2 requires remembering to pair auth + ops, which fails silently.
 
 ## Architecture
 
@@ -85,7 +85,12 @@ When consolidating N skills into 1 umbrella:
 - [ ] Run 7-dim compliance scorecard
 - [ ] Search ALL skills for `related_skills` to old skill names → update to new umbrella
 - [ ] Search body text for old skill name mentions → update
-- [ ] Delete old skill directories
+- [ ] Delete old skill directories **from deployed pool** (`~/.hermes/skills/`) — sync-all.sh is additive-only
+- [ ] Remove old deploy lines from `sync-all.sh` (both `sync_hermes()` and per-profile loop)
+- [ ] Fix `sync-all.sh` dst path if skill name = category (e.g., `"$base/github"` → `"$base"`)
+- [ ] Update watchdog baseline: `python3 scripts/skill-integrity-watchdog.py --update-baseline`
+- [ ] Verify clean: watchdog exit 0, no output
+- [ ] Full details: `references/post-consolidation-cleanup.md`
 - [ ] Verify new skill loads via `skill_view`
 
 ## Results
@@ -93,5 +98,5 @@ When consolidating N skills into 1 umbrella:
 - 7→1 skill, 1,713→112 line main file
 - Auth detection: 7 duplications → 1 shared block
 - Agent cognitive load: "which github skill?" → "github" → pick reference
-- 三省六部: hidden auth dependency eliminated
+- multi-profile: hidden auth dependency eliminated
 - 16 updated cross-references in 6 external skills
