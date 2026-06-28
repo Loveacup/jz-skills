@@ -1,0 +1,97 @@
+"""引擎需求元数据（P1）。
+
+声明式引擎依赖清单，用于：
+- 测试：验证 ENGINE_REQUIREMENTS 与实际注册引擎无漂移
+- 文档：自动生成 .env.example 模板
+- 未来：自动化部署脚本可消费此元数据
+
+设计约束：
+- 纯数据结构，无业务逻辑
+- 引擎 health_check 实现不依赖此文件（避免循环依赖）
+- 测试验证一致性：每个注册引擎必须在此声明，tier 必须匹配
+"""
+from typing import Dict, Any, List
+
+
+# ── 引擎需求元数据 ──────────────────────────────────────────────────
+ENGINE_REQUIREMENTS: Dict[str, Dict[str, Any]] = {
+    # Tier 0: 无本地配置要求
+    "academic": {
+        "tier": 0,
+        "env": [],
+        "commands": [],
+        "endpoints": [],
+        "description": "学术搜索（OpenAlex + Semantic Scholar）",
+    },
+
+    # Tier 1: API key/token 要求
+    "exa": {
+        "tier": 1,
+        "env": ["EXA_API_KEY"],
+        "commands": [],
+        "endpoints": [],
+        "description": "Exa AI 搜索引擎",
+    },
+    "brave": {
+        "tier": 1,
+        "env_any": ["BRAVE_API_KEY", "BRAVE_SEARCH_API_KEY"],
+        "commands": [],
+        "endpoints": [],
+        "description": "Brave Search API（主用或备用 key）",
+    },
+    "github": {
+        "tier": 1,
+        "env": ["GITHUB_TOKEN"],
+        "commands": [],
+        "endpoints": [],
+        "description": "GitHub 仓库搜索",
+    },
+    "skill": {
+        "tier": 1,
+        "env": ["GITHUB_TOKEN"],
+        "commands": [],
+        "endpoints": [],
+        "description": "Skill Discovery（GitHub code search）",
+    },
+
+    # Tier 2: 本地服务/CLI 要求
+    "searxng": {
+        "tier": 2,
+        "env": ["SEARXNG_URL"],
+        "commands": [],
+        "endpoints": ["SEARXNG_URL"],
+        "description": "SearXNG 本地实例",
+        "example_env": {
+            "SEARXNG_URL": "http://127.0.0.1:32080",
+        },
+    },
+    "community": {
+        "tier": 2,
+        "env": [],
+        "commands": ["opencli"],
+        "endpoints": [],
+        "description": "社区搜索（OpenCLI + last30days）",
+        "optional_commands": ["python3"],  # last30days 需要
+        "optional_paths": [
+            "~/code/last30days-skill/skills/last30days/scripts/last30days.py",
+            "~/code/last30days-skill-cn/skills/last30days/scripts/last30days.py",
+        ],
+    },
+}
+
+
+def get_all_env_keys() -> List[str]:
+    """返回所有必需环境变量 key（展开 env_any）。"""
+    keys = []
+    for req in ENGINE_REQUIREMENTS.values():
+        keys.extend(req.get("env", []))
+        keys.extend(req.get("env_any", []))
+    return sorted(set(keys))
+
+
+def get_all_commands() -> List[str]:
+    """返回所有必需命令。"""
+    commands = []
+    for req in ENGINE_REQUIREMENTS.values():
+        commands.extend(req.get("commands", []))
+    return sorted(set(commands))

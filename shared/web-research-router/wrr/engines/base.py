@@ -5,11 +5,12 @@ from typing import List
 from .. import config
 from ..errors import EngineError
 from ..schemas import (SearchOptions, SearchResult, ExtractOptions,
-                       ExtractResult, SimilarOptions)
+                       ExtractResult, SimilarOptions, EngineCheckResult)
 
 
 class SearchEngine(ABC):
     name: str = "base"
+    tier: int = 1  # 默认 tier 1 (API key/token)
 
     @property
     def timeout(self) -> float:
@@ -23,3 +24,12 @@ class SearchEngine(ABC):
 
     async def similar(self, options: SimilarOptions) -> List[SearchResult]:
         raise EngineError(f"{self.name} does not support similar")
+
+    async def health_check(self, *, deep: bool = False) -> EngineCheckResult:
+        """健康检查。默认实现返回 skip。子类应覆写此方法。"""
+        return EngineCheckResult(
+            engine=self.name,
+            status="skip",
+            tier=self.tier,
+            summary="No health check implemented",
+        )

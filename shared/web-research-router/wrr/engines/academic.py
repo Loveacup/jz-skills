@@ -30,7 +30,7 @@ from .base import SearchEngine
 from ._fusion import recency_decay
 from .. import config
 from ..errors import EngineError
-from ..schemas import SearchOptions, SearchResult
+from ..schemas import SearchOptions, SearchResult, EngineCheckResult
 
 # 内部统一论文表示（paper_dict）字段：
 #   title cited_by_count influential_citations pub_date(datetime|None) is_preprint
@@ -392,6 +392,7 @@ def _to_result(p: Dict[str, Any]) -> SearchResult:
 
 class AcademicEngine(SearchEngine):
     name = "academic"
+    tier = 0  # 无本地配置要求
 
     async def search(self, options: SearchOptions) -> List[SearchResult]:
         now = datetime.now(timezone.utc)
@@ -412,3 +413,14 @@ class AcademicEngine(SearchEngine):
         merged = dedup_by_doi(papers)                     # DOI 优先合并
         scored = sorted(merged, key=lambda p: academic_score(p, now), reverse=True)
         return [_to_result(p) for p in scored[:options.count]]
+
+    async def health_check(self, *, deep: bool = False) -> EngineCheckResult:
+        """Academic 引擎无需本地配置（使用公开 OpenAlex/S2 API）。"""
+        return EngineCheckResult(
+            engine=self.name,
+            status="ok",
+            tier=self.tier,
+            summary="No local configuration required",
+            active_backend="openalex/semantic_scholar",
+            evidence={},
+        )

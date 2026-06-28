@@ -6,13 +6,14 @@ from typing import List
 from .base import SearchEngine
 from .. import config
 from ..errors import EngineError
-from ..schemas import SearchOptions, SearchResult, ExtractOptions, ExtractResult
+from ..schemas import SearchOptions, SearchResult, ExtractOptions, ExtractResult, EngineCheckResult
 
 BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
 
 
 class BraveEngine(SearchEngine):
     name = "brave"
+    tier = 1
 
     def _key(self) -> str:
         # 主用 BRAVE_API_KEY；兼容 Hermes 内置 brave 的 BRAVE_SEARCH_API_KEY 后备。
@@ -46,3 +47,34 @@ class BraveEngine(SearchEngine):
         text = re.sub(r"<[^>]+>", " ", text)
         text = re.sub(r"\s+", " ", text).strip()
         return ExtractResult(url=options.url, text=text[:options.max_characters])
+
+    async def health_check(self, *, deep: bool = False) -> EngineCheckResult:
+        """检查 Brave API key（主用或备用）是否存在。"""
+        primary = config.get_env("BRAVE_API_KEY")
+        fallback = config.get_env("BRAVE_SEARCH_API_KEY")
+
+        if not (primary or fallback):
+            return EngineCheckResult(
+                engine=self.name,
+                status="fail",
+                tier=self.tier,
+                summary="BRAVE_API_KEY not configured",
+                requirements=["env:BRAVE_API_KEY", "env:BRAVE_SEARCH_API_KEY (alias)"],
+                repair=[
+                    "Set BRAVE_API_KEY in your shell or ~/.hermes/.env:",
+                    "  export BRAVE_API_KEY=your_key_here",
+                    "(BRAVE_SEARCH_API_KEY is also accepted as an alias)",
+                    "Rerun: wrr-cli.py doctor --engine brave",
+                ],
+                evidence={"env.BRAVE_API_KEY": "missing", "env.BRAVE_SEARCH_API_KEY": "missing"},
+            )
+
+        active_key = "BRAVE_API_KEY" if primary else "BRAVE_SEARCH_API_KEY"
+        return EngineCheckResult(
+            engine=self.name,
+            status="ok",
+            tier=self.tier,
+            summary=f"{active_key} configured",
+            active_backend="brave-api",
+            evidence={f"env.{active_key}": "present"},
+        )

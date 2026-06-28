@@ -24,6 +24,7 @@ import json
 import math
 import os
 import re
+import shutil
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -31,7 +32,7 @@ from .base import SearchEngine
 from . import _fusion
 from .. import config
 from ..errors import EngineError
-from ..schemas import SearchOptions, SearchResult
+from ..schemas import SearchOptions, SearchResult, EngineCheckResult
 
 _Scored = Tuple[float, SearchResult]
 
@@ -193,6 +194,7 @@ async def _run_cmd(cli: List[str], timeout: float) -> Tuple[Optional[int], str]:
 
 class CommunityEngine(SearchEngine):
     name = "community"
+    tier = 2  # 本地 CLI 依赖
 
     async def search(self, options: SearchOptions) -> List[SearchResult]:
         sources = self._detect_sources(options.query)
@@ -341,3 +343,107 @@ class CommunityEngine(SearchEngine):
         sc = calculate_score(item, cfg, now)
         return (sc, SearchResult(title=title[:200], url=url,
                                  snippet=snippet[:500], source_tag=source))
+
+    async def health_check(self, *, deep: bool = False) -> EngineCheckResult:
+        """检查 opencli 是否可用。
+
+        P0 (deep=False): shutil.which 仅检查存在性
+        P1 (deep=True): probe_command 执行 --version 验证可用性
+        """
+        from ._probe import probe_command
+
+        # 快速检查：which
+        opencli_path = shutil.which("opencli")
+        if not opencli_path:
+            return EngineCheckResult(
+                engine=self.name,
+                status="fail",
+                tier=self.tier,
+                summary="opencli command not found",
+                details="Community engine requires opencli CLI tool",
+                requirements=["command:opencli"],
+                repair=[
+                    "Install opencli:",
+                    "  npm install -g opencli",
+                    "Or add opencli to your PATH if already installed",
+                    "Verify: which opencli",
+                    "Rerun: wrr-cli.py doctor --engine community",
+                ],
+                evidence={"command.opencli": "missing"},
+            )
+
+        # Deep 检查：执行 --version
+        if deep:
+            probe_result = await probe_command("opencli", ("--version",), timeout=3.0)
+            if probe_result.status == "timeout":
+                return EngineCheckResult(
+                    engine=self.name,
+                    status="fail",
+                    tier=self.tier,
+                    summary="opencli command timeout",
+                    details="opencli --version timed out after 3s",
+                    requirements=["command:opencli"],
+                    repair=[
+                        "Check if opencli is working:",
+                        "  opencli --version",
+                        "Reinstall if needed:",
+                        "  npm install -g opencli",
+                    ],
+                    evidence={"command.opencli": opencli_path, "probe": "timeout"},
+                )
+            elif probe_result.status in ("broken", "error"):
+                return EngineCheckResult(
+                    engine=self.name,
+                    status="fail",
+                    tier=self.tier,
+                    summary=f"opencli command {probe_result.status}",
+                    details=f"opencli --version failed: {probe_result.error}",
+                    requirements=["command:opencli"],
+                    repair=[
+                        "Check opencli installation:",
+                        "  opencli --version",
+                        "Reinstall if needed:",
+                        "  npm install -g opencli",
+                    ],
+                    evidence={
+                        "command.opencli": opencli_path,
+                        "probe": probe_result.status,
+                        "exit_code": probe_result.exit_code,
+                    },
+                )
+
+        # opencli OK，检查 last30days（如果启用）
+        details = f"opencli found at: {opencli_path}"
+        if config.COMMUNITY_INCLUDE_LAST30DAYS:
+            l30_issues = []
+            if not os.path.exists(_L30_EN):
+                l30_issues.append(f"last30days_en script not found: {_L30_EN}")
+            if not os.path.exists(_L30_CN):
+                l30_issues.append(f"last30days_cn script not found: {_L30_CN}")
+
+            if l30_issues:
+                return EngineCheckResult(
+                    engine=self.name,
+                    status="warn",
+                    tier=self.tier,
+                    summary="opencli OK, last30days scripts missing",
+                    details="; ".join(l30_issues),
+                    requirements=["command:opencli", "script:last30days"],
+                    repair=[
+                        "Clone last30days skills if needed:",
+                        f"  Expected: {_L30_EN}",
+                        f"  Expected: {_L30_CN}",
+                        "Or set COMMUNITY_INCLUDE_LAST30DAYS=False to disable",
+                    ],
+                    evidence={"command.opencli": "present", "last30days": "missing"},
+                )
+
+        return EngineCheckResult(
+            engine=self.name,
+            status="ok",
+            tier=self.tier,
+            summary="opencli available",
+            details=details,
+            active_backend="opencli",
+            evidence={"command.opencli": opencli_path},
+        )

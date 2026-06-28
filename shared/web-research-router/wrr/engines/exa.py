@@ -13,7 +13,7 @@ from .base import SearchEngine
 from .. import config
 from ..errors import EngineError
 from ..schemas import (SearchOptions, SearchResult, ExtractOptions,
-                       ExtractResult, SimilarOptions)
+                       ExtractResult, SimilarOptions, EngineCheckResult)
 
 EXA_SEARCH_URL = "https://api.exa.ai/search"
 EXA_CONTENTS_URL = "https://api.exa.ai/contents"
@@ -79,6 +79,7 @@ def _to_results(items: List[dict]) -> List[SearchResult]:
 
 class ExaEngine(SearchEngine):
     name = "exa"
+    tier = 1
 
     def _key(self) -> str:
         key = config.get_env("EXA_API_KEY")
@@ -135,3 +136,29 @@ class ExaEngine(SearchEngine):
             resp.raise_for_status()
             data = resp.json()
         return _to_results(data.get("results", []))
+
+    async def health_check(self, *, deep: bool = False) -> EngineCheckResult:
+        """检查 Exa API key 是否存在。"""
+        key = config.get_env("EXA_API_KEY")
+        if not key:
+            return EngineCheckResult(
+                engine=self.name,
+                status="fail",
+                tier=self.tier,
+                summary="EXA_API_KEY not configured",
+                requirements=["env:EXA_API_KEY"],
+                repair=[
+                    "Set EXA_API_KEY in your shell or ~/.hermes/.env:",
+                    "  export EXA_API_KEY=your_key_here",
+                    "Rerun: wrr-cli.py doctor --engine exa",
+                ],
+                evidence={"env.EXA_API_KEY": "missing"},
+            )
+        return EngineCheckResult(
+            engine=self.name,
+            status="ok",
+            tier=self.tier,
+            summary="EXA_API_KEY configured",
+            active_backend="exa-api",
+            evidence={"env.EXA_API_KEY": "present"},
+        )

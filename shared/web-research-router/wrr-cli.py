@@ -249,6 +249,53 @@ def cmd_test(ns) -> int:
     return 0 if overall_ok else 1
 
 
+def cmd_doctor(ns) -> int:
+    """Doctor: 检查引擎健康状况和本地依赖。"""
+    from wrr.registry import get_registry
+    from wrr.doctor import run_doctor, summarize_checks, doctor_exit_code
+    from wrr.formatters import format_doctor_report
+
+    registry = get_registry()
+
+    # 验证 --engine 参数（如果指定）
+    if ns.engine:
+        if ns.engine not in registry.names():
+            _eprint(f"✗ 未知引擎: {ns.engine}")
+            _eprint(f"  可用引擎: {', '.join(registry.names())}")
+            return 2
+
+    # 运行 doctor
+    try:
+        results = asyncio.run(run_doctor(
+            registry,
+            engine=ns.engine,
+            tier=ns.tier,
+            deep=False,  # P0 不支持 deep
+        ))
+    except ValueError as e:
+        _eprint(f"✗ {e}")
+        return 2
+    except Exception as e:
+        _eprint(f"✗ Doctor 失败: {type(e).__name__}: {e}")
+        return 1
+
+    # 输出结果
+    if ns.json:
+        summary = summarize_checks(results)
+        payload = {
+            "ok": summary["status"] != "fail",
+            "status": summary["status"],
+            "summary": {k: summary[k] for k in ("ok", "warn", "fail", "skip")},
+            "engines": [r.to_dict() for r in results],
+        }
+        _emit_json(payload)
+    else:
+        print(format_doctor_report(results))
+
+    # 返回退出码
+    return doctor_exit_code(results, strict=ns.strict)
+
+
 # ── argparse 组装 ────────────────────────────────────────────────────
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
@@ -291,6 +338,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     tp = sub.add_parser("test", parents=[common], help="冒烟测试 search/fetch/similar")
     tp.set_defaults(func=cmd_test)
+
+    # doctor 子命令（v5.1，不继承 common 中的 --provider，因需独立 --engine）
+    dp = sub.add_parser("doctor", help="检查引擎健康状况和本地依赖")
+    dp.add_argument("--engine", choices=["exa", "brave", "github", "skill", "searxng", "community", "academic"],
+                    help="仅检查指定引擎")
+    dp.add_argument("--tier", type=int, choices=[0, 1, 2], help="仅检查指定 tier")
+    dp.add_argument("--json", action="store_true", help="输出 JSON 格式")
+    dp.add_argument("--env", metavar="PATH", help="指定 .env 路径")
+    dp.add_argument("-q", "--quiet", action="store_true", help="不打印元信息")
+    dp.add_argument("--strict", action="store_true", help="严格模式：warn 也视为失败（退出码 1）")
+    dp.set_defaults(func=cmd_doctor)
 
     return p
 

@@ -31,7 +31,7 @@ import httpx
 from .base import SearchEngine
 from .. import config
 from ..errors import EngineError, EngineTimeoutError, RateLimitError
-from ..schemas import SearchOptions, SearchResult
+from ..schemas import SearchOptions, SearchResult, EngineCheckResult
 
 GITHUB_SEARCH_URL = "https://api.github.com/search/repositories"
 GITHUB_REPO_URL = "https://api.github.com/repos"
@@ -113,6 +113,7 @@ def _parse_commit_count(resp) -> int:
 
 class GitHubEngine(SearchEngine):
     name = "github"
+    tier = 1
 
     def _key(self) -> str:
         key = config.get_env("GITHUB_TOKEN")
@@ -291,3 +292,29 @@ class GitHubEngine(SearchEngine):
             hist = (ref.get("history") or {})
             out[full] = hist.get("totalCount")
         return out
+
+    async def health_check(self, *, deep: bool = False) -> EngineCheckResult:
+        """检查 GITHUB_TOKEN 是否配置。"""
+        token = config.get_env("GITHUB_TOKEN")
+        if not token:
+            return EngineCheckResult(
+                engine=self.name,
+                status="fail",
+                tier=self.tier,
+                summary="GITHUB_TOKEN not configured",
+                requirements=["env:GITHUB_TOKEN"],
+                repair=[
+                    "Set GITHUB_TOKEN in your shell or ~/.hermes/.env:",
+                    "  export GITHUB_TOKEN=your_token_here",
+                    "Rerun: wrr-cli.py doctor --engine github",
+                ],
+                evidence={"env.GITHUB_TOKEN": "missing"},
+            )
+        return EngineCheckResult(
+            engine=self.name,
+            status="ok",
+            tier=self.tier,
+            summary="GITHUB_TOKEN configured",
+            active_backend="github-api",
+            evidence={"env.GITHUB_TOKEN": "present"},
+        )

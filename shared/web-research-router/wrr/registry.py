@@ -24,6 +24,14 @@ class EngineRegistry:
     def names(self) -> List[str]:
         return list(self._engines.keys())
 
+    def all(self) -> List[SearchEngine]:
+        """返回所有已注册引擎实例。"""
+        return list(self._engines.values())
+
+    def doctor_targets(self) -> List[SearchEngine]:
+        """返回 doctor 检查目标引擎列表。"""
+        return self.all()
+
 
 def default_registry() -> EngineRegistry:
     reg = EngineRegistry()

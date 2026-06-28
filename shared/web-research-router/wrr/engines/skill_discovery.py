@@ -31,7 +31,7 @@ import yaml
 from .base import SearchEngine
 from .. import config
 from ..errors import EngineError
-from ..schemas import SearchOptions, SearchResult
+from ..schemas import SearchOptions, SearchResult, EngineCheckResult
 from ._github_client import GitHubClient
 
 _Scored = Tuple[float, SearchResult]
@@ -229,6 +229,7 @@ def _decode_content(content: Any) -> Optional[str]:
 
 class SkillDiscoveryEngine(SearchEngine):
     name = "skill"
+    tier = 1
 
     def __init__(self, client: Optional[GitHubClient] = None):
         self._client = client or GitHubClient()
@@ -340,3 +341,30 @@ class SkillDiscoveryEngine(SearchEngine):
                    f"commits90d={commits_label} · bundle={bundle:.2f} · hermes={compat}")
         return (sc, SearchResult(title=str(fm.get("name") or "")[:200],
                                  url=url, snippet=snippet[:500], source_tag="skill"))
+
+    async def health_check(self, *, deep: bool = False) -> EngineCheckResult:
+        """检查 GITHUB_TOKEN 是否配置（Skill Discovery 使用 GitHubClient code search）。"""
+        token = config.get_env("GITHUB_TOKEN")
+        if not token:
+            return EngineCheckResult(
+                engine=self.name,
+                status="fail",
+                tier=self.tier,
+                summary="GITHUB_TOKEN not configured",
+                details="Skill Discovery uses GitHub code search which requires authentication",
+                requirements=["env:GITHUB_TOKEN"],
+                repair=[
+                    "Set GITHUB_TOKEN in your shell or ~/.hermes/.env:",
+                    "  export GITHUB_TOKEN=your_token_here",
+                    "Rerun: wrr-cli.py doctor --engine skill",
+                ],
+                evidence={"env.GITHUB_TOKEN": "missing"},
+            )
+        return EngineCheckResult(
+            engine=self.name,
+            status="ok",
+            tier=self.tier,
+            summary="GITHUB_TOKEN configured",
+            active_backend="github-code-search",
+            evidence={"env.GITHUB_TOKEN": "present"},
+        )

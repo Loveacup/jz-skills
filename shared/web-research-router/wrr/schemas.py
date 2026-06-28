@@ -89,3 +89,36 @@ class RouterResult:
             if not step.ok:
                 return step.provider
         return None
+
+
+# ── Doctor ───────────────────────────────────────────────────────────
+@dataclass
+class EngineCheckResult:
+    """单个引擎的健康检查结果。"""
+    engine: str
+    status: str  # ok | warn | fail | skip
+    tier: int
+    summary: str
+    details: Optional[str] = None
+    active_backend: Optional[str] = None
+    requirements: List[str] = field(default_factory=list)
+    repair: List[str] = field(default_factory=list)
+    evidence: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def ok(self) -> bool:
+        """是否通过检查（ok/skip 视为通过）。"""
+        return self.status in ("ok", "skip")
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "engine": self.engine,
+            "status": self.status,
+            "tier": self.tier,
+            "summary": self.summary,
+            "details": self.details,
+            "active_backend": self.active_backend,
+            "requirements": self.requirements,
+            "repair": self.repair,
+            "evidence": self.evidence,
+        }
