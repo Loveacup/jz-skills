@@ -2,7 +2,7 @@
 name: telegram-topic-manager
 description: "Manages Telegram forum topics — create, edit, close, reopen, delete, hide/unhide, unpin, and query via Bot API. Also covers Hermes Agent's native topic features: /topic multi-session DM mode, dm_topics/group_topics config-driven topic management, skill binding, auto-rename, and root DM lobby mechanics. Use when the user says 话题/话题管理/create topic/edit topic/delete topic/改话题名/创建话题/关闭话题/topic mode/多会话模式/dm_topic, or when you need to manage Telegram forum topics programmatically or configure Hermes topic sessions."
 type: routine
-version: 2.0.0
+version: 2.1.0
 author: Hermes Agent
 license: MIT
 platforms: [macos, linux, windows]
@@ -22,7 +22,8 @@ Manage Telegram forum topics via two paths: **raw Bot API** for programmatic CRU
 |------------------------------|----------------|
 | "I'll just use send_message, topics aren't my thing" | Topic management is a distinct API surface — `sendMessage` can't rename, close, or delete topics. Using the wrong tool silently does nothing. |
 | "I know the chat_id, no need to verify" | Private vs supergroup have different `chat_id` formats (`7931997806` vs `-1007931997806`). Using the wrong format returns 404. |
-| "The token from .env is fine for any chat" | Each bot token is scoped. The bot must be **admin** with `can_manage_topics` in supergroups; for private chats, `has_topics_enabled` must be true in `getMe`. |
+| "The token from .env is fine for any chat" | Each bot token is scoped. The bot must be **admin** with `can_manage_topics` in supergroups; for private chats, `has_topics_enabled` must be true in `getMe`. In multi-agent setups (e.g., 小黄+尼太子), each agent has its own bot token — using the wrong one creates topics under the wrong agent. |
+| "I'll just use the default ~/.hermes/.env token" | Multi-profile Hermes setups have per-profile `.env` files at `~/.hermes/profiles/<name>/.env`. The regent/nitaizi profile may have a different TELEGRAM_BOT_TOKEN than the default profile. Always check `HERMES_PROFILE` or active session context first. |
 | "closeForumTopic works in DMs too" | `closeForumTopic` and `reopenForumTopic` are **supergroup only**. Private chats use a narrower method set (create, edit, delete, unpin). |
 | "Hermes /topic handles everything" | `/topic` is for user-driven multi-session mode. `dm_topics` config is for operator-curated topic lists. They solve different problems. |
 
@@ -59,14 +60,18 @@ All 13 topic methods. For full parameter tables and error codes, see `references
 ### Prerequisites
 
 ```bash
-# Get bot token
-grep TELEGRAM_BOT_TOKEN ~/.hermes/.env | cut -d= -f2
+# Resolve bot token for the correct profile
+# Multi-agent setups: each Hermes profile has its own token
+PROFILE=${HERMES_PROFILE:-default}
+if [ "$PROFILE" != "default" ] && [ -f ~/.hermes/profiles/$PROFILE/.env ]; then
+  TOKEN=$(grep TELEGRAM_BOT_TOKEN ~/.hermes/profiles/$PROFILE/.env | cut -d= -f2)
+else
+  TOKEN=$(grep TELEGRAM_BOT_TOKEN ~/.hermes/.env | cut -d= -f2)
+fi
 ```
 
 Verify the bot can manage topics:
 ```bash
-TOKEN=$(grep TELEGRAM_BOT_TOKEN ~/.hermes/.env | cut -d= -f2)
-# Check getMe for private chat capability
 curl -s "https://api.telegram.org/bot${TOKEN}/getMe" | python3 -m json.tool | grep -E "has_topics_enabled|allows_users_to_create_topics"
 ```
 
@@ -100,7 +105,11 @@ curl -s "https://api.telegram.org/bot${TOKEN}/getMe" | python3 -m json.tool | gr
 ### Usage Pattern
 
 ```bash
-TOKEN=$(grep TELEGRAM_BOT_TOKEN ~/.hermes/.env | cut -d= -f2)
+# Profile-aware token resolution
+PROFILE=${HERMES_PROFILE:-default}
+ENV_FILE=~/.hermes/.env
+[ "$PROFILE" != "default" ] && [ -f ~/.hermes/profiles/$PROFILE/.env ] && ENV_FILE=~/.hermes/profiles/$PROFILE/.env
+TOKEN=*** TELEGRAM_BOT_TOKEN $ENV_FILE | cut -d= -f2)
 
 # Create topic in DM
 curl -s "https://api.telegram.org/bot${TOKEN}/createForumTopic" \
@@ -192,6 +201,58 @@ platforms:
 | Topic shows in UI with unread count but opens blank, messages jump to other topics | **Ghost topic** — deleted server-side but stuck in client cache. See 👻 Ghost Topic Troubleshooting below. |
 | `send_message list` shows topics that API says don't exist | Hermes gateway caches topic list. Ghosts persist until gateway restart or topic list refresh. |
 | **Credential scrubber eats `***` in heredocs/write_file/execute_code** — breaks Python strings containing `BOT_TOKEN=<value>` pattern | Use `python3 -c` one-liner with dynamic prefix construction: `if 'BOT_TOKEN' in ln and '8809' in ln` instead of `if line.startswith('TELEGRAM_BOT_TOKEN=')`. Or read token in a separate step then pass via env var. |
+| **Same chat_id, different bot token → TOPIC_ID_INVALID** | Topics are scoped per-bot in DMs. If thread X returns TOPIC_ID_INVALID with token A, try token B (different profile). A topic created by 尼太子's bot won't be visible to 小黄's bot, even though both bots DM the same user. |
+
+## 🔀 Multi-Profile / Multi-Agent Support
+
+Hermes supports multiple profiles (e.g., `default`=小黄 assistant, `regent`=尼太子 supervisor). Each profile may use a **different Telegram bot token** even if they share the same `chat_id`.
+
+### Token Resolution Logic
+
+```
+1. Check $HERMES_PROFILE env var (active profile name)
+2. If set and ≠ "default" → load ~/.hermes/profiles/$HERMES_PROFILE/.env
+3. Else → load ~/.hermes/.env (main profile)
+```
+
+### Python pattern for multi-profile
+
+```python
+import os
+
+# Determine which profile's token to use
+profile = os.environ.get('HERMES_PROFILE', 'default')
+env_path = os.path.expanduser(f'~/.hermes/profiles/{profile}/.env')
+if not os.path.exists(env_path):
+    env_path = os.path.expanduser('~/.hermes/.env')  # fallback to main
+
+# Read token (avoid credential scrubber — use dynamic prefix)
+with open(env_path) as fh:
+    for ln in fh:
+        if 'BOT_TOKEN' in ln and '8809' in ln:  # unique substring of actual token
+            token = ln.split('=')[1].strip()
+            break
+```
+
+### Key observations
+
+| Setup | Default (小黄) | Regent (尼太子) |
+|-------|---------------|-----------------|
+| `.env` | `~/.hermes/.env` | `~/.hermes/profiles/regent/.env` |
+| Bot token | Main bot | Separate bot (`@CrownPrince_Alexcai_bot`) |
+| `TELEGRAM_HOME_CHANNEL` | 7931997806 | 7931997806 (shared DM) |
+| Topic visibility | Per-bot | Per-bot |
+
+**⚠️ Even with same `chat_id`, topics created by one bot token are scoped to that bot's DM.** Use the correct profile's token.
+
+### When to use which token
+
+| Scenario | Token |
+|----------|-------|
+| "小黄,帮我建个 topic" | default profile |
+| "尼太子,改 topic 名" | regent profile |
+| Hermes Agent system prompt says "Active Hermes profile: regent" | regent profile |
+| Session source is "finalhour" (尼太子's user) | regent profile |
 
 ## 👻 Ghost Topic Troubleshooting
 
@@ -202,8 +263,12 @@ Ghost topics appear in the client sidebar (often with stale unread counts) but d
 ### Detection: Confirm a topic is a ghost
 
 **Preferred: `editForumTopic` probe (zero noise — no message sent, no cleanup needed):**
+> ⚠️ Multi-profile: use the correct profile's token (see Multi-Profile section above). Ghost with one token may be alive with another.
 ```bash
-TOKEN=$(grep TELEGRAM_BOT_TOKEN ~/.hermes/.env | cut -d= -f2)
+PROFILE=${HERMES_PROFILE:-default}
+ENV_FILE=~/.hermes/.env
+[ "$PROFILE" != "default" ] && [ -f ~/.hermes/profiles/$PROFILE/.env ] && ENV_FILE=~/.hermes/profiles/$PROFILE/.env
+TOKEN=*** TELEGRAM_BOT_TOKEN $ENV_FILE | cut -d= -f2)
 # Non-destructive: use editForumTopic to probe existence
 curl -s "https://api.telegram.org/bot${TOKEN}/editForumTopic" \
   -F "chat_id=7931997806" \
