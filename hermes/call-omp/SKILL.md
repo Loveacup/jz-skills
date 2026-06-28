@@ -1,5 +1,5 @@
 ---
-name: omp
+name: call-omp
 description: >-
   通过 Shell 通道标准化调用 OMP v16.2.2（Oh My Pi）为 Hermes 提供独立审计、govern 治理与
   编码辅助能力面，全程可监控、可干预、可讨论。当任务需要：独立 Advisor 风格审查并得到
