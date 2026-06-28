@@ -58,8 +58,10 @@ EXA_MODE_ROUTING = {
 }
 
 # 查询分类关键词
-EXA_ACADEMIC_KEYWORDS = ["论文", "综述", "survey", "architecture", "methodology", "framework", "algorithm"]
-EXA_RESEARCH_KEYWORDS = ["深度", "详细", "全面", "比较", "分析", "research", "overview", "comparison"]
+EXA_ACADEMIC_KEYWORDS = ["论文", "综述", "survey", "architecture", "methodology", "framework", "algorithm",
+                       "paper", "arxiv", "doi", "citation"]
+EXA_RESEARCH_KEYWORDS = ["深度", "详细", "全面", "比较", "对比", "分析", "research", "overview", "comparison",
+                         "comprehensive", "analysis", "deep", "in-depth", "compare"]
 EXA_FACTUAL_KEYWORDS = ["什么时候", "多少", "是谁", "日期", "版本", "release", "launch", "price"]
 
 # 各模式超时（秒）
@@ -90,12 +92,18 @@ COMMUNITY_INCLUDE_LAST30DAYS = False           # 重型源；默认仅 site:hn/z
 COMMUNITY_DEDUP_THRESHOLD = 0.80               # 标题相似度去重阈值
 COMMUNITY_TRIGGER_SITES = ("reddit.com", "news.ycombinator.com", "twitter.com",
                            "x.com", "zhihu.com", "weibo.com")
+COMMUNITY_PLATFORM_NAMES = ("reddit", "hacker news", "hackernews", "hn",
+                            "twitter", "v2ex", "zhihu", "微博", "weibo",
+                            "小红书", "xiaohongshu")
 
 
 def community_triggered(query: str) -> bool:
-    """查询是否含社区站点 site: 过滤（自动触发 community 引擎）。"""
+    """查询是否含社区站点 site: 过滤或平台名称（自动触发 community 引擎）。"""
+    import re
     q = (query or "").lower()
-    return any(f"site:{s}" in q for s in COMMUNITY_TRIGGER_SITES)
+    if any(f"site:{s}" in q for s in COMMUNITY_TRIGGER_SITES):
+        return True
+    return any(re.search(rf"\b{re.escape(p)}\b", q, flags=re.ASCII) for p in COMMUNITY_PLATFORM_NAMES)
 
 
 USER_AGENT = "wrr-hermes/4.0"
@@ -124,7 +132,7 @@ RECENCY_TAU = {
 
 # 意图分类关键词
 RESEARCH_KEYWORDS = EXA_RESEARCH_KEYWORDS
-DISCOVERY_KEYWORDS = ["有哪些", "盘点", "趋势", "trending", "探索", "推荐", "best", "top"]
+DISCOVERY_KEYWORDS = ["有哪些", "盘点", "趋势", "trending", "探索", "推荐", "找", "best", "top"]
 
 # 触发词（academic/skill；github/community 已在上方定义）
 ACADEMIC_KEYWORDS = EXA_ACADEMIC_KEYWORDS
