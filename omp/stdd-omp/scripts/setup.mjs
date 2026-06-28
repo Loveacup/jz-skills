@@ -567,6 +567,7 @@ function parseArgs(argv) {
     json: false,
     upgrade: false,
     help: false,
+    status: false,
   };
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -580,9 +581,24 @@ function parseArgs(argv) {
     else if (a === '--approval-mode') opts.approvalMode = args[++i];
     else if (a === '--github-repo') opts.githubRepo = args[++i];
     else if (a === '--json') opts.json = true;
+    else if (a === '--status') opts.status = true;
     else if (a === '--help' || a === '-h') opts.help = true;
   }
   return opts;
+}
+
+function formatStatus(report) {
+  const lines = [];
+  const comp = (label, ok) => ok ? '✅' : '❌';
+  lines.push('STDD-OMP ' + report.skill.version + ' | OMP ' + report.omp.version + ' | ' + (report.omp.compatibility.compatible ? 'compatible' : 'INCOMPATIBLE'));
+  lines.push(comp('hook', report.hook.installed) + ' hook  ' + comp('auditor', report.auditor.installed) + ' auditor  ' + comp('rules', report.rules.installed) + ' rules  ' + comp('watchdog', report.watchdog.installed) + ' wdog.md  ' + comp('yml', report.watchdog.ymlInstalled) + ' wdog.yml');
+  const missingCfg = Object.entries(report.omp_config.checks).filter(([,v]) => !v).map(([k]) => k);
+  if (missingCfg.length > 0) {
+    lines.push('config missing: ' + missingCfg.join(', '));
+  }
+  const allOk = report.hook.installed && report.rules.installed && report.watchdog.installed && report.watchdog.ymlInstalled && missingCfg.length === 0;
+  lines.push(allOk ? 'No action needed.' : 'Run --apply to install.');
+  return lines.join('\n');
 }
 
 async function main() {
@@ -615,6 +631,7 @@ async function main() {
     report.watchdog = updated.watchdog;
   }
 
+  if (opts.status) { console.log(formatStatus(report)); process.exit(0); }
   if (opts.json) {
     console.log(JSON.stringify({ report, actions, applyResults }, null, 2));
     process.exit(0);
