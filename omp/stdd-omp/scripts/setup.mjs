@@ -153,7 +153,7 @@ function detectOmpConfig() {
     modelRoles_advisor: /modelRoles:\s*\n(?:\s+\S+:\s*\S+\n)*?\s+advisor:/m.test(text),
     approvalMode: /tools:\s*\n(?:\s+\S+:\s*\S+\n)*?\s+approvalMode:/m.test(text),
     task_isolation: /task:\s*\n(?:\s+\S+:\s*\S+\n)*?\s+isolation:/m.test(text),
-    task_async: /task:\s*\n(?:\s+\S+:\s*\S+\n)*?\s+async:/m.test(text),
+    task_async: /^(task):\s*\n.*\n\s+async:/m.test(text) || /^\s{0,2}task:\s*\n(?:\s+\S+:.*\n)*?\s+async:/m.test(text),
   };
   return {
     config_path: path.join(nativeAgentDir(), 'config.yml'),
