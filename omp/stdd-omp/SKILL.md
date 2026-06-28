@@ -272,6 +272,7 @@ task:
 - 可选路径：`memory.backend: hindsight`|`mnemopi` → 可用 `retain`/`recall`/`reflect`（`local` 后端不支持）。
 
 ## References
+- `references/onboarding.md` — 新用户 5 分钟快速上手指南。
 - `references/verify-evidence.md` — 证据阶梯/夹逼放行/claimcheck/软硬失败。
 
 - `references/acceptance-forms.md` — 跨项目类型验收形式库。
