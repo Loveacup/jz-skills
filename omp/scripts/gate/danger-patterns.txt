@@ -1,0 +1,42 @@
+# danger-patterns.txt —— gate-danger.sh 的破坏性操作模式（每行一条 ERE，大小写不敏感）
+# 注释行（# 开头）与空行被忽略。--patterns-file 可整体覆盖。
+# 命中即人工红线：gate-danger 返回 exit 10，不可自动放行。
+
+# ── 破坏性文件 / 磁盘操作 ──
+rm[[:space:]]+-[a-z]*[rf]
+chmod[[:space:]]+-R
+chmod[[:space:]]+777
+chown[[:space:]]+-R
+mkfs\.
+dd[[:space:]]+if=
+>[[:space:]]*/dev/(sd|disk|nvme|null/)
+:[[:space:]]*\(\)[[:space:]]*\{[[:space:]]*:
+
+# ── 对外发布 / 毁工作区（git）──
+git[[:space:]]+push
+git[[:space:]]+reset[[:space:]]+--hard
+git[[:space:]]+clean[[:space:]]+-[a-z]*f
+
+# ── 提权 ──
+(^|[[:space:]])sudo[[:space:]]
+(^|[[:space:]])su[[:space:]]+-
+
+# ── 毁库 / 高危 SQL（govern sql 模式重点）──
+(drop|truncate)[[:space:]]+(table|database|schema)
+delete[[:space:]]+from[[:space:]]+[a-z_]+[[:space:]]*;?[[:space:]]*$
+update[[:space:]]+[a-z_]+[[:space:]]+set[[:space:]].*[^e]where[[:space:]]+1
+
+# ── 远程管道执行 ──
+curl[[:space:]].*\|[[:space:]]*(bash|sh)
+wget[[:space:]].*\|[[:space:]]*(bash|sh)
+
+# ── 进程 / 系统破坏 ──
+killall[[:space:]]
+kill[[:space:]]+-9
+shutdown[[:space:]]
+reboot([[:space:]]|$)
+
+# ── govern 高危模式关键词（prompt 文本里出现治理破坏意图）──
+deep-clean
+\bdeep[[:space:]]+clean\b
+force[[:space:]]+(delete|remove|drop|push)
