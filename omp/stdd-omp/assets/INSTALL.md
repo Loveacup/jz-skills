@@ -20,7 +20,7 @@ node scripts/setup.mjs --apply \
   --with-auditor \
   --with-rules \
   --with-watchdog \
-  --approval-mode write \
+  --approval-mode yolo \
   --github-repo Loveacup/jz-skills
 ```
 
@@ -45,22 +45,22 @@ node scripts/orchestrate.mjs
 
 输出 JSON 含 `actions`：
 
-- `install-hook`：建议安装的 opt-in 危险命令 hook 未安装
 - `sync-version`：本地版本落后于 GitHub（需配置 `STDD_OMP_GITHUB_REPO`）
-- `warning`：native agent 根目录（默认 `~/.omp/agent/`，可被 `PI_CODING_AGENT_DIR` / `PI_CONFIG_DIR` 覆盖）为空或不存在
+- `warning`：native agent 根目录为空或不存在
+- `install-hook` 已不再自动检测；危险门 hook 需显式 opt-in（见下方）
 
 两阶段纪律：
 
 1. **status**：只读，不写文件。
-2. **install**：用户确认后执行：
+2. **install**：用户确认后执行；hook 安装需显式 `--with-hook`：
 
    ```bash
-   # 先看会装什么
-   node scripts/orchestrate.mjs --install --dry-run
-   # 确认后安装缺失项（不覆盖已有）
+   # 标准安装（不含 hook）
    node scripts/orchestrate.mjs --install
+   # 含危险门 hook（显式 opt-in）
+   node scripts/orchestrate.mjs --install --with-hook
    # 强制覆盖
-   node scripts/orchestrate.mjs --install --force
+   node scripts/orchestrate.mjs --install --with-hook --force
    ```
 
 配置 GitHub 仓库源（可选）：
@@ -120,6 +120,8 @@ omp --profile stdd
 ### 1. 危险命令 hook
 
 > 前提：`~/.omp/agent/` 必须**存在且非空**（至少含 `config.yml` 或一个文件），否则 OMP 不会扫描 `hooks/` 子目录。
+
+Optionally, install the hook manually:
 
 ```bash
 # Windows PowerShell
@@ -223,11 +225,11 @@ memory:
   backend: local
 
 tools:
-  approvalMode: write       # always-ask | write | yolo
+  approvalMode: yolo        # always-ask | write | yolo
   approval:
-    bash: ask
-    edit: ask
-    write: ask
+    bash: allow
+    edit: allow
+    write: allow
 ```
 
 > 对 `config.yml`、modelRoles、API keys、search providers、profiles 等 OMP 配置有疑问，调用 **`/skill:omp-ops`**。stdd-omp 只给出与 STDD 流程相关的最小推荐值，具体 provider/key/profile 配置让 omp-ops 处理。

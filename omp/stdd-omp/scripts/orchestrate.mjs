@@ -278,13 +278,8 @@ export function planActions(status) {
       message: `native agent root (${status.native_agent_root}) is empty or missing; OMP may not discover hooks/agents.`,
     });
   }
-  if (!status.hook.installed) {
-    actions.push({ type: 'install-hook', target: status.hook.target });
-  }
-  // Custom stdd-auditor is optional; default auditor uses built-in reviewer/oracle.
-  // We intentionally do NOT auto-prompt for install-auditor to avoid forcing a
-  // custom sub-agent on users. The asset template remains available in
-  // assets/stdd-auditor.agent.md for manual opt-in.
+  // stdd-gate hook is optional opt-in; not auto-prompted.
+  // The asset template remains available in assets/stdd-gate.hook.ts for manual opt-in.
   if (status.sync_status === 'behind') {
     actions.push({
       type: 'sync-version',
@@ -371,16 +366,7 @@ function formatTextReport(status) {
     lines.push('✅ All components installed. No action needed.');
     return lines.join('\n');
   }
-  const missing = status.actions.filter(a => a.type === 'install-hook' || a.type === 'install-auditor');
-  if (missing.length > 0) {
-    lines.push('Missing opt-in components:');
-    for (const a of missing) {
-      lines.push('  - ' + a.type + ' → ' + (a.target || ''));
-    }
-    lines.push('');
-    lines.push('Run this to install:');
-    lines.push('  node scripts/orchestrate.mjs --install' + (status.local_version !== status.remote_version && status.remote_version ? ' --repo ' + (status.remote_repo || 'Loveacup/jz-skills') : ''));
-  }
+  // Only warnings and sync-status arrive here; opt-in components are no longer auto-prompted.
   const warnings = status.actions.filter(a => a.type === 'warning');
   for (const w of warnings) {
     lines.push('⚠️  ' + w.message);
@@ -393,9 +379,6 @@ function formatTextReport(status) {
 }
 
 function exitCodeFromStatus(status) {
-  if (status.actions.some((a) => a.type === 'install-hook')) {
-    return EXIT_MISSING;
-  }
   if (status.sync_status === 'behind') return EXIT_BEHIND;
   return EXIT_OK;
 }
@@ -407,6 +390,7 @@ function parseArgs(argv) {
     const a = args[i];
     if (a === '--repo') opts.githubRepo = args[++i];
     else if (a === '--install') opts.install = true;
+    else if (a === '--with-hook') opts.withHook = true;
     else if (a === '--force') opts.force = true;
     else if (a === '--dry-run') opts.dryRun = true;
     else if (a === '--text') opts.text = true;
@@ -426,27 +410,22 @@ function isMainModule() {
 
 async function main() {
   const opts = parseArgs(process.argv);
-
   if (opts.install || opts.dryRun) {
     const status = await run({ githubRepo: opts.githubRepo });
-    const installActions = status.actions.filter(
-      (a) => a.type === 'install-hook'
-    );
+    console.log(JSON.stringify({ mode: opts.dryRun ? 'dry-run' : 'install', status }, null, 2));
 
-    console.log(JSON.stringify({ mode: opts.dryRun ? 'dry-run' : 'install', planned: installActions, status }, null, 2));
-
-    if (opts.dryRun || installActions.length === 0) {
+    if (opts.dryRun) {
       process.exit(exitCodeFromStatus(status));
     }
 
-    const results = {};
-    if (status.actions.some((a) => a.type === 'install-hook')) {
+    // Only install hook when explicitly opted in with --with-hook
+    if (opts.withHook) {
+      const results = {};
       results.hook = installHook({ force: opts.force });
+      console.log(JSON.stringify({ installed: results }, null, 2));
+      const failed = Object.values(results).some((r) => r && !r.ok);
+      if (failed) process.exit(EXIT_ERROR);
     }
-
-    console.log(JSON.stringify({ installed: results }, null, 2));
-    const failed = Object.values(results).some((r) => r && !r.ok);
-    if (failed) process.exit(EXIT_ERROR);
 
     const postStatus = await run({ githubRepo: opts.githubRepo });
     process.exit(exitCodeFromStatus(postStatus));

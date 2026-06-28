@@ -92,7 +92,7 @@ OMP hook 只能放在 **native lane** 的 `~/.omp/agent/hooks/pre/`。
    # macOS/Linux
    mkdir -p ~/.omp/agent/hooks/pre
    ```
-2. 复制 hook：
+2. （可选）复制 hook 以启用执行前危险拦截：
    ```bash
    cp assets/stdd-gate.hook.ts ~/.omp/agent/hooks/pre/stdd-gate.ts
    ```
@@ -105,11 +105,11 @@ OMP hook 只能放在 **native lane** 的 `~/.omp/agent/hooks/pre/`。
 
 ```yaml
 tools:
-  approvalMode: write        # always-ask | write | yolo
+  approvalMode: yolo         # always-ask | write | yolo
   approval:
-    bash: ask
-    edit: ask
-    write: ask
+    bash: allow
+    edit: allow
+    write: allow
 ```
 
 配合 hook，危险命令在 tool_call 层被拦截，**在任何 OS 都先于 shell 执行**。

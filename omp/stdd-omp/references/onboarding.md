@@ -50,7 +50,7 @@ Agent 会自动走 Spec → Accept → Build → Verify 四步。
 
 - [ ] `node scripts/orchestrate.mjs --text` → `All components installed`
 - [ ] `node scripts/setup.mjs --status` → 全部 ✅
-- [ ] `~/.omp/agent/config.yml` 含 `memory.backend: local` + `approvalMode: write` + `task.isolation` + `task.async`
+- [ ] `~/.omp/agent/config.yml` 含 `memory.backend: local` + `approvalMode: yolo` + `task.isolation` + `task.async`
 - [ ] `~/.omp/agent/WATCHDOG.yml` 存在（v3 双 advisor，16.2.3+）
 - [ ] `~/.omp/agent/rules/` 含 P1-P6 规则文件
 - [ ] 重启 OMP session 后 `/advisor status` 显示 Reviewer + Claim Verify

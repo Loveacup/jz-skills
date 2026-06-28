@@ -9,7 +9,7 @@
 | 执行者 executor | 工作单元内执行、自验、上抛证据句柄 | bundled `task`/`oracle`（轻量 `quick_task`），`isolated` 返回 patch |
 | 测试者 tester | 动态跑、拿运行时证据（exit code/落盘/日志） | `eval`+`gates.mjs verifyTest` / `bash` / `browser` / `debug` / `lsp diagnostics`（需子代理跑则 bundled `task`/`quick_task`） |
 | 审核者 auditor | 凭证据静态复算、三态裁决、审执分离 | **同步审**：bundled `reviewer`/`oracle`（+可选自定义 `stdd-auditor`），读 `agent://<id>`/`history://<id>`；**回合级审**：v3 `WATCHDOG.yml` 多 advisor 委员会（16.2.3，per-advisor 跨模型=P4 第二维）/ 单 `WATCHDOG.md`（≤16.2.2 回退） |
-| 发布者 publisher | 收口 commit/tag/push（确认≠执行） | 主 agent 手动收口，受 `stdd-gate.hook.ts` danger 门 + approval 拦截 |
+| 发布者 publisher | 收口 commit/tag/push（确认≠执行） | 主 agent 手动收口，受 approval 拦截（可选接 `stdd-gate.hook.ts` danger 门） |
 
 ## P4：Producer ≠ Judge（独立性两维）
 
@@ -88,18 +88,17 @@ OMP 按名称动态发现 agent。默认 auditor 是内置 `reviewer`/`oracle`�
 ## 三级门控
 
 | 级别 | 配置 | 效果 |
-|---|---|---|
 | 只读 | `tools.approvalMode: always-ask` | 每个 tool_call 都问 |
-| 写入 | `tools.approvalMode: write` + `tools.approval.bash: ask` | 写入/危险工具需确认 |
+| 默认 yolo | `tools.approvalMode: yolo` | 工具自由执行，无需逐个确认 |
 | 危险 | hook + approval 双重拦截 | 危险命令 block |
 
 ```yaml
 tools:
-  approvalMode: write
+  approvalMode: yolo
   approval:
-    bash: ask
-    edit: ask
-    write: ask
+    bash: allow
+    edit: allow
+    write: allow
 ```
 
 ## modelRoles 映射

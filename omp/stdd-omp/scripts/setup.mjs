@@ -256,7 +256,7 @@ function buildConfig(cliOpts, report) {
   const existing = loadUserConfig();
   return {
     github_repo: cliOpts.githubRepo || existing.github_repo || null,
-    approval_mode: cliOpts.approvalMode || existing.approval_mode || 'write',
+    approval_mode: cliOpts.approvalMode || existing.approval_mode || 'yolo',
     components: {
       hook: cliOpts.withHook ?? existing.components?.hook ?? report.hook.installed,
       auditor: cliOpts.withAuditor ?? existing.components?.auditor ?? report.auditor.installed,
@@ -495,11 +495,11 @@ function formatConfigYamlSnippet(report) {
   lines.push('  # advisor: 批判性分析、客观判断、细节审查');
   lines.push('  advisor: <批判审查>');
   lines.push('tools:');
-  lines.push('  approvalMode: write');
+  lines.push('  approvalMode: yolo');
   lines.push('  approval:');
-  lines.push('    bash: ask');
-  lines.push('    edit: ask');
-  lines.push('    write: ask');
+  lines.push('    bash: allow');
+  lines.push('    edit: allow');
+  lines.push('    write: allow');
   lines.push('');
   lines.push('task:');
   lines.push('  isolation:');

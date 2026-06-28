@@ -14,11 +14,11 @@
 | 多 agent 协作 | `irc` | executor turn-done，coordinator `irc wait` |
 | 独立审计 | `reviewer` / `oracle` | 默认 auditor，P4 角色分离 |
 | 客观验证 | `eval` js + `gates.mjs` | 跨 OS 门控 |
-| 危险拦截 | hook (`tool_call`) | `stdd-gate.ts` 预拦截 |
+| 危险拦截 | hook (`tool_call`) | `stdd-gate.ts` 预拦截（可选，opt-in） |
 | 版本/安装自检 | `bash`/`node` CLI | `orchestrate.mjs` |
 | 协调者（coordinator） | OMP 主 session | 面向用户唯一入口，路由/收口 |
 | 测试者（tester） | `eval`/`bash`/`browser`/`debug`/`lsp` | 拿运行时证据，需子代理则 bundled `task`/`quick_task` |
-| 发布者（publisher） | 主 agent 手动收口 | 受 `stdd-gate.hook.ts` danger 门 + approval 拦截 |
+| 发布者（publisher） | 主 agent 手动收口 | danger 门 + approval 拦截（`stdd-gate.hook.ts` 可选） |
 | 经验回写 | `memory.backend: local` + `autolearn` | 自动沉淀，读 `memory://root`（`retain`/`recall` 需 `hindsight`/`mnemopi`） |
 
 ## 仍可深挖的高价值能力
@@ -132,11 +132,11 @@ modelRoles:
 ```yaml
 
 tools:
-  approvalMode: write
+  approvalMode: yolo
   approval:
-    bash: prompt
-    edit: prompt
-    write: prompt
+    bash: allow
+    edit: allow
+    write: allow
 
 task:
   isolation:

@@ -51,11 +51,9 @@ node scripts/orchestrate.mjs --text
 ```
 STDD-OMP v0.2.0 | OMP 16.2.3 | compatible
 
-Missing opt-in components:
-  - install-hook → ~/.omp/agent/hooks/pre/stdd-gate.ts
+All components installed.
 
-Run this to install:
-  node scripts/orchestrate.mjs --install
+No action needed → proceed to four-step loop.
 ```
 
 **Agent 决策**：
@@ -106,7 +104,7 @@ node scripts/setup.mjs --upgrade # 版本升级后刷新过时组件
 | 执行者 executor | 工作单元内执行、自验、上抛证据句柄 | bundled `task`/`oracle`（轻量 `quick_task`），`isolated` 返回 patch |
 | 测试者 tester | 动态跑、拿运行时证据（exit code/落盘/日志） | `eval`+`gates.mjs verifyTest` / `bash` / `browser` / `debug` / `lsp diagnostics`（需子代理跑则 bundled `task`/`quick_task`） |
 | 审核者 auditor | 凭证据静态复算、三态裁决、审执分离 | **同步审**：bundled `reviewer`/`oracle`（+可选自定义 `stdd-auditor`），读 `agent://<id>`/`history://<id>`；**回合级审**：v3 `WATCHDOG.yml` 多 advisor 委员会（16.2.3，per-advisor 跨模型=P4 第二维）/ 单 `WATCHDOG.md`（≤16.2.2 回退） |
-| 发布者 publisher | 收口 commit/tag/push（确认≠执行） | 主 agent 手动收口，受 `stdd-gate.hook.ts` danger 门 + approval 拦截 |
+| 发布者 publisher | 收口 commit/tag/push（确认≠执行） | 主 agent 手动收口，受 gates.mjs 危险模式拦截 |
 
 **第一动作：要不要起角色**——判据：
 - L0/L1 或 ≤2 步/单文件/可逆 → 不起角色，执行者身份切换自审。
@@ -143,7 +141,7 @@ node scripts/setup.mjs --upgrade # 版本升级后刷新过时组件
 ### ④ Verify — 判真假、 gates、审计、硬顶
 
 - **客观项**：用 `scripts/gates.mjs`（`eval` js 导入为主，CLI 为辅）。
-- **危险项**：匹配 danger patterns → block，升级人工；启用 `assets/stdd-gate.hook.ts` + `tools.approvalMode`。
+- **危险项**：匹配 danger patterns → block，升级人工；可选启用 `assets/stdd-gate.hook.ts`（默认不装，需时手动 `--install --with-hook`）。
 - **主观项/独立审计**：默认 spawn 内置 `reviewer` / `oracle`；可选自定义 `stdd-auditor`（只审不改）。
 - **证据阶梯**：parse（`lsp diagnostics` 0 error）→ resolve（`lsp references`/`grep` 旧符号归零）→ live（`eval`/`bash`/`browser`/`debug` 真跑）；档越高→越往上爬。详见 `references/verify-evidence.md`。
 - **夹逼放行第三态**：终态不可观测时沿阶梯爬到可行上限，两端夹逼（配置端+运行端）+ 缺口留账 + 论断降格；缺一退回沉默即失败。
@@ -186,7 +184,7 @@ node scripts/setup.mjs --upgrade # 版本升级后刷新过时组件
 4. Build：task 委派 executor；默认 isolated=true（失败不污染 workspace），async 长任务，完成发 irc turn-done。
 5. Verify：
    - 客观项：eval js 调用 gates.mjs verifyArtifact/verifyTest。
-   - 危险项：gates.mjs scanDanger / stdd-gate hook block。
+   - 危险项：gates.mjs scanDanger。
    - 主观项：auditor 读 agent://<id> 输出，独立 reviewer/oracle 审计。
    - 计数：gates.mjs bumpCounter，regen max=3，slice max=2。
 6. 全过 → 收尾 + memory 回写（`autolearn` 自动沉淀，读 `memory://root`）；不过 → 按分支回退；满硬顶 → 升级人工。
@@ -228,11 +226,11 @@ modelRoles:
   task: <代码生成-执行>
   advisor: <批判审查>
 tools:
-  approvalMode: write
+  approvalMode: yolo
   approval:
-    bash: prompt
-    edit: prompt
-    write: prompt
+    bash: allow
+    edit: allow
+    write: allow
 task:
   isolation:
     mode: auto
