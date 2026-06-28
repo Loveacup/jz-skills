@@ -263,8 +263,25 @@ function buildConfig(cliOpts, report) {
       rules: cliOpts.withRules ?? existing.components?.rules ?? report.rules.installed,
       watchdog: cliOpts.withWatchdog ?? existing.components?.watchdog ?? report.watchdog.installed,
     },
+    setup_version: report.skill.version,
     first_run_at: existing.first_run_at || new Date().toISOString(),
     last_setup_at: new Date().toISOString(),
+  };
+}
+
+function checkUpgrade(report) {
+  const existing = loadUserConfig();
+  const installedVer = existing.setup_version || '0.0.0';
+  const currentVer = report.skill.version;
+  const needsUpgrade = installedVer !== currentVer;
+  return {
+    installed_version: installedVer,
+    current_version: currentVer,
+    is_upgrade: needsUpgrade,
+    stale_components: needsUpgrade ? [
+      ...(existing.components?.rules ? ['rules'] : []),
+      ...(existing.components?.watchdog ? ['watchdog'] : []),
+    ] : [],
   };
 }
 
@@ -315,6 +332,7 @@ function planActions(report, opts) {
     });
   }
 
+  if (opts.upgrade) { opts.force = true; opts.apply = true; }
   if (opts.apply) {
     if (opts.withHook && !report.hook.installed) {
       actions.push({ type: 'install-hook', target: report.hook.target });
@@ -422,7 +440,8 @@ function formatReport(report) {
   lines.push('');
 
   lines.push(`skill lane      : ${report.skill.lane} (${report.skill.path})`);
-  lines.push(`skill version   : ${report.skill.version || 'unknown'}`);
+  const upgrade = checkUpgrade(report);
+  lines.push(`skill version   : ${report.skill.version || 'unknown'}${upgrade.is_upgrade ? ` (installed: ${upgrade.installed_version} → ${upgrade.current_version})` : ''}`);
   lines.push(`OMP version     : ${report.omp.version || 'unknown'}`);
   lines.push(`OMP compatible  : ${report.omp.compatibility.compatible ? 'yes' : 'no'} (${report.omp.compatibility.reason})`);
   lines.push('');
@@ -515,7 +534,8 @@ First-time setup + environment doctor for STDD-OMP.
 
 Options:
   --apply                  Install missing opt-in components selected by --with-*.
-  --force                  Overwrite existing files when applying.
+  --upgrade                Refresh stale opt-in components after skill version upgrade.
+  --force                  Overwrite existing files when applying/upgrading.
   --with-hook              Enable/install the pre-tool danger hook.
   --with-auditor           Enable/install the custom stdd-auditor agent.
   --with-rules             Enable/install STDD system rules.
@@ -545,12 +565,14 @@ function parseArgs(argv) {
     approvalMode: null,
     githubRepo: null,
     json: false,
+    upgrade: false,
     help: false,
   };
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === '--apply') opts.apply = true;
     else if (a === '--force') opts.force = true;
+    else if (a === '--upgrade') opts.upgrade = true;
     else if (a === '--with-hook') opts.withHook = true;
     else if (a === '--with-auditor') opts.withAuditor = true;
     else if (a === '--with-rules') opts.withRules = true;

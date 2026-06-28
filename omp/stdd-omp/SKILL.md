@@ -8,6 +8,7 @@ description: |
   夹逼放行, claimcheck, 反幻觉, 上游真相校准, 量化档, advisor 委员会.
   Runs the full STDD micro-loop inside OMP with objective gates and independent
   auditor wiring.
+  DO NOT use for: 临时探索/一次性查询/L0 草稿/随便试试.
 type: workflow
 theme: methodology
 best_for:
@@ -21,10 +22,21 @@ scenarios:
   - L3 无人值守 GOAL 闭环的夜间/后台执行
   - 6 角色编排、full-auto 自动编译 GOAL+发出+监督
 ---
-
 # stdd-omp
 
 在 OMP 内闭环运行 STDD（Spec → Accept → Build → Verify）的个人/小团队方法论。
+
+## 🚨 Red Flags: DO NOT SKIP THIS SKILL
+
+| 你的 agent 可能会想... | 为什么不行 |
+|---|---|
+| "这个任务很简单，不用走四步循环" | 简单任务恰恰是最容易跳过验收出 bug 的地方。L0 口头确认即可，但 L1+ 必须走。 |
+| "我先 Build 再补 Spec 也一样" | 没有契约的 Build = 反复返工。No Accept, no Build。 |
+| "我自己审一下就行，不用起 auditor" | 自审 = 偏见放行。P4 铁律：producer ≠ judge。 |
+| "这个 setup 太麻烦，跳过 opt-in 组件" | 无 hook = 危险命令无拦截。无 WATCHDOG = 无回合级审查。缺斤少两的 STDD 比不用更危险。 |
+| "差不多过了，证据以后再补" | P3 证据优先。推测放行 = Verify FAIL。claimcheck 反幻觉门强制要求证据锚。 |
+
+
 
 ## 强制入口：自动检测 / 安装模式
 
@@ -276,6 +288,17 @@ task:
 - `references/goal-loop.md` — L3 无人值守 GOAL 闭环。
 - `references/gates.md` — `gates.mjs` 调用、退出码、hook 安装、危险模式表。
 - `assets/INSTALL.md` — OMP 安装与跨 OS 说明。
+
+## ✅ Verification Checklist（每次执行 STDD 前自检）
+
+- [ ] 跑了 `node scripts/orchestrate.mjs` 确认版本兼容？
+- [ ] Accept 契约逐条可判 true/false（模糊词已量化）？
+- [ ] Build executor ≠ auditor（P4 角色分离，L3 独立 auditor）？
+- [ ] Verify 用了 gates.mjs / lsp / browser 拿客观证据（不是"应该过了"）？
+- [ ] regen/slice 计数器未超硬顶（≤3 / ≤2）？
+- [ ] 全过后 memory 回写（`autolearn` 自动沉淀 / `memory://root`）？
+
+**任何一项未勾 → 回对应步骤，不交付。**
 
 ## Cross-OS note
 
