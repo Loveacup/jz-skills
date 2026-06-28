@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# srof-lock — AUTHORING/BUILD-TIME generator (NOT a runtime component)
+# Projects setup.yaml into the dependency-light setup.lock.json the headless runner reads,
+# stamping source_sha256 for drift detection (P1-4) and projecting EVERY field the runner reads.
+# Uses yq at BUILD time only; the shipped runtime still parses JSON with jq alone (D-2 preserved).
+# Invoked by: skill-authoring's publish/lint step (or `make lock`).
+# Usage: srof-lock [setup.yaml] [setup.lock.json]
+# Location: $SROF_LIB/srof-lock (build-time tool)
+set -euo pipefail
+YAML="${1:-setup.yaml}"; OUT="${2:-setup.lock.json}"
+command -v yq >/dev/null || { echo "srof-lock needs yq (build-time only)"; exit 1; }
+SHA="$(shasum -a 256 "$YAML" 2>/dev/null | awk '{print $1}' || sha256sum "$YAML" | awk '{print $1}')"
+SHA="$SHA" yq -o=json '
+  {
+    "skill": .skill, "version": .version, "source_sha256": env(SHA),
+    "prerequisites": (.prerequisites // []),
+    "steps": [ .steps[] | {
+        "id": .id, "kind": .kind, "when": (.when // null), "run": (.run // null),
+        "verify": (.verify // null), "secret": (.secret // false), "cheap": (.cheap // false),
+        "input": (.input // null)
+    } ],
+    "on_failure": (.on_failure // {"default":"report_and_halt","max_retries":0})
+  }' "$YAML" > "$OUT.tmp" && mv -f "$OUT.tmp" "$OUT"
+echo "wrote $OUT (source_sha256=$SHA)"
