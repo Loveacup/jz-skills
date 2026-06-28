@@ -97,7 +97,7 @@ PI_CODING_AGENT_DIR
 1. 触发 stdd-omp
 2. 运行 orchestrate.mjs status
 3. 解析 actions：
-   - install-hook → ask 用户确认 → --install
+   - hook（可选）→ `--install --with-hook`
    - sync-version → 提示更新
    - warning → native_agent_root 为空，或 `--repo`/`STDD_OMP_GITHUB_REPO` 格式无效（默认 ~/.omp/agent/，可被 PI_CODING_AGENT_DIR / PI_CONFIG_DIR 覆盖）
 4. auditor 默认使用内置 `reviewer`/`oracle`；可选把 `assets/stdd-auditor.agent.md` 复制到 `~/.omp/agent/agents/stdd-auditor.md` 作为自定义增强
