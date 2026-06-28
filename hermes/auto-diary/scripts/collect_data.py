@@ -48,7 +48,11 @@ def get_weather(date_str=None):
 def get_calendar_events(date_str):
     try:
         dt=datetime.strptime(date_str,"%Y-%m-%d")
-        r=subprocess.run(["icalBuddy","-ic","个人1,工作1,Naomi1,Zelda1","-li","-ea","-nrd",f"eventsFrom:{dt.strftime('%Y-%m-%d')}T00:00:00",f"to:{dt.strftime('%Y-%m-%d')}T23:59:59"],capture_output=True,text=True,timeout=5)
+        # 2026-06-28 更新: iCloud CalDAV 日历名为带 1 后缀的订阅名（Naomi1, 工作1, 个人1）。
+        # icalBuddy calendars 列表显示 macOS Calendar.app 日历（无后缀），但实际可用日历走 CalDAV 订阅。
+        # 实测 2026-06-28: 个人1 有 11 个事件（昨天），其他 6 个日历 0 事件但仍可订阅。
+        # 用户 OOB 明确：Naomi1 和 工作1 是当前真实日历，不需要去除后缀。
+        r=subprocess.run(["icalBuddy","-ic","个人1,工作1,Naomi1,Zelda1,家庭,待办,Remio,日常采购,日历","-li","-ea","-nrd",f"eventsFrom:{dt.strftime('%Y-%m-%d')}T00:00:00",f"to:{dt.strftime('%Y-%m-%d')}T23:59:59"],capture_output=True,text=True,timeout=5)
         if r.returncode!=0: return []
         events=[];current=None
         for line in r.stdout.strip().split('\n'):
