@@ -2,7 +2,7 @@
 
 > **Canonical 架构参考。在本代码库工作前先读这里。**
 > 分工：**本文件 = 实现/架构权威**；需求/设计权威在 OB（见文末）。
-> 当前：v1.29.0 · 测试 21/21 文件、203/203 断言 · 健康分 0.96+。
+> 当前：v1.31.0 · 测试 23/23 文件、234/234 断言 · 健康分 0.96+。
 
 ## 是什么
 
@@ -31,6 +31,8 @@ cc-tmux = Hermes ↔ Claude Code 的 tmux-based 编排层。**Thin skill**：脚
 | `cc-topic-map.sh` | Topic↔Session 复用注册表 | v1.22.0 |
 | `cc-dogfood-report.sh` | 收尾摩擦 JSONL 累积 + 阈值摘要 | v1.27.0 |
 | `hooks/cc-status-writer.sh` | Hook→状态文件原子写 | v1.18.0 |
+| `cc-route.sh` | 消息路由：Hermes 收消息时判排队/转发/中断 | v1.30.0 |
+| `cc-active-sessions.sh` | 活跃 CC session 枚举 + 状态总览 | v1.31.0 |
 
 ## 三段协议（in-turn wait 全程可见 · cc-tmux 独有优势 · 不该砍）
 
@@ -53,7 +55,7 @@ cc-tmux = Hermes ↔ Claude Code 的 tmux-based 编排层。**Thin skill**：脚
 
 - **轨1 内核轨**（✅ 全部落地·bash·零依赖）：`P0-1 send-keys 封装 (v1.14.0) → P0-4 状态金标准 (v1.15.0) → P0-2 cc-usage (v1.16.0) → P0-3 cc-gc (v1.17.0) → P1-1 hook 成状态权威 (v1.18.0) → P1-2 fswatch (v1.19.0)`。测试 80→127。
 - **轨2 iii Hub 轨**（远期·赌多 Agent·pre-1.0 隔离）：`iii-P0 HelloWorld → iii-P1 复用官方 worker → iii-P2 自写 cc-worker🚧§8 → iii-P3 review-worker → iii-P4 全 Hub`。覆盖 R5/R6/R8a。
-- **轨3 Hermes 侧智能轨**（并行）：R2.1 澄清式交接 ✅ (v1.20.0) · R8b CC 配置 ✅ 部分 (v1.21.0) · R9b 会话复用 ✅ (v1.22.0) · R8a 路由归 iii · R8d3 WRR 升级（远期）。
+- **轨3 Hermes 侧智能轨**（并行）：R2.1 澄清式交接 ✅ (v1.20.0) · R8b CC 配置 ✅ 部分 (v1.21.0) · R9b 会话复用 ✅ (v1.22.0) · **R10 消息路由 ✅ (v1.30.0)** · R8a 路由归 iii · R8d3 WRR 升级（远期）。
 
 ## 不该动（红线 · 防颠覆误伤）
 
