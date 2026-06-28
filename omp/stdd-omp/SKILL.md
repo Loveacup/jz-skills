@@ -40,45 +40,40 @@ scenarios:
 
 ## 强制入口：自动检测 / 安装模式
 
-每次触发 **必须先运行** `scripts/orchestrate.mjs` 做只读检测，再看结果决定下一步。主路径是 CLI：
+每次触发 **必须先运行** `orchestrate.mjs --text` 做只读检测。这是 agent 自检，不是给人看的：
 
 ```bash
-node scripts/orchestrate.mjs
+node scripts/orchestrate.mjs --text
 ```
 
-在支持本地 ES module 动态导入的环境（如 Node）也可：
+输出示例：
 
-```js
-const o = await import('file:///path/to/scripts/orchestrate.mjs');
-const status = await o.run();
+```
+STDD-OMP v0.2.0 | OMP 16.2.3 | compatible
+
+Missing opt-in components:
+  - install-hook → ~/.omp/agent/hooks/pre/stdd-gate.ts
+
+Run this to install:
+  node scripts/orchestrate.mjs --install
 ```
 
-`status.actions` 可能包含：
-
-- `install-hook`：opt-in 危险命令 hook 未安装（建议安装）
-- `sync-version`：本地版本落后于 GitHub 最新 release（默认读取 `Loveacup/jz-skills`，可用 `STDD_OMP_GITHUB_REPO` 覆盖，向后兼容 `STDD_OMP_REPO`）
-- `warning`：native agent 根目录（默认 `~/.omp/agent/`，可被 `PI_CODING_AGENT_DIR` / `PI_CONFIG_DIR` 覆盖）为空，或 GitHub repo 格式无效
+**Agent 决策**：
+- `No action needed` → 直接进入四步循环。
+- `Missing opt-in components` → 向用户提议安装（一句话），用户同意后执行 `--install`。
+- `incompatible` / `warning` → 报告用户，不阻塞但标低置信度。
 
 **两阶段纪律**：
+1. `--text` 只读检测，绝不写文件。
+2. 用户确认后执行 `--install`（不覆盖已有文件，除非 `--force`）。
 
-1. **status 阶段**：只读检测，**绝不**写文件。
-2. **install 阶段**：只有当 `actions` 非空且用户明确同意（`ask`/`resolve`）后，才执行：
+更多组件（rules/WATCHDOG/config）用 setup 体检：
 
-   ```js
-   await o.installHook();
-   // 如需自定义 auditor，再单独调用：await o.installAuditor();
-   ```
-
-   或 CLI：
-
-   ```bash
-   # 先 dry-run 看会装什么
-   node scripts/orchestrate.mjs --install --dry-run
-   # 确认后再执行安装
-   node scripts/orchestrate.mjs --install
-   # 若要覆盖已有文件
-   node scripts/orchestrate.mjs --install --force
-   ```
+```bash
+node scripts/setup.mjs           # 查看全部 opt-in 组件 + config 建议
+node scripts/setup.mjs --apply   # 一键安装所有推荐组件
+node scripts/setup.mjs --upgrade # 版本升级后刷新过时组件
+```
 
 ## 顶部硬规则区（5 条承重墙）
 

@@ -363,6 +363,35 @@ export async function run({ githubRepo = process.env.STDD_OMP_GITHUB_REPO || pro
   return status;
 }
 
+function formatTextReport(status) {
+  const lines = [];
+  lines.push('STDD-OMP v' + status.local_version + ' | OMP ' + status.omp_version + ' | ' + (status.omp_compatible ? 'compatible' : 'incompatible'));
+  lines.push('');
+  if (status.actions.length === 0) {
+    lines.push('✅ All components installed. No action needed.');
+    return lines.join('\n');
+  }
+  const missing = status.actions.filter(a => a.type === 'install-hook' || a.type === 'install-auditor');
+  if (missing.length > 0) {
+    lines.push('Missing opt-in components:');
+    for (const a of missing) {
+      lines.push('  - ' + a.type + ' → ' + (a.target || ''));
+    }
+    lines.push('');
+    lines.push('Run this to install:');
+    lines.push('  node scripts/orchestrate.mjs --install' + (status.local_version !== status.remote_version && status.remote_version ? ' --repo ' + (status.remote_repo || 'Loveacup/jz-skills') : ''));
+  }
+  const warnings = status.actions.filter(a => a.type === 'warning');
+  for (const w of warnings) {
+    lines.push('⚠️  ' + w.message);
+  }
+  if (status.sync_status === 'behind') {
+    lines.push('');
+    lines.push('Skill is behind remote (' + status.local_version + ' → ' + status.remote_version + '). Run git pull or re-install.');
+  }
+  return lines.join('\n');
+}
+
 function exitCodeFromStatus(status) {
   if (status.actions.some((a) => a.type === 'install-hook')) {
     return EXIT_MISSING;
@@ -380,6 +409,7 @@ function parseArgs(argv) {
     else if (a === '--install') opts.install = true;
     else if (a === '--force') opts.force = true;
     else if (a === '--dry-run') opts.dryRun = true;
+    else if (a === '--text') opts.text = true;
   }
   return opts;
 }
@@ -423,7 +453,7 @@ async function main() {
   }
 
   const status = await run({ githubRepo: opts.githubRepo });
-  console.log(JSON.stringify(status, null, 2));
+  if (opts.text) { console.log(formatTextReport(status)); } else { console.log(JSON.stringify(status, null, 2)); }
   process.exit(exitCodeFromStatus(status));
 }
 
