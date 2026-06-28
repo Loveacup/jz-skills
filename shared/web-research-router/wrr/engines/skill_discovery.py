@@ -343,7 +343,8 @@ class SkillDiscoveryEngine(SearchEngine):
                                  url=url, snippet=snippet[:500], source_tag="skill"))
 
     async def health_check(self, *, deep: bool = False) -> EngineCheckResult:
-        """检查 GITHUB_TOKEN 是否配置（Skill Discovery 使用 GitHubClient code search）。"""
+        """检查 GITHUB_TOKEN + 验证 code search 实际可用；标注 skill 信源状态。"""
+        import httpx
         token = config.get_env("GITHUB_TOKEN")
         if not token:
             return EngineCheckResult(
@@ -360,11 +361,82 @@ class SkillDiscoveryEngine(SearchEngine):
                 ],
                 evidence={"env.GITHUB_TOKEN": "missing"},
             )
-        return EngineCheckResult(
-            engine=self.name,
-            status="ok",
-            tier=self.tier,
-            summary="GITHUB_TOKEN configured",
-            active_backend="github-code-search",
-            evidence={"env.GITHUB_TOKEN": "present"},
-        )
+
+        # 验证 GitHub code search 实际可用（轻量：只取 1 条 SKILL.md）
+        code_search_ok = False
+        code_search_detail = ""
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(
+                    "https://api.github.com/search/code",
+                    params={"q": "path:**/SKILL.md", "per_page": 1},
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Accept": "application/vnd.github.v3+json",
+                    },
+                )
+            if resp.status_code == 200:
+                data = resp.json()
+                count = data.get("total_count", 0)
+                code_search_ok = True
+                code_search_detail = f"{count} SKILL.md files found"
+            elif resp.status_code == 403:
+                code_search_detail = f"rate limited ({resp.status_code})"
+            else:
+                code_search_detail = f"search failed ({resp.status_code})"
+        except Exception as e:
+            code_search_detail = f"search error: {type(e).__name__}"
+
+        # Vercel skills 信源检查（可选，不影响状态）
+        vercel_ok = False
+        vercel_detail = ""
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(
+                    "https://api.github.com/repos/vercel-labs/skills",
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Accept": "application/vnd.github.v3+json",
+                    },
+                )
+            if resp.status_code == 200:
+                vercel_ok = True
+                vercel_detail = "vercel-labs/skills accessible"
+            elif resp.status_code == 404:
+                vercel_detail = "vercel-labs/skills not found"
+            else:
+                vercel_detail = f"vercel-labs/skills status {resp.status_code}"
+        except Exception:
+            vercel_detail = "vercel-labs/skills unreachable"
+
+        if code_search_ok:
+            return EngineCheckResult(
+                engine=self.name,
+                status="ok",
+                tier=self.tier,
+                summary=f"GitHub code search OK ({code_search_detail})",
+                active_backend="github-code-search",
+                evidence={
+                    "env.GITHUB_TOKEN": "present",
+                    "code_search": code_search_detail,
+                    "vercel_labs_skills": "accessible" if vercel_ok else vercel_detail,
+                },
+            )
+        else:
+            return EngineCheckResult(
+                engine=self.name,
+                status="fail",
+                tier=self.tier,
+                summary=f"GitHub code search failed: {code_search_detail}",
+                details="Token is set but code search is unavailable",
+                repair=[
+                    "Check GitHub token permissions (requires public_repo scope)",
+                    f"GitHub API returned: {code_search_detail}",
+                    "Regenerate token at https://github.com/settings/tokens",
+                    "Verify network can reach api.github.com",
+                ],
+                evidence={
+                    "env.GITHUB_TOKEN": "present",
+                    "code_search": code_search_detail,
+                },
+            )

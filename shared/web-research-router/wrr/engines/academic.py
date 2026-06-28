@@ -415,12 +415,78 @@ class AcademicEngine(SearchEngine):
         return [_to_result(p) for p in scored[:options.count]]
 
     async def health_check(self, *, deep: bool = False) -> EngineCheckResult:
-        """Academic 引擎无需本地配置（使用公开 OpenAlex/S2 API）。"""
-        return EngineCheckResult(
-            engine=self.name,
-            status="ok",
-            tier=self.tier,
-            summary="No local configuration required",
-            active_backend="openalex/semantic_scholar",
-            evidence={},
-        )
+        """探测 OpenAlex / Semantic Scholar / arXiv 公开 API 可达性；可选检查 paper-search-mcp。"""
+        import httpx
+        sources_ok: list[str] = []
+        sources_fail: list[str] = []
+        details: list[str] = []
+
+        probes = {
+            "openalex": "https://api.openalex.org/works?per_page=1",
+            "semantic_scholar": "https://api.semanticscholar.org/graph/v1/paper/search?query=test&limit=1",
+            "arxiv": "http://export.arxiv.org/api/query?search_query=all:test&max_results=1",
+        }
+
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            for name, url in probes.items():
+                try:
+                    resp = await client.get(url)
+                    if resp.status_code < 500:
+                        sources_ok.append(name)
+                    else:
+                        sources_fail.append(f"{name}({resp.status_code})")
+                except Exception as e:
+                    sources_fail.append(f"{name}({type(e).__name__})")
+
+        # paper-search-mcp (optional)
+        mcp_url = config.get_env("PAPER_SEARCH_MCP_URL")
+        if mcp_url:
+            try:
+                async with httpx.AsyncClient(timeout=3.0) as client:
+                    resp = await client.get(f"{mcp_url.rstrip('/')}/health")
+                if resp.status_code < 500:
+                    sources_ok.append("paper-search-mcp")
+                else:
+                    details.append(f"paper-search-mcp returned {resp.status_code}")
+            except Exception:
+                details.append("paper-search-mcp configured but unreachable")
+
+        active = "+".join(sources_ok) if sources_ok else "none"
+        if not sources_fail and sources_ok:
+            return EngineCheckResult(
+                engine=self.name,
+                status="ok",
+                tier=self.tier,
+                summary=f"Academic sources OK ({len(sources_ok)}/{len(probes)})",
+                active_backend=active,
+                evidence={"sources_ok": sources_ok},
+            )
+        elif sources_ok:
+            return EngineCheckResult(
+                engine=self.name,
+                status="warn",
+                tier=self.tier,
+                summary=f"Some sources unreachable ({len(sources_ok)}/{len(probes)} ok)",
+                details="; ".join(sources_fail + details),
+                active_backend=active,
+                repair=[
+                    "Check network connectivity to academic APIs",
+                    "Verify no firewall blocking api.openalex.org / api.semanticscholar.org / export.arxiv.org",
+                    "Optional: set PAPER_SEARCH_MCP_URL for MCP-based access",
+                ],
+                evidence={"sources_ok": sources_ok, "sources_fail": sources_fail},
+            )
+        else:
+            return EngineCheckResult(
+                engine=self.name,
+                status="fail",
+                tier=self.tier,
+                summary="All academic sources unreachable",
+                details="; ".join(sources_fail + details),
+                repair=[
+                    "Check network connectivity",
+                    "All sources (api.openalex.org / api.semanticscholar.org / export.arxiv.org) are unreachable",
+                    "Verify DNS resolution and firewall rules",
+                ],
+                evidence={"sources_ok": [], "sources_fail": sources_fail},
+            )

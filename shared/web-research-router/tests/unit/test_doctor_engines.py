@@ -111,24 +111,38 @@ def test_skill_missing_token():
 
 
 def test_skill_token_present():
-    """Skill Discovery: token 存在 → ok。"""
+    """Skill Discovery: token + code search OK → ok；模拟 API 返回。"""
+    async def mock_get(url, **kwargs):
+        m = MagicMock()
+        m.status_code = 200
+        m.json.return_value = {"total_count": 42}
+        return m
+
     with patch.dict(os.environ, {"GITHUB_TOKEN": "fake_token"}):
-        result = run(SkillDiscoveryEngine().health_check())
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            result = run(SkillDiscoveryEngine().health_check())
     assert result.status == "ok"
-    assert result.active_backend == "github-code-search"
+    assert "code search" in result.summary.lower()
     assert result.evidence.get("env.GITHUB_TOKEN") == "present"
+    assert "42" in result.evidence.get("code_search", "")
 
 
 # ── Academic 引擎测试 ──────────────────────────────────────────────
 def test_academic_always_ok():
-    """Academic: 无本地配置要求 → 始终 ok。"""
+    """Academic: 公开 API 可达 → ok；模拟 3 源全通。"""
+    async def mock_get(url, **kwargs):
+        m = MagicMock()
+        m.status_code = 200
+        return m
+
     with patch.dict(os.environ, {}, clear=True):
-        result = run(AcademicEngine().health_check())
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            result = run(AcademicEngine().health_check())
     assert result.status == "ok"
     assert result.engine == "academic"
     assert result.tier == 0
-    assert "No local configuration" in result.summary
-    assert result.active_backend == "openalex/semantic_scholar"
+    assert "3/3" in result.summary
+    assert "openalex" in result.active_backend
 
 
 # ── SearXNG 引擎测试 ───────────────────────────────────────────────

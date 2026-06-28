@@ -313,7 +313,7 @@ def build_parser() -> argparse.ArgumentParser:
     common.add_argument("--json", action="store_true", help="输出 JSON（机器可读）")
     common.add_argument("--env", metavar="PATH", help="指定 .env 路径（默认 $WRR_ENV 或 ~/.hermes/.env）")
     common.add_argument("-q", "--quiet", action="store_true", help="不打印 provider 等元信息")
-    common.add_argument("--provider", choices=["exa", "brave", "searxng", "github", "community"],
+    common.add_argument("--provider", choices=["exa", "brave", "searxng", "github", "community", "academic", "skill"],
                         help="强制单引擎（禁用 fallback）")
 
     sub = p.add_subparsers(dest="cmd", required=True)

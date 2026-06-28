@@ -19,9 +19,14 @@ ENGINE_REQUIREMENTS: Dict[str, Dict[str, Any]] = {
     "academic": {
         "tier": 0,
         "env": [],
+        "env_optional": ["PAPER_SEARCH_MCP_URL"],
         "commands": [],
-        "endpoints": [],
-        "description": "学术搜索（OpenAlex + Semantic Scholar）",
+        "endpoints": [
+            "https://api.openalex.org/works",
+            "https://api.semanticscholar.org/graph/v1/paper/search",
+            "http://export.arxiv.org/api/query",
+        ],
+        "description": "学术搜索（OpenAlex + Semantic Scholar + arXiv；可选 paper-search-mcp）",
     },
 
     # Tier 1: API key/token 要求
@@ -50,8 +55,11 @@ ENGINE_REQUIREMENTS: Dict[str, Dict[str, Any]] = {
         "tier": 1,
         "env": ["GITHUB_TOKEN"],
         "commands": [],
-        "endpoints": [],
-        "description": "Skill Discovery（GitHub code search）",
+        "endpoints": [
+            "https://api.github.com/search/code (path:**/SKILL.md)",
+            "https://api.github.com/repos/vercel-labs/skills (主信源)",
+        ],
+        "description": "Skill Discovery（GitHub code search；主信源 vercel-labs/skills + Agent-Reach/last30days 等）",
     },
 
     # Tier 2: 本地服务/CLI 要求
@@ -70,11 +78,16 @@ ENGINE_REQUIREMENTS: Dict[str, Dict[str, Any]] = {
         "env": [],
         "commands": ["opencli"],
         "endpoints": [],
-        "description": "社区搜索（OpenCLI + last30days）",
-        "optional_commands": ["python3"],  # last30days 需要
+        "description": "社区搜索（OpenCLI/Agent-Reach + last30days）",
+        "optional_commands": ["python3"],
         "optional_paths": [
             "~/code/last30days-skill/skills/last30days/scripts/last30days.py",
             "~/code/last30days-skill-cn/skills/last30days/scripts/last30days.py",
+        ],
+        "external_repos": [
+            "https://github.com/Panniantong/Agent-Reach",
+            "https://github.com/mvanhorn/last30days-skill",
+            "https://github.com/Jesseovo/last30days-skill-cn",
         ],
     },
 }

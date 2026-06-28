@@ -416,10 +416,19 @@ class CommunityEngine(SearchEngine):
         details = f"opencli found at: {opencli_path}"
         if config.COMMUNITY_INCLUDE_LAST30DAYS:
             l30_issues = []
-            if not os.path.exists(_L30_EN):
-                l30_issues.append(f"last30days_en script not found: {_L30_EN}")
-            if not os.path.exists(_L30_CN):
-                l30_issues.append(f"last30days_cn script not found: {_L30_CN}")
+            for label, path in [("last30days_en", _L30_EN), ("last30days_cn", _L30_CN)]:
+                if not os.path.exists(path):
+                    l30_issues.append(f"{label} not found: {path}")
+                elif deep:
+                    # deep mode: probe 脚本可执行性
+                    try:
+                        result = await probe_command("python3", (path, "--help"), timeout=5.0)
+                        if result.status != "ok":
+                            l30_issues.append(f"{label} probe failed: {result.status}")
+                        else:
+                            details += f", {label} OK"
+                    except Exception:
+                        l30_issues.append(f"{label}: probe error")
 
             if l30_issues:
                 return EngineCheckResult(
