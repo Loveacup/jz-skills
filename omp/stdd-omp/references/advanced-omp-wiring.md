@@ -80,49 +80,35 @@ repeatMode: after-gap
 
 **规则生效需要 `ttsr.enabled: true`（默认 off）**。`alwaysApply` 规则为常驻基线（`assets/stdd-rules/*.md`），TTSR 为零税补充，并存不互替。
 
-## Advisor + WATCHDOG（v3 委员会，16.2.3+）
+## Advisor + WATCHDOG（v3 双 advisor，16.2.3+ 已部署）
 
-**16.2.3 多 advisor `WATCHDOG.yml` 委员会**（已落地，推荐）：
+**v3 架构**：1 全科主审 + 1 声称核实 checker。详见 `assets/WATCHDOG.yml`（与 `~/.omp/agent/WATCHDOG.yml` 同步）。
 
 ### 启用配置（`~/.omp/agent/config.yml`）
 
 ```yaml
 modelRoles:
-  advisor: anthropic/claude-sonnet-4-5:medium
+  advisor: openai-codex/codex-auto-review:medium
 
 advisor:
   enabled: true
-  subagents: false      # 防多模型 fan-out 审查风暴
-  syncBacklog: 3        # 控频降本（默认 3）
-
-retry:
-  fallbackChains:
-    advisor:
-      - anthropic/claude-sonnet-4:medium
-      - openai/gpt-5-mini:fast
+  subagents: false
+  syncBacklog: 3
 ```
 
-### WATCHDOG 发现位置（优先级从高到低）
+### 双 advisor → STDD 承重墙映射
+
+| Advisor | Slug | 模型 | 镜头 | STDD 覆盖 |
+|---|---|---|---|---|
+| Reviewer | `reviewer` | Codex auto-review:medium | 宽镜头：scope/delivery/tool audit/fake verification（14条规则） | P1–P6 全覆盖 |
+| Claim Verify | `claim-verify` | DeepSeek V4 Flash | 窄镜头：声称核实（交付类+事实类，≤2条/轮 concern only） | P3 claimcheck（声称 vs 证据） |
+
+**Per-advisor 跨模型（Codex + DeepSeek，不同家族）= P4 第二维「模型/视角独立」**。Refute-or-Promote 实证跨模型交叉验证多发现 ~3% 同族遗漏。Chair 不部署（独立运行，无通信）。
+
+### WATCHDOG 发现位置
 
 1. 用户级：`~/.omp/agent/WATCHDOG.yml`（优先）/ `WATCHDOG.md`
 2. 项目级：`<dir>/WATCHDOG.yml`、`<dir>/.omp/WATCHDOG.yml`
-
-多文件**同时加载**，近 cwd 后注入优先。
-
-### `@` 导入语法
-
-可把 STDD 承重墙规则 `@` 进 WATCHDOG：
-
-```yaml
-# WATCHDOG.yml 内
-advisors:
-  - slug: delivery-auditor
-    ...
-    instruction: |
-      @assets/stdd-rules/P1-decidable.md
-      @assets/stdd-rules/P2-acceptance-required.md
-      ...
-```
 
 ### 运维 slash
 
@@ -130,25 +116,10 @@ advisors:
 - `/advisor status` — 查看当前状态
 - `/advisor dump` — 导出最后一次审查结果
 - `/advisor configure` — TUI 配置 advisor 参数
-- `@path/to/file.md` — 导入外部规则
-
-### 委员会 → STDD 承重墙映射
-
-裁到 5 个 advisor（详见 `assets/WATCHDOG.yml`）：
-
-| Advisor | Severity | 映射承重墙 |
-|---|---|---|
-| delivery-auditor | blocker | P2 验收不可省 + claimcheck |
-| correctness-auditor | concern→blocker | P3 证据优先 |
-| security-auditor | blocker | danger 类 |
-| evidence-anchor-checker | concern | claimcheck（P3 子集） |
-| style-keeper | concern | 命名/AI 腔 |
-
-**Per-advisor 跨模型 = P4 第二维「模型/视角独立」**。Auto-fix 双授权红线。Chair 不部署。
 
 ### 回退：单 WATCHDOG.md（≤16.2.2）
 
-`WATCHDOG.yml = 16.2.3+ 委员会；WATCHDOG.md = ≤16.2.2 单 advisor 回退`。
+`WATCHDOG.yml = 16.2.3+ 双 advisor；WATCHDOG.md = ≤16.2.2 单 advisor 回退`。
 
 ## LSP / DAP / Browser → Verify 的多种证据
 

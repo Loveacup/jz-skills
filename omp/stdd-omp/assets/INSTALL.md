@@ -184,7 +184,7 @@ mkdir -p ./.omp                                 # macOS/Linux
 cp assets/WATCHDOG.yml .omp/WATCHDOG.yml          # macOS/Linux
 ```
 
-校验：`/advisor configure` TUI 确认 5 个 advisor 已加载。
+校验：`/advisor configure` TUI 确认 Reviewer + Claim Verify 两个 advisor 已加载。
 
 **≤16.2.2（回退）**：复制单 `WATCHDOG.md`：
 

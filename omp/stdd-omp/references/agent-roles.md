@@ -70,20 +70,18 @@ OMP 按名称动态发现 agent。默认 auditor 是内置 `reviewer`/`oracle`�
 - 多 executor 并行时启用 `task.isolation.mode`。
 - auditor 应在干净上下文或独立 session 中运行。
 
-## Advisor 委员会（v3，审核者回合级载体，16.2.3 已落地）
+## Advisor 委员会（v3，审核者回合级载体，16.2.3 已部署）
 
-`WATCHDOG.yml` 多 advisor 数组，每 advisor 独立 `slug/name/model/tools/instruction`。
-裁到 STDD 承重墙的 5 个 advisor（见 `assets/WATCHDOG.yml`）：
+`WATCHDOG.yml` 双 advisor 架构（详见 `assets/WATCHDOG.yml`）：
 
-- `delivery-auditor`（blocker）
-- `correctness-auditor`（concern→blocker）
-- `security-auditor`（blocker）
-- `evidence-anchor-checker`（concern）
-- `style-keeper`（concern）
+| Advisor | Slug | 模型 | 镜头 | STDD 承重墙覆盖 |
+|---|---|---|---|---|
+| Reviewer | `reviewer` | Codex auto-review:medium | 宽镜头：14 条规则全科审查 | P1–P6 全覆盖（scope shrinkage/P3 fake verification/MUST-NEVER/tool audit/delivery） |
+| Claim Verify | `claim-verify` | DeepSeek V4 Flash | 窄镜头：声称核实（交付类+事实类） | P3 claimcheck（声称 vs 证据独立核对，≤2 条/轮 concern only） |
 
-**Per-advisor 跨模型 = P4 第二维「模型/视角独立」**（不同 provider 家族互相制衡，Refute-or-Promote 实证多发现 ~3% 同族遗漏）。
+**Per-advisor 跨模型（Codex + DeepSeek，不同家族）= P4 第二维「模型/视角独立」**。Refute-or-Promote 实证跨模型交叉验证多发现 ~3% 同族遗漏。Reviewer: blocker/concern/nit；Claim Verify: concern only，与 reviewer 去重。
 
-blocker 同步中断 / concern 异步注入 / nit 自动修复。`advisor.enabled: true`、`advisor.subagents: false`（防多模型 fan-out 审查风暴）、`advisor.syncBacklog`（默认 3，控频降本）。Chair 不部署（advisor 间不通信，靠内置 severity 分发）。Auto-fix 需双授权（手动加 `edit` + `tools.approval.edit: prompt`，绝不 yolo）。`retry.fallbackChains.advisor` 降级链。
+`advisor.enabled: true`、`advisor.subagents: false`、`advisor.syncBacklog` 默认 3。`retry.fallbackChains.advisor` 降级链。Chair 不部署（advisor 间不通信）。
 
 单 `WATCHDOG.md` = ≤16.2.2 回退。
 
