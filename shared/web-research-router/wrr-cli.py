@@ -270,7 +270,7 @@ def cmd_doctor(ns) -> int:
             registry,
             engine=ns.engine,
             tier=ns.tier,
-            deep=False,  # P0 不支持 deep
+            deep=ns.deep,
         ))
     except ValueError as e:
         _eprint(f"✗ {e}")
@@ -348,6 +348,7 @@ def build_parser() -> argparse.ArgumentParser:
     dp.add_argument("--env", metavar="PATH", help="指定 .env 路径")
     dp.add_argument("-q", "--quiet", action="store_true", help="不打印元信息")
     dp.add_argument("--strict", action="store_true", help="严格模式：warn 也视为失败（退出码 1）")
+    dp.add_argument("--deep", action="store_true", help="深度探测：执行命令/API 实际验证（较慢）")
     dp.set_defaults(func=cmd_doctor)
 
     return p
