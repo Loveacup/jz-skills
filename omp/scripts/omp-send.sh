@@ -2,7 +2,7 @@
 # ─────────────────────────────────────────────────────────────────
 # omp-send.sh —— 四步②：渲染 OMP prompt 并按通道调用 omp
 #
-# 通道优先级（最新设计）：RPC（过渡首选）> Shell（快速单次降级）> ACP（终局·预留）。
+# 通道优先级（v0.3.0）：ACP（终局首选）> RPC（过渡备选）> Shell（降级保底）。
 #   RPC   : omp --mode rpc 持续连接（NDJSON stdio）；daemon 常驻、fifo 发 prompt、stdout 落盘。
 #           天然异步——发 prompt 立即返回，omp-monitor 轮询 turn_end + daemon 心跳。
 #   Shell : omp -p --mode json 单次进程（同步/--async）。RPC 启动/就绪失败时自动降级到此。
@@ -54,6 +54,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "omp-send: 未知参数 $1" >&2; exit 3 ;;
   esac
 done
+[[ "$MAXTIME" =~ ^[1-9][0-9]*$ ]] || { echo "omp-send: --max-time 须为正整数，当前 $MAXTIME" >&2; exit 3; }
 [[ -n "$STATE" && -r "$STATE" ]] || { echo "omp-send: 读不到 --state '$STATE'" >&2; exit 2; }
 
 PKG=$(jq -c '.package' "$STATE")
@@ -67,9 +68,12 @@ update_state() { local f="$1"; local s; s=$(jq "$f | .updated_at=\"$(now_iso)\""
 
 # ── gate-counter：本次 send = 一轮 ──
 set +e
+C_ERR=$(mktemp)
 C_OUT=$(bash "$GATE/gate-counter.sh" --task-id "$TASK_ID" --inc-round \
         --round-limit "$(echo "$PKG" | jq -r '.threshold.round_limit')" \
-        --reject-limit "$(echo "$PKG" | jq -r '.threshold.reject_limit')" 2>/dev/null); C_RC=$?
+        --reject-limit "$(echo "$PKG" | jq -r '.threshold.reject_limit')" 2>"$C_ERR"); C_RC=$?
+[[ $C_RC -ne 0 && $C_RC -ne 20 ]] && { echo "⚠ gate-counter 异常 (rc=$C_RC):" >&2; cat "$C_ERR" >&2; }
+rm -f "$C_ERR"
 set -e
 if [[ $C_RC -eq 20 ]]; then
   echo "⛔ omp-send: 轮次超限，硬终止（不发送）: $C_OUT" >&2
@@ -89,6 +93,12 @@ CRIT_LIST=$(echo "$PKG" | jq -r '.criterion[] | "  - " + .')
 RL=$(echo "$PKG" | jq -r '.threshold.round_limit')
 JL=$(echo "$PKG" | jq -r '.threshold.reject_limit')
 
+# 关键字段空值校验
+[[ -z "$TASK" || "$TASK" == "null" ]] && { echo "omp-send: 委派包 .task 缺失或为空" >&2; exit 3; }
+[[ -z "$MODE_FULL" || "$MODE_FULL" == "null" ]] && { echo "omp-send: 委派包 .mode 缺失" >&2; exit 3; }
+[[ "$RL" =~ ^[0-9]+$ ]] || RL=3
+[[ "$JL" =~ ^[0-9]+$ ]] || JL=3
+
 if [[ "$BASE_MODE" == "govern" ]]; then TPL="$TPL_DIR/govern-prompt-template.md"; else TPL="$TPL_DIR/audit-prompt-template.md"; fi
 if [[ -r "$TPL" ]]; then SYS=$(cat "$TPL"); else
   SYS="你是独立审查者。只输出一个 JSON 对象（可包在 \`\`\`json 围栏里），字段：severity(nit|concern|blocker|pass)、summary、evidence(数组，每项 {type,ref} 指真实文件/命令/行号；不得为空)、reject_instruction。不采信无证据的结论。"
@@ -104,7 +114,7 @@ scope（严格遵守，越界即视为失败）：
   允许路径：$ALLOWED
   禁止路径：$DENIED
   工作目录：${CWD:-（未指定，默认当前）}
-$( [[ -n "$SUBMODE" ]] && echo "治理子模式：$SUBMODE" )
+$([ -n "$SUBMODE" ] && printf '治理子模式：%s\n' "$SUBMODE")
 
 可裁决验收条件（逐条核对）：
 $CRIT_LIST
@@ -128,7 +138,7 @@ if $DRY; then
   echo "===📋 BEGIN omp-send --dry-run (relay verbatim)==="
   echo "channel=$CHANNEL  task_id=$TASK_ID  mode=$MODE_FULL  round=$ROUND  tools=$TOOLS  max-time=$MAXTIME"
   if [[ "$CHANNEL" == "rpc" ]]; then
-    echo "rpc daemon: $OMP_BIN --mode rpc --no-session --tools $TOOLS ${CWD:+--cwd $CWD} ${AUTO_APPROVE:+--auto-approve}${ADVISOR:+ --advisor} --append-system-prompt <sys>"
+    echo "rpc daemon: $OMP_BIN --mode rpc --no-session --tools $TOOLS ${CWD:+--cwd "$CWD"} ${AUTO_APPROVE:+--auto-approve}${ADVISOR:+ --advisor} --append-system-prompt <sys>"
     echo "rpc stdin : $(jq -cn --arg m "$USER_MSG" '{type:"prompt",message:$m}' | head -c 160)…"
   else
     echo "shell cmd : $OMP_BIN -p --mode json --no-session --max-time $MAXTIME --tools $TOOLS ${CWD:+--cwd $CWD} … --append-system-prompt <sys> <user_msg>"
@@ -180,6 +190,16 @@ rpc_send() {
   fifo="$(fifo_path "$TASK_ID")"
   dpid=$(jq -r '.run.rpc_pid // empty' "$STATE")
   hpid=$(jq -r '.run.holder_pid // empty' "$STATE")
+  # 复用存活 daemon 前校验配置一致性（防权限泄露）
+  if [[ -n "$dpid" ]]; then
+    REC_TOOLS=$(jq -r '.run.rpc_tools // ""' "$STATE")
+    REC_APPROVE=$(jq -r '.run.rpc_auto_approve // ""' "$STATE")
+    if [[ "$REC_TOOLS" != "$TOOLS" ]] || [[ "$REC_APPROVE" != "$AUTO_APPROVE" ]]; then
+      warn "rpc: daemon 配置不匹配（tools/auto-approve 变更），重启"
+      rpc_stop "$TASK_ID" "$dpid" "$hpid"
+      dpid=""; hpid=""
+    fi
+  fi
   # 复用存活 daemon；否则新建
   if ! rpc_daemon_alive "$dpid"; then
     rpc_stop "$TASK_ID" "$dpid" "$hpid"   # 清旧残留
@@ -206,7 +226,7 @@ rpc_send() {
     if [[ $ready -ne 1 ]]; then
       warn "rpc: daemon 未就绪（超时或早退）"; rpc_stop "$TASK_ID" "$dpid" "$hpid"; return 1
     fi
-    update_state ".run.rpc_pid=$dpid | .run.holder_pid=$hpid | .run.fifo=\"$fifo\""
+    update_state ".run.rpc_pid=$dpid | .run.holder_pid=$hpid | .run.fifo=\"$fifo\" | .run.rpc_tools=\"$TOOLS\" | .run.rpc_auto_approve=\"$AUTO_APPROVE\""
   fi
   # 发 prompt（记 turn 起始行 marker，供 monitor 只看本轮）
   tsl=$(wc -l < "$RAW" | tr -d ' ')

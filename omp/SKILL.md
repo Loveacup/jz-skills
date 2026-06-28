@@ -7,7 +7,7 @@ description: >-
   evidence/sql 治理；或 OMP 的 LSP/DAP/Hashline/浏览器/多搜索后端能力面时使用。触发词：
   OMP、Oh My Pi、omp 审计、独立审查、govern 治理、审计报告、Advisor。与 cc-tmux 互补
   （cc-tmux 管长会话编码委派，omp 管审计/治理/工具面）。
-version: 0.2.0
+version: 0.3.0
 type: autonomous-ai-agents
 author: anyis (Hermes Agent Team)
 license: MIT
@@ -171,3 +171,31 @@ enforcement。**待验证项不得在输出中写成已实现事实。**
 
 `bash tests/run-all.sh` —— 自包含套件（mock omp，零 token），覆盖 gate 硬卡 + 四步状态机 +
 async 监控/干预 + ACP delegate_task + 红线。当前 **55/55 通过**。
+
+## 版本历史
+
+### v0.3.0（2026-06-28）— ACP 审查驱动安全加固
+
+基于 ACP delegate_task 对 `omp-send.sh` 的深度代码审查（15+ 问题，P0 2 项），修复：
+
+| 级别 | 修复 | 描述 |
+|:---:|------|------|
+| P0 | RPC daemon 复用权限泄露 | 复用前校验 `rpc_tools`/`rpc_auto_approve` 与当前配置一致，不一致则重启 |
+| P0 | heredoc 命令替换风险 | `$(...)` 替换为 `printf` + 字符串拼接，消除维护者误引入注入的风险 |
+| P1 | gate-counter 静默错误 | `2>/dev/null` → `2>"$C_ERR"`，失败时 cat stderr |
+| P1 | 关键字段空值校验 | `TASK`/`MODE_FULL` 空值→exit 3；`RL`/`JL` 非数字→默认 3 |
+| P2 | MAXTIME 数值校验 | 非正整数→exit 3 |
+| P2 | 变量展开引号 | dry-run 输出 `${CWD:+--cwd "$CWD"}` |
+
+### v0.2.0（2026-06-28）— ACP 升为默认通道
+
+- 优先级 RPC > Shell > ACP → **ACP > RPC > Shell**
+- `omp-send.sh` 默认 channel `rpc` → `acp`
+- 三通道 smoke test 全部通过（RPC ✅ / Shell ✅ / ACP ✅）
+
+### v0.1.0（2026-06-28）— 初始发布
+
+- 三通道 RPC / Shell / ACP 实现
+- 7 态状态机
+- 三 gate（verify/danger/counter）
+- 55/55 单元测试
