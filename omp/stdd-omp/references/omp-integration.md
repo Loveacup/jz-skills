@@ -2,6 +2,8 @@
 
 本页把 STDD 的每一步落在 OMP 的具体机制上，便于在编写/调试时直接对应。
 
+> **认抽象**：下表 OMP 原语列会随版本漂移，过期更新本表即可，核心承重墙不依赖它。
+
 ## 当前已利用的 OMP 能力
 
 | STDD 概念 | OMP 机制 | 当前用法 |
@@ -14,7 +16,10 @@
 | 客观验证 | `eval` js + `gates.mjs` | 跨 OS 门控 |
 | 危险拦截 | hook (`tool_call`) | `stdd-gate.ts` 预拦截 |
 | 版本/安装自检 | `bash`/`node` CLI | `orchestrate.mjs` |
-| 经验回写 | `memory.backend: local` | 推荐配置，全过后写经验 |
+| 协调者（coordinator） | OMP 主 session | 面向用户唯一入口，路由/收口 |
+| 测试者（tester） | `eval`/`bash`/`browser`/`debug`/`lsp` | 拿运行时证据，需子代理则 bundled `task`/`quick_task` |
+| 发布者（publisher） | 主 agent 手动收口 | 受 `stdd-gate.hook.ts` danger 门 + approval 拦截 |
+| 经验回写 | `memory.backend: local` + `autolearn` | 自动沉淀，读 `memory://root`（`retain`/`recall` 需 `hindsight`/`mnemopi`） |
 
 ## 仍可深挖的高价值能力
 
@@ -22,7 +27,7 @@
 
 OMP 的 plan 模式会在存在待审批 plan 文件时切换提示词，强制按章节修订。
 
-- L2/L3 的 Spec+Accept 不应只停留在对话，应写成 **plan 工件**（如 `.stdd/plan.md` 或 `L3-control.md`）。
+- L2/L3 的 Spec+Accept 不应只停留在对话，应写成 **plan 工件**（如 `.stdd/plan.md` 或 `beam3-control.md`）。
 - 用 `resolve(apply)` 让人审通过；通过后进入 plan 模式执行。
 - plan 文件建议分节：`Spec` / `Accept` / `Build slices` / `Verify gates` / `Escalation`。
 
@@ -32,11 +37,11 @@ OMP 的 plan 模式会在存在待审批 plan 文件时切换提示词，强制�
 
 - L2/L3 Build 推荐启用 `task.isolation.mode`。
 - 隔离后 executor 的改动以 patch/branch 形式返回；**Verify 全过再合并**，失败则丢弃 patch。
-- 这与 STDD 的“证据优先、失败回退”天然匹配。
+- 这与 STDD 的"证据优先、失败回退"天然匹配。
 
 ### 3. modelRoles / thinkingLevel（为不同角色选模型）
 
-OMP 内置 model roles：`default`、`smol`、`slow`、`vision`、`plan`、`designer`、`commit`、`title`、`task`、`advisor`。
+OMP 内置 model roles：`default`、`smol`、`slow`、`vision`、`plan`、`designer`、`commit`、`title`、`task`、`advisor`、`tiny`（16.2.2+）。
 
 | STDD 角色 | 推荐 modelRole | 说明 |
 |---|---|---|
@@ -44,6 +49,7 @@ OMP 内置 model roles：`default`、`smol`、`slow`、`vision`、`plan`、`desi
 | Build executor | `task` | 执行导向 |
 | 审计 | `advisor` | 审慎、少改动；审计 agent 可用 `reviewer`/`oracle` |
 | 快速验证/计数 | `smol` | 便宜、低延迟 |
+| 轻量任务 | `tiny`（16.2.2+） | 更轻量、更低成本 |
 | 复杂设计 | `slow` 或 `plan:high` | 深度推理 |
 
 可在 `config.yml` 配置：
@@ -69,9 +75,12 @@ modelRoles:
 
 ### 6. Memory / Hindsight（经验闭环）
 
-- 启用 `memory.backend: local` 后，每次全过的任务可用 `retain` 写一条经验。
-- 后续同类任务开头用 `recall` / `reflect` 读取历史经验，作为 Spec 输入。
-- memory 自动生成的 skill playbook 也可被当前 skill 引用。
+- 默认路径：`memory.backend: local` + `autolearn.enabled: true`。
+  - 后台自动抽取 → `MEMORY.md`/`memory_summary.md`/`skills/`，停止时自动沉淀。
+  - 启用 `manage_skill`/`learn` 工具，落 `~/.omp/agent/managed-skills`。
+  - 读经验：`read memory://root`（或 `/memory view`）。
+- 可选路径：`memory.backend: hindsight`|`mnemopi` → 可用 `retain`/`recall`/`reflect`。
+  - `local` 后端**不支持** `retain`/`recall`。
 
 ### 7. Browser E2E（验收形式扩展）
 
@@ -85,9 +94,9 @@ modelRoles:
 
 详见 `references/advanced-omp-wiring.md`。要点：
 
-- **eval**：把 `gates.mjs` 校验串成可复现脚本；复杂任务可尝试并行/流水线（先测试再使用）。
-- **TTSR / Rules**：把 STDD 承重墙写成 `~/.omp/agent/rules/*.md` 系统规则；`alwaysApply` 已在本机验证，stream 触发 schema 需先测试。
-- **Advisor + WATCHDOG.md**：启用 `advisor` modelRole，复制 `assets/WATCHDOG.md` 到 `~/.omp/agent/WATCHDOG.md`，让 Advisor 每回合审查 P1-P6。
+- **eval**：把 `gates.mjs` 校验串成可复现脚本；`agent()`/`parallel()`/`pipeline()`/`completion()` 编排多阶段。
+- **TTSR / Rules**：把 STDD 承重墙写成规则文件，`condition`/`astCondition`/`repeatMode` 零税触发。
+- **Advisor + WATCHDOG**：v3 `WATCHDOG.yml` 多 advisor 委员会（16.2.3+），per-advisor 跨模型；单 `WATCHDOG.md` 为 ≤16.2.2 回退。
 - **LSP / DAP / Browser**：把类型检查、调试器状态、浏览器 E2E 作为验收证据，扩展 P3 客观验证面。
 
 ### 9. Hook 的 `tool_result` 后处理（可选增强）
@@ -105,6 +114,8 @@ modelRoles:
 ```yaml
 memory:
   backend: local
+autolearn:
+  enabled: true
 
 modelRoles:
   plan: anthropic/claude-sonnet-4:medium
@@ -126,8 +137,9 @@ task:
 ```
 
 > **OMP 配置写法/密钥/provider/profile 细节** 见 **`/skill:omp-ops`**。本页只列出 STDD 流程所需的最小键。
+> `memory.backend: local` 不支持 `retain`/`recall`，需 `hindsight`/`mnemopi` 才可用。
 
 ## 与 SKILL.md 的对应
 
-- `SKILL.md` 的“四步微循环”已按上表接线；
+- `SKILL.md` 的"四步微循环"已按上表接线；
 - 本节作为底层机制参考，供调试和扩展时查阅。

@@ -165,23 +165,34 @@ cp assets/stdd-rules/*.md ~/.omp/agent/rules/
 
 > 本机 `~/.omp/agent/rules/omp-identity.md` 确认了该目录有效；`event`/`pattern`/`action` 等 TTSR stream 触发 schema 请先本地验证再使用。
 
-### 4. WATCHDOG.md（Advisor 增强）
+### 4. WATCHDOG（Advisor 增强，v3 委员会 + 单 advisor 回退）
 
-将 `assets/WATCHDOG.md` 复制到 Advisor 可发现位置之一：
+**16.2.3+（推荐）**：复制 v3 多 advisor 委员会到 Advisor 可发现位置：
 
 ```bash
 # 用户级（全局生效）
 # Windows PowerShell
-copy assets\WATCHDOG.md "$env:USERPROFILE\.omp\agent\WATCHDOG.md"
+copy assets\WATCHDOG.yml "$env:USERPROFILE\.omp\agent\WATCHDOG.yml"
 # macOS/Linux
-cp assets/WATCHDOG.md ~/.omp/agent/WATCHDOG.md
+cp assets/WATCHDOG.yml ~/.omp/agent/WATCHDOG.yml
 
 # 项目级（仅当前仓库）
 New-Item -ItemType Directory -Force ".\.omp"    # Windows
-copy assets\WATCHDOG.md .\.omp\WATCHDOG.md    # Windows
+copy assets\WATCHDOG.yml .\.omp\WATCHDOG.yml    # Windows
 
 mkdir -p ./.omp                                 # macOS/Linux
-cp assets/WATCHDOG.md .omp/WATCHDOG.md          # macOS/Linux
+cp assets/WATCHDOG.yml .omp/WATCHDOG.yml          # macOS/Linux
+```
+
+校验：`/advisor configure` TUI 确认 5 个 advisor 已加载。
+
+**≤16.2.2（回退）**：复制单 `WATCHDOG.md`：
+
+```bash
+# 用户级
+cp assets/WATCHDOG.md ~/.omp/agent/WATCHDOG.md
+# 项目级
+cp assets/WATCHDOG.md .omp/WATCHDOG.md
 ```
 
 启用 Advisor（`~/.omp/agent/config.yml`）：
@@ -192,15 +203,16 @@ modelRoles:
 
 advisor:
   enabled: true
-  syncBacklog: 1
-  subagents: true
+  subagents: false     # 防多模型 fan-out 审查风暴
+  syncBacklog: 3       # 控频降本（默认 3）
 ```
 
-验证：新 session 中 `/advisor status` 显示活跃模型；故意违反 P1/P2/P3/P4/P6 时 Advisor 应给出 concern/blocker。
+验证：新 session 中 `/advisor status` 显示活跃模型；`/advisor dump` 可导出审查结果。故意违反 P1/P2/P3/P4/P6 时 Advisor 应给出 concern/blocker。
 
 ### 5. 三梁模板复制到项目
 
-将 `assets/three-beams/*.md` 复制到项目根目录的 `.stdd/` 或 `docs/` 下并填内容。它们不是 skill 激活所必需，而是项目级脚手架。
+将 `assets/three-beams/beam1-requirements.md`、`beam2-implementation.md`、`beam3-control.md` 复制到项目根目录的 `.stdd/` 或 `docs/` 下并填内容。它们不是 skill 激活所必需，而是项目级脚手架。
+
 
 ## 推荐 OMP 配置
 
@@ -254,7 +266,7 @@ Skill (local) : 0.1.2
 GitHub repo   : Loveacup/jz-skills
 GitHub latest : 0.2.0
 Sync status   : behind
-OMP (local)   : 16.2.0
+OMP (local)   : 16.2.3
 OMP required  : >=16.1.16
 OMP compatible: yes
 
@@ -287,8 +299,9 @@ OMP 迭代很快。stdd-omp 本身是**被动知识包**，不随 OMP 升级而�
 
 已知影响较大的变更：
 
+- **OMP 16.2.3+**：`WATCHDOG.yml` 多 advisor 委员会已落地（推荐）；≤16.2.2 用单 `WATCHDOG.md` 回退。
+- **OMP 16.2.2+**：新增 `tiny` modelRole（更轻量、更低成本任务）。
 - **OMP 16.2.0+**：`search` 工具重命名为 `grep`，`find` 工具重命名为 `glob`。本 skill 的文档/模板已按新名称更新；如果你仍在使用 16.1.x，请把文档中的 `grep` 读作 `search`、`glob` 读作 `find`。
 - **OMP 16.1.16+**：`todo` 工具改为每次只接受一个 op（本 skill 已遵守）。
-- **OMP 16.1.16+**：`bash` 工具被限制不能做 `ls`/`find`（与 skill 的“专用工具优先”原则一致）。
-
+- **OMP 16.1.16+**：`bash` 工具被限制不能做 `ls`/`find`（与 skill 的"专用工具优先"原则一致）。
 若后续 OMP 行为变化导致 skill 建议失效，优先在 `references/advanced-omp-wiring.md` 和本安装指南中补充兼容说明，而不是改 SKILL.md 核心指令。

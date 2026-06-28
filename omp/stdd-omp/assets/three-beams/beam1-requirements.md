@@ -5,7 +5,7 @@ source_date: ""
 status: draft   # draft | accepted | obsolete
 ---
 
-# L1 Requirements
+# 梁1 需求基准线
 
 ## 上下文简报（1–3 句）
 
@@ -14,6 +14,8 @@ status: draft   # draft | accepted | obsolete
 ## 一句话 Spec
 
 <!-- What/Why，不写 How -->
+
+<!-- 灵魂红线：基准线 = 需求 + 可证伪验收口径，缺一不可；退化成愿望清单即失去当尺子资格 -->
 
 ## 验收契约
 
@@ -26,4 +28,4 @@ status: draft   # draft | accepted | obsolete
 
 ## 升级触发
 
-<!-- 满足哪条即升级到 L2/L3 -->
+<!-- 满足哪条即升级到 梁2/梁3 或任务强度 L2/L3 -->

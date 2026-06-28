@@ -9,11 +9,11 @@ OMP `eval` 是持久化代码内核，适合把多步客观校验写成可复现
 | STDD 步骤 | eval 用法 | 收益 |
 |---|---|---|
 | Verify（客观项） | `eval js` import `scripts/gates.mjs` | 跨 OS、无 PATH 依赖、结果可判定 |
-| Verify（多维度并行） | 若 runtime 支持并发工具，可并行跑多个 `gates.mjs` 校验 | 缩短验证时间 |
+| Verify（多维度并行） | 并行跑多个 `gates.mjs` 校验 | 缩短验证时间 |
 | Build（多阶段流水线） | 在 `eval` 中用代码编排多阶段（读取→处理→校验） | 数据→处理→产物 可追踪 |
-| 子代理代码化 | 若 runtime 支持，可在 `eval` 中动态 spawn 子代理 | 更灵活的编排 |
+| full-auto 编排 | `eval` `agent()` / `parallel()` / `pipeline()` / `completion()` | verdict 路由、多 slice 并发 |
 
-**最小兼容路径（任何 OMP 版本都可用）**：
+**最小兼容路径**：
 
 ```js
 const g = await import('file:///path/to/scripts/gates.mjs');
@@ -22,41 +22,69 @@ const test = g.verifyTest('node -e "process.exit(0)"');
 const danger = g.scanDanger('git push');
 ```
 
-> 注：`parallel(...)` / `pipeline(...)` / `agent(...)` 等是 `OMP_使用手册.md` 中描述的 `eval` 可选辅助能力；不同版本/配置支持度可能不同。生产使用前先在本机 `eval js` 单元格中测试。
+`agent()` / `parallel()` / `pipeline()` / `completion()` 是 OMP `eval` 内置助手（手册 §5）。
 
 ## TTSR / Rules → 动态规则墙
 
-OMP 支持规则文件（`~/.omp/agent/rules/*.md` 已在本机验证），通过 YAML frontmatter 控制是否生效。规则体随会话上下文注入，可作为 STDD 承重墙的动态提醒。
+OMP 支持规则文件（`~/.omp/agent/rules/*.md` 或 `.omp/rules/`），通过 YAML frontmatter 控制生效。
 
-**已验证的最小兼容格式**（本机 `~/.omp/agent/rules/omp-identity.md`）：
+**已验证的 TTSR schema**（OMP 手册 §15）：
 
 ```yaml
 ---
-alwaysApply: true
+name: stdd-evidence-guard
+condition: "(应该过了|大概没问题|probably (fine|passes)|seems to pass)"
+repeatMode: after-gap
 ---
-P1 可裁决：所有结论必须对应一条可证伪的验收项...
+证据缺失 = 不通过。请补 file:line / exit code / agent://<id> 证据锚。
 ```
 
-> 可加 `name`、`enabled` 等键便于管理，但最小兼容只需 `alwaysApply: true` 验证通过。
+规则 frontmatter 键：
+- `name` — 规则名
+- `condition` — 正则（stream token 触发）
+- `astCondition` — ast-grep 模式（元变量同名须一致）
+- `repeatMode: once|after-gap` — 触发策略
+- 全局：`ttsr.enabled` / `ttsr.builtinRules` / `ttsr.disabledRules` / `ttsr.contextMode: keep|discard`
 
-STDD 规则映射（用 `alwaysApply` 方式）：
+**STDD token 级 TTSR 规则示例**：
 
-| STDD 承重墙 | 规则文件名 | 规则体要点 |
-|---|---|---|
-| P1 可裁决 | `stdd-rules/P1-decidable.md` | 结论必须可证伪；禁止模糊表述 |
-| P2 验收不可省 | `stdd-rules/P2-acceptance-required.md` | 无 Acceptance 不 Build |
-| P3 证据优先 | `stdd-rules/P3-evidence-first.md` | 实态 > 测试 > diff > 报告 |
-| P4 角色分离 | `stdd-rules/P4-role-separation.md` | producer ≠ judge |
-| P6 终止条件 | `stdd-rules/P6-hard-limit.md` | regen max=3，slice max=2 |
-| 危险发布 | `stdd-rules/danger-push.md` | 发布/推送需确认 |
+① P3 推测放行词：
+```yaml
+---
+name: stdd-P3-guess-guard
+condition: "(应该过了|大概没问题|probably (fine|passes)|seems to pass)"
+repeatMode: after-gap
+---
+证据缺失 = 不通过。用 gates.mjs verify / lsp / debug / browser 补证据锚。
+```
 
-> `OMP_使用手册.md` 提到 **TTSR（stream 正则触发）** 能力，但 `event`/`pattern`/`action` schema 尚未在本机 `~/.omp/agent/rules/` 验证。**请先复制一条 `event/pattern/action` 规则到本地规则目录测试生效后，再切换；生产环境建议先用本技能提供的 `alwaysApply` 模板。**
+② P2/缩范围：
+```yaml
+---
+name: stdd-P2-scope-creep
+condition: "(scaffold|MVP|v1|占位|stub).{0,12}(完成|done|交付)"
+repeatMode: after-gap
+---
+不缩范围/不虚报完成。未达验收项判失败。
+```
 
-## Advisor + WATCHDOG.md → P4 独立审计增强
+③ danger 文本兜底（与 `stdd-gate.hook.ts` 互补）：
+```yaml
+---
+name: stdd-danger-text
+condition: "(git push.{0,10}force|rm -rf|DROP TABLE)"
+repeatMode: after-gap
+---
+危险操作！需 hook/approval 确认。
+```
 
-Advisor 是 OMP 内置的“第二只眼”，在每个回合结束后审查主代理工作。
+**规则生效需要 `ttsr.enabled: true`（默认 off）**。`alwaysApply` 规则为常驻基线（`assets/stdd-rules/*.md`），TTSR 为零税补充，并存不互替。
 
-启用条件（`~/.omp/agent/config.yml`）：
+## Advisor + WATCHDOG（v3 委员会，16.2.3+）
+
+**16.2.3 多 advisor `WATCHDOG.yml` 委员会**（已落地，推荐）：
+
+### 启用配置（`~/.omp/agent/config.yml`）
 
 ```yaml
 modelRoles:
@@ -64,18 +92,63 @@ modelRoles:
 
 advisor:
   enabled: true
-  syncBacklog: 1
-  subagents: true   # 子代理也启用 advisor
+  subagents: false      # 防多模型 fan-out 审查风暴
+  syncBacklog: 3        # 控频降本（默认 3）
+
+retry:
+  fallbackChains:
+    advisor:
+      - anthropic/claude-sonnet-4:medium
+      - openai/gpt-5-mini:fast
 ```
 
-WATCHDOG.md 只注入 Advisor 系统提示，不污染主代理。STDD 项目可放项目根或 `.omp/WATCHDOG.md`。
+### WATCHDOG 发现位置（优先级从高到低）
 
-WATCHDOG 审查重点：
-- 验收契约是否被跳过或弱化
-- 是否出现“推测放行”措辞
-- 是否 producer 与 judge 同 session
-- 是否超出 regen/slice 上限仍继续
-- 危险命令是否被 hook/approval 拦截
+1. 用户级：`~/.omp/agent/WATCHDOG.yml`（优先）/ `WATCHDOG.md`
+2. 项目级：`<dir>/WATCHDOG.yml`、`<dir>/.omp/WATCHDOG.yml`
+
+多文件**同时加载**，近 cwd 后注入优先。
+
+### `@` 导入语法
+
+可把 STDD 承重墙规则 `@` 进 WATCHDOG：
+
+```yaml
+# WATCHDOG.yml 内
+advisors:
+  - slug: delivery-auditor
+    ...
+    instruction: |
+      @assets/stdd-rules/P1-decidable.md
+      @assets/stdd-rules/P2-acceptance-required.md
+      ...
+```
+
+### 运维 slash
+
+- `/advisor on|off` — 启停 advisor
+- `/advisor status` — 查看当前状态
+- `/advisor dump` — 导出最后一次审查结果
+- `/advisor configure` — TUI 配置 advisor 参数
+- `@path/to/file.md` — 导入外部规则
+
+### 委员会 → STDD 承重墙映射
+
+裁到 5 个 advisor（详见 `assets/WATCHDOG.yml`）：
+
+| Advisor | Severity | 映射承重墙 |
+|---|---|---|
+| delivery-auditor | blocker | P2 验收不可省 + claimcheck |
+| correctness-auditor | concern→blocker | P3 证据优先 |
+| security-auditor | blocker | danger 类 |
+| evidence-anchor-checker | concern | claimcheck（P3 子集） |
+| style-keeper | concern | 命名/AI 腔 |
+
+**Per-advisor 跨模型 = P4 第二维「模型/视角独立」**。Auto-fix 双授权红线。Chair 不部署。
+
+### 回退：单 WATCHDOG.md（≤16.2.2）
+
+`WATCHDOG.yml = 16.2.3+ 委员会；WATCHDOG.md = ≤16.2.2 单 advisor 回退`。
 
 ## LSP / DAP / Browser → Verify 的多种证据
 
@@ -92,7 +165,7 @@ WATCHDOG 审查重点：
 
 - L0/L1：`ask` + `gates.mjs` verifyArtifact
 - L2：`resolve(plan)` + `task` isolated + `eval` parallel verify + `lsp diagnostics`
-- L3：`resolve(plan)` + `async task` + `reviewer`/`oracle` auditor + `browser`/DAP + `gates.mjs` counter + `irc` turn-done + Advisor + WATCHDOG
+- L3：`resolve(plan)` + `async task` + `reviewer`/`oracle` auditor + `browser`/DAP + `gates.mjs` counter + `irc` turn-done + Advisor 委员会（WATCHDOG.yml）
 
 ## 与 hook 的关系
 

@@ -76,6 +76,10 @@ function listRuleFiles() {
     .map((f) => ({ source: path.join(dir, f), name: f }));
 }
 
+function ruleSourceDir() {
+  return path.join(skillRoot(), 'assets', 'stdd-rules');
+}
+
 function ruleTargetDir() {
   return path.join(nativeAgentDir(), 'rules');
 }
@@ -84,8 +88,16 @@ function watchdogSource() {
   return path.join(skillRoot(), 'assets', 'WATCHDOG.md');
 }
 
+function watchdogYmlSource() {
+  return path.join(skillRoot(), 'assets', 'WATCHDOG.yml');
+}
+
 function watchdogTarget() {
   return path.join(nativeAgentDir(), 'WATCHDOG.md');
+}
+
+function watchdogYmlTarget() {
+  return path.join(nativeAgentDir(), 'WATCHDOG.yml');
 }
 
 function detectSkillLane() {
@@ -102,16 +114,20 @@ function detectRules() {
   const installed = files.length > 0 && files.every((f) => fileExists(path.join(target, f.name)));
   return {
     installed,
-    files,
+    source: ruleSourceDir(),
     target,
+    files,
   };
 }
 
 function detectWatchdog() {
   return {
     installed: fileExists(watchdogTarget()),
+    ymlInstalled: fileExists(watchdogYmlTarget()),
     source: watchdogSource(),
+    ymlSource: watchdogYmlSource(),
     target: watchdogTarget(),
+    ymlTarget: watchdogYmlTarget(),
   };
 }
 
@@ -352,12 +368,24 @@ function installRules(report, force = false) {
 }
 
 function installWatchdog(report, force = false) {
-  const target = report.watchdog.target;
-  if (fileExists(target) && !force) {
-    return { status: 'skipped', target };
+  const results = [];
+  // Install WATCHDOG.md
+  const mdTarget = report.watchdog.target;
+  if (fileExists(mdTarget) && !force) {
+    results.push({ status: 'skipped', file: 'WATCHDOG.md', target: mdTarget });
+  } else {
+    fs.copyFileSync(report.watchdog.source, mdTarget);
+    results.push({ status: 'installed', file: 'WATCHDOG.md', target: mdTarget });
   }
-  fs.copyFileSync(report.watchdog.source, target);
-  return { status: 'installed', target };
+  // Install WATCHDOG.yml (same --with-watchdog flag, skip if exists)
+  const ymlTarget = report.watchdog.ymlTarget;
+  if (fileExists(ymlTarget) && !force) {
+    results.push({ status: 'skipped', file: 'WATCHDOG.yml', target: ymlTarget });
+  } else {
+    fs.copyFileSync(report.watchdog.ymlSource, ymlTarget);
+    results.push({ status: 'installed', file: 'WATCHDOG.yml', target: ymlTarget });
+  }
+  return results;
 }
 
 function apply(report, opts) {
@@ -377,7 +405,7 @@ function apply(report, opts) {
   }
   if (opts.withWatchdog) {
     const r = installWatchdog(report, opts.force);
-    results.push({ component: 'watchdog', ...r });
+    results.push({ component: 'watchdog', results: r });
   }
 
   const config = buildConfig(opts, report);
@@ -404,7 +432,7 @@ function formatReport(report) {
   lines.push(`  auditor   : ${report.auditor.installed ? 'installed' : 'not installed'}   → ${report.auditor.target}`);
   lines.push(`  rules     : ${report.rules.installed ? 'installed' : 'not installed'}   → ${report.rules.target}`);
   lines.push(`  watchdog  : ${report.watchdog.installed ? 'installed' : 'not installed'}   → ${report.watchdog.target}`);
-  lines.push('');
+  lines.push(`  watchdog.yml: ${report.watchdog.ymlInstalled ? 'installed' : 'not installed'}   → ${report.watchdog.ymlTarget}`);
 
   lines.push('OMP config.yml checks');
   lines.push(`  file present        : ${report.omp_config.present ? 'yes' : 'no'} (${report.omp_config.config_path})`);
