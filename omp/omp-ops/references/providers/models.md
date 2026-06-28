@@ -135,7 +135,7 @@ Built-in roles:
 | `tiny` | Lightweight background tasks such as titles, memory, and auto-classification. |
 | `title` | Session-title generation. |
 | `task` | Task-tool subagent model. |
-| `advisor` | Advisor/WATCHDOG reviewer model. |
+| `advisor` | Advisor/WATCHDOG reviewer model (16.2.3+: full tool access, multi-advisor via WATCHDOG.yml). |
 
 ### Example configuration
 
@@ -186,3 +186,53 @@ modelRoles:
 ```
 
 `modelProviderOrder` then controls which concrete provider wins.
+
+---
+
+## Owned in-band tool-call dialects (`PI_DIALECT`)
+
+When a model or gateway cannot reliably parse native provider tool calls, OMP can fall back to **owned in-band tool calling**: tools are described in the prompt using a syntax-specific grammar, the model emits tool calls as plain text, and OMP parses them locally.
+
+### Selecting a dialect
+
+The undocumented env var `PI_DIALECT` forces a specific dialect:
+
+```bash
+PI_DIALECT=kimi omp
+PI_DIALECT=glm omp --model zhipu/glm-5.1
+```
+
+Known dialect values in v16.2.3 (from source/release notes; not exhaustive):
+
+| Dialect | Typical model family |
+|---|---|
+| `glm` | Zhipu GLM |
+| `hermes` | Hermes / Qwen-style |
+| `kimi` | Moonshot Kimi |
+| `xml` | Generic XML fallback |
+| `anthropic` | Anthropic-style |
+| `deepseek` | DeepSeek |
+| `harmony` | OpenAI / gpt-oss |
+| `qwen3` | Qwen3 |
+| `minimax` | MiniMax M2/M3 (added v16.0.5) |
+| `pi` / `pi-native` | **Removed in v16.2.2** |
+
+### Discoverable alternatives
+
+Because `PI_DIALECT` is not documented in `docs/environment-variables.md`, prefer these config-level controls when possible:
+
+- **`tools.format`** in `config.yml` — set to `native` or an owned syntax (`glm`, `kimi`, `anthropic`, `deepseek`, `harmony`, `xml`, `qwen3`, `minimax`).
+- **`PI_OWNED_TOOLS=1`** — enables owned mode with GLM as default.
+- **`PI_OWNED_TOOLS=<syntax>`** — enables owned mode with a specific syntax.
+
+### When to use it
+
+- Model repeatedly fails to invoke tools or emits malformed tool-call JSON.
+- Using a custom gateway/proxy that advertises OpenAI compatibility but mishandles `tools`/`tool_choice`.
+- Model family has a known preferred in-band syntax (e.g., MiniMax M3 with `<minimax:tool_call>` wrappers).
+
+### Caveats
+
+- `PI_DIALECT` is a hidden env var; values and availability can change between releases.
+- v16.2.2 removed the `pi` / `pi-native` dialect; tips.txt still mentions the general feature but `PI_DIALECT=pi` will not work.
+- For stable configuration, set `tools.format` in `config.yml` instead.

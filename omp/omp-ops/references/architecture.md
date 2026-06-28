@@ -32,6 +32,8 @@ OMP uses two scopes. Higher-precedence layers override lower ones.
 ├── commands/               # slash commands
 ├── rules/                  # rule files
 ├── prompts/                # prompt files
+├── WATCHDOG.yml            # multi-advisor roster (16.2.3+)
+├── WATCHDOG.yaml           # alternative YAML extension
 ├── extensions/             # extension modules
 └── managed-skills/         # auto-learned skills
 
@@ -96,6 +98,14 @@ tools:
 compaction:
   strategy: snapcompact
   thresholdPercent: 80
+  remoteStreamingV2Enabled: true  # forward full history to provider (16.2.3+)
+  v2RetainedMessageBudget: 50     # max retained turns for V2 streaming
+
+statusLine:
+  compactThinkingLevel: true   # render thinking level as single leading glyph
+
+edit:
+  citationTags: true           # emit hashline headers as OpenAI citation markers
 
 secrets:
   enabled: true
@@ -114,6 +124,41 @@ secrets:
 
 Supported roles: `default`, `smol`, `slow`, `vision`, `plan`, `designer`, `commit`, `title`, `task`, `advisor`.
 Role values may append a thinking suffix: `:minimal`, `:low`, `:medium`, `:high`, `:xhigh`.
+
+## Multi-Advisor (`WATCHDOG.yml`)
+
+As of 16.2.3, advisors are configured via `WATCHDOG.yml` (or `WATCHDOG.yaml`)
+in `~/.omp/agent/`. Each advisor can have its own model, tool subset, and
+instructions. Advisors now have full access to all built-in agent tools
+(including edit, write, and bash) — no longer read-only.
+
+Manage the roster with `/advisor configure`, a mouse-driven full-screen TUI.
+
+```yaml
+# ~/.omp/agent/WATCHDOG.yml
+advisors:
+  - slug: code-reviewer
+    name: Code Reviewer
+    model: anthropic/claude-sonnet-4-5
+    tools: [read, grep, glob, edit, lsp]
+    instruction: |
+      Review code for correctness, security, and style.
+  - slug: security-auditor
+    name: Security Auditor
+    model: anthropic/claude-opus-4-5:high
+    tools: [read, grep, glob]
+    instruction: |
+      Audit for OWASP Top 10 vulnerabilities and secret leaks.
+```
+
+### New config keys (16.2.3)
+
+| Key | Type | Purpose |
+|---|---|---|
+| `compaction.remoteStreamingV2Enabled` | boolean | Enable V2 streaming remote compaction (default: true for compatible models). |
+| `compaction.v2RetainedMessageBudget` | integer | Max retained messages for V2 streaming compaction. |
+| `statusLine.compactThinkingLevel` | boolean | Render thinking level as a single leading glyph instead of text suffix. |
+| `edit.citationTags` | boolean | Emit hashline section headers as OpenAI citation markers. |
 
 ## `agent.db` and `auth_credentials`
 

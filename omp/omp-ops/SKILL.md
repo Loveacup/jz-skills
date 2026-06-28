@@ -34,8 +34,9 @@ This skill teaches agents how to operate, configure, and troubleshoot
 1. User triggers omp-ops (config, providers, keys, search, modelRoles, etc.)
    |
    v
-2. Answer using references/official/ for authoritative OMP behavior
-          and references/providers/ for quick provider matrices
+2. Answer using references/official/ for authoritative OMP behavior,
+          references/providers/ for quick provider matrices, and
+          `references/providers/tips.md` for hidden/undocumented runtime switches
    |
    v
 3. Check local OMP version only when the answer depends on installed runtime behavior
@@ -53,6 +54,9 @@ Use this skill when the user asks about any of the following:
 - `modelRoles`, `cycleOrder`, `modelProviderOrder`, `enabledModels`,
   `disabledProviders`.
 - `.env` precedence, `PI_CODING_AGENT_DIR`, profiles.
+- Hidden/undocumented runtime switches shown in OMP `tips.txt`, such as
+  `PI_DIALECT`, `/btw`, `/tan`, `/force`, `/shake`, magic keywords
+  (`ultrathink`, `orchestrate`, `workflowz`), or `omp stats`.
 
 ## Reference file rules
 
@@ -165,5 +169,8 @@ Do not invent workarounds that are not documented or verified by an existing iss
 - `references/architecture.md` — config layout, `config.yml`, `agent.db`, `.env`, `modelRoles`.
 - `references/security.md` — API key rules and redaction.
 - `references/providers/search.md` — search provider matrix.
-- `references/providers/models.md` — model provider keys and `modelRoles` setup.
+- `references/providers/models.md` — model provider keys, `modelRoles` setup,
+  and owned in-band tool-call dialects (`PI_DIALECT`).
+- `references/providers/tips.md` — verified catalog of OMP `tips.txt` tricks,
+  hidden env vars, and common wording caveats.
 - `references/official/` — authoritative copies of OMP docs after sync.
