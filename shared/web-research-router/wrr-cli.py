@@ -313,7 +313,8 @@ def build_parser() -> argparse.ArgumentParser:
     common.add_argument("--json", action="store_true", help="输出 JSON（机器可读）")
     common.add_argument("--env", metavar="PATH", help="指定 .env 路径（默认 $WRR_ENV 或 ~/.hermes/.env）")
     common.add_argument("-q", "--quiet", action="store_true", help="不打印 provider 等元信息")
-    common.add_argument("--provider", choices=["exa", "brave", "searxng", "github", "community", "academic", "skill"],
+    common.add_argument("--provider", choices=["exa", "brave", "searxng", "github", "community", "academic", "skill",
+                                               "local_supermemory", "local_session", "local_qmd", "local_obsidian"],
                         help="强制单引擎（禁用 fallback）")
 
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -341,7 +342,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     # doctor 子命令（v5.1，不继承 common 中的 --provider，因需独立 --engine）
     dp = sub.add_parser("doctor", help="检查引擎健康状况和本地依赖")
-    dp.add_argument("--engine", choices=["exa", "brave", "github", "skill", "searxng", "community", "academic"],
+    dp.add_argument("--engine", choices=["exa", "brave", "github", "skill", "searxng", "community", "academic",
+                                         "local_supermemory", "local_session", "local_qmd", "local_obsidian"],
                     help="仅检查指定引擎")
     dp.add_argument("--tier", type=int, choices=[0, 1, 2], help="仅检查指定 tier")
     dp.add_argument("--json", action="store_true", help="输出 JSON 格式")

@@ -9,6 +9,10 @@ from .engines.github import GitHubEngine
 from .engines.community import CommunityEngine
 from .engines.academic import AcademicEngine          # v5.0
 from .engines.skill_discovery import SkillDiscoveryEngine  # v5.0
+from .engines.local_supermemory import LocalSupermemoryEngine  # v5.2
+from .engines.local_session import LocalSessionEngine          # v5.2
+from .engines.local_qmd import LocalQmdEngine                  # v5.2
+from .engines.local_obsidian import LocalObsidianEngine        # v5.2
 
 
 class EngineRegistry:
@@ -42,6 +46,10 @@ def default_registry() -> EngineRegistry:
     reg.register(CommunityEngine())
     reg.register(AcademicEngine())          # v5.0
     reg.register(SkillDiscoveryEngine())    # v5.0
+    reg.register(LocalSupermemoryEngine())  # v5.2 本地层
+    reg.register(LocalSessionEngine())      # v5.2 本地层
+    reg.register(LocalQmdEngine())          # v5.2 本地层
+    reg.register(LocalObsidianEngine())     # v5.2 本地层
     return reg
 
 

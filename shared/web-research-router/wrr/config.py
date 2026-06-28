@@ -3,7 +3,8 @@
 从单文件 __init__.py 搬迁而来（v4.0）。所有 volatile 阈值集中于此，便于调参。
 """
 import os
-from typing import Optional
+from pathlib import Path
+from typing import List, Optional
 
 # ── Fallback 顺序（与历史 extension.ts / v3 __init__.py 一致）─────────────
 SEARCH_FALLBACK_ORDER = ("exa", "brave", "github", "community", "searxng")
@@ -154,9 +155,40 @@ def skill_triggered(query: str) -> bool:
     return any(k.lower() in q for k in SKILL_KEYWORDS)
 
 
-def classify_intent(query: str) -> str:
-    """查询意图分类，返回 6 mode 之一。显式 mode 由调用方在 router 处覆盖。"""
+# ── 本地搜索层触发词（v5.2）──────────────────────────────────────────
+# 分层：memory / notes / session 为强信号；scope 为弱信号（需搭配知识类名词）。
+LOCAL_MEMORY_KEYWORDS = ["我之前", "之前我们", "上次", "刚才", "记得我", "我记得",
+                         "记忆里", "supermemory", "长期记忆", "偏好"]
+LOCAL_NOTES_KEYWORDS = ["查笔记", "我的笔记", "笔记里", "知识库", "obsidian", "vault",
+                        "qmd", "文档里", "本地文档", "项目文档", "历史报告", "本地搜索"]
+LOCAL_SESSION_KEYWORDS = ["历史对话", "会话记录", "聊天记录", "这次会话",
+                          "上个 session", "刚才聊", "之前聊"]
+LOCAL_SCOPE_KEYWORDS = ["本地", "我的", "我们讨论过", "之前决定", "以前的结论"]
+# scope 弱信号需搭配的知识类名词（避免“本地部署 redis”误伤）
+_LOCAL_SCOPE_COMBO = ["笔记", "知识库", "文档", "记忆", "历史", "之前", "决定",
+                      "note", "memory", "doc"]
+
+
+def local_triggered(query: str) -> bool:
+    """查询是否应进入 local mode（本地优先）。
+
+    保守策略：强信号（memory/notes/session 关键词）直接命中；弱 scope 词
+    （本地/我的）必须搭配知识类名词才触发，否则“本地部署/localhost”误入 local。
+    """
     q = (query or "").lower()
+    strong = LOCAL_MEMORY_KEYWORDS + LOCAL_NOTES_KEYWORDS + LOCAL_SESSION_KEYWORDS
+    if any(k.lower() in q for k in strong):
+        return True
+    if any(k in q for k in LOCAL_SCOPE_KEYWORDS):
+        return any(c in q for c in _LOCAL_SCOPE_COMBO)
+    return False
+
+
+def classify_intent(query: str) -> str:
+    """查询意图分类，返回 7 mode 之一（v5.2 含 local）。显式 mode 由 router 覆盖。"""
+    q = (query or "").lower()
+    if local_triggered(q):          # 本地优先：历史/记忆/笔记意图先走本地层
+        return "local"
     if community_triggered(q):
         return "platform"
     if academic_triggered(q):
@@ -176,6 +208,10 @@ MODE_DISPATCH = {
     "academic":  ("academic", "exa", "community"),
     "platform":  ("community", "exa", "brave"),
     "recovery":  ("brave", "exa", "searxng"),
+    # local（v5.2）：本地 4 引擎在前，exa/brave 在后补位。本地引擎在 CLI 环境
+    # 不可用时由 router gather 隔离跳过，正好 web 兜底；本地可用时权重碾压外网。
+    "local":     ("local_supermemory", "local_session", "local_qmd",
+                  "local_obsidian", "exa", "brave"),
 }
 
 # mode → {引擎: RRF 融合权重}（D1/D2 对齐 Alex）
@@ -188,7 +224,36 @@ MODE_WEIGHTS = {
     "academic":  {**_W_DEFAULT, "academic": 1.0, "community": 0.25},
     "platform":  {**_W_DEFAULT, "community": 1.0},
     "recovery":  {**_W_DEFAULT},
+    # local（v5.2）：本地引擎权重高于外网，外网仅低权补位
+    "local":     {**_W_DEFAULT,
+                  "local_supermemory": 1.0, "local_session": 0.9,
+                  "local_qmd": 0.9, "local_obsidian": 0.8,
+                  "exa": 0.3, "brave": 0.3, "community": 0.15},
 }
+
+
+# ── 本地搜索层配置（v5.2）────────────────────────────────────────────
+LOCAL_MAX_RESULTS_PER_ENGINE = 10       # 单引擎结果上限（与 count 取 min）
+LOCAL_MIN_RESULTS = 3                    # local mode 本地结果充足阈值（P1 web 补位用）
+
+# Obsidian 文件扫描限流（强约束：防全盘 find 拖垮 local mode）
+LOCAL_OBSIDIAN_MAX_FILES = 2000         # 单次扫描文件数上限
+LOCAL_OBSIDIAN_MAX_BYTES = 65536        # 单文件读取前缀字节上限
+LOCAL_OBSIDIAN_EXCLUDE_DIRS = (".git", ".obsidian", "node_modules", ".trash",
+                               ".smart-env", "attachments")
+
+
+def obsidian_vault_paths() -> List[Path]:
+    """解析 Obsidian vault 路径列表。
+
+    来源：env WRR_OBSIDIAN_VAULTS（os.pathsep 分隔，支持 ~ 展开）。
+    doctor 不假定默认 vault 存在；未配置 → 返回空列表（health_check fail）。
+    """
+    raw = get_env("WRR_OBSIDIAN_VAULTS")
+    if not raw:
+        return []
+    return [Path(os.path.expanduser(p.strip()))
+            for p in raw.split(os.pathsep) if p.strip()]
 
 # 触发词 → 引擎（promote 用）
 TRIGGER_ENGINES = (

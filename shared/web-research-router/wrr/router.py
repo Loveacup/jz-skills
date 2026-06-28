@@ -107,7 +107,8 @@ async def route(operation: str, options, registry: EngineRegistry,
 # 真相源：/tmp/wrr-v5.0-stdd-final.md。STDD §3。
 # ══════════════════════════════════════════════════════════════════════
 
-_V5_MODES = ("discovery", "grounding", "research", "academic", "platform", "recovery")
+_V5_MODES = ("discovery", "grounding", "research", "academic", "platform",
+             "recovery", "local")
 
 
 def resolve_mode(options) -> str:

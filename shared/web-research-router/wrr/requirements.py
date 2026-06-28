@@ -90,6 +90,45 @@ ENGINE_REQUIREMENTS: Dict[str, Dict[str, Any]] = {
             "https://github.com/Jesseovo/last30days-skill-cn",
         ],
     },
+
+    # ── 本地搜索层（v5.2）─────────────────────────────────────────────
+    # Tier 1: 依赖 Hermes 运行时注入的内置 tool（CLI/CI 环境降级）
+    "local_supermemory": {
+        "tier": 1,
+        "env": [],
+        "commands": [],
+        "endpoints": [],
+        "hermes_tools": ["supermemory_search"],
+        "description": "本地长期记忆（Hermes supermemory_search tool；非 Hermes 环境降级）",
+    },
+    "local_session": {
+        "tier": 1,
+        "env": [],
+        "commands": [],
+        "endpoints": [],
+        "hermes_tools": ["session_search"],
+        "description": "历史对话检索（Hermes session_search tool；非 Hermes 环境降级）",
+    },
+    # Tier 2: 本地 CLI / 文件系统
+    "local_qmd": {
+        "tier": 2,
+        "env": [],
+        "env_optional": ["QMD_BIN"],
+        "commands": ["qmd"],
+        "endpoints": [],
+        "description": "Obsidian/QMD 全文索引（qmd CLI；缺失则 doctor fail）",
+    },
+    "local_obsidian": {
+        "tier": 2,
+        "env": [],
+        "env_optional": ["WRR_OBSIDIAN_VAULTS"],
+        "commands": [],
+        "endpoints": [],
+        "description": "Obsidian vault 文件扫描（仅 *.md，限流；需 WRR_OBSIDIAN_VAULTS）",
+        "example_env": {
+            "WRR_OBSIDIAN_VAULTS": "/path/to/vault1:/path/to/vault2",
+        },
+    },
 }
 
 
