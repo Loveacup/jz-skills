@@ -51,9 +51,33 @@ def run_install_daemon():
     subprocess.run(["bash", str(INSTALL_DAEMON)], check=False)
 
 
+# cronjob 是 Hermes agent 工具（非 CLI 命令），CLI 只能产出 spec，由 Hermes 主循环
+# 解析 stdout 后逐个调 cronjob(action="create")。字段按 cronjob 工具参数：
+#   - quick: no_agent + script（watchdog 模式，stdout 静默推送），model 省略=用主模型
+#   - 其余 3 个 LLM agent：skills=[mac-doctor] + 自包含 prompt（cron 跑在无上下文新 session）
+CRON_SPECS = [
+    {"action": "create", "name": "mac-doctor-quick", "schedule": "every 30m",
+     "no_agent": True, "script": "mac-doctor-watchdog.py", "deliver": "origin"},
+    {"action": "create", "name": "mac-doctor-triage", "schedule": "every 12h",
+     "no_agent": False, "skills": ["mac-doctor"], "deliver": "origin",
+     "enabled_toolsets": ["terminal", "file"],
+     "prompt": "加载 mac-doctor skill，读 .triage-trigger + preferences + 最近 24h history，"
+               "对触发的异常自动诊断，按 should_push 决定是否推送。"},
+    {"action": "create", "name": "mac-doctor-deep", "schedule": "0 3 * * *",
+     "no_agent": False, "skills": ["mac-doctor"], "deliver": "origin",
+     "enabled_toolsets": ["terminal", "file"],
+     "prompt": "加载 mac-doctor skill，执行 Tier 2 全量审计（系统/进程/磁盘/网络/MCP），输出诊断与建议。"},
+    {"action": "create", "name": "mac-doctor-weekly", "schedule": "0 9 * * 1",
+     "no_agent": False, "skills": ["mac-doctor"], "deliver": "origin",
+     "enabled_toolsets": ["terminal", "file"],
+     "prompt": "加载 mac-doctor skill，汇总过去 7 天巡检与 triage 结果，生成 mac 健康周报。"},
+]
+
+
 def register_cron_jobs():
-    # P4 占位：真正的 cronjob upsert 在 P5 实现（幂等：重复跑不重复注册）。
-    pass
+    """输出 4 行紧凑 JSON cron spec 到 stdout（每行一个），供 Hermes 解析后调 cronjob create。"""
+    for spec in CRON_SPECS:
+        print(json.dumps(spec, ensure_ascii=False))
 
 
 def verify_install():
