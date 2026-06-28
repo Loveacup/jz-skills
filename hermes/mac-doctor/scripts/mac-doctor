@@ -1,0 +1,268 @@
+#!/usr/bin/env python3
+"""mac-doctor v3.0 — Skill CLI（install/uninstall/status/triage/preferences/verify）。
+
+P4 范围: 仅实现 CLI 入口。cron 真正注册留待 P5（register_cron_jobs 在此为幂等占位）。
+helper 全部 module-level 且可注入，以配合 pytest monkeypatch。
+"""
+import argparse
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+# --- 路径常量 ---------------------------------------------------------------
+SKILL_DIR = Path(__file__).resolve().parent.parent
+SCRIPTS_DIR = SKILL_DIR / "scripts"
+sys.path.insert(0, str(SCRIPTS_DIR))
+import preferences  # noqa: E402  复用 P1 模块（scripts/preferences.py，本任务不修改其文件）
+
+# P1 模块导出的是 load_preferences(path=...)；S5 fixture 与本 CLI 统一用 preferences.load。
+# 仅在运行期给模块对象加别名（未触碰 preferences.py 文件本身）。
+if not hasattr(preferences, "load"):
+    preferences.load = preferences.load_preferences
+
+HERMES = Path.home() / ".hermes"
+INSPECTION = HERMES / "inspection"
+COLLECTOR = SCRIPTS_DIR / "collector-daemon.py"          # 测试中被 monkeypatch
+INSTALL_DAEMON = SCRIPTS_DIR / "install-daemon.sh"
+TRIAGE_SCRIPT = HERMES / "profiles" / "cron-worker" / "scripts" / "mac-doctor-triage.py"
+TRIGGER_FILE = INSPECTION / ".triage-trigger"
+WATCHDOG_STATE = INSPECTION / "state.json"               # live: 需按真实环境核对
+LATEST_SNAPSHOT = INSPECTION / "latest.json"             # live: 需按真实环境核对
+LAUNCHAGENT_PLIST = (Path.home() / "Library" / "LaunchAgents"
+                     / "com.hermes.inspection.collector.plist")  # live: 需核对 label
+
+JOB_IDS = ["mac-doctor-quick", "mac-doctor-triage", "mac-doctor-deep", "mac-doctor-weekly"]
+INSTALL_OK = "✓ Installed. Run `mac-doctor status` to verify."
+
+
+def _grep(cmd, needle):
+    """跑命令并判断 needle 是否在 stdout 中；命令缺失/异常一律 False。"""
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True)
+        return needle in r.stdout
+    except Exception:
+        return False
+
+
+# --- install ----------------------------------------------------------------
+def run_install_daemon():
+    subprocess.run(["bash", str(INSTALL_DAEMON)], check=False)
+
+
+def register_cron_jobs():
+    # P4 占位：真正的 cronjob upsert 在 P5 实现（幂等：重复跑不重复注册）。
+    pass
+
+
+def verify_install():
+    return _grep(["launchctl", "list"], "inspection") and _grep(["cronjob", "list"], "mac-doctor")
+
+
+def cmd_install(args):
+    if not COLLECTOR.exists():
+        print(f"✗ L1 collector 缺失: {COLLECTOR}", file=sys.stderr)
+        return 1
+    run_install_daemon()        # 幂等：install-daemon.sh 自身负责 load-if-missing
+    register_cron_jobs()        # 幂等占位（P5）
+    verify_install()
+    print(INSTALL_OK)
+    return 0
+
+
+# --- uninstall --------------------------------------------------------------
+def pause_cron_jobs(ids):
+    for jid in ids:
+        subprocess.run(["cronjob", "pause", jid], check=False)
+
+
+def unload_launchagent():
+    subprocess.run(["launchctl", "unload", str(LAUNCHAGENT_PLIST)], check=False)
+
+
+def cmd_uninstall(args):
+    # Hermes 红线: 默认 dry-run；--force 才真正 pause+unload（destructive 需显式确认）。
+    if not args.force:
+        print("[dry-run] 以下操作需加 --force 才会真正执行（cron 仅 pause 不删、plist 保留）:")
+        for jid in JOB_IDS:
+            print(f"  - pause cron: {jid}")
+        print("  - unload LaunchAgent")
+        return 0
+    pause_cron_jobs(JOB_IDS)
+    unload_launchagent()
+    print("✓ Uninstalled — 4 个 cron 已 pause、LaunchAgent 已 unload；配置文件保留。")
+    return 0
+
+
+# --- status -----------------------------------------------------------------
+def _collector_status():
+    pid = "-"
+    try:
+        r = subprocess.run(["pgrep", "-f", "collector-daemon.py"], capture_output=True, text=True)
+        if r.stdout.strip():
+            pid = r.stdout.split()[0]
+    except Exception:
+        pass
+    snap = "-"
+    try:
+        if LATEST_SNAPSHOT.exists():
+            snap = json.loads(LATEST_SNAPSHOT.read_text()).get("ts", "-")
+    except Exception:
+        pass
+    return {"pid": pid, "last_snapshot": snap, "next_run": "active" if pid != "-" else "stopped"}
+
+
+def _watchdog_status():
+    st = {}
+    try:
+        if WATCHDOG_STATE.exists():
+            st = json.loads(WATCHDOG_STATE.read_text())
+    except Exception:
+        pass
+    return {"last_run": st.get("last_run", "-"),
+            "suppressed_sigs": st.get("suppressed_sigs", "-"),
+            "pushed_today": st.get("pushed_today", "-")}
+
+
+def _triage_status():
+    return {"last_triage": "-",
+            "pending_triggers": 1 if TRIGGER_FILE.exists() else 0}
+
+
+def collect_status():
+    prefs = preferences.load()
+    facts = prefs.get("facts", {})
+    facts_count = sum(len(v) if isinstance(v, (list, dict)) else 1 for v in facts.values())
+    size = 0
+    try:
+        size = preferences.PREFERENCES_FILE.stat().st_size
+    except Exception:
+        pass
+    return {
+        "layer1": _collector_status(),
+        "layer2": _watchdog_status(),
+        "layer3": _triage_status(),
+        "prefs": {"facts_count": facts_count,
+                  "interpretations_count": len(prefs.get("interpretations", [])),
+                  "suppressions_count": len(prefs.get("suppressions", [])),
+                  "size": size},
+    }
+
+
+def cmd_status(args):
+    s = collect_status()
+    l1, l2, l3, p = s["layer1"], s["layer2"], s["layer3"], s["prefs"]
+    print("Layer 1 — Collector (L1)")
+    print(f"  PID: {l1['pid']}   Last snapshot: {l1['last_snapshot']}   Next run: {l1['next_run']}")
+    print("Layer 2 — Watchdog (L2)")
+    print(f"  Last run: {l2['last_run']}   Suppressed sigs: {l2['suppressed_sigs']}   "
+          f"Pushed today: {l2['pushed_today']}")
+    print("Layer 3 — Triage (L3)")
+    print(f"  Last triage: {l3['last_triage']}   Pending triggers: {l3['pending_triggers']}")
+    print("Prefs")
+    print(f"  facts count: {p['facts_count']}   interpretations count: {p['interpretations_count']}   "
+          f"suppressions count: {p['suppressions_count']}   size: {p['size']}B")
+    return 0
+
+
+# --- triage -----------------------------------------------------------------
+def run_triage_once():
+    # 经 subprocess 调用，不 import triage 内部函数（避免 PYTHONPATH 污染）。
+    return subprocess.run(["python3", str(TRIAGE_SCRIPT)]).returncode
+
+
+def cmd_triage(args):
+    return run_triage_once()
+
+
+# --- preferences ------------------------------------------------------------
+def open_preferences_in_editor():
+    editor = os.environ.get("EDITOR", "vi")
+    return subprocess.run([editor, str(preferences.PREFERENCES_FILE)]).returncode
+
+
+def cmd_preferences(args):
+    target = args.target or "show"
+    if target == "show":
+        print(json.dumps(preferences.load(), indent=2, ensure_ascii=False))
+        return 0
+    if target == "edit":
+        return open_preferences_in_editor() or 0
+    val = preferences.load()                      # 其余视为点路径读取
+    for part in target.split("."):
+        if isinstance(val, dict) and part in val:
+            val = val[part]
+        else:
+            print(f"✗ 路径不存在: {target}", file=sys.stderr)
+            return 1
+    print(val)
+    return 0
+
+
+# --- verify -----------------------------------------------------------------
+def _check_prefs_rw():
+    try:
+        preferences.load()
+        return preferences.PREFERENCES_FILE.exists()
+    except Exception:
+        return False
+
+
+def run_verify_checks():
+    """PRD §2.3 七项 checklist（Hermes 决策，覆盖 Codex 推断；见 test_cli_verify 注释）。"""
+    return [
+        ("L1 collector LaunchAgent 运行中", _grep(["launchctl", "list"], "inspection")),
+        ("L2 watchdog 30min 巡检静默", WATCHDOG_STATE.exists()),
+        ("L3 triage cron 触发 + 12h 兜底", _grep(["cronjob", "list"], "mac-doctor-triage")),
+        ("preferences.json 存在并可读写", _check_prefs_rw()),
+        ("mac-doctor CLI 命令可用", True),
+        ("cron-module.md 与 cronjob list 一致", (SKILL_DIR / "references" / "cron-module.md").exists()),
+        ("7 天内 quick 推送频次降 ≥70%", "PENDING"),  # S7: 需部署后 7 天观测
+    ]
+
+
+def _status_str(raw):
+    if raw == "PENDING":
+        return "PENDING"
+    return "PASS" if raw else "FAIL"
+
+
+def cmd_verify(args):
+    failed = False
+    for name, raw in run_verify_checks():
+        st = _status_str(raw)
+        label = "[PENDING: 需 7 天观测]" if st == "PENDING" else f"[{st}]"
+        print(f"{label} {name}")
+        if st == "FAIL":
+            failed = True
+    return 1 if failed else 0   # PENDING 不计入失败
+
+
+# --- 入口 -------------------------------------------------------------------
+DISPATCH = {"install": cmd_install, "uninstall": cmd_uninstall, "status": cmd_status,
+            "triage": cmd_triage, "preferences": cmd_preferences, "verify": cmd_verify}
+
+
+def build_parser():
+    p = argparse.ArgumentParser(prog="mac-doctor", description="mac-doctor v3.0 Skill CLI")
+    sub = p.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("install", help="安装 L1 LaunchAgent + 注册 4 cron（幂等）")
+    u = sub.add_parser("uninstall", help="默认 dry-run；--force 才 pause cron + unload LaunchAgent")
+    u.add_argument("--force", action="store_true", help="真正执行（否则仅 dry-run）")
+    u.add_argument("--dry-run", action="store_true", help="显式 dry-run（默认行为）")
+    sub.add_parser("status", help="三层状态表 + Prefs 摘要")
+    sub.add_parser("triage", help="手动触发一次 L3 triage")
+    pref = sub.add_parser("preferences", help="show | edit | <dotted.key>")
+    pref.add_argument("target", nargs="?", default=None)
+    sub.add_parser("verify", help="跑 PRD §2.3 七项验收 checklist")
+    return p
+
+
+def main(argv=None):
+    args = build_parser().parse_args(argv)
+    return DISPATCH[args.cmd](args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

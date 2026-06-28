@@ -1,6 +1,6 @@
 # Cron 模块架构
 
-## 双层设计
+## v3 三层架构（2026-06-28 重构）
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -12,15 +12,42 @@
 │  数据: ~/.hermes/inspection/history.db                   │
 │  零 LLM token 消耗，纯 Python                             │
 ├──────────────────────────────────────────────────────────┤
-│  Layer 2: Hermes Cron (智能调度)                          │
+│  Layer 2: mac-doctor-watchdog (cron quick, 30min)          │
 │  ─────────────────────────────                            │
-│  调度: cron-worker profile 的 cronjob 工具                │
-│  职责: 定时巡检 + 评分报告 + Telegram 推送                 │
-│  依赖: Layer 1 的 history.db（供趋势分析）                 │
+│  进程: mac-doctor-watchdog.py (cron, no_agent)            │
+│  职责: 阈值过滤 + 冷却去重 + 集成 preferences + 触发 L3     │
+│  配置: ~/.hermes/profiles/cron-worker/state/              │
+│        mac-doctor-watchdog-state.json (state file)       │
+│  持久化: ~/.hermes/inspection/preferences.json            │
+│  触发: ~/.hermes/inspection/.triage-trigger               │
+├──────────────────────────────────────────────────────────┤
+│  Layer 3: mac-doctor-triage (cron triage, 12h+触发)       │
+│  ─────────────────────────────                            │
+│  进程: mac-doctor-triage.py (cron, LLM agent)            │
+│  职责: LLM 解读趋势 + 写入 memory + 决定推送              │
+│  配置: ~/.hermes/inspection/preferences.json              │
+│        .interpretations[] + suppressions[]               │
+│  触发: quick 推送触发 + 12h 兜底                          │
 └──────────────────────────────────────────────────────────┘
 ```
 
-## Layer 1: 系统级采集
+## 双层设计（v2.5 → v3 演进）
+
+```
+v2.5 (旧)                    v3 (新)
+─────────────────────────    ─────────────────────────
+Layer 1: collector            Layer 1: collector (不变)
+─────────────────────────    ─────────────────────────
+Layer 2:                     Layer 2:
+  mac-doctor-quick             mac-doctor-watchdog
+  + system-health-watchdog    (整合三检 + preferences)
+  + MCP cleanup               写 preferences + trigger
+─────────────────────────    ─────────────────────────
+                              Layer 3: mac-doctor-triage
+                                LLM agent 诊断
+```
+
+## Layer 1: 系统级采集（v2.2 不变）
 
 ### 安装
 
@@ -69,111 +96,179 @@ rm ~/Library/LaunchAgents/com.hermes.inspection-collector.plist
 
 ---
 
-## Layer 2: Hermes Cron 定时巡检
+## Layer 2: mac-doctor-watchdog（v3 升级）
 
-### 配置的 Cron Jobs
+### 职责
 
-通过 `cronjob` 工具在 cron-worker profile 中配置。详见 SKILL.md Tier 0-3 的决策树。
+- 读 collector stdout JSON → 阈值过滤
+- 附加检查：Kanban 完整性 / 僵尸进程 / MCP 孤儿清理
+- **集成 `preferences.load()`**（v3 新增）
+- **known_short_running_tools 白名单**（v3 新增）—— ccusage / npm install 等短跑工具 CPU 100% 标 transient
+- **冷却去重**（v3 升级）—— 3 类 signature（磁盘 free / 僵尸 PID 集合 / MCP cleaned）3h TTL
+- **写 preferences.suppressions**（v3 新增）—— 同 signature 累积写入
+- **写 `.triage-trigger` 文件**（v3 新增）—— 触发 Layer 3 LLM 诊断
+- 有异常 → stdout 输出 → Telegram
 
-### 当前配置（5 Jobs）
+### 安装（v3）
 
-| Job ID | 频率 | 模式 | 说明 |
-|--------|:--:|:--:|------|
-| `mac-doctor-quick` | 30min | 🔇 Watchdog | 静默看门狗 — 问题才推送，0 tokens |
-| `check-skill-copies` | 1h | 🔇 Watchdog | cron-worker 本地副本扫描 — 残留才推送 |
-| `system-health-watchdog` | 1h | 🔇 Watchdog | 三检合一看门狗：Kanban 完整性 + 僵尸进程 + SWAP 防崩 |
-| `mac-doctor-deep` | 每日 03:00 | 🤖 LLM | Tier 2 全量审计（安全+硬件+网络） |
-| `mac-doctor-weekly` | 周一 09:00 | 🤖 LLM | 周报 + history.db 趋势分析 |
+不再独立配置 watchdog cron，**通过 `mac-doctor install` 一键注册**：
 
-#### system-health-watchdog 三检
+```bash
+~/.hermes/skills/apple/mac-doctor/scripts/mac-doctor install
+```
 
-| 检查项 | 方法 | 阈值 | 来源 |
-|--------|------|------|------|
-| Kanban 完整性 | `sqlite3 PRAGMA integrity_check` | ≠ `ok` 报警 | Kanban 损坏根因报告 |
-| 僵尸进程 | `ps aux` 查 `Z` 状态 | >0 报警 | A2A BUG-006 / P2-12 |
-| SWAP 防崩 | `sysctl vm.swapusage` | >5GB 或 >80% | Swap 危机事件报告 05-30 |
+这会自动：
+1. 检查 L1 collector 存在
+2. 跑 install-daemon.sh（幂等 load-if-missing LaunchAgent）
+3. 注册 4 个 cron（见 §3 注册表）
+4. 验证 `launchctl list | grep inspection && cronjob list | grep mac-doctor`
 
-脚本：`~/.hermes/profiles/cron-worker/scripts/system-health-watchdog.py`
+### 管理
 
-### 静默看门狗模式 (v2.3) 🆕
+```bash
+# 看 cron 状态
+~/.hermes/skills/apple/mac-doctor/scripts/mac-doctor status
 
-高频巡检（≤30min）推荐用 `no_agent + script` 替代 LLM agent，大幅节省 token：
+# 看 preferences
+~/.hermes/skills/apple/mac-doctor/scripts/mac-doctor preferences show
+
+# 验证 7 项 checklist
+~/.hermes/skills/apple/mac-doctor/scripts/mac-doctor verify
+
+# 卸载（默认 dry-run）
+~/.hermes/skills/apple/mac-doctor/scripts/mac-doctor uninstall --dry-run
+
+# 真卸载
+~/.hermes/skills/apple/mac-doctor/scripts/mac-doctor uninstall --force
+```
+
+### 静默看门狗模式 (v2.3 → v3 保留)
+
+高频巡检（30min）推荐用 `no_agent + script` 替代 LLM agent，节省 token：
 
 ```
 Watchdog 脚本 → collector-daemon.py --json → 检查 alerts
   ├── 无 hard alert + diagnosis 健康 → 静默
-  └── 有 hard alert 或 diagnosis 有问题 → 推送
+  └── 有 hard alert 或 diagnosis 有问题 → 推送 + 写 .triage-trigger
 ```
 
 | 对比 | LLM Agent | Silent Watchdog |
 |------|:---:|:---:|
 | Token 消耗 | ~3000/次 | **0** |
 | 响应延迟 | 5-15s | <2s |
-| 静默支持 | ❌ 每次都输出 | ✅ 自动静默 |
+| 静默支持 | ❌ | ✅ |
 | 分析深度 | 可解读趋势 | 仅阈值判断 |
 
-脚本位置：`~/.hermes/profiles/cron-worker/scripts/mac-doctor-watchdog.py`
+### 去重冷却 (v3 升级)
 
-#### 配置示例
+3 类 signature 走 3h TTL 冷却：
 
-```bash
-# 通过 Hermes cronjob 工具配置:
-cronjob update:
-  job_id: <quick-job-id>
-  no_agent: true
-  script: "mac-doctor-watchdog.py"
-  skills: []  # 清空 skills，纯脚本模式
-```
+| Signature 类型 | 写入字段 | 判定 |
+|---------------|---------|------|
+| 磁盘 free | preferences.last_disk_free_gb | ±1GB 内 |
+| 僵尸 PID 集合 | preferences.zombie_sig | 排序后集合相等 |
+| MCP cleaned msg | preferences.mcp_cleaned_msg | 字符串相等 |
 
-#### 原理 (v2.3)
-
-`cronjob` 的 `no_agent=True` 模式：
-- **stdout 非空** → 内容作为消息体推送到 Telegram
-- **stdout 为空** → 完全静默，不消耗任何消息
-- **exit ≠ 0** → 发送错误通知
-
-Watchdog 脚本调用 `collector-daemon.py --json`，**区分两种告警**：
-
-| 类型 | 判断 | 行为 |
-|------|------|------|
-| **threshold alert** | `is_anomaly=False` | 硬伤 — 不管 diagnosis 说什么都推送 |
-| **anomaly alert** | `is_anomaly=True`（z > σ 统计偏差）| 软信号 — 仅当 diagnosis ≠ "All clear" 时附带 |
-
-```python
-threshold_alerts = [a for a in alerts if not a.get("is_anomaly", False)]
-
-if not threshold_alerts and diagnosis == "All clear":
-    sys.exit(0)  # 静默：diagnosis 说健康，无硬伤
-```
-
-> ⚠️ **为什么不能只用 `not alerts`：** 纯统计异常（如 CPU 从夜间安静基线 15% 跳到早晨 28%，z=2.2 > σ 但绝对值健康）不是系统问题。`diagnose()` 综合判断比 anomaly 单指标更可靠。旧逻辑 `not alerts` 会把这类低信号推送出去。
-
-> ⚠️ **容错：** 脚本使用显式 `is not None` 判断而非 `dict.get(key, default)`。`get()` 只在 key 不存在时用 default，但 key 存在且 value 为 `null` 时返回 `None`，会导致 `NoneMB`/`NoneGB` 脏数据。
-
-> ⚠️ **sysctl swapusage 正则陷阱：** `sysctl vm.swapusage` 输出格式为 `total = 3072.00M  used = 1741.44M` — **`total` 在 `used` 前面**，不是直觉中的 `used 在 total 前`。正则必须匹配 `total.*used` 顺序，否则永远匹配不到。
-
-### 去重冷却 (v2.4) 🆕
-
-高频 watchdog（30min）在同类告警持续期间会产生重复推送。为解决这个问题，watchdog 引入了**基于 state file 的去重冷却机制**：
-
-```
-去重逻辑（mac-doctor-watchdog.py）：
-├── 仅对纯 Disk low 告警生效（kanban/zombie/mcp 问题不受影响）
-├── 冷却窗口: 3 小时
-├── 磁盘变化阈值: 1GB（变化超过此值视为新告警，即使在冷却期内仍推送）
-└── State file: ~/.hermes/profiles/cron-worker/state/mac-doctor-watchdog-state.json
-```
-
-**对比诊断类型而非精确字符串**：`collector-daemon.py` 的 `diagnosis` 包含动态磁盘值，如 `"Disk low — 17.7GB free (7%)"` vs `"Disk low — 17.6GB free (7%)"`。精确字符串匹配会导致每轮变化 0.1GB 就绕过冷却，**必须以诊断前缀（`"Disk low"`）做类型匹配**。
-
-> 🐛 **v2.4 修复 (2026-06-15)：** `is_duplicate_disk_alert()` 原实现用 `diagnosis != prev_diag` 做精确字符串比较。由于 diagnosis 包含实时磁盘值，每轮都不同 → 去重从未生效。修复为 `"Disk low" in diagnosis and "Disk low" in prev_diag`。
+State file: `~/.hermes/profiles/cron-worker/state/mac-doctor-watchdog-state.json`
 
 ---
 
-## 跨 Profile 配置陷阱 ⚠️ (v2.3)
+## Layer 3: mac-doctor-triage（v3 新增）
 
-`collector-daemon.py` 使用 `Path.home() / ".hermes" / "inspection" / "config.json"` 读取配置。
-**在 cron-worker profile 下 `HOME` 指向 profile home**（如 `.../profiles/cron-worker/home/`），不是 `/Users/alexcai`。
+### 职责
+
+- LLM agent 解读 L2 watch + L1 collector 趋势
+- 区分 **transient**（瞬时）/ **persistent**（持续）/ **critical**（严重）
+- 写 `preferences.interpretations`（持久化解读）
+- 静默 stdout = 不推送
+- 异常 → stdout 输出 → Telegram
+
+### 触发机制（v3）
+
+| 触发 | 时机 |
+|------|------|
+| L2 watchdog 推送 | L2 写 `.triage-trigger` 时 |
+| 12h 兜底 | 每 12h cron 跑一次确保不漏 |
+
+### 数据流
+
+```
+L2 mac-doctor-watchdog.py (no_agent)
+  └── 异常时 → 写 .triage-trigger
+
+L3 mac-doctor-triage.py (LLM agent)
+  ├── 读 .triage-trigger
+  ├── 读 preferences.json
+  ├── 读 history.db (最近 24h trend)
+  ├── 组装 LLM prompt
+  ├── LLM 解读 → 写 interpretations
+  └── should_push → stdout 输出
+```
+
+### 输出 schema (Spec §2.3)
+
+```json
+{
+  "verdict": "transient|persistent|critical",
+  "diagnosis": "单行根因",
+  "recommendation": "建议行动 (1-3 条)",
+  "memory_write": {
+    "key": "facts.add|interpretations.add",
+    "value": ...
+  },
+  "should_push": true|false,
+  "push_message": "若 should_push=true 的推送内容"
+}
+```
+
+---
+
+## 4 个 cron 注册表（v3）
+
+**单一 source of truth**：`mac-doctor install` 注册这 4 个 cron job：
+
+| Job ID | schedule | mode | 脚本/skill | prompt 摘要 |
+|--------|----------|------|----------|------------|
+| `mac-doctor-quick` | `every 30m` | no_agent + script | `mac-doctor-watchdog.py` | (无 prompt，no_agent) |
+| `mac-doctor-triage` | `every 12h` | LLM agent | skills=[apple/mac-doctor] | "加载 mac-doctor skill。读 .triage-trigger + preferences.json + history.db 最近 24h。判断并输出结构化 JSON（verdict/diagnosis/recommendation/memory_write/should_push/push_message）。should_push=true → 推送，否则静默。" |
+| `mac-doctor-deep` | `0 3 * * *` | LLM agent | skills=[apple/mac-doctor] | "加载 mac-doctor skill。执行 Tier 2 全量审计（安全 + 硬件 + 网络）。详见 SKILL.md Tier 2a/2b/2c/2d。" |
+| `mac-doctor-weekly` | `0 9 * * 1` | LLM agent | skills=[apple/mac-doctor] | "加载 mac-doctor skill。生成周报：读 history.db 最近 7 天趋势 + preferences.interpretations + suppressions 摘要。输出 Markdown 周报到 stdout。" |
+
+### cron 注册（v3 唯一入口）
+
+```bash
+~/.hermes/skills/apple/mac-doctor/scripts/mac-doctor install
+```
+
+**不要**手工用 `cronjob create` 注册（绕过 `register_cron_jobs` 的幂等保证）。
+
+### cron 升级/迁移
+
+如果 cron job 需要改 schedule 或 prompt：
+1. 先 `mac-doctor uninstall`（pause 4 cron + unload LaunchAgent）
+2. 改 `mac-doctor` CLI 的 `JOB_IDS` 或 prompt
+3. `mac-doctor install`（重新注册）
+
+---
+
+## 错误模式与兜底
+
+| 模块 | 失败场景 | 兜底行为 |
+|------|---------|---------|
+| L1 collector | subprocess 超时 / 异常 | watchdog 捕获 → collector=error 状态推送 |
+| L2 watchdog | preferences.json 损坏 | load 返回 DEFAULT + stderr + 备份 .broken |
+| L2 watchdog | MCP cleanup 抛异常 | 单 try/except, 不影响其他检查 |
+| L2 watchdog | 触发 triage 失败 | stderr log, 不阻塞本次推送 |
+| L3 triage | LLM 超时/异常 | stdout 空 + stderr 警告 + 写 preferences.error |
+| L3 triage | preferences 写失败 | stdout 空 + stderr, 不阻塞后续 |
+| M4 CLI | install 失败 | 提示 rollback 已完成的步骤 |
+
+---
+
+## 跨 Profile 配置陷阱 ⚠️ (v3 保留)
+
+`collector-daemon.py` 使用 `Path.home() / ".hermes" / "inspection"` 路径。
+**在 cron-worker profile 下 `HOME` 指向 profile home**，**不是用户真实的 home**。
 
 **存在两份 config.json，修改阈值时必须同步：**
 
@@ -186,70 +281,30 @@ if not threshold_alerts and diagnosis == "All clear":
 
 ---
 
-## Anomaly Detection 参数 (v2.3)
+## Anomaly Detection 参数 (v3 保留)
 
 | 参数 | 值 | 说明 |
 |------|:--:|------|
-| `anomaly.sigma` | **3.0** | 3σ ≈ 0.3% 误报率。旧值 2.0 对新基线（<7 天数据）过于敏感 |
+| `anomaly.sigma` | **3.0** | 3σ ≈ 0.3% 误报率 |
 | `anomaly.baseline_days` | 7 | 基线窗口 |
-| `anomaly.enabled` | true | 保留开启——配合 watchdog 的 threshold-vs-anomaly 静默策略，纯异常不推送 |
-
-### 基线成熟度陷阱
-
-新装 collector 的前几周，baseline 不具代表性——夜间数据多、白天少。此时即使 σ=3.0，白天正常活动仍可能触发异常 z-score。
-
-**缓解方案：** watchdog 已区分 threshold/anomaly，纯异常静默。anomaly detector 作为"趋势指示器"而非告警源——当 diagnosis 也认为有问题时，anomaly 数据提供佐证。
+| `anomaly.enabled` | true | 保留开启——配合 watchdog 的 threshold-vs-anomaly 静默策略 |
 
 ---
 
-### 添加 Cron Job 示例（LLM Agent 模式）
+## 演进历史
 
-```
-# 通过小黄在 cron-worker session 中执行:
-cronjob create:
-  name: inspection-quick
-  schedule: "30m"
-  prompt: "加载 mac-doctor skill，执行 Tier 1 快速巡检并输出健康评分"
-  deliver: "origin"
-  skills: ["mac-doctor"]
-```
+| 版本 | 日期 | 关键变化 |
+|------|------|---------|
+| v2.4 | 2026-06-15 | state-file dedup（仅磁盘） |
+| v2.5 | 2026-06-28 | 六检统一看门狗 + MCP cleanup |
+| **v3.0** | **2026-06-28** | **三层架构 + 操作偏好记忆 + Skill CLI 总入口** |
 
 ---
 
-## 配置参考
+## 参考
 
-### `~/.hermes/inspection/config.json`
-
-```json
-{
-  "collection": {
-    "interval_seconds": 600,
-    "retention_days": 90,
-    "quiet_hours": {"enabled": true, "start": 23, "end": 7}
-  },
-  "alerts": {
-    "cpu_threshold": 80,
-    "memory_pressure_threshold": "high",
-    "swap_threshold_gb": 4,
-    "disk_threshold_percent": 10,
-    "battery_health_threshold": 80
-  },
-  "cpu_sustained": {
-    "enabled": true,
-    "threshold": 80,
-    "window_minutes": 5
-  },
-  "anomaly": {
-    "enabled": true,
-    "baseline_days": 7,
-    "sigma": 3.0
-  },
-  "cleanup_safety": {
-    "oplog_enabled": true
-  }
-}
-```
-
-### DB Schema
-
-见 `references/tier4-history-tracking.md`。
+- `references/tier5-smart-alerts.md` — 阈值告警原始定义
+- `references/tier4-history-tracking.md` — history.db schema
+- `references/upkeep-phases.md` — 清理节奏
+- `/tmp/codex-p1-plan.yaml` 至 `codex-p4-plan.yaml` — Codex 规划历史
+- OB `20-Areas/20_技术项目/mac-doctor/PRD/` — 项目 PRD/Spec/Plan/Audit

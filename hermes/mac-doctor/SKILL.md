@@ -8,7 +8,7 @@ type: routine
   系统评分, 健康检查, 磁盘空间, 内存压力, swap, 清理缓存, brew/npm/uv cache,
   CPU 大户, 安全检查, 电池健康, 网络配置审计, 历史趋势, 异常检测, 臃肿/隐私扫描。
   Do NOT use for: GUI 操作, 实时网络诊断 (ping/traceroute), 清理孤儿 App 数据。
-version: 2.4.2
+version: 2.4.1
 author: Hermes Agent
 platforms: [macos]
 metadata:
@@ -19,7 +19,7 @@ metadata:
 
 ---
 
-# macOS 设备巡检 v2.4
+# macOS 设备巡检 v2.0
 
 六级体系：看分 → 快查 → 深挖 → 清理 → 追踪 → 告警。
 
@@ -380,6 +380,78 @@ launchctl list com.hermes.inspection-collector
 
 ---
 
+## ⏰ Cron Architecture v3 (2026-06-28)
+
+**v3 重构**：从 v2.5 单层 watchdog 升级为 **三层 L1/L2/L3 架构 + Skill CLI 总入口**。
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ L1 · collector-daemon.py (LaunchAgent, 10min)             │
+│  · 数据采集 → ~/.hermes/inspection/history.db             │
+│  · 阈值告警 + anomaly detection (macOS 本地通知)            │
+│  · v2.2 不变                                              │
+└────────────────────────────────────────────────────────────┘
+                          ↓ stdout JSON
+┌────────────────────────────────────────────────────────────┐
+│ L2 · mac-doctor-watchdog.py (cron quick, 30min, no_agent) │
+│  · 读 collector --json → 阈值过滤                          │
+│  · 附加检查: Kanban/僵尸/MCP清理                           │
+│  · 冷却去重 (3h 窗口):                                    │
+│    - 磁盘: 同 free GB±1                                   │
+│    - 僵尸: 同 PID 集合                                    │
+│    - MCP: cleaned 状态                                    │
+│  · 集成 preferences.load() + known_short_running_tools 白名单│
+│  · 写 preferences.suppressions (3h TTL)                    │
+│  · 写 ~/.hermes/inspection/.triage-trigger (触发 L3)        │
+│  · 有异常 → 输出 → Telegram                                │
+└────────────────────────────────────────────────────────────┘
+                          ↓ trigger file
+┌────────────────────────────────────────────────────────────┐
+│ L3 · mac-doctor-triage.py (cron triage, 触发+12h兜底, LLM) │
+│  · 加载 mac-doctor skill + preferences.json + history.db   │
+│  · 组装 LLM prompt (snapshot + facts + interpretations +   │
+│    suppressions + trend + output_schema)                  │
+│  · LLM 判断: persistent / transient / critical             │
+│  · 写 preferences.interpretations                         │
+│  · 静默 stdout = 不推送                                    │
+└────────────────────────────────────────────────────────────┘
+```
+
+**4 cron 注册表**（统一通过 `mac-doctor install` 注册）：
+
+| Job ID | name | schedule | mode | 关联 skill |
+|--------|------|----------|------|----------|
+| mac-doctor-quick | quick | every 30m | no_agent + script | mac-doctor |
+| mac-doctor-triage | triage | every 12h | LLM agent | mac-doctor |
+| mac-doctor-deep | deep | 0 3 * * * | LLM agent | mac-doctor |
+| mac-doctor-weekly | weekly | 0 9 * * 1 | LLM agent | mac-doctor |
+
+详见 `references/cron-module.md` §3。
+
+---
+
+## 🛠️ Skill CLI（v3 新增）
+
+`scripts/mac-doctor` 可执行 Python 入口，6 个 subcommand：
+
+```bash
+mac-doctor install     # 一键安装 L1 LaunchAgent + 注册 4 个 cron job（幂等）
+mac-doctor uninstall   # 反向卸载（默认 dry-run + --force 才真删）
+mac-doctor status      # 三层表 + Prefs 摘要
+mac-doctor triage      # 手动触发一次 L3 triage
+mac-doctor preferences # show / edit / key-path 读取
+mac-doctor verify      # 跑 PRD §2.3 七项 checklist 并输出 PASS/FAIL/PENDING
+```
+
+所有 cron 注册通过 `mac-doctor install`，**source of truth 在 cron-module.md §3**。
+
+**操作偏好持久层**：`~/.hermes/inspection/preferences.json`
+- `version: 1` + `facts` (known_short_running_tools / known_zombie_parents / known_mcp_cleanup_targets / user_preferences)
+- `interpretations` (LLM triage 写入的历史解读)
+- `suppressions` (3h TTL 的同 signature 静默)
+
+---
+
 ## ✅ Verification Checklist
 
 - [ ] 磁盘用了 `diskutil info` 而非 `df -h /`？
@@ -389,3 +461,6 @@ launchctl list com.hermes.inspection-collector
 - [ ] 缓存清理前判断了生产模型（qmd/huggingface 不删）？
 - [ ] 清理后做了前后磁盘对比？
 - [ ] LaunchAgents 检查了死链？
+- [ ] **（v3 新增）** L1 collector daemon + L2 watchdog cron + L3 triage cron 三层架构已通过 `mac-doctor verify` 验证？
+- [ ] **（v3 新增）** `~/.hermes/inspection/preferences.json` 存在且 schema 正确（version + facts + interpretations + suppressions）？
+- [ ] **（v3 新增）** `mac-doctor status` 输出三层表（Layer 1/2/3 + Prefs）？
