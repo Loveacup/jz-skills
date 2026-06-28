@@ -54,11 +54,13 @@ OMP 内置 model roles：`default`、`smol`、`slow`、`vision`、`plan`、`desi
 
 可在 `config.yml` 配置：
 
+各角色能力定向：`plan` 角色需高推理能力与结构化多步规划能力，适合复杂架构设计；`task` 角色需高效代码生成与强指令遵循能力，适合可靠执行；`advisor` 角色需批判性分析与客观判断能力，适合细节审查。
+
 ```yaml
 modelRoles:
-  plan: anthropic/claude-sonnet-4:medium
-  task: openai/gpt-5.5:medium
-  advisor: anthropic/claude-sonnet-4:high
+  plan: <高推理-规划>
+  task: <代码生成-执行>
+  advisor: <批判审查>
 ```
 
 ### 4. `agent://<id>` / `history://<id>`（审计链可追溯）
@@ -116,11 +118,18 @@ memory:
   backend: local
 autolearn:
   enabled: true
+```
 
+各角色能力定向：`plan` 角色需高推理能力与结构化多步规划能力，适合复杂架构设计；`task` 角色需高效代码生成与强指令遵循能力，适合可靠执行；`advisor` 角色需批判性分析与客观判断能力，适合细节审查。
+
+```yaml
 modelRoles:
-  plan: anthropic/claude-sonnet-4:medium
-  task: openai/gpt-5.5:medium
-  advisor: anthropic/claude-sonnet-4:high
+  plan: <高推理-规划>
+  task: <代码生成-执行>
+  advisor: <批判审查>
+```
+
+```yaml
 
 tools:
   approvalMode: write

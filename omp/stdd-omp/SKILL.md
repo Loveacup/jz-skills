@@ -213,15 +213,20 @@ node scripts/setup.mjs --upgrade # 版本升级后刷新过时组件
 
 推荐 `~/.omp/agent/config.yml`：
 
+各 modelRole 的能力倾向：
+- `plan`：高推理能力、结构化多步规划、复杂架构设计
+- `task`：高效代码生成、强指令遵循、可靠执行
+- `advisor`：批判性分析、客观判断、细节审查
+
 ```yaml
 memory:
   backend: local
 autolearn:
   enabled: true
 modelRoles:
-  plan: anthropic/claude-sonnet-4:medium
-  task: openai/gpt-5.5:medium
-  advisor: anthropic/claude-sonnet-4:high
+  plan: <高推理-规划>
+  task: <代码生成-执行>
+  advisor: <批判审查>
 tools:
   approvalMode: write
   approval:

@@ -1,6 +1,6 @@
 # STDD-OMP WATCHDOG — v3 双 advisor（16.2.3+，已部署）
 #
-# Per-advisor 跨模型（Codex auto-review + DeepSeek V4 Flash）= P4 第二维「模型/视角独立」。
+# Per-advisor 跨模型（批判分析全科宽镜头 + 事实核实窄镜头）= P4 第二维「模型/视角独立」。
 # 宽镜头（Reviewer 14条规则全科审查）+ 窄镜头（Claim Verify 声称核实）。
 # 来源：OMP-Advisor-审计系统-v3-方案（已部署于 ~/.omp/agent/WATCHDOG.yml）。
 # 单 WATCHDOG.md = ≤16.2.2 回退档（见同目录 WATCHDOG.md）。
@@ -11,7 +11,8 @@ advisors:
   # ═══════════════════════════════════════════
   - slug: reviewer
     name: 🔍 Reviewer
-    model: openai-codex/codex-auto-review:medium
+    # 能力方向：批判性分析、客观判断、细节审查（全科宽镜头）
+    model: <REPLACE: 批判分析-全科审查>
     tools: [read, grep, glob, lsp]
     instruction: |
       You are a weak-supervision critic reviewing a primary agent and its
@@ -46,7 +47,8 @@ advisors:
   # ═══════════════════════════════════════════
   - slug: claim-verify
     name: 🔎 Claim Verify
-    model: deepseek/deepseek-v4-flash
+    # 能力方向：事实核实、证据对照、低延迟快速扫描（窄镜头）
+    model: <REPLACE: 事实核实-窄镜头>
     tools: [read, grep, glob]
     instruction: |
       NARROW LENS: verify the agent's CLAIMS against evidence. You are a

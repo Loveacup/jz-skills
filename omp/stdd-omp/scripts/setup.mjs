@@ -488,10 +488,12 @@ function formatConfigYamlSnippet(report) {
   lines.push('  backend: local');
   lines.push('');
   lines.push('modelRoles:');
-  lines.push('  plan: anthropic/claude-sonnet-4:medium');
-  lines.push('  task: openai/gpt-5.5:medium');
-  lines.push('  advisor: anthropic/claude-sonnet-4:high');
-  lines.push('');
+  lines.push('  # plan: 高推理、结构化多步规划、复杂架构设计');
+  lines.push('  plan: <高推理-规划>');
+  lines.push('  # task: 高效代码生成、强指令遵循、可靠执行');
+  lines.push('  task: <代码生成-执行>');
+  lines.push('  # advisor: 批判性分析、客观判断、细节审查');
+  lines.push('  advisor: <批判审查>');
   lines.push('tools:');
   lines.push('  approvalMode: write');
   lines.push('  approval:');

@@ -121,10 +121,14 @@ memory:
 autolearn:
   enabled: true
 
+# modelRoles 能力画像：
+#   plan    — 高推理能力、结构化多步规划、复杂架构设计
+#   task    — 高效代码生成、强指令遵循、可靠执行
+#   advisor — 批判性分析、客观判断、细节导向审查
 modelRoles:
-  plan: anthropic/claude-sonnet-4:medium
-  task: openai/gpt-5.5:medium
-  advisor: anthropic/claude-sonnet-4:high
+  plan: <高推理-规划>
+  task: <代码生成-执行>
+  advisor: <批判审查>
 ```
 
 ## Profile / modelRoles 隔离

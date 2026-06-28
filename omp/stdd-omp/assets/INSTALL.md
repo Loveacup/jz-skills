@@ -197,9 +197,11 @@ cp assets/WATCHDOG.md .omp/WATCHDOG.md
 
 启用 Advisor（`~/.omp/agent/config.yml`）：
 
+其中 `advisor` 角色需要：批判性分析、客观判断、细节审查。
+
 ```yaml
 modelRoles:
-  advisor: anthropic/claude-sonnet-4-5:medium
+  advisor: <批判审查>
 
 advisor:
   enabled: true

@@ -87,8 +87,9 @@ repeatMode: after-gap
 ### 启用配置（`~/.omp/agent/config.yml`）
 
 ```yaml
+# advisor 角色能力方向：批判性分析、客观判断、细节审查；建议选用具备强批判推理能力的模型
 modelRoles:
-  advisor: openai-codex/codex-auto-review:medium
+  advisor: <批判审查>  # 填入具备批判性分析与细节审查能力的模型标识
 
 advisor:
   enabled: true
@@ -98,12 +99,12 @@ advisor:
 
 ### 双 advisor → STDD 承重墙映射
 
-| Advisor | Slug | 模型 | 镜头 | STDD 覆盖 |
+| Advisor | Slug | 模型能力方向 | 镜头 | STDD 覆盖 |
 |---|---|---|---|---|
-| Reviewer | `reviewer` | Codex auto-review:medium | 宽镜头：scope/delivery/tool audit/fake verification（14条规则） | P1–P6 全覆盖 |
-| Claim Verify | `claim-verify` | DeepSeek V4 Flash | 窄镜头：声称核实（交付类+事实类，≤2条/轮 concern only） | P3 claimcheck（声称 vs 证据） |
+| Reviewer | `reviewer` | 批判性分析、客观判断、细节审查 | 宽镜头：scope/delivery/tool audit/fake verification（14条规则） | P1–P6 全覆盖 |
+| Claim Verify | `claim-verify` | 事实核实、证据对照、低延迟扫描 | 窄镜头：声称核实（交付类+事实类，≤2条/轮 concern only） | P3 claimcheck（声称 vs 证据） |
 
-**Per-advisor 跨模型（Codex + DeepSeek，不同家族）= P4 第二维「模型/视角独立」**。Refute-or-Promote 实证跨模型交叉验证多发现 ~3% 同族遗漏。Chair 不部署（独立运行，无通信）。
+**Per-advisor 跨能力方向（批判审查 + 声称核实，不同专长）= P4 第二维「模型/视角独立」**。Refute-or-Promote 实证跨模型交叉验证多发现 ~3% 同族遗漏。Chair 不部署（独立运行，无通信）。
 
 ### WATCHDOG 发现位置
 
