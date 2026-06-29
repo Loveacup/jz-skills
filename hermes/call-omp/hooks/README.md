@@ -1,6 +1,6 @@
 # hooks/ —— 预留：未来 MCP/ACP/omp-hook 事件驱动监控
 
-当前 omp skill 的监控是**轮询式**：`omp-send --async` 后台跑 omp，`omp-monitor` 轮询状态文件 +
+当前 call-omp skill 的监控是**轮询式**：`omp-send --async` 后台跑 omp，`omp-monitor` 轮询状态文件 +
 raw JSONL 增长 + pid 存活。这够用且零依赖，但不是事件驱动。本目录为未来事件驱动监控预留。
 
 ## 现状（无需 hooks）
