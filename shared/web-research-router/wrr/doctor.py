@@ -106,3 +106,58 @@ def doctor_exit_code(results: List[EngineCheckResult], *, strict: bool = False) 
     if strict and has_warn:
         return 1
     return 0
+
+
+# ── v5.5 外部依赖 doctor ──
+
+async def run_deps_doctor(*, deep: bool = False) -> List[Dict]:
+    """运行外部依赖健康检查。
+
+    Returns:
+        [{"id": str, "status": "ok"|"degraded"|"missing", "version": str, "detail": str}, ...]
+    """
+    from .deps import DepRegistry
+
+    registry = DepRegistry.get()
+    deps = registry.all
+
+    async def _check_safe(dep_id: str, dep):
+        try:
+            result = await dep.health(deep=deep)
+            return {
+                "id": dep_id,
+                "capability": dep.capability,
+                "status": result.status.value,
+                "version": result.version,
+                "detail": result.detail,
+                "pattern": dep.calling_pattern.value,
+            }
+        except Exception as exc:
+            return {
+                "id": dep_id,
+                "capability": getattr(dep, "capability", "unknown"),
+                "status": "missing",
+                "version": "unknown",
+                "detail": str(exc),
+                "pattern": getattr(dep, "calling_pattern", "unknown"),
+            }
+
+    results = await asyncio.gather(
+        *[_check_safe(dep_id, dep) for dep_id, dep in deps.items()]
+    )
+    return list(results)
+
+
+def summarize_deps(results: List[Dict]) -> Dict:
+    """汇总外部依赖检查结果。"""
+    counts = {"ok": 0, "degraded": 0, "missing": 0}
+    for r in results:
+        status = r.get("status", "missing")
+        counts[status] = counts.get(status, 0) + 1
+    if counts["missing"] > 0:
+        agg = "fail"
+    elif counts["degraded"] > 0:
+        agg = "warn"
+    else:
+        agg = "ok"
+    return {**counts, "status": agg}

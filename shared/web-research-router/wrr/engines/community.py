@@ -36,9 +36,9 @@ from ..schemas import SearchOptions, SearchResult, EngineCheckResult
 
 _Scored = Tuple[float, SearchResult]
 
-_L30_EN = os.path.expanduser(
+_L30_EN = os.environ.get("WRR_LAST30DAYS_EN") or os.path.expanduser(
     "~/code/last30days-skill/skills/last30days/scripts/last30days.py")
-_L30_CN = os.path.expanduser(
+_L30_CN = os.environ.get("WRR_LAST30DAYS_CN") or os.path.expanduser(
     "~/code/last30days-skill-cn/skills/last30days/scripts/last30days.py")
 
 # 源定义（字段名对齐各 CLI 实测 Output columns）。
