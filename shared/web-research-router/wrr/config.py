@@ -62,7 +62,9 @@ EXA_MODE_ROUTING = {
 EXA_ACADEMIC_KEYWORDS = ["论文", "综述", "survey", "architecture", "methodology", "framework", "algorithm",
                        "paper", "arxiv", "doi", "citation"]
 EXA_RESEARCH_KEYWORDS = ["深度", "详细", "全面", "比较", "对比", "分析", "research", "overview", "comparison",
-                         "comprehensive", "analysis", "deep", "in-depth", "compare"]
+                         "comprehensive", "analysis", "deep", "in-depth", "compare",
+                         "优化", "最新", "进展", "演进", "设计", "方案", "架构", "实现", "改进",
+                         "vs", "versus", "取舍", "选型"]
 EXA_FACTUAL_KEYWORDS = ["什么时候", "多少", "是谁", "日期", "版本", "release", "launch", "price"]
 
 # 各模式超时（秒）
@@ -133,7 +135,10 @@ RECENCY_TAU = {
 
 # 意图分类关键词
 RESEARCH_KEYWORDS = EXA_RESEARCH_KEYWORDS
-DISCOVERY_KEYWORDS = ["有哪些", "盘点", "趋势", "trending", "探索", "推荐", "找", "best", "top"]
+DISCOVERY_KEYWORDS = ["有哪些", "盘点", "趋势", "trending", "探索", "推荐", "找", "best", "top",
+                      "有没有", "类似", "替代", "取代", "开源", "project", "projects",
+                      "工具", "框架", "库", "平台", "sdk", "插件", "plugin",
+                      "list of", "awesome", "curated"]
 
 # 触发词（academic/skill；github/community 已在上方定义）
 ACADEMIC_KEYWORDS = EXA_ACADEMIC_KEYWORDS
@@ -164,16 +169,21 @@ LOCAL_NOTES_KEYWORDS = ["查笔记", "我的笔记", "笔记里", "知识库", "
 LOCAL_SESSION_KEYWORDS = ["历史对话", "会话记录", "聊天记录", "这次会话",
                           "上个 session", "刚才聊", "之前聊"]
 LOCAL_SCOPE_KEYWORDS = ["本地", "我的", "我们讨论过", "之前决定", "以前的结论"]
-# scope 弱信号需搭配的知识类名词（避免“本地部署 redis”误伤）
+# scope 弱信号需搭配的知识类名词（避免"本地部署 redis"误伤）
 _LOCAL_SCOPE_COMBO = ["笔记", "知识库", "文档", "记忆", "历史", "之前", "决定",
                       "note", "memory", "doc"]
+
+# ── 恢复/存档搜索触发词 ──
+RECOVERY_KEYWORDS = ["找不到", "丢失", "删除", "不见了", "recover", "恢复",
+                     "找回来", "复原", "找回", "被删", "消失", "404",
+                     "已删除", "已移除", "missing", "deleted", "gone"]
 
 
 def local_triggered(query: str) -> bool:
     """查询是否应进入 local mode（本地优先）。
 
     保守策略：强信号（memory/notes/session 关键词）直接命中；弱 scope 词
-    （本地/我的）必须搭配知识类名词才触发，否则“本地部署/localhost”误入 local。
+    （本地/我的）必须搭配知识类名词才触发，否则"本地部署/localhost"误入 local。
     """
     q = (query or "").lower()
     strong = LOCAL_MEMORY_KEYWORDS + LOCAL_NOTES_KEYWORDS + LOCAL_SESSION_KEYWORDS
@@ -184,6 +194,12 @@ def local_triggered(query: str) -> bool:
     return False
 
 
+def recovery_triggered(query: str) -> bool:
+    """查询是否在寻找丢失/删除/不可达的内容 → recovery mode。"""
+    q = (query or "").lower()
+    return any(k.lower() in q for k in RECOVERY_KEYWORDS)
+
+
 def classify_intent(query: str) -> str:
     """查询意图分类，返回 7 mode 之一（v5.2 含 local）。显式 mode 由 router 覆盖。"""
     q = (query or "").lower()
@@ -191,6 +207,8 @@ def classify_intent(query: str) -> str:
         return "local"
     if community_triggered(q):
         return "platform"
+    if recovery_triggered(q):       # == 丢失/删除内容
+        return "recovery"
     if academic_triggered(q):
         return "academic"
     if any(k.lower() in q for k in RESEARCH_KEYWORDS):
