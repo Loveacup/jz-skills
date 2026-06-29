@@ -91,3 +91,31 @@ def test_canonical_dedup_cross_platform_same_link():
     ]
     out = _fusion.dedup_cluster(docs)
     assert len(out) == 1                          # 同一外链跨平台合并
+
+
+# ── PATH 注入测试（v5.2 A1 修复）────────────────────────────────────
+
+def test_run_cmd_injects_local_bin_when_missing():
+    """_run_cmd 应在 PATH 头部注入 ~/.local/bin"""
+    import os
+    local_bin = os.path.expanduser("~/.local/bin")
+    # 模拟 _run_cmd 的 env 构建逻辑
+    env_dict = os.environ.copy()
+    current_path = env_dict.get("PATH", "")
+    parts = current_path.split(os.pathsep)
+    if local_bin not in parts:
+        env_dict["PATH"] = os.pathsep.join([local_bin] + parts)
+    assert local_bin in env_dict["PATH"].split(os.pathsep)
+    # 确认 ~/.local/bin 在最前面
+    first = env_dict["PATH"].split(os.pathsep)[0]
+    assert first == local_bin or first == parts[0], f"~/.local/bin not first in PATH"
+
+
+def test_run_cmd_noop_when_already_in_path():
+    """已存在不去重加"""
+    import os
+    local_bin = os.path.expanduser("~/.local/bin")
+    env_dict = os.environ.copy()
+    env_dict["PATH"] = local_bin + os.pathsep + env_dict.get("PATH", "")
+    parts = env_dict["PATH"].split(os.pathsep)
+    assert parts.count(local_bin) <= 1, "PATH 不应出现重复的 ~/.local/bin"

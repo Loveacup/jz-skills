@@ -48,6 +48,31 @@ async def call_tool(tool: Callable, **kwargs) -> Any:
     return res
 
 
+async def call_tool_with_retry(
+    tool: Callable, timeout: float = 5.0, retries: int = 1, **kwargs
+) -> Any:
+    """带超时 + 重试的 tool 调用。超时时重试 ≤retries 次，仍失败则抛 TimeoutError。
+
+    用于本地引擎（supermemory/session）在 Hermes tool 间歇超时时自动恢复，
+    避免静默跳过导致结果丢失。
+    """
+    last_error = None
+    for attempt in range(retries + 1):
+        try:
+            coro = call_tool(tool, **kwargs)
+            if asyncio.iscoroutine(coro):
+                return await asyncio.wait_for(coro, timeout=timeout)
+            return coro
+        except asyncio.TimeoutError as e:
+            last_error = e
+        except Exception as e:
+            # 非超时错误直接抛出，不重试
+            raise
+    raise asyncio.TimeoutError(
+        f"tool call timed out after {retries+1} attempts ({timeout}s each)"
+    ) from last_error
+
+
 def extract_rows(raw: Any) -> List[Any]:
     """把 Hermes tool 的多形态返回归一成 row 列表。
 

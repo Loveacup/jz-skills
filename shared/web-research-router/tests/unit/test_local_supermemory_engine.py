@@ -99,3 +99,53 @@ def test_health_deep_probe_counts(monkeypatch):
     r = run(LocalSupermemoryEngine(tool=fake).health_check(deep=True))
     assert r.status == "ok"
     assert r.evidence.get("probe_count") == 1
+
+
+# ── call_tool_with_retry 测试（v5.2 P1）───────────────────────────────
+
+async def fake_ok(**kwargs):
+    return {"results": [{"title": "ok"}]}
+
+
+async def fake_always_timeout(**kwargs):
+    raise asyncio.TimeoutError()
+
+
+async def fake_value_error(**kwargs):
+    raise ValueError("not a timeout")
+
+
+def _make_timeout_then_ok():
+    """工厂：第一次超时，第二次成功"""
+    counter = [0]
+    async def inner(**kwargs):
+        counter[0] += 1
+        if counter[0] == 1:
+            raise asyncio.TimeoutError()
+        return {"results": [{"title": "retry ok"}]}
+    return inner
+
+
+def test_retry_succeeds_first():
+    from wrr.engines._local_utils import call_tool_with_retry
+    r = asyncio.run(call_tool_with_retry(fake_ok, timeout=1.0, retries=1))
+    assert r["results"][0]["title"] == "ok"
+
+
+def test_retry_succeeds_second():
+    from wrr.engines._local_utils import call_tool_with_retry
+    r = asyncio.run(call_tool_with_retry(_make_timeout_then_ok(), timeout=1.0, retries=1))
+    assert r["results"][0]["title"] == "retry ok"
+
+
+def test_retry_fails_all():
+    from wrr.engines._local_utils import call_tool_with_retry
+    with pytest.raises(asyncio.TimeoutError):
+        asyncio.run(call_tool_with_retry(fake_always_timeout, timeout=0.1, retries=1))
+
+
+def test_retry_no_retry_on_non_timeout():
+    """非超时异常不重试，直接抛出"""
+    from wrr.engines._local_utils import call_tool_with_retry
+    with pytest.raises(ValueError, match="not a timeout"):
+        asyncio.run(call_tool_with_retry(fake_value_error, timeout=1.0, retries=1))

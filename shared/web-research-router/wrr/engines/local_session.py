@@ -16,7 +16,7 @@ from .base import SearchEngine
 from .. import config
 from ..errors import EngineError
 from ..schemas import SearchOptions, SearchResult, EngineCheckResult
-from ._local_utils import (resolve_hermes_tool, call_tool, extract_rows,
+from ._local_utils import (resolve_hermes_tool, call_tool, call_tool_with_retry, extract_rows,
                            normalize_local_query)
 
 _TOOL = "session_search"
@@ -39,7 +39,7 @@ class LocalSessionEngine(SearchEngine):
 
         limit = min(options.count, config.LOCAL_MAX_RESULTS_PER_ENGINE)
         raw = await asyncio.wait_for(
-            call_tool(tool, query=normalize_local_query(options.query), limit=limit),
+            call_tool_with_retry(tool, query=normalize_local_query(options.query), limit=limit, timeout=5.0),
             timeout=self.timeout,
         )
 

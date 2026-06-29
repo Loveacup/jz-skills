@@ -108,7 +108,7 @@ async def route(operation: str, options, registry: EngineRegistry,
 # ══════════════════════════════════════════════════════════════════════
 
 _V5_MODES = ("discovery", "grounding", "research", "academic", "platform",
-             "recovery", "local")
+             "recovery", "local", "broad")
 
 
 def resolve_mode(options) -> str:

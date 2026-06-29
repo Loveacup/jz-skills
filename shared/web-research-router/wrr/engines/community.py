@@ -175,10 +175,22 @@ def deduplicate(results: List[SearchResult]) -> List[SearchResult]:
 
 # ── 子进程（集中一处，便于单测 monkeypatch）──────────────────────────
 async def _run_cmd(cli: List[str], timeout: float) -> Tuple[Optional[int], str]:
-    """运行命令，返回 (returncode, stdout)；超时/异常返回 (None, '')。"""
+    """运行命令，返回 (returncode, stdout)；超时/异常返回 (None, '').
+    
+    自动在 PATH 头部注入 ~/.local/bin，确保非交互 shell 能找到 agent-reach/opencli。
+    """
+    env = os.environ.copy()
+    local_bin = os.path.expanduser("~/.local/bin")
+    current_path = env.get("PATH", "")
+    parts = current_path.split(os.pathsep)
+    if local_bin not in parts:
+        env["PATH"] = os.pathsep.join([local_bin] + parts)
+    else:
+        env["PATH"] = current_path
     try:
         proc = await asyncio.create_subprocess_exec(
-            *cli, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+            *cli, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+            env=env)
     except (FileNotFoundError, OSError):
         return (None, "")
     try:

@@ -73,4 +73,6 @@ def test_registry_singleton_and_names():
     r2 = get_registry()
     assert r1 is r2                          # 单例
     assert set(default_registry().names()) == {"exa", "brave", "searxng", "github",
-                                                "community", "academic", "skill"}  # v5：+academic +skill
+                                                "community", "academic", "skill",
+                                                "local_supermemory", "local_session",
+                                                "local_qmd", "local_obsidian"}  # v5.2：+4 本地引擎

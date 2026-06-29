@@ -178,6 +178,11 @@ RECOVERY_KEYWORDS = ["找不到", "丢失", "删除", "不见了", "recover", "�
                      "找回来", "复原", "找回", "被删", "消失", "404",
                      "已删除", "已移除", "missing", "deleted", "gone"]
 
+# ── 开放式兴趣查询（"今天有啥好玩的"→多源探索）──
+BROAD_INTEREST_KEYWORDS = ["今天可能感兴趣", "今天有啥", "今天有什么", "今天热点",
+                           "今日资讯", "今日热点", "最近有啥", "有什么新鲜",
+                           "interesting today", "what's new", "what's happening"]
+
 
 def local_triggered(query: str) -> bool:
     """查询是否应进入 local mode（本地优先）。
@@ -200,15 +205,23 @@ def recovery_triggered(query: str) -> bool:
     return any(k.lower() in q for k in RECOVERY_KEYWORDS)
 
 
-def classify_intent(query: str) -> str:
-    """查询意图分类，返回 7 mode 之一（v5.2 含 local）。显式 mode 由 router 覆盖。"""
+def broad_interest_triggered(query: str) -> bool:
+    """查询是否为开放式兴趣探索 → broad mode（多源并行）。"""
     q = (query or "").lower()
-    if local_triggered(q):          # 本地优先：历史/记忆/笔记意图先走本地层
+    return any(k.lower() in q for k in BROAD_INTEREST_KEYWORDS)
+
+
+def classify_intent(query: str) -> str:
+    """查询意图分类，返回 7 mode 之一（v5.2 含 local/broad）。显式 mode 由 router 覆盖。"""
+    q = (query or "").lower()
+    if recovery_triggered(q):       # recovery 优先（"找不到刚才的文件"）
+        return "recovery"
+    if local_triggered(q):          # 本地记忆/笔记
         return "local"
+    if broad_interest_triggered(q): # 开放式探索 → discovery + platform
+        return "broad"
     if community_triggered(q):
         return "platform"
-    if recovery_triggered(q):       # == 丢失/删除内容
-        return "recovery"
     if academic_triggered(q):
         return "academic"
     if any(k.lower() in q for k in RESEARCH_KEYWORDS):
@@ -221,6 +234,7 @@ def classify_intent(query: str) -> str:
 # mode → 基础引擎组合
 MODE_DISPATCH = {
     "discovery": ("exa", "brave", "community"),
+    "broad":     ("exa", "brave", "community", "searxng"),  # 开放式兴趣 → 多源并行
     "grounding": ("exa", "brave"),
     "research":  ("exa", "brave", "community", "academic"),
     "academic":  ("academic", "exa", "community"),
@@ -247,6 +261,8 @@ MODE_WEIGHTS = {
                   "local_supermemory": 1.0, "local_session": 0.9,
                   "local_qmd": 0.9, "local_obsidian": 0.8,
                   "exa": 0.3, "brave": 0.3, "community": 0.15},
+    # broad（v5.2）：开放式兴趣查询，4 引擎并行，社区权重大
+    "broad":     {**_W_DEFAULT, "community": 0.40, "searxng": 0.30},
 }
 
 

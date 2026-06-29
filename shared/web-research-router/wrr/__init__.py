@@ -13,4 +13,4 @@ v4.0 重构：从单文件 __init__.py 拆为结构化包。
 外部契约（Hermes 工具 schema、返回 JSON 形状、override=True）保持 v3 兼容。
 """
 
-__version__ = "4.0.0"
+__version__ = "5.2.0"

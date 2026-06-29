@@ -52,6 +52,19 @@ def test_classify_intent_platform():
         assert config.classify_intent(q) == "platform"
 
 
+def test_classify_intent_broad():
+    """开放式兴趣查询 → broad mode (v5.2)"""
+    for q in ["今天有啥好玩的", "今日热点", "今天可能感兴趣的事",
+              "what's new in AI", "最近有啥新鲜事"]:
+        assert config.classify_intent(q) == "broad"
+
+
+def test_classify_intent_recovery():
+    """丢失/删除查询 → recovery mode (v5.2)"""
+    for q in ["找不到刚才的文件", "恢复被删的记录", "missing deleted config"]:
+        assert config.classify_intent(q) == "recovery"
+
+
 def test_resolve_mode_explicit_and_recovery():
     assert resolve_mode(SearchOptions("anything", mode="recovery")) == "recovery"
     assert resolve_mode(SearchOptions("anything", mode="academic")) == "academic"
@@ -62,10 +75,12 @@ def test_resolve_mode_explicit_and_recovery():
 # ── MODE_DISPATCH 完整性 ─────────────────────────────────────────────
 def test_mode_dispatch_non_empty_and_registered():
     reg = _full_reg()
-    for mode in ("discovery", "grounding", "research", "academic", "platform", "recovery"):
+    for mode in ("discovery", "grounding", "research", "academic", "platform", "recovery", "local", "broad"):
         engines = config.MODE_DISPATCH[mode]
         assert engines, f"{mode} empty"
         for name in engines:
+            if name.startswith("local_"):  # 本地引擎在 CLI 环境不可用
+                continue
             assert reg.get(name) is not None, f"{mode}:{name} not in registry"
 
 
