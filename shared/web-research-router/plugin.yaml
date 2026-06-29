@@ -1,10 +1,11 @@
 name: wrr-hermes
-version: 5.0.0
-description: Web Research Router for Hermes - mode-based routing + parallel multi-engine + RRF fusion
+version: 5.2.0
+description: Web Research Router for Hermes — 11 engines (7 web + 4 local) with mode-based routing, parallel execution, and RRF fusion
 author: Alex Cai
 entry: __init__.py
 tools:
   - web_search
   - web_fetch
   - web_similar
-dependencies: []
+dependencies:
+  - httpx>=0.28

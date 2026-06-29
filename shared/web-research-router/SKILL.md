@@ -3,7 +3,7 @@
 name: web-research-router
 description: "Searches the web, finds papers, explores GitHub source code, verifies facts, searches social/video/forum platforms (Twitter/Reddit/B站/小红书/YouTube/V2EX/雪球/小宇宙/RSS via Agent-Reach), and runs multi-step deep-research loops using Exa/Brave/web_search/Tavily/SearXNG (5 engines) plus local knowledge (Supermemory/qmd/Obsidian/CodeGraph). Includes verbatim-quote extraction (anti-hallucination), query decomposition, and forced-answer fact-recall. Use when the user needs to 搜索, 检索, 查找, 调研, 核实, 深挖, 出报告, 找资料, 找项目, 搜推/看reddit/b站搜/查口碑, search, research, deep-research, find, look up, or verify information. Routes GitHub source code tasks to github. Do NOT use for local file ops."
 type: routine
-version: 3.11.0
+version: 5.2.0
 author: Hermes Agent
 license: MIT
 platforms: [macos, linux, windows]

@@ -1,59 +1,16 @@
-"""WRR Hermes Plugin v4.0 — 统一 web 搜索与内容抽取。
+"""WRR (Web Research Router) — structured package for the Hermes plugin.
 
-入口极薄：只做 Hermes tool 注册，全部逻辑委托 wrr 包。
+v4.0 重构：从单文件 __init__.py 拆为结构化包。
+  config    — 常量、fallback order、timeout、预算
+  errors    — 异常层级
+  schemas   — Search/Extract/Similar 的 options/result dataclass
+  engines/  — SearchEngine 抽象基类 + Exa/Brave/SearXNG 实现
+  router    — fallback 路由 + 预算控制（search/extract 共用）
+  registry  — 引擎注册表
+  formatters— Hermes JSON 输出（success/content/details，含 backup_hint）
+  tools/    — handle_web_search / handle_web_fetch / handle_web_similar
+
+外部契约（Hermes 工具 schema、返回 JSON 形状、override=True）保持 v3 兼容。
 """
-from wrr.tools.web_search import handle_web_search
-from wrr.tools.web_fetch import handle_web_fetch
-from wrr.tools.web_similar import handle_web_similar
 
-WEB_SEARCH_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "query": {"type": "string"},
-        "max_results": {"type": "integer", "default": 10},
-        "provider": {"type": "string", "enum": ["exa", "brave", "searxng"]},
-        "mode": {"type": "string", "enum": ["fast", "auto", "deep-lite", "deep"]},
-    },
-    "required": ["query"],
-}
-
-WEB_FETCH_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "url": {"type": "string"},
-        "max_characters": {"type": "integer", "default": 5000},
-        "provider": {"type": "string", "enum": ["exa", "brave"]},
-    },
-    "required": ["url"],
-}
-
-WEB_SIMILAR_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "url": {"type": "string"},
-        "max_results": {"type": "integer", "default": 10},
-    },
-    "required": ["url"],
-}
-
-
-def register(ctx):
-    """注册 WRR 工具，覆盖 Hermes 内置 web_search/web_fetch。"""
-    ctx.register_tool(
-        "web_search",
-        WEB_SEARCH_SCHEMA,
-        handle_web_search,
-        override=True,
-    )
-    ctx.register_tool(
-        "web_fetch",
-        WEB_FETCH_SCHEMA,
-        handle_web_fetch,
-        override=True,
-    )
-    ctx.register_tool(
-        "web_similar",
-        WEB_SIMILAR_SCHEMA,
-        handle_web_similar,
-        override=True,
-    )
+__version__ = "5.2.0"
