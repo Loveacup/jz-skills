@@ -36,8 +36,22 @@ def clear_hermes_tools() -> None:
 
 
 def resolve_hermes_tool(name: str) -> Optional[Callable]:
-    """解析 Hermes 内置工具 callable。未注入（如 CLI 环境）→ None。"""
-    return _HERMES_TOOLS.get(name)
+    """解析 Hermes 内置工具 callable。未注入（如 CLI 环境）→ None。
+    
+    优先查 _HERMES_TOOLS（显式注入），回退查 Hermes 全局工具注册表（运行时自动发现）。
+    """
+    fn = _HERMES_TOOLS.get(name)
+    if fn is not None:
+        return fn
+    # 回退：尝试从 Hermes 全局工具注册表获取 handler
+    try:
+        from tools.registry import registry
+        entry = registry.get_entry(name)
+        if entry is not None and entry.handler is not None:
+            return entry.handler
+    except Exception:
+        pass
+    return None
 
 
 async def call_tool(tool: Callable, **kwargs) -> Any:
