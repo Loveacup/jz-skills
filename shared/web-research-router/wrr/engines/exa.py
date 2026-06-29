@@ -97,7 +97,7 @@ class ExaEngine(SearchEngine):
         async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.post(
                 EXA_SEARCH_URL,
-                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                headers={"x-api-key": key, "Content-Type": "application/json"},
                 json={"query": options.query, "numResults": options.count,
                       "type": mode, "contents": _contents_block()},
             )
@@ -110,7 +110,7 @@ class ExaEngine(SearchEngine):
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             resp = await client.post(
                 EXA_CONTENTS_URL,
-                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                headers={"x-api-key": key, "Content-Type": "application/json"},
                 json={"urls": [options.url], "text": True,
                       "highlights": config.EXA_WITH_HIGHLIGHTS},
             )
@@ -129,7 +129,7 @@ class ExaEngine(SearchEngine):
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             resp = await client.post(
                 EXA_FINDSIMILAR_URL,
-                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                headers={"x-api-key": key, "Content-Type": "application/json"},
                 json={"url": options.url, "numResults": options.count,
                       "contents": _contents_block()},
             )
