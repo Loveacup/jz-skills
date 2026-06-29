@@ -26,6 +26,9 @@
 #   --allow-write      放开写工具白名单（危险；仅 govern:clean/deep-clean/sql + rollback 时）
 #   --no-auto-approve  关闭 --auto-approve（默认开；只读白名单下安全）
 #   --no-fallback      RPC 失败时不降级 Shell（直接报错，便于诊断）
+#   --auto-skills      自动路由：审计/审查/架构类任务加载 stdd-omp（默认关）
+#   --skills <pats>    指定 OMP --skills 值（逗号分隔 glob，如 stdd-omp,git-*）
+#   --no-skills        禁用全部 skills（覆盖 --auto-skills 和 --skills）
 #   --dry-run          只渲染 prompt + 打印将执行的命令，不真调用
 #   -h|--help
 #
@@ -38,7 +41,7 @@ source "$SELF_DIR/lib/omp-lib.sh"
 GATE="$SELF_DIR/gate"; TPL_DIR="$SELF_DIR/../templates"
 
 STATE=""; CH_OVERRIDE=""; MAXTIME=300; ASYNC=false; ADVISOR=false; ALLOW_WRITE=false
-AUTO_APPROVE=true; DRY=false; FALLBACK=true
+AUTO_APPROVE=true; DRY=false; FALLBACK=true; SKILLS=""; AUTO_SKILLS=false; NO_SKILLS=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --state)           STATE="$2"; shift 2 ;;
@@ -49,8 +52,11 @@ while [[ $# -gt 0 ]]; do
     --allow-write)     ALLOW_WRITE=true; shift ;;
     --no-auto-approve) AUTO_APPROVE=false; shift ;;
     --no-fallback)     FALLBACK=false; shift ;;
+    --auto-skills)     AUTO_SKILLS=true; shift ;;
+    --skills)          SKILLS="$2"; shift 2 ;;
+    --no-skills)       NO_SKILLS=true; shift ;;
     --dry-run)         DRY=true; shift ;;
-    -h|--help)         sed -n '2,44p' "$0"; exit 0 ;;
+    -h|--help)         sed -n '2,46p' "$0"; exit 0 ;;
     *) echo "omp-send: 未知参数 $1" >&2; exit 3 ;;
   esac
 done
@@ -63,6 +69,42 @@ STATUS=$(jq -r '.status' "$STATE")
 CHANNEL=$(jq -r '.channel // "acp"' "$STATE")
 [[ -n "$CH_OVERRIDE" ]] && CHANNEL="$CH_OVERRIDE"
 [[ "$STATUS" == "gated" ]] || { echo "omp-send: status=${STATUS}（需 gated 才能发送；先过 omp-start）" >&2; exit 2; }
+
+# ── 智能技能路由（--auto-skills）──
+# 检查指定 OMP skill 是否存在（参数：skill 名，如 stdd-omp）
+omp_skill_available() {
+  local sk="$1"
+  # 优先靠 omp --list-skills（若有）
+  if command -v omp >/dev/null 2>&1 && omp --list-skills 2>/dev/null | grep -qw "$sk"; then
+    return 0
+  fi
+  # 降级：检查文件系统已知路径
+  for d in ~/.omp/skills ~/.config/omp/skills /usr/local/share/omp/skills; do
+    [[ -f "$d/$sk/SKILL.md" ]] && return 0
+  done
+  return 1
+}
+
+route_skills() {
+  local task="$1"
+  if [[ -z "$task" ]]; then return; fi
+  # 高信号关键词 → STDD 审计（收紧：去掉"验证""检查"过宽词，"review"加词边界）
+  if echo "$task" | grep -qiE '审计|审查|\breview\b|架构|安全|合规|验收|bug|缺陷|漏洞|STDD|承重墙|BLOCKER|evidence|反幻觉'; then
+    if omp_skill_available "stdd-omp"; then
+      echo "stdd-omp"
+    else
+      warn "auto-skills: stdd-omp 不可用，降级为 plain OMP"
+    fi
+  fi
+}
+
+if $NO_SKILLS; then
+  SKILLS=""
+elif $AUTO_SKILLS && [[ -z "$SKILLS" ]]; then
+  TASK=$(echo "$PKG" | jq -r '.task')
+  SKILLS=$(route_skills "$TASK")
+  [[ -n "$SKILLS" ]] && echo "   🧠 auto-skills → $SKILLS" >&2
+fi
 
 update_state() { local f="$1"; local s; s=$(jq "$f | .updated_at=\"$(now_iso)\"" "$STATE"); printf '%s' "$s" | atomic_write "$STATE"; }
 
@@ -136,12 +178,12 @@ printf '%s\n' "$USER_MSG" | atomic_write "$PROMPT"
 # ── dry-run：只渲染不发 ──
 if $DRY; then
   echo "===📋 BEGIN omp-send --dry-run (relay verbatim)==="
-  echo "channel=$CHANNEL  task_id=$TASK_ID  mode=$MODE_FULL  round=$ROUND  tools=$TOOLS  max-time=$MAXTIME"
+  echo "channel=$CHANNEL  task_id=$TASK_ID  mode=$MODE_FULL  round=$ROUND  tools=$TOOLS  max-time=$MAXTIME  skills=${SKILLS:-(none)}"
   if [[ "$CHANNEL" == "rpc" ]]; then
-    echo "rpc daemon: $OMP_BIN --mode rpc --no-session --tools $TOOLS ${CWD:+--cwd "$CWD"} ${AUTO_APPROVE:+--auto-approve}${ADVISOR:+ --advisor} --append-system-prompt <sys>"
+    echo "rpc daemon: $OMP_BIN --mode rpc --no-session --tools $TOOLS ${SKILLS:+--skills "$SKILLS"} ${CWD:+--cwd "$CWD"} ${AUTO_APPROVE:+--auto-approve}${ADVISOR:+ --advisor} --append-system-prompt <sys>"
     echo "rpc stdin : $(jq -cn --arg m "$USER_MSG" '{type:"prompt",message:$m}' | head -c 160)…"
   else
-    echo "shell cmd : $OMP_BIN -p --mode json --no-session --max-time $MAXTIME --tools $TOOLS ${CWD:+--cwd $CWD} … --append-system-prompt <sys> <user_msg>"
+    echo "shell cmd : $OMP_BIN -p --mode json --no-session --max-time $MAXTIME --tools $TOOLS ${SKILLS:+--skills \"$SKILLS\"} ${CWD:+--cwd \"$CWD\"} … --append-system-prompt <sys> <user_msg>"
   fi
   echo "--- 渲染的任务正文（${PROMPT}）---"; printf '%s\n' "$USER_MSG"
   echo "===📋 END（dry-run 未调用 omp）==="
@@ -155,6 +197,7 @@ shell_send() {
     echo "🚫 omp-send: omp 不可用 → status=rejected (channel_error)" >&2; return 3
   fi
   local args=(-p --mode json --no-session --max-time "$MAXTIME" --tools "$TOOLS")
+  [[ -n "$SKILLS" ]] && args+=(--skills "$SKILLS")
   $AUTO_APPROVE && args+=(--auto-approve)
   [[ -n "$CWD" ]] && args+=(--cwd "$CWD")
   $ADVISOR && args+=(--advisor)
@@ -210,6 +253,7 @@ rpc_send() {
     # `2>&1 | grep` 之类管道调用时，holder 继承管道写端 fd，会让上游管道 MAXTIME 不结束。
     ( sleep "$MAXTIME" > "$fifo" 2>/dev/null ) </dev/null & hpid=$!
     local dargs=(--mode rpc --no-session --tools "$TOOLS")
+    [[ -n "$SKILLS" ]] && dargs+=(--skills "$SKILLS")
     $AUTO_APPROVE && dargs+=(--auto-approve)
     [[ -n "$CWD" ]] && dargs+=(--cwd "$CWD")
     $ADVISOR && dargs+=(--advisor)
@@ -244,9 +288,11 @@ rpc_send() {
 case "$CHANNEL" in
   acp)
     # ACP: spawn OMP as sub-agent via delegate_task(acp_command='omp').
+    # .run.omp_skills: Hermes 读取后传给 delegate_task 的 acp_args（如 --skills=stdd-omp）
+    # ACP: spawn OMP as sub-agent via delegate_task(acp_command='omp').
     # omp acp starts ACP server over stdio; prompt delivered via ACP protocol.
     # This script prepares state; Hermes reads it and calls delegate_task.
-    update_state ".status=\"pending_acp\" | .run.channel_used=\"acp\" | .run.mode=\"acp\" | .run.prompt=\"$PROMPT\" | .run.raw_output=\"$RAW\" | .run.task=\"$TASK\" | .run.started_at=\"$(now_iso)\" | .run.round=$ROUND"
+    update_state ".status=\"pending_acp\" | .run.channel_used=\"acp\" | .run.omp_skills=\"${SKILLS:-}\" | .run.mode=\"acp\" | .run.prompt=\"$PROMPT\" | .run.raw_output=\"$RAW\" | .run.task=\"$TASK\" | .run.started_at=\"$(now_iso)\" | .run.round=$ROUND"
     echo "===📋 BEGIN omp-send acp (relay verbatim)==="
     echo "🔷 ACP 委托 · task_id=$TASK_ID · round=$ROUND"
     echo "   prompt : $PROMPT"
