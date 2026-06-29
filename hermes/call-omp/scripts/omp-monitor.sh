@@ -11,14 +11,23 @@
 #     任一失败 → status=rejected + 具体原因。
 #   只消费 severity/summary/evidence 索引，不把上百 KB raw 打进上下文。
 #
+#   · --watch 模式（v0.4.0）：自动轮询循环，进度变化时输出，完成时自动裁决。
+#     输出与 cc-tmux 📡 监控模板对齐（===📡 BEGIN/END=== + 距上次时长 + raw 增长）。
+#     ACP 通道不配 --watch——ACP delegate_task 自带回调，完成时 Hermes 直接调单次 monitor。
+#
 # 参数：
-#   --state <file>   状态文件（与 --task-id 二选一）
-#   --task-id <id>   任务 id（自动定位状态文件）
-#   --json           仅输出 JSON 报告（默认人类可读 + 末行 JSON）
+#   --state <file>       状态文件（与 --task-id 二选一）
+#   --task-id <id>       任务 id（自动定位状态文件）
+#   --json               仅输出 JSON 报告（默认人类可读 + 末行 JSON）
+#   --watch              进入轮询模式（--state 必填，RPC/Shell 专属，ACP 不支持）
+#   --interval <s>       轮询间隔秒数（默认 10，仅 --watch）
+#   --timeout <s>        总超时秒数（默认读 state run.max_time+60，仅 --watch）
+#   --notify-on-change   进度不变时沉默输出（仅 --watch）
 #   -h|--help
 #
 # 退出码： 0 reported / 仍在运行 · 1 结构或 severity 非法（→rejected/human_review）
 #          · 2 omp 退出码非 0 / raw 缺失 · 3 参数错误 · 10 evidence 为空（→rejected）
+#          · 20 --watch 超时（已自动 kill + rejected）
 # stdout： 监控报告（relay）。状态文件 .monitor 字段写入结构化结论。
 # ─────────────────────────────────────────────────────────────────
 set -euo pipefail
@@ -26,13 +35,17 @@ SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SELF_DIR/lib/omp-lib.sh"
 GATE="$SELF_DIR/gate"
 
-STATE=""; TASK_ID=""; JSON_ONLY=false
+STATE=""; TASK_ID=""; JSON_ONLY=false; WATCH=false; INTERVAL=10; WATCH_TIMEOUT=0; NOTIFY_CHANGE=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --state)   STATE="$2"; shift 2 ;;
     --task-id) TASK_ID="$2"; shift 2 ;;
     --json)    JSON_ONLY=true; shift ;;
-    -h|--help) sed -n '2,33p' "$0"; exit 0 ;;
+    --watch)   WATCH=true; shift ;;
+    --interval) INTERVAL="$2"; shift 2 ;;
+    --timeout) WATCH_TIMEOUT="$2"; shift 2 ;;
+    --notify-on-change) NOTIFY_CHANGE=true; shift ;;
+    -h|--help) sed -n '2,40p' "$0"; exit 0 ;;
     *) echo "omp-monitor: 未知参数 $1" >&2; exit 3 ;;
   esac
 done
@@ -52,6 +65,81 @@ update_state() { local f="$1"; local s; s=$(jq "$f | .updated_at=\"$(now_iso)\""
 report_line() { $JSON_ONLY || echo "$1"; }
 
 [[ -n "$RAW" ]] || { echo "omp-monitor: 状态无 raw_output（尚未 send？status=${STATUS}）" >&2; exit 2; }
+
+
+# ═══════════════════════════════════════════════
+# --watch 轮询模式（RPC/Shell 专属）
+# ACP 不支持（delegate_task 自带回调，完成时直接调单次 monitor）
+# ═══════════════════════════════════════════════
+if $WATCH; then
+  [[ "$CHANNEL_USED" == "acp" ]] && { echo "omp-monitor: --watch 不支持 ACP 通道（delegate_task 自带回调）" >&2; exit 3; }
+  [[ "$INTERVAL" =~ ^[1-9][0-9]*$ ]] || { echo "omp-monitor: --interval 须为正整数" >&2; exit 3; }
+
+  # 超时默认：读 state 的 run.max_time + 60s（cover perl alarm +30s + buffer）
+  if [[ "$WATCH_TIMEOUT" -le 0 ]]; then
+    MT=$(jq -r '.run.max_time // 300' "$STATE")
+    [[ "$MT" =~ ^[1-9][0-9]*$ ]] || MT=300
+    WATCH_TIMEOUT=$((MT + 60))
+  fi
+
+  START_TS=$(date +%s); LAST_TS=$START_TS
+  LAST_SZ=-1; LAST_LN=-1
+  SEQ=0
+
+  echo "===📡 BEGIN omp-monitor --watch (relay verbatim)==="
+  echo "📡 watch 启动 · task_id=$TASK_ID · channel=$CHANNEL_USED · interval=${INTERVAL}s · timeout=${WATCH_TIMEOUT}s"
+
+  while true; do
+    # 超时检查
+    NOW_TS=$(date +%s)
+    ELAPSED=$((NOW_TS - START_TS))
+    if [[ $ELAPSED -ge $WATCH_TIMEOUT ]]; then
+      echo "===📡 BEGIN timeout==="
+      echo "⏰ 超时 · ${ELAPSED}s / ${WATCH_TIMEOUT}s"
+      echo "===📡 END==="
+      # 主动 kill + reject
+      RPID=$(jq -r '.run.rpc_pid // empty' "$STATE"); [[ -n "$RPID" ]] && kill "$RPID" 2>/dev/null
+      SPID=$(jq -r '.run.pid // empty' "$STATE"); [[ -n "$SPID" ]] && kill "$SPID" 2>/dev/null
+      update_state ".status=\"rejected\" | .monitor={checked_at:\"$(now_iso)\",issues:[\"--watch timeout ${WATCH_TIMEOUT}s\"]}"
+      echo "===📡 BEGIN omp-monitor (relay verbatim)==="
+      echo "📡 监控完成 · task_id=$TASK_ID · → status=rejected"
+      echo "   ⚠️ 问题: --watch 超时 ${WATCH_TIMEOUT}s"
+      echo "   下一步: omp-finish.sh --state $STATE --reject"
+      echo "===📡 END==="
+      exit 20
+    fi
+
+    # 单次检查
+    OUT=$("$0" --state "$STATE" --json 2>&1); RC=$?
+    PHASE=$(echo "$OUT" | jq -r '.phase // "unknown"' 2>/dev/null)
+    SZ=$(echo "$OUT" | jq -r '.raw_bytes // 0' 2>/dev/null); [[ "$SZ" =~ ^[0-9]+$ ]] || SZ=0
+    LN=$(echo "$OUT" | jq -r '.raw_lines // 0' 2>/dev/null); [[ "$LN" =~ ^[0-9]+$ ]] || LN=0
+
+    # 判断阶段
+    if [[ "$PHASE" != "running" ]]; then
+      # 完成/失败 → 重新输出完整报告（非 --json，人类可读）
+      "$0" --state "$STATE" 2>/dev/null
+      echo "===📡 END==="
+      exit $RC
+    fi
+
+    # 仍在运行：进度变化检查
+    DELTA=$((NOW_TS - LAST_TS)); LAST_TS=$NOW_TS
+    SEQ=$((SEQ + 1))
+    if ! $NOTIFY_CHANGE || [[ "$SZ" != "$LAST_SZ" || "$LN" != "$LAST_LN" ]]; then
+      echo "📡 #${SEQ} [距上次 ${DELTA}s] ${CHANNEL_USED} 运行中 · raw ${SZ}B/${LN}行 · interval=${INTERVAL}s"
+      LAST_SZ=$SZ; LAST_LN=$LN
+    fi
+
+    # 确定要监控的 pid
+    MPID=""; [[ "$CHANNEL_USED" == "rpc" ]] && MPID=$(jq -r '.run.rpc_pid // empty' "$STATE") || MPID=$(jq -r '.run.pid // empty' "$STATE")
+    echo "   └ 轮询: ${INTERVAL}s 后重查 · 干预: kill ${MPID:-<pid>}"
+
+    sleep "$INTERVAL"
+  done
+  # unreachable — watch loop covers all paths
+fi
+
 
 # ── RPC 通道：daemon 心跳 + 本轮 turn_end（turn_start_line marker 只看本轮）──
 if [[ "$CHANNEL_USED" == "rpc" && "$STATUS" == "running" ]]; then

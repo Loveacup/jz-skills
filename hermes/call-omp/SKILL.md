@@ -7,7 +7,7 @@ description: >-
   evidence/sql 治理；或 OMP 的 LSP/DAP/Hashline/浏览器/多搜索后端能力面时使用。触发词：
   OMP、Oh My Pi、omp 审计、独立审查、govern 治理、审计报告、Advisor。与 cc-tmux 互补
   （cc-tmux 管长会话编码委派，omp 管审计/治理/工具面）。
-version: 0.3.0
+version: 0.4.0
 type: autonomous-ai-agents
 author: anyis (Hermes Agent Team)
 license: MIT
@@ -115,6 +115,22 @@ scripts/omp-monitor.sh --state <状态文件>            # 完成→校验；asy
 → 校验 JSONL 完整、内层 severity/summary/evidence、severity∈{nit,concern,blocker,pass}。
 全过 `status=reported`；任一失败 `status=rejected`（空证据 `exit 10`）。
 
+### Step 3b · --watch 模式（v0.4.0 新增）
+
+RPC/Shell 长任务无需手动轮询——`omp-monitor --watch` 接管监控循环：
+
+```bash
+scripts/omp-monitor.sh --state <状态文件> --watch                        # 默认 10s 间隔，超时=max_time+60s
+scripts/omp-monitor.sh --state <状态文件> --watch --interval 5            # 5s 间隔
+scripts/omp-monitor.sh --state <状态文件> --watch --timeout 120           # 自定义 120s 超时
+scripts/omp-monitor.sh --state <状态文件> --watch --notify-on-change      # 静默模式：进度不变不输出
+```
+
+- 每秒轮询 raw 文件增长 + pid 存活，进度变化时输出 📡 风格进度线
+- 超时自动 `kill` + `rejected`（exit 20）
+- 完成时自动调双层校验 → 输出裁决报告
+- **ACP 不支持 --watch**（delegate_task 自带回调，完成时直接调单次 monitor）
+
 ### Step 4 · finish —— 转 verdict + 裁决
 ```bash
 scripts/omp-finish.sh --state <状态文件> --accept         # status=accepted + 归档
@@ -157,9 +173,15 @@ scripts/omp-finish.sh --state <状态文件> --human-review   # 升级人工（�
 - **忘了轮次/reject 上限** → gate-counter 硬终止；别在 stop 后自动重试。
 - **委派包夹带密钥/token/.env** → gate-danger 拦（只标记不回显，防二次泄露）。
 - **blocker 直接 accept** → finish `exit 2` 拒；按 evidence reject 或转 cc-tmux 修复。
+- **`--allowed-path` 不支持 glob 模式**（如 `test_local_*.py`）→ `omp-start` 将 `*` 当字面量，不展开。用目录级路径（`tests/unit/`）或逐文件列出。shell 展开只发生在调用前，glob 引号内不生效。
+- **raw 体积远超 1.96 MB**（深度代码审计可达 **100 MB+**，实测 WRR v5.2 审计产出 106 MB）→ omp-monitor 只提取关键字段，raw 绝不打进 LLM 上下文。100 MB+ JSONL 落入 `/tmp` 后 `omp-finish --accept` 自动移到归档目录。同步 shell 模式下大文件无静默失败风险。
+- **`--criterion` 是必填参数** → `omp-start` 缺 `--criterion` 会 `exit 3`（`至少一条 --criterion`）。每个 criterion 是独立 `--criterion` 参数，不是逗号分隔字符串。
+- **`--allowed-path` 只接受目录或单文件** → 不支持 glob（`test_*.py`）、不支持相对路径。用目录级路径（`tests/unit/`）或绝对路径逐文件列出。
 - **RPC 一个 prompt 多 turn** → 完成看 `stopReason=stop`（最终文本 turn），不是首个 `turn_end`（那常是 toolUse turn，提不到审计文本）。
 - **RPC daemon 后台进程 fd** → 必须 `</dev/null` + 重定向 stdout/stderr，脱离父管道；否则被 `… | grep` 调用时 holder 持管道写端，上游卡到超时。
 - **ACP 通道需 delegate_task 支持** → `omp-send --channel acp` 后 status=pending_acp，Hermes 须调用 `delegate_task(acp_command='omp')` 完成。不要当 fire-and-forget。
+- **Shell --async 静默失败**（raw 0 字节，进程已退出无错误输出）→ **改用同步 shell**：`omp -p --mode json --no-session --max-time <N> --tools ... "prompt" > /tmp/omp-raw.json`。同步模式可以直接看到错误（如 403 quota），不像 async 静默。
+- **omp-monitor 要求结构化 JSON verdict**（`{severity, evidence, summary}`）→ OMP 文本中常不输出此格式，monitor 会将 `status=rejected`。此时手动从 raw JSONL 提取结论：`grep text_delta /tmp/omp-raw.json | jq -r '.assistantMessageEvent.delta'` 拼接最后一个 assistant turn 的全部文本即可。
 
 ## 待验证清单
 
@@ -173,6 +195,27 @@ enforcement。**待验证项不得在输出中写成已实现事实。**
 async 监控/干预 + ACP delegate_task + 红线。当前 **55/55 通过**。
 
 ## 版本历史
+
+### v0.5.0（2026-06-29）— omp-monitor --watch 实时监控
+
+- `omp-monitor.sh` 新增 `--watch` 模式（+88 行，总 258 行）
+- RPC/Shell 自动轮询循环：间隔可配、进度变化输出、超时自动 kill+rejected
+- 输出对齐 cc-tmux 📡 模板：`===📡 BEGIN/END===` + 距上次时长 + raw 增长 + 干预指令
+- ACP 不支持 --watch（delegate_task 自带异步回调）
+- `--notify-on-change` 静默模式：进度不变时不输出
+- 55/55 回归测试全过 + watch smoke test 通过
+
+### v0.5.0（2026-06-29）— WRR v5.2 本地搜索层审计
+
+- `--allowed-path` 不支持 glob（`test_local_*.py` 字面量传入 `omp-start` 报 `未知参数`），用目录级路径（`tests/unit/`）替代。
+- shell sync 模式再次验证可靠：100 MB+ raw JSONL 完整产出，exit 0，无静默失败。
+- concern 级 verdict 处理：接受 → 补修单条缺失（deep 单测 3 条）→ 248/248 → 通过。
+
+### v0.4.0（2026-06-29）— WRR v5.0 审计浮现的 shell async 坑
+
+- Shell `--async` 在 provider 配额耗尽(403)或其他启动失败时**静默退出**，raw 文件 0 字节无错误提示。
+- **修复建议**：长审计优先用**同步 shell** 重定向到文件（`omp -p ... > /tmp/raw.json`），同步模式 stderr/stdout 都可见。
+- 当 omp-monitor 因 OMP 未输出结构化 verdict JSON 而 rejected 时，从 raw JSONL 手动提取结论：拼接最后一个 assistant turn 的所有 `text_delta` 即可得到完整审计文本。
 
 ### v0.3.0（2026-06-28）— ACP 审查驱动安全加固
 
