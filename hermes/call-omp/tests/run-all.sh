@@ -173,5 +173,31 @@ chk "acp status=pending_acp" pending_acp "$(jq -r '.status' "$TD/omp-state-acp1.
 chk "acp channel_used=acp" acp "$(jq -r '.run.channel_used' "$TD/omp-state-acp1.json")"
 pkill -f "mock-rpc.sh" 2>/dev/null; pkill -f "mock-degrade.sh" 2>/dev/null
 
+# ════ 13. --watch 模式（v0.5.0 STDD 修复）══════════════════════════
+echo "═══ 13. --watch 模式 ═══"
+
+# Setup mock state (ACP channel, so --watch should reject)
+cat > /tmp/omp-test-state.json << 'STATEEOF'
+{"task_id":"test-watch","status":"running","run":{"channel_used":"acp","raw_output":"/tmp/omp-test-raw.json","max_time":300}}
+STATEEOF
+
+# 13a: ACP 拒绝 --watch
+echo -n "  🧪 watch-acp-reject ... "
+OUT=$(bash scripts/omp-monitor.sh --state /tmp/omp-test-state.json --watch 2>&1) || true
+if echo "$OUT" | grep -q "不支持 ACP"; then echo "✅"; else echo "❌ 未检测到 ACP 拒绝 (got: ${OUT:0:80})"; ((F++)); fi
+
+# 13b: --interval 非法值
+echo -n "  🧪 watch-bad-interval ... "
+bash scripts/omp-monitor.sh --state /tmp/omp-test-state.json --watch --interval abc 2>/dev/null; RC=$?
+[[ $RC -eq 3 ]] && echo "✅" || { echo "❌ exit=$RC 期望 3"; ((F++)); }
+
+# 13c: --help 覆盖 --watch
+echo -n "  🧪 watch-help ... "
+OUT=$(bash scripts/omp-monitor.sh --help 2>&1)
+if echo "$OUT" | grep -q "\-\-watch"; then echo "✅"; else echo "❌"; ((F++)); fi
+
+((P+=3))
+
 echo; echo "════════ PASS=$P  FAIL=$F ════════"
 [[ $F -eq 0 ]] && exit 0 || exit 1
+

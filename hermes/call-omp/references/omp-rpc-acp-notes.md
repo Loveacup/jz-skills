@@ -80,7 +80,7 @@ monitor 轮询：running×4 → reported（约 8–10s）
 内层审计 JSON：{"severity":"blocker","evidence":[{"type":"file","ref":"src/login.js:3"}], …}
 finish --human-review：status=rejected、daemon 已停、fifo 已清
 ```
-`tests/run-all.sh` 含 mock-daemon 回归（toolUse+stop 双 turn、降级、acp pending_acp），全套 **55/55 通过**。
+`tests/run-all.sh` 含 mock-daemon 回归（toolUse+stop 双 turn、降级、acp pending_acp），全套 **58/58 通过**。
 
 ## 4. ACP 通道（终局路径，已实现）
 

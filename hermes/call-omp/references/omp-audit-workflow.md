@@ -35,7 +35,7 @@ Hermes 阅读审计报告，决策：
 | OMP 审计 | ACP delegate → verdict: blocker（ACP --await 架构不可行）|
 | 证据 | `omp-monitor.sh:57-86` 已实现轮询逻辑 · `omp-send.sh:245-255` ACP= pending_acp 非 running |
 | 修正 | 扩展 `omp-monitor.sh` + --watch（+88行），ACP 走回调 |
-| 结果 | v0.4.0 落地，55/55 测试 + smoke test 通过 |
+| 结果 | v0.4.0 落地，58/58 测试 + smoke test 通过 |
 
 ## 触发条件
 

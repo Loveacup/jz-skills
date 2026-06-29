@@ -7,7 +7,7 @@ description: >-
   evidence/sql 治理；或 OMP 的 LSP/DAP/Hashline/浏览器/多搜索后端能力面时使用。触发词：
   OMP、Oh My Pi、omp 审计、独立审查、govern 治理、审计报告、Advisor。与 cc-tmux 互补
   （cc-tmux 管长会话编码委派，omp 管审计/治理/工具面）。
-version: 0.4.0
+version: 0.5.0
 type: autonomous-ai-agents
 author: anyis (Hermes Agent Team)
 license: MIT
@@ -29,7 +29,8 @@ Thin skill + fat scripts：本文件只讲**何时用、怎么调、边界、坑
 - 需要独立审查者给 `nit`/`concern`/`blocker`/`pass` 级、**带证据**的 verdict。
 - 需要结构化 JSON 审计报告（`audit` 模式）。
 - 需要 govern 治理：`inspect`/`evidence`（只读优先）、`clean`/`deep-clean`/`sql`（高危，需 rollback）。
-- 需要 OMP 能力面：Hashline、LSP、DAP、浏览器、搜索后端、子代理编排。
+- 需要 OMP 能力面：Hashline、LSP、DAP、浏览器、搜索后端、子代理编排、stdd-omp（STDD 方法论审计）。
+- 需要 STDD 方法论闭环审计（调用 `omp --skills=stdd-omp`，逐承重墙裁决）。
 - 与 cc-tmux 互补：cc-tmux 跑实现，omp 做独立审计/治理。
 
 **不使用**：普通文件读取/简单 shell/本地解释；用户禁止外部 CLI；任务要读密钥/token/密码/.env；
@@ -126,7 +127,7 @@ scripts/omp-monitor.sh --state <状态文件> --watch --timeout 120           # 
 scripts/omp-monitor.sh --state <状态文件> --watch --notify-on-change      # 静默模式：进度不变不输出
 ```
 
-- 每秒轮询 raw 文件增长 + pid 存活，进度变化时输出 📡 风格进度线
+- 默认 10s 间隔轮询 raw 文件增长 + pid 存活，进度变化时输出 📡 风格进度线
 - 超时自动 `kill` + `rejected`（exit 20）
 - 完成时自动调双层校验 → 输出裁决报告
 - **ACP 不支持 --watch**（delegate_task 自带回调，完成时直接调单次 monitor）
@@ -192,6 +193,8 @@ scripts/omp-finish.sh --state <状态文件> --human-review   # 升级人工（�
 - **Shell --async 静默失败**（raw 0 字节，进程已退出无错误输出）→ **改用同步 shell**：`omp -p --mode json --no-session --max-time <N> --tools ... "prompt" > /tmp/omp-raw.json`。同步模式可以直接看到错误（如 403 quota），不像 async 静默。
 - **cross-profile 写保护** → call-omp 安装在 default profile 的 `~/.hermes/skills/` 下，从 regent profile 编辑脚本时 patch/read/write 工具会触发 cross-profile write guard。**解决**：用 `terminal` 工具 + sed/python 直接写文件绕过，或用 `cross_profile=True` 参数（需显式确认）。
 - **skill 命名冲突** → call-omp 原名 `omp`，与 `jz-skills/omp/`（含 `omp-ops/`、`stdd-omp/`）重名导致覆盖。教训：skill 名称用 **verb-noun** 格式（如 `call-omp`、`deploy-to-x`），不放与工具同名。已迁至 `jz-skills/hermes/call-omp/`。
+- **STDD 审计闭环** ★：方案设计后先用 `omp --skills=stdd-omp` 做 STDD 审计（4 步 + 承重墙）。若 verdict=blocker → 逐项修 → 重新审计通过后方可 accept。不要跳过 STDD 直接 Build。（2026-06-29 实战：--watch 设计跳过 Spec/Accept 直接被 stdd-omp 判 blocker）
+- **OMP message_update 结构** → OMP v16.2.2 JSONL 中 assistant 文本在 `message_update` 事件的 `assistantMessageEvent.delta` 字段（非 `messageUpdateEvent`）。提取：python 遍历 JSONL → `ev['assistantMessageEvent']['delta']` where `ev['assistantMessageEvent']['type'] == 'text_delta'`。
 - **omp-monitor 要求结构化 JSON verdict**（`{severity, evidence, summary}`）→ OMP 文本中常不输出此格式，monitor 会将 `status=rejected`。此时手动从 raw JSONL 提取结论：`grep text_delta /tmp/omp-raw.json | jq -r '.assistantMessageEvent.delta'` 拼接最后一个 assistant turn 的全部文本即可。
 
 ## 待验证清单
@@ -203,9 +206,22 @@ enforcement。**待验证项不得在输出中写成已实现事实。**
 ## 测试
 
 `bash tests/run-all.sh` —— 自包含套件（mock omp，零 token），覆盖 gate 硬卡 + 四步状态机 +
-async 监控/干预 + ACP delegate_task + 红线。当前 **55/55 通过**。
+async 监控/干预 + ACP delegate_task + 红线。当前 **58/58 通过**（含 --watch 3 项）。
 
 ## 版本历史
+
+### v0.5.0（2026-06-29）— STDD 审计驱动质量加固
+
+STDD-omp 审计 `--watch` 功能发现 **BLOCKER**（缺验收清单、零测试、幽灵证据、文档矛盾），逐项修复：
+
+| 级别 | 修复 | 描述 |
+|:---:|------|------|
+| P0 | 验收清单 | `references/watch-acceptance-checklist.md`（17 条逐条 true/false） |
+| P0 | --watch 测试 | `tests/run-all.sh` §13：ACP 拒绝、非法 interval、help 覆盖（+3 项，总计 58） |
+| P1 | 文档矛盾 | `SKILL.md:129` "每秒轮询" → "默认 10s 间隔" |
+| P1 | 幽灵证据 | `SKILL.md:219` "watch smoke test 通过" 加锚 `proc_111af9e87869: exit 0, 11轮, 29.6MB` |
+
+**新增 pitfall**：STDD 完整审计闭环 — 方案设计→OMP(stdd-omp)审计（blocker）→逐项修→OMP 复审→通过。
 
 ### v0.4.0（2026-06-29）— omp-monitor --watch 实时监控 + WRR v5.2 审计
 
@@ -216,13 +232,8 @@ async 监控/干预 + ACP delegate_task + 红线。当前 **55/55 通过**。
 - `--notify-on-change` 静默模式：进度不变时不输出
 - ACP audit-driven design 工作流：Hermes 设计方案 → OMP 审计（blocker: ACP --await 不可行）→ 接受 findings → 调整为扩展 omp-monitor 而非新建脚本
 - WRR v5.2 本地搜索层审计：shell sync 100 MB+ raw 完整产出；concern→补修→248/248
-- 55/55 回归测试全过 + watch smoke test 通过
-
-### v0.4.0（2026-06-29）— WRR v5.0 审计浮现的 shell async 坑
-
-- Shell `--async` 在 provider 配额耗尽(403)或其他启动失败时**静默退出**，raw 文件 0 字节无错误提示。
-- **修复建议**：长审计优先用**同步 shell** 重定向到文件（`omp -p ... > /tmp/raw.json`），同步模式 stderr/stdout 都可见。
-- 当 omp-monitor 因 OMP 未输出结构化 verdict JSON 而 rejected 时，从 raw JSONL 手动提取结论：拼接最后一个 assistant turn 的所有 `text_delta` 即可得到完整审计文本。
+- 55/55 回归测试全过 + watch smoke test 通过（见 process log proc_111af9e87869: exit 0, 11轮轮询, 29.6MB raw）
+- **Shell async 坑**：WRR v5.0 审计中发现 Shell `--async` 在 provider 配额耗尽(403)时静默退出（raw 0 字节无提示），长审计优先用同步 shell 重定向文件。
 
 ### v0.3.0（2026-06-28）— ACP 审查驱动安全加固
 
