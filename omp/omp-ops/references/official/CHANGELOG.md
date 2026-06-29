@@ -2,6 +2,43 @@
 
 ## [Unreleased]
 
+## [16.2.6] - 2026-06-29
+
+### Changed
+
+- Optimized argument streaming performance by throttling JSON re-parsing for renderers that do not require raw input.
+
+### Fixed
+
+- Fixed memory leaks in the benchmark CLI by ensuring provider sessions are properly closed upon completion.
+- Fixed TUI rendering lag and shimmer frame starvation during streamed tool-call argument previews.
+- Fixed llama.cpp discovery mapping unlimited output limits (max_tokens = -1 / n_predict = -1) to the generic 32K cap instead of the actual discovered runtime context window.
+- Fixed memory exhaustion on Ctrl+C flush for large resumed sessions with repeated compaction summaries, and improved fork session previews starting with developer or assistant turns.
+- Fixed omp search applying web search provider filters before resolving its implicit provider chain.
+- Fixed Gemini web search to support standard GEMINI_API_KEY developer API credentials for native Google Search grounding, in addition to Cloud Code Assist OAuth.
+- Fixed the bash interceptor blocking echo and printf redirects to standard device sinks (such as /dev/null, /dev/tty, /dev/stdout, and /dev/stderr).
+- Fixed session file size inflation in the edit tool by pruning extremely large oldText and newText snapshots (over 32 KB) from tool-result details, while preserving visible diffs, paths, lines, and diagnostic metadata.
+- Fixed Windows MCP stdio launches for PATH-resolved npx.cmd shims by preserving the cmd.exe wrapper path to keep subprocess stdio attached.
+- Fixed the DuckDuckGo web_search provider returning empty results for non-encyclopedic queries by switching from the Instant Answer API to parsing the HTML frontend, and added clear error handling for bot-challenge throttling.
+- Fixed Windows --extension paths with spaces or \\?\ prefixes being truncated or incorrectly passed to Bun import/spawn APIs.
+- Fixed /mcp reauth compatibility with Cloudflare by aligning OAuth prompt behavior with the reference MCP SDK and updating the client label to oh-my-pi.
+
+## [16.2.5] - 2026-06-28
+
+### Changed
+
+- Status line now collapses a linked git worktree path to the project name with a worktree icon, leaving the git segment to show the branch once instead of repeating it in the path.
+
+### Fixed
+
+- Fixed Ollama and llama.cpp discovery overestimating local context windows by using model training metadata instead of the runtime `num_ctx` / `n_ctx`, which could let compaction retry prompts that llama.cpp rejects as over context. ([#3752](https://github.com/can1357/oh-my-pi/issues/3752))
+- Fixed isolated subagent worktrees embedding long task ids and `merged` in the working path; isolation now uses compact hashed segments with an `m` mount dir. ([#3756](https://github.com/can1357/oh-my-pi/issues/3756))
+- Fixed recoverable context-overflow compaction keeping the failed assistant error turn in visible session history after scheduling the retry. ([#3747](https://github.com/can1357/oh-my-pi/issues/3747))
+- Fixed editing a file read from outside the workspace (e.g. `~/.claude/settings.json`) failing with "File not found": the read snapshot header now carries the full out-of-workspace path so the edit resolves it directly instead of against the working directory.
+- Fixed subagents spawned with an output schema (`agent(..., schema=...)`, `task` with structured output) failing with `schema_violation: missing required fields` since the typed-yield rework: a `type: "result"` finalize carrying the full object was assembled as a section named `result`, nesting the payload one level deep. String-typed yields are now treated as terminal finalizers (their data is the complete result), only array-typed yields form accumulating sections, and a data-less finalize keeps accumulated sections instead of collapsing to the last assistant turn.
+- Fixed the per-provider concurrency cap (e.g. `providers.ollama-cloud.maxConcurrency`) bracketing the whole subagent lifecycle, which deadlocked any spawn tree wider than the cap because parents held every slot while waiting for children queued on the same cap. The semaphore now wraps each provider HTTP request, so a parent's slot frees between turns and child subagents can acquire while their parent's tool calls are running. ([#3749](https://github.com/can1357/oh-my-pi/issues/3749))
+- Fixed Ctrl+Q / Ctrl+Enter follow-up submissions sending the literal `[Paste #N]` marker instead of the expanded paste body ([#3737](https://github.com/can1357/oh-my-pi/issues/3737)).
+
 ## [16.2.4] - 2026-06-28
 
 ### Fixed
@@ -461,40 +498,3 @@
 - Fixed `/mcp enable` and `/mcp disable` reconnecting unrelated MCP servers by scoping toggle reconnect/disconnect work to the named server. ([#3157](https://github.com/can1357/oh-my-pi/issues/3157))
 - Stopped the local llama.cpp no-auth login placeholder from being sent as a discovery bearer token.
 
-### Removed
-
-- Removed `/debug dump-next-request` command
-- Removed Wafer Pass from CLI credential help; Wafer Serverless remains available.
-
-## [16.1.8] - 2026-06-20
-
-### Added
-
-- Added "Prose Only Thinking" setting to opt-out of rendering code blocks within AI thinking traces
-- Replaced code blocks in AI thinking traces with an ellipsis when "Prose Only Thinking" is enabled
-- Added a live tokens-per-second readout to the thinking pulse, counting only provider-reported tokens (no character estimate, which undercounts a summarized reasoning trace) and hiding itself whenever the rate is zero. Live numbers therefore appear only for providers that report usage mid-turn; otherwise the bare pulse keeps signalling that the model is thinking.
-- Updated the thinking pulse to a faster starburst whose rotation eases across each cycle (instead of ticking at a fixed rate), with a speed badge that fades from gray to the theme accent as the rate climbs.
-- Added live state previews for high-value built-in slash commands in TUI autocomplete.
-- Added a copy affordance for completed `/btw` answers so users can copy the visible side-answer text before branching or dismissing the panel.
-
-### Changed
-
-- Updated `SnapcompactInline` and SDK session context building to support asynchronous rendering
-- Changed side-channel turns (`/btw`, `/omfg`, and IRC auto-replies) to forward the main turn's tool catalog to preserve the prompt-cache layout, while injecting a reminder to suppress tool usage and discarding any generated tool calls.
-- Changed `/btw`, `/tan`, `/omfg`, `/memory`, `/rename`, and `/move` to save the typed command text to TUI prompt history so they can be recalled with the up arrow.
-- Changed the temporary model picker to label Alt+P selections as session-only and point users to Alt+M or `/model` for role model assignment. ([#2952](https://github.com/can1357/oh-my-pi/issues/2952))
-- Replaced `new Promise((resolve, reject) => ...)` in `AsyncDrain` with `Promise.withResolvers()` per the repo's promise-construction convention
-- Changed the default advisor interrupt cooldown to 3 turns and the default auto-compaction strategy to snapcompact, with non-vision and over-budget snapcompact runs still falling back to context-full summaries.
-
-### Fixed
-
-- Fixed a TypeError in `EventController` tests where a missing `settings` property in the `InteractiveModeContext` mock object led to calling `.get` on undefined when streaming tool-call args.
-- Fixed auto-compaction status text to label snapcompact runs instead of reporting them as context-full maintenance.
-- Fixed side-channel turns failing to correctly obfuscate secrets and tools when inheriting prompt cache layout
-- Fixed MCP startup status to live-update from "Connecting…" to connected, still-connecting, or failed server states so completed connections do not leave a stale banner. ([#3150](https://github.com/can1357/oh-my-pi/issues/3150))
-- Fixed session history becoming desynchronized when using the `rewind` tool
-- Fixed `rewind` tool output and temporary assistant side-channel data polluting the prompt cache
-- Fixed `read` against a SQLite table with many columns (e.g. 33) rendering every cell as an ellipsis and chopping the right edge. The ASCII table shrinker bottomed out at `MIN_COLUMN_WIDTH=1` so every multi-char cell collapsed to `…`, and the final line truncation then cut off the right side. The renderer now bumps the per-column floor to 3 and falls back to a vertical `column: value` block layout per row when the column count exceeds the horizontal width budget. ([#3107](https://github.com/can1357/oh-my-pi/issues/3107))
-- Fixed `skill://`, `local://`, `memory://`, and `vault://` directory paths so read lists them and search/find can walk their backing directories. ([#3116](https://github.com/can1357/oh-my-pi/issues/3116))
-- Fixed local tiny-model inference failures respawning `__omp_worker_tiny_inference` for the same failed model, and blocked the unsupported Qwen3 1.7B ONNX memory model before load. ([#3132](https://github.com/can1357/oh-my-pi/issues/3132))
-- Fixed `/join` failing with `timed out waiting for the host's welcome` on collab sessions whose existing transcript was more than a few MB. The host now sends a small `welcome` frame (header + state + agents + `entryCount`) followed by a train of `snapshot-chunk` frames (`SNAPSHOT_CHUNK_BYTES = 512 KB`), and the guest accumulates them under a per-chunk progress timeout that resets on each chunk arrival. The first welcome lands well under one second on the default relay, so the guest's 30s first-welcome budget is no longer spent transferring the snapshot. Requires the new `COLLAB_PROTO = 2` on both sides; older hosts/guests are rejected with the existing protocol-mismatch error. ([#3144](https://github.com/can1357/oh-my-pi/issues/3144))
