@@ -1,7 +1,7 @@
 # Progress Reporting — cc-tmux 中间过程可视化模板
 
 > **何时读取：** in-turn wait / 事件驱动唤醒下，每次读 CC 状态、向用户汇报进度时参考本文。
-> **来源：** 搬运并适配自旧 `claude-code` skill 的 `references/progress-reporting-enhanced.md`，
+> **来源：** 搬运并适配自旧 `claude-code` skill 的进度汇报增强模板，
 > 适配 cc-tmux 的 6 状态机（SHELL/WAITING_AGENTS/IDLE/TOOL/THINKING/STARTING）、turn-done marker、in-turn wait 三段协议。
 > **核心原则：** Telegram 原生格式（无宽表格），emoji 状态映射，渐进式信息密度，**每块必含 Hermes 自主判断**。
 

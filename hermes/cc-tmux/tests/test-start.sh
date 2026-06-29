@@ -74,7 +74,7 @@ rm -rf "/tmp/cc-lock-uniq-test-tgt-$$" 2>/dev/null || true
 # in-CC hooks key per-session state by the tmux name (aligning with cc-monitor/-send/
 # -finish). `VAR=val claude …` sets the launched process env by shell semantics; the
 # claude→hook propagation itself is a deployment smoke item, not unit-testable here.
-if grep 'claude --model' "$START" | grep -Eq 'CC_TMUX_SESSION=.*SESSION'; then
+if grep 'claude ' "$START" | grep -Eq 'CC_TMUX_SESSION=.*SESSION'; then
   ok "#D4 cc-start launch injects CC_TMUX_SESSION=\$SESSION"
 else
   bad "#D4 cc-start launch does NOT inject CC_TMUX_SESSION"
@@ -83,7 +83,7 @@ fi
 # Test 6: §Phase1 — launch line must export CC_TMUX_HOOK_DIR so the in-CC hooks
 # self-locate their scripts in the SKILL dir (R2-verified env propagation), making
 # the skill the single source — no global ~/.claude/hooks copy needed.
-if grep 'claude --model' "$START" | grep -q 'CC_TMUX_HOOK_DIR='; then
+if grep 'claude ' "$START" | grep -q 'CC_TMUX_HOOK_DIR='; then
   ok "#P1 cc-start launch exports CC_TMUX_HOOK_DIR"
 else
   bad "#P1 cc-start launch does NOT export CC_TMUX_HOOK_DIR"
@@ -91,7 +91,7 @@ fi
 
 # Test 7: §Phase1 — launch line must inject --settings <runtime template> so each
 # launch auto-syncs the latest hook config from the skill (no cp/jq/restart).
-if grep 'claude --model' "$START" | grep -q -- '--settings'; then
+if grep 'claude ' "$START" | grep -q -- '--settings'; then
   ok "#P1 cc-start launch injects --settings"
 else
   bad "#P1 cc-start launch does NOT inject --settings"

@@ -39,7 +39,7 @@ JSON
 write_heartbeat() { # <session> <age_s_ago>
   local s="$1" age="$2"
   echo "$(date +%s)|1|ACTIVE_HOOK|?|0|1|?" > "$D/cc-heartbeat-$s"
-  touch -t "$(date -v "-${age}S" +%Y%m%d%H%M 2>/dev/null || date -d "${age} seconds ago" +%Y%m%d%H%M)" "$D/cc-heartbeat-$s" 2>/dev/null || true
+  touch -t "$(date -v "-${age}S" +%Y%m%d%H%M.%S 2>/dev/null || date -d "${age} seconds ago" +%Y%m%d%H%M.%S)" "$D/cc-heartbeat-$s" 2>/dev/null || true
 }
 
 write_freeze() { # <session>
@@ -212,7 +212,7 @@ cleanup
 new_sandbox
 S="hermes-cc-route-tc13"; write_status "$S" "TOOL" 0; write_heartbeat "$S" 5
 # Make status file OLD (180s ago) so heartbeat fallback kicks in
-touch -t "$(date -v-180S +%Y%m%d%H%M 2>/dev/null || date -d '180 seconds ago' +%Y%m%d%H%M)" "$D/cc-status-$S.json" 2>/dev/null || true
+touch -t "$(date -v-180S +%Y%m%d%H%M.%S 2>/dev/null || date -d '180 seconds ago' +%Y%m%d%H%M.%S)" "$D/cc-status-$S.json" 2>/dev/null || true
 out=$(run_route --session "$S" --intent status_query)
 source=$(echo "$out" | jq -r '.cc_state_source' 2>/dev/null)
 if [[ "$source" == "heartbeat" ]]; then

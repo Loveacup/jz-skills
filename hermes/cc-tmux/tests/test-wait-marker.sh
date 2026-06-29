@@ -264,7 +264,7 @@ printf 'STALE\n' > "$MARKER"
 N=$(stat -f %m "$MARKER" 2>/dev/null || echo 0)   # marker 存在但不会更新
 FSW=$(make_fswatch fsw-hang hang)
 start=$(date +%s)
-CC_WAIT_FSWATCH="$FSW" bash "$SCRIPT" --session "$SESS" --after "$N" --timeout 3 >/dev/null 2>&1 &
+CC_WAIT_SKIP_START_GATE=1 CC_WAIT_FSWATCH="$FSW" bash "$SCRIPT" --session "$SESS" --after "$N" --timeout 3 >/dev/null 2>&1 &
 pid=$!
 if wait_pid_exit 12 "$pid"; then
   wait "$pid" 2>/dev/null; rc=$?
@@ -277,6 +277,125 @@ if wait_pid_exit 12 "$pid"; then
 else
   kill "$pid" 2>/dev/null; bad "timeout-wrap: never exited (永挂未被 kill → 超时包裹失效)"
 fi
+
+# ═══ v1.38: startup gate — 防止 wait-marker 等一个没提交的任务 ═══
+echo ""
+echo "§v1.38 startup gate（IDLE/residual fail-fast）"
+
+STUBTMUX_DIR=$(mktemp -d "/tmp/cc-wm-tmux.XXXXXX")
+make_tmux_stub() { # <mode: idle|residual|queue|running>
+  local mode="$1"
+  local p="$STUBTMUX_DIR/tmux-$mode.sh"
+  cat > "$p" <<'STUB'
+#!/usr/bin/env bash
+mode="$CC_WAIT_TMUX_MODE"
+log="$CC_WAIT_TMUX_LOG"
+case "${1:-}" in
+  capture-pane)
+    case "$mode" in
+      idle)     printf '────────────────\n❯ \n────────────────\n  ⏵⏵ bypass permissions on\n' ;;
+      residual) printf '────────────────\n❯ 按 /tmp/cc-task.md 执行\n────────────────\n  ⏵⏵ bypass permissions on\n' ;;
+      residual_write) printf '────────────────\n❯ Write tests per /tmp/cc-task.md\n────────────────\n  ⏵⏵ bypass permissions on\n' ;;
+      old_tool_idle) printf '⏺ Write file done earlier\n────────────────\n❯ \n────────────────\n  ⏵⏵ bypass permissions on\n' ;;
+      queue)    printf 'Press up to edit queued messages\n❯ 按 /tmp/cc-task.md 执行\n' ;;
+      running)  printf '✻ Thinking…\n' ;;
+      *)        printf '' ;;
+    esac ;;
+  send-keys)
+    printf '%s\n' "$*" >> "$log" ;;
+  *) : ;;
+esac
+STUB
+  chmod +x "$p"
+  echo "$p"
+}
+
+# Test 16: clean IDLE + no newer marker → exit 4 immediately（不等 timeout）
+rm -f "$MARKER"
+TMUX_STUB=$(make_tmux_stub idle); LOG="$STUBTMUX_DIR/idle.log"
+start=$(date +%s)
+CC_WAIT_TMUX="$TMUX_STUB" CC_WAIT_TMUX_MODE=idle CC_WAIT_TMUX_LOG="$LOG" \
+  bash "$SCRIPT" --session "$SESS" --after 0 --timeout 30 >/dev/null 2>&1
+rc=$?; elapsed=$(( $(date +%s) - start ))
+if [[ "$rc" -eq 4 ]] && [[ "$elapsed" -lt 5 ]]; then
+  ok "startup gate: clean IDLE + no marker → exit 4 fail-fast"
+else
+  bad "startup-idle: rc=$rc elapsed=$elapsed (want rc=4,<5s)"
+fi
+
+# Test 17: residual input 默认不自动 Enter（防误提交旧残留）
+rm -f "$MARKER"
+TMUX_STUB=$(make_tmux_stub residual); LOG="$STUBTMUX_DIR/residual.log"
+CC_WAIT_TMUX="$TMUX_STUB" CC_WAIT_TMUX_MODE=residual CC_WAIT_TMUX_LOG="$LOG" CC_WAIT_START_GRACE=1 \
+  bash "$SCRIPT" --session "$SESS" --after 0 --timeout 30 >/dev/null 2>&1
+rc=$?
+if [[ "$rc" -eq 4 ]] && [[ ! -s "$LOG" ]]; then
+  ok "startup gate: residual input → exit 4, no auto Enter by default"
+else
+  bad "startup-residual-default: rc=$rc log='$(cat "$LOG" 2>/dev/null | tr -d '\n')'"
+fi
+
+# Test 18: opt-in residual auto-submit → 补 Enter 一次，然后仍未启动则 exit 4
+rm -f "$MARKER"
+TMUX_STUB=$(make_tmux_stub residual); LOG="$STUBTMUX_DIR/residual-optin.log"
+CC_WAIT_TMUX="$TMUX_STUB" CC_WAIT_TMUX_MODE=residual CC_WAIT_TMUX_LOG="$LOG" CC_WAIT_START_GRACE=1 CC_WAIT_AUTO_SUBMIT_RESIDUAL=1 \
+  bash "$SCRIPT" --session "$SESS" --after 0 --timeout 30 >/dev/null 2>&1
+rc=$?
+if [[ "$rc" -eq 4 ]] && [[ -f "$LOG" ]] && grep -q 'send-keys.*Enter' "$LOG"; then
+  ok "startup gate: residual opt-in → auto Enter once, then fail-fast if still not started"
+else
+  bad "startup-residual-optin: rc=$rc log='$(cat "$LOG" 2>/dev/null | tr -d '\n')'"
+fi
+
+# Test 19: residual 文本含 Write/Edit/Tool 等关键词也不能误判 RUNNING
+rm -f "$MARKER"
+TMUX_STUB=$(make_tmux_stub residual_write); LOG="$STUBTMUX_DIR/residual-write.log"
+CC_WAIT_TMUX="$TMUX_STUB" CC_WAIT_TMUX_MODE=residual_write CC_WAIT_TMUX_LOG="$LOG" \
+  bash "$SCRIPT" --session "$SESS" --after 0 --timeout 30 >/dev/null 2>&1
+rc=$?
+if [[ "$rc" -eq 4 ]] && [[ ! -s "$LOG" ]]; then
+  ok "startup gate: residual containing Write → still exit 4, no RUNNING false-positive"
+else
+  bad "startup-residual-write: rc=$rc log='$(cat "$LOG" 2>/dev/null | tr -d '\n')'"
+fi
+
+# Test 20: prompt 上方旧 tool 输出 + 当前空 prompt → exit 4，不误判 RUNNING
+rm -f "$MARKER"
+TMUX_STUB=$(make_tmux_stub old_tool_idle); LOG="$STUBTMUX_DIR/old-tool-idle.log"
+CC_WAIT_TMUX="$TMUX_STUB" CC_WAIT_TMUX_MODE=old_tool_idle CC_WAIT_TMUX_LOG="$LOG" \
+  bash "$SCRIPT" --session "$SESS" --after 0 --timeout 30 >/dev/null 2>&1
+rc=$?
+if [[ "$rc" -eq 4 ]]; then
+  ok "startup gate: old tool scrollback + empty prompt → exit 4, no RUNNING false-positive"
+else
+  bad "startup-old-tool-idle: rc=$rc (want 4)"
+fi
+
+# Test 21: queued-message mode → exit 4，不补 Enter（避免继续累积队列）
+rm -f "$MARKER"
+TMUX_STUB=$(make_tmux_stub queue); LOG="$STUBTMUX_DIR/queue.log"
+CC_WAIT_TMUX="$TMUX_STUB" CC_WAIT_TMUX_MODE=queue CC_WAIT_TMUX_LOG="$LOG" \
+  bash "$SCRIPT" --session "$SESS" --after 0 --timeout 30 >/dev/null 2>&1
+rc=$?
+if [[ "$rc" -eq 4 ]] && [[ ! -s "$LOG" ]]; then
+  ok "startup gate: queued-message mode → exit 4, no auto Enter"
+else
+  bad "startup-queue: rc=$rc log='$(cat "$LOG" 2>/dev/null | tr -d '\n')'"
+fi
+
+# Test 22: 真 running 输出 → startup gate 放行，最终按 timeout exit 1（不是 exit 4）
+rm -f "$MARKER"
+TMUX_STUB=$(make_tmux_stub running); LOG="$STUBTMUX_DIR/running.log"
+CC_WAIT_TMUX="$TMUX_STUB" CC_WAIT_TMUX_MODE=running CC_WAIT_TMUX_LOG="$LOG" CC_WAIT_MODE=fallback \
+  bash "$SCRIPT" --session "$SESS" --after 0 --timeout 1 >/dev/null 2>&1
+rc=$?
+if [[ "$rc" -eq 1 ]]; then
+  ok "startup gate: true running pane → gate passes, timeout path owns exit 1"
+else
+  bad "startup-running: rc=$rc (want 1, not 4)"
+fi
+
+rm -rf "$STUBTMUX_DIR"
 
 echo ""
 echo "=== Results: $PASS/$((PASS+FAIL)) passed ==="
