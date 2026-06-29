@@ -45,6 +45,7 @@ done
 
 TASK_ID=$(jq -r '.task_id' "$STATE")
 STATUS=$(jq -r '.status' "$STATE")
+MON_MODE=$(jq -r '.package.mode // ""' "$STATE"); MON_MODE="${MON_MODE%%:*}"
 RAW=$(jq -r '.run.raw_output // empty' "$STATE")
 
 update_state() { local f="$1"; local s; s=$(jq "$f | .updated_at=\"$(now_iso)\"" "$STATE"); printf '%s' "$s" | atomic_write "$STATE"; }
@@ -97,7 +98,7 @@ case "$DECISION" in
     # ── 红线校验 ──
     [[ "$STATUS" == "reported" ]] || { echo "🚫 accept 拒绝：status=${STATUS}（须 reported；先 monitor）"; echo "===📋 END==="; exit 2; }
     [[ "$SEV" != "blocker" ]]     || { echo "🚫 accept 拒绝：severity=blocker 是红线，不可接受。改用 --reject / --human-review"; echo "===📋 END==="; exit 2; }
-    [[ "$EVN" -gt 0 ]]            || { echo "🚫 accept 拒绝：evidence 为空，不采信无证据的完成"; echo "===📋 END==="; exit 2; }
+    [[ "$MON_MODE" == "execute" || "$EVN" -gt 0 ]] || { echo "🚫 accept 拒绝：evidence 为空，不采信无证据的完成"; echo "===📋 END==="; exit 2; }
     VERDICT=$(build_verdict accept)
     update_state ".status=\"accepted\" | .verdict=$(printf '%s' "$VERDICT" | jq -R -s '{yaml:.}')"
     # 归档

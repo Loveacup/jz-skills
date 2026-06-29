@@ -9,7 +9,7 @@
 #   --package-json <file|->   完整委派包 JSON（推荐：Hermes 用 jq 构造；- 表示 stdin）
 #   或便捷参数自行拼装：
 #     --task <文本>           任务说明（必填）
-#     --mode <m>             audit|govern:inspect|govern:clean|govern:deep-clean|govern:evidence|govern:sql（默认 audit）
+#     --mode <m>             audit|execute|govern:inspect|govern:clean|govern:deep-clean|govern:evidence|govern:sql（默认 audit）
 #     --channel <c>          rpc|shell|acp（默认 rpc 过渡首选；rpc 失败自动降级 shell；acp 终局预留）
 #     --cwd <dir>            scope 工作目录（危险任务必填其一：cwd 或 allowed-path）
 #     --allowed-path <p>     允许路径（可重复）
@@ -71,7 +71,7 @@ if [[ -n "$PKG_JSON_SRC" ]]; then
   PKG=$(echo "$PKG" | jq --arg id "$TASK_ID" '.task_id=$id')
 else
   [[ -n "$TASK" ]]        || { echo "omp-start: 缺 --task（或用 --package-json）" >&2; exit 3; }
-  [[ ${#CRIT[@]} -gt 0 ]] || { echo "omp-start: 至少一条 --criterion" >&2; exit 3; }
+  [[ "$MODE" == "execute" || ${#CRIT[@]} -gt 0 ]] || { echo "omp-start: 至少一条 --criterion（execute 模式除外）" >&2; exit 3; }
   [[ -z "$TASK_ID" ]] && TASK_ID="omp-$(date +%Y%m%d-%H%M%S)"
   ALLOWED_J=$(arr_json "${ALLOWED[@]:-}"); DENIED_J=$(arr_json "${DENIED[@]:-}")
   CRIT_J=$(arr_json "${CRIT[@]:-}");       DMODES_J=$(arr_json "${DMODES[@]:-}")

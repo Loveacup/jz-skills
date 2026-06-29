@@ -141,7 +141,11 @@ JL=$(echo "$PKG" | jq -r '.threshold.reject_limit')
 [[ "$RL" =~ ^[0-9]+$ ]] || RL=3
 [[ "$JL" =~ ^[0-9]+$ ]] || JL=3
 
-if [[ "$BASE_MODE" == "govern" ]]; then TPL="$TPL_DIR/govern-prompt-template.md"; else TPL="$TPL_DIR/audit-prompt-template.md"; fi
+case "$BASE_MODE" in
+  govern) TPL="$TPL_DIR/govern-prompt-template.md" ;;
+  execute) TPL="$TPL_DIR/execute-prompt-template.md" ;;
+  *) TPL="$TPL_DIR/audit-prompt-template.md" ;;
+esac
 if [[ -r "$TPL" ]]; then SYS=$(cat "$TPL"); else
   SYS="你是独立审查者。只输出一个 JSON 对象（可包在 \`\`\`json 围栏里），字段：severity(nit|concern|blocker|pass)、summary、evidence(数组，每项 {type,ref} 指真实文件/命令/行号；不得为空)、reject_instruction。不采信无证据的结论。"
 fi

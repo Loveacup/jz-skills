@@ -56,7 +56,7 @@ if [[ "$MODE" == "package" ]]; then
       (if (.mode // "")        =="" then "mode" else empty end),
       (if (.task // "")        =="" then "task" else empty end),
       (if (.scope|type)        !="object" then "scope" else empty end),
-      (if (.criterion|type)!="array" or (.criterion|length)==0 then "criterion" else empty end),
+      (if (.mode // "audit" | test("^execute")) then empty elif (.criterion|type)!="array" or (.criterion|length)==0 then "criterion" else empty end),
       (if (.threshold.round_limit|type)!="number"  then "threshold.round_limit" else empty end),
       (if (.threshold.reject_limit|type)!="number" then "threshold.reject_limit" else empty end),
       (if (.output.format)         !="json" then "output.format" else empty end),

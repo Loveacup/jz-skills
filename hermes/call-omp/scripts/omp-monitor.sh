@@ -35,12 +35,13 @@ SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SELF_DIR/lib/omp-lib.sh"
 GATE="$SELF_DIR/gate"
 
-STATE=""; TASK_ID=""; JSON_ONLY=false; WATCH=false; INTERVAL=10; WATCH_TIMEOUT=0; NOTIFY_CHANGE=false
+STATE=""; TASK_ID=""; JSON_ONLY=false; WATCH=false; INTERVAL=10; WATCH_TIMEOUT=0; NOTIFY_CHANGE=false; MONITOR_MODE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --state)   STATE="$2"; shift 2 ;;
     --task-id) TASK_ID="$2"; shift 2 ;;
     --json)    JSON_ONLY=true; shift ;;
+    --mode)    MONITOR_MODE="$2"; shift 2 ;;
     --watch)   WATCH=true; shift ;;
     --interval) INTERVAL="$2"; shift 2 ;;
     --timeout) WATCH_TIMEOUT="$2"; shift 2 ;;
@@ -53,6 +54,11 @@ done
 [[ -n "$STATE" && -r "$STATE" ]] || { echo "omp-monitor: 读不到状态文件（--state/--task-id）" >&2; exit 3; }
 
 TASK_ID=$(jq -r '.task_id' "$STATE")
+# 自动检测 mode（用于 execute 跳过 JSON 校验）
+if [[ -z "$MONITOR_MODE" ]]; then
+  MONITOR_MODE=$(jq -r '.package.mode // ""' "$STATE")
+  MONITOR_MODE="${MONITOR_MODE%%:*}"
+fi
 STATUS=$(jq -r '.status' "$STATE")
 RAW=$(jq -r '.run.raw_output // empty' "$STATE")
 PID=$(jq -r '.run.pid // empty' "$STATE")
@@ -183,16 +189,25 @@ fi
 
 ISSUES=(); REJECT=false; EXITCODE=0
 
-# ── 传输层 + 应用层①②③：复用 gate-verify --mode output ──
-set +e
-GV_OUT=$(bash "$GATE/gate-verify.sh" --mode output --file "$RAW" 2>/dev/null); GV_RC=$?
-set -e
-if [[ $GV_RC -eq 10 ]]; then
-  ISSUES+=("evidence 为空（gate-verify exit 10）"); REJECT=true; EXITCODE=10
-elif [[ $GV_RC -ne 0 ]]; then
-  ISSUES+=("输出结构不合格: $(echo "$GV_OUT" | jq -r '.reason' 2>/dev/null || echo "$GV_OUT")"); REJECT=true; EXITCODE=1
+# ── 传输层①：turn_end 完整性校验（全部模式）──
+if ! jsonl_has_turn_end "$RAW"; then
+  ISSUES+=("JSONL 缺 turn_end"); REJECT=true; EXITCODE=2
 fi
 
+# ── 传输层 + 应用层①②③：gate-verify（execute 模式跳过）──
+if [[ "$MONITOR_MODE" != "execute" ]]; then
+  set +e
+  GV_OUT=$(bash "$GATE/gate-verify.sh" --mode output --file "$RAW" 2>/dev/null); GV_RC=$?
+  set -e
+  if [[ $GV_RC -eq 10 ]]; then
+    ISSUES+=("evidence 为空（gate-verify exit 10）"); REJECT=true; EXITCODE=10
+  elif [[ $GV_RC -ne 0 ]]; then
+    ISSUES+=("输出结构不合格: $(echo "$GV_OUT" | jq -r '.reason' 2>/dev/null || echo "$GV_OUT")"); REJECT=true; EXITCODE=1
+  fi
+fi
+
+# ── 提取内层审计 JSON（execute 模式跳过校验）──
+if [[ "$MONITOR_MODE" != "execute" ]]; then
 # ── 提取内层审计 JSON（用于 severity/summary 校验 + 存档供 finish）──
 FINAL=$(jsonl_final_text "$RAW")
 INNER=$(extract_inner_json "$FINAL")
@@ -212,10 +227,25 @@ if [[ "$REJECT" == false && -z "$SUMMARY" ]]; then
   ISSUES+=("缺 summary 结论摘要"); REJECT=true; EXITCODE=1
 fi
 
+fi  # end of execute skip
 # ── stopReason / 退出码（同步有 EC；async 用 turn_end 兜底）──
 STOP=$(jsonl_stop_reason "$RAW"); [[ -z "$STOP" ]] && STOP="unknown"
 if [[ -n "$EC" && "$EC" != "null" && "$EC" -ne 0 ]]; then
-  ISSUES+=("omp 退出码非 0（${EC}）"); REJECT=true; [[ $EXITCODE -eq 0 ]] && EXITCODE=2
+  if [[ "$MONITOR_MODE" == "execute" ]]; then
+    ISSUES+=("omp 退出码非 0（${EC}）— execute 模式仍接受"); STOP="error"
+  else
+    ISSUES+=("omp 退出码非 0（${EC}）"); REJECT=true; [[ $EXITCODE -eq 0 ]] && EXITCODE=2
+  fi
+fi
+
+# ── execute 模式：设置默认值后再写 MON ──
+if [[ "$MONITOR_MODE" == "execute" ]]; then
+  REJECT=false
+  SEV="completed"
+  SEV_VALID=true
+  SUMMARY="$(jsonl_final_text "$RAW" | head -c 160)"
+  EVN=0
+  INNER="{}"
 fi
 
 # ── 写监控报告到 state ──
