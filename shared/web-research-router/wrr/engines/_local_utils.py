@@ -266,3 +266,23 @@ def _first_match_line(body: str, query_terms: List[str]) -> Tuple[Optional[int],
         if any(t in low for t in query_terms):
             return idx, line.strip()
     return None, body.strip().splitlines()[0] if body.strip() else ""
+
+
+# ══════════════════════════════════════════════════════════════════════
+# v5.3 时效感知（简化版：本地结果统一降权，不提取时间戳）
+# ══════════════════════════════════════════════════════════════════════
+
+# 本地引擎结果在 RRF 融合时的衰减因子
+# 0.7 = 本地信息确定性低于公网，但不完全否定
+LOCAL_FRESHNESS_DEFAULT = 0.7
+
+
+def freshness_score(source_ts: float = 0.0) -> float:
+    """v5.3 简化版：本地=0.7，公网=1.0。
+    
+    不再按 age 阶梯计算——OMP 审计发现 supermemory 无时间戳导致
+    矛盾。改为统一降权：本地数据天然比公网信息陈旧，直接乘 0.7。
+    """
+    if source_ts <= 0:
+        return LOCAL_FRESHNESS_DEFAULT
+    return 1.0  # 有时间戳 = 公网/精确源

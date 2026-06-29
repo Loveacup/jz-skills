@@ -17,7 +17,7 @@ from .. import config
 from ..errors import EngineError
 from ..schemas import SearchOptions, SearchResult, EngineCheckResult
 from ._local_utils import (resolve_hermes_tool, call_tool, call_tool_with_retry, extract_rows,
-                           normalize_local_query)
+                           normalize_local_query, LOCAL_FRESHNESS_DEFAULT)
 
 _TOOL = "session_search"
 
@@ -59,6 +59,7 @@ class LocalSessionEngine(SearchEngine):
                 snippet=f"{ts} {text}".strip()[:500],
                 highlights=row.get("highlights") or [],
                 source_tag="local:session",
+                freshness_score=LOCAL_FRESHNESS_DEFAULT,
             ))
         return results
 

@@ -1,26 +1,29 @@
-"""local_obsidian 引擎（v5.2，Tier 2）：直接读 Obsidian vault Markdown。
+"""local_obsidian 引擎（v5.2，Tier 2）：本地 Obsidian vault。
 
-数据源：本地 vault 文件系统（白名单目录，仅 *.md）。
-适用：qmd 不可用 / 索引滞后时兜底；frontmatter 精准匹配。
-权重低于 qmd（索引兜底定位）。只实现 search() + health_check()。
+数据源：白名单目录 *.md 文件扫描 + frontmatter 解析 + 相关性评分。
+适用查询：「我记得写过 / 笔记里有 / 之前研究过 / vault 里有没有」。
+只实现 search() + health_check()；不实现 extract/similar。
 
-安全/限流（强约束，见 codex-eval §7）：
-  - 只扫 config.obsidian_vault_paths() 配置目录；不做全盘 find。
-  - 仅 *.md；不读 .env/secrets/附件/二进制。
-  - max files / max bytes / exclude dirs / 扫描超时，防慢查询拖垮 local mode。
+降级：vault 目录不存在 → health_check fail、search 抛 EngineError，
+由 router gather 隔离，local mode 可用 web 兜底。
 """
+
 from __future__ import annotations
 
 import asyncio
+import os
+from pathlib import Path
 from typing import List
 
 from .base import SearchEngine
 from .. import config
 from ..errors import EngineError
 from ..schemas import SearchOptions, SearchResult, EngineCheckResult
-from ._local_utils import (scan_markdown_files, count_markdown_files,
-                           read_text_prefix, parse_frontmatter_and_body,
-                           score_markdown_match, tokenize)
+from ._local_utils import (
+    scan_markdown_files, read_text_prefix, parse_frontmatter_and_body,
+    score_markdown_match, tokenize, count_markdown_files,
+    LOCAL_FRESHNESS_DEFAULT,
+)
 
 
 class LocalObsidianEngine(SearchEngine):
@@ -30,14 +33,13 @@ class LocalObsidianEngine(SearchEngine):
     async def search(self, options: SearchOptions) -> List[SearchResult]:
         roots = config.obsidian_vault_paths()
         if not roots:
-            raise EngineError("no obsidian vault configured (set WRR_OBSIDIAN_VAULTS)")
+            raise EngineError("No Obsidian vault configured")
 
         query_terms = tokenize(options.query)
         if not query_terms:
             return []
         limit = min(options.count, config.LOCAL_MAX_RESULTS_PER_ENGINE)
 
-        # 扫描 + 评分整体放线程池，并加超时硬上限。
         scored = await asyncio.wait_for(
             asyncio.to_thread(self._scan_and_score, roots, query_terms),
             timeout=self.timeout,
@@ -50,12 +52,14 @@ class LocalObsidianEngine(SearchEngine):
             url = f"file://{path}"
             if line:
                 url += f"#L{line}"
+
             out.append(SearchResult(
                 title=str(title)[:120],
                 url=url,
                 snippet=(snippet or "")[:500],
                 highlights=[snippet[:300]] if snippet else [],
                 source_tag="local:obsidian",
+                freshness_score=LOCAL_FRESHNESS_DEFAULT,
             ))
         return out
 

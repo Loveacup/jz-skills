@@ -1,6 +1,7 @@
 """WRR 统一 dataclass：Search / Extract / Similar 的 options/result + 路由结构。"""
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
+import time as _time
 
 from . import config
 
@@ -21,15 +22,29 @@ class SearchResult:
     snippet: str = ""
     highlights: List[str] = field(default_factory=list)   # citation 源片段（Exa）
     source_tag: str = ""                                  # 来源标签（如 community: reddit/twitter）
+    # ── v5.3 时效感知 ──
+    source_ts: float = 0.0                                # 数据源时间戳（unix timestamp，0=未知）
+    freshness_score: float = 0.5                           # 时效分 (0.0-1.0)，0.5=未知
+
+    @property
+    def age_days(self) -> Optional[float]:
+        """距今天数（None=未知）。"""
+        if self.source_ts <= 0:
+            return None
+        return (_time.time() - self.source_ts) / 86400.0
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        d = {
             "title": self.title,
             "url": self.url,
             "snippet": self.snippet,
             "highlights": self.highlights,
             "source_tag": self.source_tag,
         }
+        if self.source_ts > 0:
+            d["source_ts"] = self.source_ts
+            d["freshness_score"] = round(self.freshness_score, 3)
+        return d
 
 
 # ── Extract（web_fetch）──────────────────────────────────────────────

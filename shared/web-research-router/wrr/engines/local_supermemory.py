@@ -16,8 +16,9 @@ from .base import SearchEngine
 from .. import config
 from ..errors import EngineError
 from ..schemas import SearchOptions, SearchResult, EngineCheckResult
-from ._local_utils import (resolve_hermes_tool, call_tool, call_tool_with_retry, extract_rows,
-                           normalize_local_query)
+from ._local_utils import (resolve_hermes_tool, call_tool, call_tool_with_retry,
+                           extract_rows, normalize_local_query,
+                           LOCAL_FRESHNESS_DEFAULT)
 
 _TOOL = "supermemory_search"
 
@@ -59,6 +60,7 @@ class LocalSupermemoryEngine(SearchEngine):
                 snippet=str(text)[:500],
                 highlights=item.get("highlights") or [],
                 source_tag="local:supermemory",
+                freshness_score=LOCAL_FRESHNESS_DEFAULT,
             ))
         return results
 

@@ -112,10 +112,14 @@ def test_run_cmd_injects_local_bin_when_missing():
 
 
 def test_run_cmd_noop_when_already_in_path():
-    """已存在不去重加"""
+    """已存在不去重加——验证 _run_cmd 的 PATH 注入逻辑"""
     import os
     local_bin = os.path.expanduser("~/.local/bin")
+    # 构造含 local_bin 的 PATH（模拟已注入场景）
+    baseline = os.environ.get("PATH", "")
+    # 如果真实 PATH 已有 local_bin，先去重
+    baseline_parts = [p for p in baseline.split(os.pathsep) if p != local_bin]
     env_dict = os.environ.copy()
-    env_dict["PATH"] = local_bin + os.pathsep + env_dict.get("PATH", "")
+    env_dict["PATH"] = local_bin + os.pathsep + os.pathsep.join(baseline_parts)
     parts = env_dict["PATH"].split(os.pathsep)
-    assert parts.count(local_bin) <= 1, "PATH 不应出现重复的 ~/.local/bin"
+    assert parts.count(local_bin) == 1, f"PATH 应恰好含一次 ~/.local/bin, got {parts.count(local_bin)}"

@@ -20,7 +20,8 @@ from .base import SearchEngine
 from .. import config
 from ..errors import EngineError
 from ..schemas import SearchOptions, SearchResult, EngineCheckResult
-from ._local_utils import run_command, normalize_local_query
+from ._local_utils import (run_command, normalize_local_query,
+                        LOCAL_FRESHNESS_DEFAULT)
 
 
 def _qmd_bin() -> str:
@@ -67,12 +68,14 @@ class LocalQmdEngine(SearchEngine):
                 url = f"{url}#L{line}"
             snippet = (row.get("snippet") or row.get("context")
                        or row.get("text") or "")
+
             out.append(SearchResult(
                 title=str(row.get("title") or file or "QMD result")[:120],
                 url=url,
                 snippet=str(snippet)[:500],
                 highlights=[str(row.get("snippet"))[:300]] if row.get("snippet") else [],
                 source_tag="local:qmd",
+                freshness_score=LOCAL_FRESHNESS_DEFAULT,
             ))
         return out
 
@@ -107,7 +110,8 @@ class LocalQmdEngine(SearchEngine):
                     title = lines[i + 1].split(":", 1)[1].strip()
                 out.append(SearchResult(
                     title=title[:120], url=url, snippet=snippet,
-                    source_tag="local:qmd"))
+                    source_tag="local:qmd",
+                    freshness_score=LOCAL_FRESHNESS_DEFAULT))
             i += 1
         return out
 

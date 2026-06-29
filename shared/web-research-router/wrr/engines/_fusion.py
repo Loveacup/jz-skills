@@ -115,11 +115,20 @@ def rrf_fuse(per_source: Dict[str, List[SearchResult]],
     bucket: Dict[str, Dict[str, Any]] = {}
     for source, items in per_source.items():
         w = weights.get(source, 1.0)
+
+        # v5.3: 本地引擎结果乘新鲜度衰减因子
+        is_local = source.startswith("local_")
+        local_mult = 1.0
+        for doc in items:
+            if is_local and doc.freshness_score < 1.0:
+                local_mult = doc.freshness_score
+                break
+
         for rank, doc in enumerate(items, start=1):
             key = canonical_url(doc.url) or f"{source}:{doc.title}"
             slot = bucket.setdefault(key, {"doc": doc, "rrf": 0.0, "sources": set()})
             mult = recency_mult.get(doc.url, 1.0)
-            slot["rrf"] += w * mult / (k + rank)
+            slot["rrf"] += w * mult * local_mult / (k + rank)
             slot["sources"].add(source)
             # 代表条目：取已有快照或更靠前者（首见即代表，已是源内最高秩）
     return sorted(bucket.values(), key=lambda s: s["rrf"], reverse=True)

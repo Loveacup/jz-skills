@@ -171,6 +171,21 @@ async def route_search_v5(options, registry: EngineRegistry) -> RouterResult:
 
     payload, steps = await _dispatch(registry, engine_names, options, weights, mode, budget)
 
+    # v5.3 全量陈旧门控：local mode 下所有结果 freshness < 0.8 → 追加外网交叉
+    if mode == "local" and payload is not None:
+        if all(getattr(r, "freshness_score", 1.0) < 0.8 for r in payload):
+            web_mode = config.classify_intent(getattr(options, "query", "") or "")
+            if web_mode == "local":
+                web_mode = "discovery"
+            web_engines = config.mode_engines(web_mode, getattr(options, "query", "") or "")
+            web_weights = config.MODE_WEIGHTS.get(web_mode, config.MODE_WEIGHTS["grounding"])
+            wpayload, wsteps = await _dispatch(registry, web_engines, options, web_weights,
+                                               web_mode, budget)
+            steps.extend(wsteps)
+            if wpayload is not None:
+                # 合并：web 结果在前（更新），本地垫后
+                payload = wpayload + payload
+
     # 主 mode 空 → recovery 兜底（Brave + Exa + SearXNG）
     if payload is None and mode != "recovery":
         rec_weights = config.MODE_WEIGHTS["recovery"]
