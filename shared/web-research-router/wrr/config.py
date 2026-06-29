@@ -102,12 +102,15 @@ COMMUNITY_PLATFORM_NAMES = ("reddit", "hacker news", "hackernews", "hn",
 
 
 def community_triggered(query: str) -> bool:
-    """查询是否含社区站点 site: 过滤或平台名称（自动触发 community 引擎）。"""
+    """查询是否含社区站点 site: 过滤、平台名称或实践意图（v5.4 自动触发 community）。"""
     import re
     q = (query or "").lower()
     if any(f"site:{s}" in q for s in COMMUNITY_TRIGGER_SITES):
         return True
-    return any(re.search(rf"\b{re.escape(p)}\b", q, flags=re.ASCII) for p in COMMUNITY_PLATFORM_NAMES)
+    if any(re.search(rf"\b{re.escape(p)}\b", q, flags=re.ASCII) for p in COMMUNITY_PLATFORM_NAMES):
+        return True
+    # v5.4: 实践意图关键词 → 自动触发社区引擎
+    return any(kw.lower() in q for kw in PRACTICAL_KEYWORDS)
 
 
 USER_AGENT = "wrr-hermes/4.0"
@@ -184,6 +187,13 @@ BROAD_INTEREST_KEYWORDS = ["今天可能感兴趣", "今天有啥", "今天有�
                            "今日资讯", "今日热点", "最近有啥", "有什么新鲜",
                            "interesting today", "what's new", "what's happening"]
 
+# v5.4: 实践意图关键词 — 工具使用/操作指南/推荐类查询自动触发社区引擎
+PRACTICAL_KEYWORDS = ["怎么用", "如何使用", "使用方法", "操作指南", "教程", "快捷键",
+                      "实战", "实践", "经验", "踩坑", "避坑", "最佳实践",
+                      "推荐", "值得", "哪个好", "怎么选",
+                      "how to", "guide", "tutorial", "shortcuts", "keybindings",
+                      "best practice", "tips", "tricks", "gotchas", "worth it"]
+
 
 def local_triggered(query: str) -> bool:
     """查询是否应进入 local mode（本地优先）。
@@ -251,9 +261,9 @@ MODE_DISPATCH = {
 _W_DEFAULT = {"exa": 1.0, "brave": 0.9, "community": 0.30, "academic": 0.30,
               "github": 0.25, "skill": 0.25, "searxng": 0.1}
 MODE_WEIGHTS = {
-    "discovery": {**_W_DEFAULT, "community": 0.35},
-    "grounding": {**_W_DEFAULT},
-    "research":  {**_W_DEFAULT, "community": 0.30, "academic": 0.30},
+    "discovery": {**_W_DEFAULT, "community": 0.50},
+    "grounding": {**_W_DEFAULT, "community": 0.40},
+    "research":  {**_W_DEFAULT, "community": 0.35, "academic": 0.30},
     "academic":  {**_W_DEFAULT, "academic": 1.0, "community": 0.25},
     "platform":  {**_W_DEFAULT, "community": 1.0},
     "recovery":  {**_W_DEFAULT},
@@ -263,7 +273,7 @@ MODE_WEIGHTS = {
                   "local_qmd": 0.9, "local_obsidian": 0.8,
                   "exa": 0.3, "brave": 0.3, "community": 0.15},
     # broad（v5.2）：开放式兴趣查询，4 引擎并行，社区权重大
-    "broad":     {**_W_DEFAULT, "community": 0.40, "searxng": 0.30},
+    "broad":     {**_W_DEFAULT, "community": 0.55, "searxng": 0.30},
 }
 
 

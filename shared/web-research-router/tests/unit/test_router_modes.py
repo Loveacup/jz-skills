@@ -106,7 +106,7 @@ def test_v5_search_returns_rrf_details():
     assert rr.weights is not None
     assert len(rr.payload) >= 1
     # research mode 含 community/academic 权重
-    assert rr.weights.get("community") == 0.30
+    assert rr.weights.get("community") == 0.35   # v5.4: research community 0.30→0.35
     assert rr.weights.get("academic") == 0.30
 
 
@@ -155,3 +155,32 @@ def test_v5_explicit_provider_single_engine():
                FakeEngine("exa", error="should not be used"))
     rr = run(route_search_v5(SearchOptions("q", provider="brave"), reg))
     assert rr.actual_provider == "brave"              # 显式 → 单引擎，禁 mode 路由
+
+
+# ── v5.4 实践意图社区触发 ──
+
+def test_practical_triggers_community():
+    """工具使用/操作指南类查询应触发社区引擎"""
+    from wrr.config import community_triggered
+    assert community_triggered("Windows Terminal 操作指南和快捷键怎么用")
+    assert community_triggered("best practices for Claude Code")
+    assert community_triggered("Neovim 插件怎么选，有什么推荐")
+    assert community_triggered("Kubernetes 实战经验和踩坑")
+    assert community_triggered("how to configure tmux with gotchas")
+
+
+def test_practical_no_false_positive():
+    """纯事实查询不应被实践关键词误触发"""
+    from wrr.config import community_triggered
+    assert not community_triggered("python 3.14 release date")
+    assert not community_triggered("Windows Terminal latest stable version")
+    assert not community_triggered("postgres 16 changelog")
+
+
+def test_community_weights_raised():
+    """discovery/broad/grounding 社区权重提升"""
+    assert config.MODE_WEIGHTS["discovery"]["community"] >= 0.50
+    assert config.MODE_WEIGHTS["broad"]["community"] >= 0.50
+    assert config.MODE_WEIGHTS["grounding"]["community"] >= 0.40
+    # academic 不变
+    assert config.MODE_WEIGHTS["academic"]["community"] <= 0.30
