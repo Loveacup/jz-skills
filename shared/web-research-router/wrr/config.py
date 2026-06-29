@@ -59,12 +59,13 @@ EXA_MODE_ROUTING = {
 }
 
 # 查询分类关键词
-EXA_ACADEMIC_KEYWORDS = ["论文", "综述", "survey", "architecture", "methodology", "framework", "algorithm",
-                       "paper", "arxiv", "doi", "citation"]
+EXA_ACADEMIC_KEYWORDS = ["论文", "综述", "survey", "methodology", "algorithm",
+                       "paper", "arxiv", "doi", "citation", "preprint",
+                       "peer review", "literature", "state of the art"]
 EXA_RESEARCH_KEYWORDS = ["深度", "详细", "全面", "比较", "对比", "分析", "research", "overview", "comparison",
                          "comprehensive", "analysis", "deep", "in-depth", "compare",
-                         "优化", "最新", "进展", "演进", "设计", "方案", "架构", "实现", "改进",
-                         "vs", "versus", "取舍", "选型"]
+                         "优化", "进展", "演进", "设计", "方案", "架构", "实现", "改进",
+                         "vs", "versus", "取舍", "选型", "最佳实践", "最新进展"]
 EXA_FACTUAL_KEYWORDS = ["什么时候", "多少", "是谁", "日期", "版本", "release", "launch", "price"]
 
 # 各模式超时（秒）
