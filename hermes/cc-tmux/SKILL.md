@@ -8,8 +8,8 @@ description: >
   Use when: 调 CC, 用 claude, 拉 CC, delegate to CC, agent team, 重活调 CC.
   Do NOT use for: simple single-tool calls, grammar fixes, non-coding tasks.
 type: routine
-version: 1.39.0
-author: "Hermes Agent + Codex (v1.39.0: cc-wait-decision — exit4 evidence-based wait decisions + path-only send guard)"
+version: 1.40.0
+author: "Hermes Agent + Codex (v1.40.0: CC autocomplete awareness — tighten repair window + additive prompt classification + no auto-Enter for unknown prediction/stale text)"
 license: MIT
 ---
 

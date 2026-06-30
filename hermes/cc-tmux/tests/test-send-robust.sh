@@ -100,14 +100,16 @@ run_test "bash $FIXDIR/consumed.sh" \
   send-to-pane "$SESSION" "hello world" 3
 
 # 2. Enter 未生效 → 重试补 Enter → 恢复 → rc 0   [核心]
+# v1.40: 发送文本必须匹配 fixture 残留才会 repair
 run_test "bash $FIXDIR/recover.sh" \
   "Enter 未生效 → 重试 → 成功 → rc 0" 0 \
-  send-to-pane "$SESSION" "go" 3
+  send-to-pane "$SESSION" "leftover-unsent" 3
 
 # 3. 持续 residual → 耗尽重试 → rc 1（不静默假成功）
+# v1.40: 发送文本匹配，但 fixture 永不消费
 run_test "bash $FIXDIR/residual.sh" \
   "持续 residual → 耗尽重试 → rc 1" 1 \
-  send-to-pane "$SESSION" "go" 2
+  send-to-pane "$SESSION" "leftover-unsent" 2
 
 # 4. 多行发送 → consumed → rc 0
 run_test "bash $FIXDIR/consumed.sh" \

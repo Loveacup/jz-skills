@@ -52,8 +52,8 @@ run_test() {
   output=$(bash "$SEND" "$@" 2>&1) || rc=$?
   rc=${rc:-0}
 
-  # send_to_pane (P0-1) returns 1 for retry exhaustion vs old 2; both mean escalation
-  if [[ "$rc" -eq "$expected_rc" ]] || { [[ "$expected_rc" -eq 2 && "$rc" -eq 1 ]]; }; then
+  # send_to_pane (P0-1) returns 1 for retry exhaustion, 4 for unsafe prompt text; both mean escalation
+  if [[ "$rc" -eq "$expected_rc" ]] || { [[ "$expected_rc" -eq 2 && "$rc" -eq 1 ]]; } || { [[ "$expected_rc" -eq 2 && "$rc" -eq 4 ]]; }; then
     echo "  ✅ $name (rc=$rc)"
     PASS=$((PASS+1))
   else

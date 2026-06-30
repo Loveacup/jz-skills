@@ -11,21 +11,23 @@
 # Usage:
 #   cc-wait-decision.sh --session <tmux-session-name> [--after <unix_ts>]
 #     [--timeout <secs>] [--expect <glob>]... [--diag-dir <dir>] [--pretty]
+#     [--sent-line "<text>"]
 #
-# Exit codes:
-#   0 marker_done | artifact_satisfied_no_marker
-#   1 wait_timeout_unresolved
-#   2 usage_error
-#   3 infra_error | session_dead
-#   4 not_started_retryable
-#   5 active_no_resend
-#   6 frozen_needs_confirm | ambiguous_manual_check
+# Exit codes (summary — see decision.state for semantics):
+#   0 = marker_done | artifact_satisfied_no_marker
+#   1 = wait_timeout_unresolved
+#   2 = usage_error
+#   3 = infra_error | session_dead
+#   4 = not_started_retryable
+#   5 = active_no_resend
+#   6 = frozen_needs_confirm | prompt_text_needs_clear | ambiguous_manual_check
 
 set -euo pipefail
 source "$(dirname "$0")/lib/portability.sh"
 
 SESSION="" AFTER=0 TIMEOUT=21600 DIAG_DIR="" PRETTY=0
 EXPECTS=()
+SENT_LINE=""
 
 usage() {
   cat >&2 <<'EOF'
@@ -45,6 +47,7 @@ while [[ $# -gt 0 ]]; do
     --timeout) [[ $# -ge 2 ]] || { echo "--timeout requires value" >&2; exit 2; }; TIMEOUT="$2"; shift 2 ;;
     --expect)  [[ $# -ge 2 ]] || { echo "--expect requires value" >&2; exit 2; }; EXPECTS+=("$2"); shift 2 ;;
     --diag-dir) [[ $# -ge 2 ]] || { echo "--diag-dir requires value" >&2; exit 2; }; DIAG_DIR="$2"; shift 2 ;;
+    --sent-line) [[ $# -ge 2 ]] || { echo "--sent-line requires value" >&2; exit 2; }; SENT_LINE="$2"; shift 2 ;;
     --pretty) PRETTY=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown arg: $1" >&2; usage; exit 2 ;;
@@ -122,9 +125,10 @@ done < "$EXPECT_LIST"
 
 export SESSION AFTER TIMEOUT NOW ISO MARKER FREEZE_F STATUS_F HB_F WAIT_RC MON_RC PRETTY
 export WAIT_OUT WAIT_ERR MON_OUT MON_ERR PANE_F ART_F DIAG_DIR TMP
+export CC_WAIT_DECISION_SENT_LINE="$SENT_LINE"
 
 PY_OUT=$(python3 <<'PY'
-import json, os, re, sys
+import json, os, re, sys, hashlib
 from pathlib import Path
 
 session=os.environ['SESSION']; after=int(os.environ['AFTER']); timeout=int(os.environ['TIMEOUT'])
@@ -163,21 +167,55 @@ if monitor_state == 'unknown' and hb_f.exists():
             heartbeat_age=max(0, now-int(parts[0])) if parts[0].isdigit() else None
     except Exception:
         pass
-# Pane signals.
+# Pane signals + prompt classification (v1.40: additive prompt signals).
 signals=[]
+P_SENT=os.environ.get('CC_WAIT_DECISION_SENT_LINE', '').strip()
 active_re=re.compile(r'(esc to interrupt|Thinking|Reading|Edit|Write|Tool|Spelunking|⏺|●|✻|✳|✶|✢|✽)')
 if 'Press up to edit queued' in pane: signals.append('queue')
 lines=[ln for ln in pane.splitlines() if ln.strip()]
-last4='\n'.join(lines[-4:])
 prompt_lines=[ln for ln in lines[-6:] if '❯' in ln]
 residual=False; clean_idle=False
+prompt_kind='none'; prompt_text=''; safe_to_submit=False; matched_sent_line=False
 if prompt_lines:
     pl=prompt_lines[-1]
     content=re.sub(r'^[\s│╎┃|]*❯\s*', '', pl).strip(' │╎┃|')
-    if content: residual=True; signals.append('residual')
-    else: clean_idle=True; signals.append('idle_prompt')
+    if content:
+        residual=True; signals.append('prompt_text_present'); prompt_text=content
+        # v1.40: classify prompt text
+        if P_SENT and content.strip() == P_SENT:
+            prompt_kind='fresh_sent_line'
+            matched_sent_line=True; safe_to_submit=True
+            signals.append('prompt_text_fresh_sent_line')
+        elif content.strip():
+            # Heuristic: text containing typical CC-prediction patterns (/command, file paths, task-continuation)
+            prediction_heuristic = bool(re.search(r'^/[a-z]|^(read|read|analyze|review|check|fix|implement|update|create|write|generate|run|test|deploy|commit|push|continue)\b', content, re.IGNORECASE))
+            if prediction_heuristic:
+                prompt_kind='prediction_candidate'
+                signals.append('prompt_text_prediction_candidate')
+            else:
+                prompt_kind='stale_or_unknown'
+                signals.append('prompt_text_stale_or_unknown')
+            safe_to_submit=False
+        else:
+            prompt_kind='stale_or_unknown'; signals.append('prompt_text_stale_or_unknown'); safe_to_submit=False
+    else:
+        clean_idle=True; signals.append('idle_prompt'); prompt_kind='empty'
+if not prompt_lines:
+    prompt_kind='none'
 if active_re.search('\n'.join(lines[-8:])):
-    signals.append('active_pane')
+    if clean_idle:
+        signals.append('old_scrollback_active_ignored')
+    else:
+        signals.append('active_pane')
+# Prompt sub-object for v2 schema
+prompt_obj={
+    'present': bool(prompt_lines),
+    'text_excerpt': prompt_text[:200] if prompt_text else '',
+    'text_hash': hashlib.sha256(prompt_text.encode()).hexdigest()[:16] if prompt_text else '',
+    'kind': prompt_kind,
+    'safe_to_submit': safe_to_submit,
+    'matched_sent_line': matched_sent_line
+}
 
 artifacts=[]; all_newer=False; any_newer=False; any_missing=False
 if art_path.exists() and art_path.stat().st_size:
@@ -201,6 +239,7 @@ active_states={'TOOL','THINKING','WAITING_AGENTS','ACTIVE','ACTIVE_HOOK','RECEIV
 terminal_states={'GONE','SHELL','ERROR'}
 
 state='ambiguous_manual_check'; action='manual_check'; exit_code=6; safe=False; terminal=False; reason='default_ambiguous'
+S_SUBMIT=safe_to_submit; S_RESEND=False
 if wait_rc == 0:
     state='marker_done'; action='read_marker_and_artifacts'; exit_code=0; safe=False; terminal=True; reason='wait_marker_rc0'
 elif wait_rc == 2:
@@ -216,18 +255,25 @@ elif monitor_state in active_states or ('active_pane' in signals and not clean_i
 elif 'queue' in signals:
     state='not_started_retryable'; action='escape_clear_then_resend_single_line'; exit_code=4; safe=True; terminal=False; reason='queue_banner'
 elif residual:
-    state='not_started_retryable'; action='clear_or_auto_enter_only_if_fresh_task_line'; exit_code=4; safe=True; terminal=False; reason='residual_input'
+    # v1.40: prompt text classification
+    if matched_sent_line:
+        state='not_started_retryable'; action='clear_or_auto_enter_only_if_fresh_task_line'; exit_code=4; safe=True; terminal=False; reason='fresh_sent_line_residual'
+        S_RESEND=True
+    else:
+        state='prompt_text_needs_clear'; action='clear_prompt_or_manual_confirm'; exit_code=6; terminal=False; reason=f'prompt_text_{prompt_kind}'
 elif clean_idle and wait_rc == 4:
     state='not_started_retryable'; action='resend_path_only_instruction'; exit_code=4; safe=True; terminal=False; reason='clean_idle_no_artifact_progress'
+    S_RESEND=True
 elif wait_rc == 1:
     state='wait_timeout_unresolved'; action='manual_check_or_continue_monitor'; exit_code=1; terminal=False; reason='timeout_no_active_evidence'
 elif wait_rc in (3,127):
     state='infra_error'; action='inspect_tooling'; exit_code=3; terminal=True; reason=f'wait_marker_rc={wait_rc}'
 elif wait_rc == 4:
     state='not_started_retryable'; action='manual_check_then_resend_if_clean'; exit_code=4; safe=True; terminal=False; reason='startup_gate_no_active_evidence'
+    S_RESEND=True
 
 obj={
-  'schema':'cc-wait-decision.v1',
+  'schema':'cc-wait-decision.v2',
   'session':session,
   'timestamp':os.environ['ISO'],
   'after':after,
@@ -242,7 +288,8 @@ obj={
   'decision':{
     'state':state,
     'action':action,
-    'safe_to_resend':safe,
+    'safe_to_resend':S_RESEND,
+    'safe_to_submit_prompt':S_SUBMIT,
     'terminal':terminal,
     'reason':reason
   },
@@ -254,6 +301,7 @@ obj={
   },
   'pane':{
     'signals':sorted(set(signals)),
+    'prompt':prompt_obj,
     'tail_excerpt':'\n'.join(lines[-12:])[-2000:]
   },
   'artifacts':artifacts
@@ -265,5 +313,5 @@ PY
 
 printf '%s\n' "$PY_OUT"
 # Recompute exit from the emitted JSON in a tiny, explicit way (avoid parsing stderr).
-EXIT_CODE=$(printf '%s' "$PY_OUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); s=d["decision"]["state"]; print({"marker_done":0,"artifact_satisfied_no_marker":0,"wait_timeout_unresolved":1,"usage_error":2,"infra_error":3,"session_dead":3,"not_started_retryable":4,"active_no_resend":5,"frozen_needs_confirm":6,"ambiguous_manual_check":6}.get(s,6))')
+EXIT_CODE=$(printf '%s' "$PY_OUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); s=d["decision"]["state"]; print({"marker_done":0,"artifact_satisfied_no_marker":0,"wait_timeout_unresolved":1,"usage_error":2,"infra_error":3,"session_dead":3,"not_started_retryable":4,"active_no_resend":5,"frozen_needs_confirm":6,"ambiguous_manual_check":6,"prompt_text_needs_clear":6}.get(s,6))')
 exit "$EXIT_CODE"

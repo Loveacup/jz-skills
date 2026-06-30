@@ -125,8 +125,11 @@ run_decision "$(make_wait_stub 4 '' 'startup gate')" tool 5 "rc4 + pane tool sig
 # Test 5: rc4 + queue banner => not_started_retryable exit4
 run_decision "$(make_wait_stub 4 '' 'startup gate')" queue 4 "rc4 + queue → not_started_retryable" not_started_retryable
 
-# Test 6: rc4 + residual => not_started_retryable exit4
-run_decision "$(make_wait_stub 4 '' 'startup gate')" residual 4 "rc4 + residual → not_started_retryable" not_started_retryable
+# Test 6: rc4 + residual with matching --sent-line => not_started_retryable exit4
+run_decision "$(make_wait_stub 4 '' 'startup gate')" residual 4 "rc4 + residual + sent-line match → not_started_retryable" not_started_retryable --sent-line "按 /tmp/task.md 执行"
+
+# Test 6b: rc4 + residual without --sent-line => prompt_text_needs_clear exit6
+run_decision "$(make_wait_stub 4 '' 'startup gate')" residual 6 "rc4 + residual no sent-line → prompt_text_needs_clear" prompt_text_needs_clear
 
 # Test 7: rc4 + clean IDLE => not_started_retryable exit4
 run_decision "$(make_wait_stub 4 '' 'startup gate')" idle 4 "rc4 + clean IDLE → not_started_retryable" not_started_retryable
