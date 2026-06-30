@@ -88,6 +88,54 @@ class AnalysisInput:
     cross_platform: Optional[Dict[str, Any]] = None # 搬运检测：youtube_url + 评论
 
 
+@dataclass
+class SectionSpec:
+    """老版报告章节的显式规格。
+
+    这是 P2 内容规划层：不是生成文本，而是规定每节的目的、证据、门槛和
+    是否允许降级。旧版 §0–§8 是 baseline；BiliNote/其它项目只能作为增强机制。
+    """
+    id: str
+    title: str
+    purpose: str
+    evidence: List[str] = field(default_factory=list)
+    required: bool = True
+    allowed: bool = True
+    quality_gate: str = ''
+    min_items: int = 0
+    min_words_per_item: int = 0
+    needs_external_research: bool = False
+    notes: str = ''
+
+
+@dataclass
+class ReportPlan:
+    """一篇视频稿件的内容规划。
+
+    ReportPlan 把 EvidenceSourceGate 的来源判断，映射到老版内容引擎框架。
+    后续 LLM/模板/WRR 都应读 plan，而不是各自猜章节。
+    """
+    mode: str
+    baseline: str
+    can_generate_formal_report: bool
+    blocking_reason: str
+    sections: List[SectionSpec]
+    absorbed_patterns: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+OLD_FRAMEWORK_BASELINE = 'old_bilibili_v3_framework'
+BILINOTE_ABSORBED_PATTERNS = [
+    'BiliNote: subtitle-first before media download',
+    'BiliNote: RequestChunker/checkpoint as long-context inspiration',
+    'BiliNote: prompt style knobs as plan metadata, not template replacement',
+    'OpenNote: timestamped retrieval/citation for evidence-backed sections',
+    'NoteTaker-py: chunk salience + clustering as future section planner',
+]
+
+
 # ============ 证据来源 Gate ============
 def detect_external_research_route() -> Dict[str, Any]:
     """检测辅助事实核查/扩展信息路由。
@@ -184,6 +232,67 @@ def build_evidence_source_gate(inp: AnalysisInput) -> Dict[str, Any]:
         'sources': sources,
         'sections': sections,
     }
+
+
+def _section_allowed(gate: Dict[str, Any], section_name: str, default=True) -> bool:
+    return bool((gate.get('sections') or {}).get(section_name, {}).get('allowed', default))
+
+
+def _old_full_sections(gate: Dict[str, Any], mode: str) -> List[SectionSpec]:
+    """旧版 §0–§8 的显式规格。
+
+    字段来自 `output-template.md` / `v3-detailed-prompt.md` / `verify_report.py`。
+    condensed 只放宽 §3/§4/§5；§7 维持全量门槛。
+    """
+    has_social = _section_allowed(gate, '§3 评论分析', default=False)
+    external_route = (gate.get('sources') or {}).get('external_research') or {}
+    needs_external = bool(external_route.get('available'))
+    condensed = mode == 'condensed'
+    return [
+        SectionSpec('0', '元信息 (Meta)', '建立视频身份、价值判断和数据来源边界', ['metadata']),
+        SectionSpec('1', '逻辑链 (Logic Chain)', '用表格和 Mermaid 压缩叙事弧线，禁止流水账', ['transcript'], quality_gate='G1'),
+        SectionSpec('2', '弹幕深度分析 (Danmaku Intelligence)', '提炼即时受众情绪、梗、争议焦点', ['danmaku'], required=has_social, allowed=has_social, notes='数据稀疏时 ≤50 字，不注水'),
+        SectionSpec('2.5', '评论深度分析 (Comments Analysis)', '提炼热评信息增量、观点聚合、弹幕/评论差异', ['comments'], required=has_social, allowed=has_social, notes='数据稀疏时降级为一句说明'),
+        SectionSpec('3', '核心洞察 (Key Insights)', '提炼 3–5 个高价值认知点并绑定证据', ['transcript', 'comments', 'danmaku'], quality_gate='G3', min_items=2 if condensed else 3, min_words_per_item=150 if condensed else 200),
+        SectionSpec('4', '内容深度拆解 (Deep Dive)', '按主题模块做非线性深拆，吸收 BiliNote chunk/checkpoint 用于长上下文', ['transcript', 'external_research'], quality_gate='G4', min_items=2 if condensed else 3, min_words_per_item=0 if condensed else 500, needs_external_research=needs_external),
+        SectionSpec('5', '高光时刻 (Highlights & Quotes)', '保留原文金句、上下文、时间戳', ['transcript', 'danmaku'], quality_gate='G5', min_items=2 if condensed else 5),
+        SectionSpec('6', '知识图谱 (Knowledge Graph)', '抽取概念、工具、人物、文化梗并链接 OB 知识体系', ['transcript', 'external_research'], needs_external_research=needs_external),
+        SectionSpec('7', '批判与行动 (Critical Review & Action)', '输出价值、局限和可执行行动；精简版也不削弱', ['transcript', 'comments', 'external_research'], quality_gate='G7', min_items=8, needs_external_research=needs_external),
+        SectionSpec('8', '附录 (Appendix)', '记录数据来源、工具、事实核查和限制', ['metadata', 'transcript', 'external_research']),
+    ]
+
+
+def build_report_plan(inp: AnalysisInput, evidence_gate: Optional[Dict[str, Any]] = None) -> ReportPlan:
+    """从输入和 EvidenceSourceGate 生成内容规划。
+
+    模式选择遵循旧 skill：无 transcript → preanalysis；有 transcript 且 >=30min → full；
+    短视频默认 condensed。这里不调用 LLM，不生成正文，只锁定结构与证据预算。
+    """
+    gate = evidence_gate or build_evidence_source_gate(inp)
+    can_generate = bool(gate.get('can_generate_formal_report'))
+    blocking = gate.get('blocking_reason', '')
+    if not can_generate:
+        return ReportPlan(
+            mode='preanalysis',
+            baseline=OLD_FRAMEWORK_BASELINE,
+            can_generate_formal_report=False,
+            blocking_reason=blocking or 'missing_transcript',
+            sections=[
+                SectionSpec('0', '元信息 (Meta)', '仅记录可验证元数据和素材边界', ['metadata']),
+                SectionSpec('8', '附录 (Appendix)', '说明无 transcript/ASR，禁止正式稿', ['metadata']),
+            ],
+            absorbed_patterns=BILINOTE_ABSORBED_PATTERNS,
+        )
+
+    mode = 'full' if int(inp.duration or 0) >= 30 * 60 else 'condensed'
+    return ReportPlan(
+        mode=mode,
+        baseline=OLD_FRAMEWORK_BASELINE,
+        can_generate_formal_report=True,
+        blocking_reason='',
+        sections=_old_full_sections(gate, mode),
+        absorbed_patterns=BILINOTE_ABSORBED_PATTERNS,
+    )
 
 
 # ============ 基础分析工具 ============
@@ -326,6 +435,7 @@ def analyze_video(inp: AnalysisInput) -> Dict[str, Any]:
       }
     """
     evidence_gate = build_evidence_source_gate(inp)
+    report_plan = build_report_plan(inp, evidence_gate)
     transcript_source = evidence_gate['sources']['transcript']['source']
     frontmatter = {
         'title': inp.title,
@@ -348,7 +458,12 @@ def analyze_video(inp: AnalysisInput) -> Dict[str, Any]:
         '§3 评论分析': _section_comments(inp),
         '§4 关键声明核查': _section_factcheck(inp),
     }
-    return {'frontmatter': frontmatter, 'evidence_gate': evidence_gate, 'sections': sections}
+    return {
+        'frontmatter': frontmatter,
+        'evidence_gate': evidence_gate,
+        'report_plan': report_plan.to_dict(),
+        'sections': sections,
+    }
 
 
 def render_markdown(report: Dict[str, Any]) -> str:

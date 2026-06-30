@@ -314,6 +314,7 @@ python3 scripts/fact_check_wrr.py --transcript /tmp/BVxxx_subtitle_official.txt 
 - 🆕 **BiliNote / jz-skills 交叉参考**：2026-06-29/30 深度分析了 [JefferyHcool/BiliNote](https://github.com/JefferyHcool/BiliNote) 与旧版 `jz-skills/shared/bilibili-video-analyzer`。结论：BiliNote 提供 Downloader/Transcriber/GPT/NoteGenerator 分层与 RequestChunker/checkpoint 蓝图；旧 skill 提供 Hermes-native RESULT_JSON、真实 home/user-site 兜底、PlayURL direct audio 稳定路径。详见 `references/bilinote-cross-reference.md` 与 `references/bilinote-and-jz-source-absorption-20260630.md`。
 - 🆕 **P0 防回归锁定参考**：修改 `fetch_subtitle_auto.py` / `bilibili_dm_patch.py` / `fetch_all.py` 前先读 `references/p0-regression-lock-20260630.md`。其中记录了 PlayURL 逐 P 音频主 fallback、4 个 P0 回归测试、Hermes 复跑命令和 OMP 审核证据。
 - 🆕 **内容引擎升级原则**：下一阶段优化重点是分析与内容产出引擎，不是继续堆 fetcher。旧版报告框架是 Alex 蒸馏资产，必须作为基线保留；BiliNote/GitHub 只提供增量增强。见 `references/content-engine-upgrade-principles-20260630.md`。
+- 🆕 **P2-A ReportPlan / SectionSpec 源码吸收**：已细读老版 `output-template.md` / `v3-detailed-prompt.md`、BiliNote `note.py` / `request_chunker.py` / prompt 体系，并用 WRR/GitHub 吸收 OpenNote/NoteTaker-py 的 timestamped retrieval / salience-clustering 思路。落地为 `build_report_plan()`，保留老版 §0–§8。见 `references/content-engine-p2-report-plan-source-absorption-20260630.md`。
 - 🆕 **H200 ASR 与 B站本机 ASR 配置边界**：SURGExZR H200 `/ASR/transcribe` 已实测短音频和约 5 分钟长音频可用，现已作为 `BILI_ASR_PROVIDER=auto` 的默认首选；本机 whisper.cpp / mlx-whisper 保留 fallback。覆盖 H200 地址用 `BILI_ASR_ENDPOINT`，不要用 `BILI_ASR_MODEL_PATH`。参考 `references/h200-asr-vs-bili-asr-20260630.md`。
 
 ### 🆕 Audio Download via Bilibili PlayURL API (yt-dlp 412 Bypass)
@@ -438,7 +439,7 @@ Changelog: `references/changelog.md` — timeout optimization, multi-P video sup
 
 - [ ] Final Obsidian output is **exactly one user-facing note** for one video link: `B站笔记_...md`. Do NOT leave `完整记录稿_...`, `预分析_...`, raw transcript, or accident/intermediate drafts in the vault unless the user explicitly asks for source transcript/audit artifacts.
 - [ ] Formal report has a transcript evidence source? 官方字幕 or H200/local ASR path recorded in §0/§8. If not, filename/title/YAML must be `预分析_未通过ASR_...`, not normal `B站笔记_...`.
-- [ ] EvidenceSourceGate checked? `report.evidence_gate.can_generate_formal_report` must pass before formal save; `external_research.route` should be `wrr_local` when local WRR exists, otherwise `fallback_search` for configured web/search tools.
+- [ ] EvidenceSourceGate checked? `report.evidence_gate.can_generate_formal_report` must pass before formal save; `external_research.route` should be `wrr_local` when local WRR exists, otherwise `fallback_search` for configured web/search tools. See `references/video-link-single-artifact-evidence-gate.md` for the single-artifact + evidence-gate workflow.
 - [ ] Danmaku file read from RESULT_JSON `path` (v2.4: `/tmp/{BV号}_danmaku.json`, BV-prefixed)?
 - [ ] Subtitles extracted via `yt-dlp --cookies-from-browser chrome` first (not whisper unless cookie method failed)?
 - [ ] Subtitle step: if status `failed`, checked the `error` field (e.g. 412 → cookies) before manual fallback?
