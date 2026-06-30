@@ -699,6 +699,28 @@ def _emit_section_skeleton(lines: List[str], sid: str, cands: List[Dict[str, Any
         lines.append('')
 
 
+def _emit_source_appendix(lines: List[str], report: Dict[str, Any]) -> None:
+    """渲染用户可见的 transcript Source Appendix。
+
+    数据只读 evidence_gate.sources.transcript（available/source/language/
+    segments/chars），不依赖 evidence_map.by_section。source 原样保留 P2-B3
+    编码串（method|json_path=...|txt_path=...|parts=2/3|failed_parts=...）。
+    无 transcript 时只标 transcript_available=false，不伪造任何路径字段。
+    """
+    tr = (((report.get('evidence_gate') or {}).get('sources') or {})
+          .get('transcript') or {})
+    available = bool(tr.get('available'))
+    lines.append('### Source Appendix')
+    lines.append('')
+    lines.append(f'- transcript_available={"true" if available else "false"}')
+    if available:
+        lines.append(f'- source: {tr.get("source", "")}')
+        lines.append(f'- language: {tr.get("language", "")}')
+        lines.append(f'- segments: {tr.get("segments", 0)}')
+        lines.append(f'- chars: {tr.get("chars", 0)}')
+    lines.append('')
+
+
 def _render_plan_skeleton(report: Dict[str, Any], lines: List[str],
                           plan_sections: List[Dict[str, Any]]) -> str:
     """按 SectionSpec 顺序渲染老版 §0–§8 骨架，注入 evidence_map 候选。"""
@@ -713,6 +735,8 @@ def _render_plan_skeleton(report: Dict[str, Any], lines: List[str],
             lines.append(f'_目的：{purpose}_')
             lines.append('')
         _emit_section_skeleton(lines, sid, by_section.get(sid, []))
+        if sid in ('0', '8'):
+            _emit_source_appendix(lines, report)
     return '\n'.join(lines)
 
 
