@@ -840,6 +840,94 @@ def render_markdown(report: Dict[str, Any]) -> str:
     return '\n'.join(lines)
 
 
+# ============ Writer 适配层（P2-C1）============
+def build_writer_section_context(report: Dict[str, Any], top_n: int = 5) -> Dict[str, Any]:
+    """把 analyze_video 报告投影成确定性的 writer adapter context（不调用 LLM）。
+
+    输出固定 JSON 可序列化 schema，供下游写手按节填稿：
+      - source_appendix.transcript_summary 是 §0 风格精简字段（method/language/
+        segments/chars），绝不暴露 json_path= / txt_path= / parts= / failed_parts=
+        原始编码串。
+      - source_appendix.table_rows 复用 §8 Source Appendix 表契约（_source_table_rows）。
+      - sections 按 report_plan.sections 顺序逐节给出 heading/purpose/quality_gate/
+        门槛、evidence（evidence_map.by_section[id][:top_n]）、占位与 writer_contract。
+      - warnings = evidence_map.warnings + 无 transcript 时的 missing_transcript blocker。
+
+    无 transcript：can_generate_formal_report=False，blocking_reason=missing_transcript，
+    sections 仅 §0/§8，不伪造任何 path/evidence。
+    """
+    plan = report.get('report_plan') or {}
+    evidence_map = report.get('evidence_map') or {}
+    by_section = evidence_map.get('by_section') or {}
+    tr = (((report.get('evidence_gate') or {}).get('sources') or {})
+          .get('transcript') or {})
+    available = bool(tr.get('available'))
+    can_generate = bool(plan.get('can_generate_formal_report'))
+    blocking = plan.get('blocking_reason', '') or ''
+
+    # top_n clamp：负数视为 0，None 用默认 5
+    n = 5 if top_n is None else max(0, int(top_n))
+
+    transcript_summary: Dict[str, Any] = {
+        'transcript_available': available,
+        'method': (_parse_transcript_source(tr.get('source', '')).get('method', '')
+                   if available else ''),
+        'language': (tr.get('language', '') if available else ''),
+        'segments': int(tr.get('segments', 0) or 0) if available else 0,
+        'chars': int(tr.get('chars', 0) or 0) if available else 0,
+    }
+
+    sections: List[Dict[str, Any]] = []
+    for spec in (plan.get('sections') or []):
+        sid = str(spec.get('id', ''))
+        title = spec.get('title', '')
+        purpose = spec.get('purpose', '') or ''
+        cands = list(by_section.get(sid, []) or [])[:n]
+        contract = {
+            'evidence_kinds': list(spec.get('evidence', []) or []),
+            'quality_gate': spec.get('quality_gate', ''),
+            'min_items': int(spec.get('min_items', 0) or 0),
+            'min_words_per_item': int(spec.get('min_words_per_item', 0) or 0),
+            'needs_external_research': bool(spec.get('needs_external_research', False)),
+            'required': bool(spec.get('required', True)),
+            'allowed': bool(spec.get('allowed', True)),
+            'notes': spec.get('notes', ''),
+            'no_fabrication': True,
+        }
+        sections.append({
+            'id': sid,
+            'heading': f'## {sid}. {title}',
+            'purpose': purpose,
+            'quality_gate': spec.get('quality_gate', ''),
+            'min_items': int(spec.get('min_items', 0) or 0),
+            'min_words_per_item': int(spec.get('min_words_per_item', 0) or 0),
+            'needs_external_research': bool(spec.get('needs_external_research', False)),
+            'evidence': cands,
+            'draft_placeholder': f'_待写：{title}。{purpose}_',
+            'writer_contract': contract,
+        })
+
+    warnings = list(evidence_map.get('warnings') or [])
+    if not can_generate:
+        warnings.append(
+            'missing_transcript: formal report blocked; only §0/§8 planned, '
+            'no fabricated paths/evidence'
+        )
+
+    return {
+        'baseline': plan.get('baseline', ''),
+        'mode': plan.get('mode', ''),
+        'can_generate_formal_report': can_generate,
+        'blocking_reason': blocking,
+        'source_appendix': {
+            'transcript_summary': transcript_summary,
+            'table_rows': _source_table_rows(report),
+        },
+        'sections': sections,
+        'warnings': warnings,
+    }
+
+
 # ============ 自检 demo ============
 def _demo() -> AnalysisInput:
     return AnalysisInput(
