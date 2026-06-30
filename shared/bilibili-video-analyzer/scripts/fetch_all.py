@@ -8,6 +8,7 @@ Bilibili 视频全自动化获取 - 集成脚本
 2. 弹幕 (1048条)
 3. 评论 (504条)
 4. 字幕 (官方/AI/转录)
+5. 搬运检测：扫描简介中的 YouTube 链接 → 自动抓 YouTube 评论（跨平台口碑）
 """
 
 import sys
@@ -21,9 +22,17 @@ from bili_env import ensure_user_site
 ensure_user_site()
 
 import json
+import re
 import subprocess
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# 搬运检测：匹配简介中的 YouTube 链接（watch?v= / youtu.be）
+YOUTUBE_URL_RE = re.compile(
+    r'https?://(?:www\.|m\.)?'
+    r'(?:youtube\.com/watch\?[^\s]*\bv=[0-9A-Za-z_-]{11}'
+    r'|youtu\.be/[0-9A-Za-z_-]{11})'
+)
 
 # 子脚本需要可用的 requests + 可用的 xml/pyexpat。
 # 本机 homebrew python3.12 的 pyexpat 是坏的（Symbol not found），无法解析弹幕 XML；
@@ -96,14 +105,82 @@ def process_step(label, script_name, *args):
 def is_failed(step):
     return isinstance(step, dict) and step.get('status') == 'failed'
 
+
+def get_video_description(bvid):
+    """取 B站视频简介 desc（best-effort，失败返回 ''）。
+
+    搬运检测需要简介原文；用 view 接口的 desc 字段。任何异常静默降级为
+    空串，绝不阻塞主采集流程。
+    """
+    try:
+        from bili_env import BROWSER_UA, BILI_REFERER
+        import requests
+        resp = requests.get(
+            'https://api.bilibili.com/x/web-interface/view',
+            params={'bvid': bvid},
+            headers={'User-Agent': BROWSER_UA, 'Referer': BILI_REFERER},
+            timeout=15,
+        )
+        data = resp.json()
+        if data.get('code') == 0:
+            return data['data'].get('desc', '') or ''
+    except Exception:
+        pass
+    return ''
+
+
+def detect_youtube_url(text):
+    """从文本中提取首个 YouTube 视频链接，无则返回 None。"""
+    m = YOUTUBE_URL_RE.search(text or '')
+    return m.group(0) if m else None
+
+
+def generate_report(results, bvid):
+    """成功采集后生成 Obsidian Markdown 报告（best-effort，绝不阻塞主流程）。
+
+    复用 generate_report.py 的胶水逻辑（纯标准库），失败仅告警不影响 RESULT_JSON。
+    报告落盘到 /tmp/{bvid}_report.md。
+    """
+    try:
+        from generate_report import report_markdown
+        markdown, report = report_markdown(results, run_fact_check=True)
+        fm = report.get('frontmatter', {})
+        evidence_gate = report.get('evidence_gate') or {}
+        can_generate = evidence_gate.get('can_generate_formal_report')
+        if can_generate is None:
+            can_generate = bool(fm.get('has_transcript'))
+        if not can_generate:
+            reason = evidence_gate.get('blocking_reason') or 'missing_transcript'
+            print(
+                f"   ❌ 报告生成已阻止：来源充分性 gate 未通过 ({reason})。"
+                "无字幕/无 ASR 时只能生成预分析，不能生成正式 B站笔记。"
+            )
+            return None
+
+        report_path = f"/tmp/{bvid}_report.md"
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write(markdown)
+        print(f"   ✅ 报告已生成: {report_path} ({len(markdown)} 字符)")
+        print(f"      字幕={'有' if fm.get('has_transcript') else '无'} "
+              f"评论={fm.get('comment_count', 0)} 弹幕={fm.get('danmaku_count', 0)} "
+              f"搬运={'是' if fm.get('is_cross_platform') else '否'}")
+        return report_path
+    except Exception as e:
+        print(f"   ⚠️  报告生成失败（不阻塞主流程）: {type(e).__name__}: {e}")
+        return None
+
+
 def main():
-    if len(sys.argv) < 2:
-        print("用法: python3 fetch_all.py <BV号> [SESSDATA]")
-        print("示例: python3 fetch_all.py BV1ut6YByEZq")
+    args = [a for a in sys.argv[1:] if a != '--report']
+    want_report = '--report' in sys.argv[1:]
+
+    if not args:
+        print("用法: python3 fetch_all.py <BV号> [SESSDATA] [--report]")
+        print("示例: python3 fetch_all.py BV1ut6YByEZq --report")
         sys.exit(1)
-    
-    bvid = sys.argv[1]
-    sessdata = sys.argv[2] if len(sys.argv) > 2 else None
+
+    bvid = args[0]
+    sessdata = args[1] if len(args) > 1 else None
     
     print(f"🎬 全自动化获取: {bvid}")
     print("="*70)
@@ -113,7 +190,8 @@ def main():
         'info': None,
         'danmaku': None,
         'comments': None,
-        'subtitle': None
+        'subtitle': None,
+        'cross_platform': None,   # 搬运检测结果（YouTube 链接 + 评论）
     }
 
     # 1. 获取弹幕
@@ -134,6 +212,27 @@ def main():
     results['subtitle'] = process_step('字幕', 'fetch_subtitle_auto.py', bvid)
     if not is_failed(results['subtitle']):
         print(f"   ✅ 字幕: {results['subtitle'].get('method', 'unknown')}")
+
+    # 4. 搬运检测：B站简介中的 YouTube 链接 → 抓 YouTube 评论（跨平台口碑）
+    #    全程 graceful：失败不计入 failed_steps，不影响主流程 ok 判定。
+    print("\n🔗 [搬运检测] 扫描简介中的 YouTube 链接...")
+    desc = get_video_description(bvid)
+    yt_url = detect_youtube_url(desc)
+    if yt_url:
+        print(f"   🎯 检测到搬运源: {yt_url}")
+        yt_step = process_step('YouTube评论', 'fetch_youtube_comments.py',
+                               yt_url, '--limit', '50')
+        results['cross_platform'] = {
+            'youtube_url': yt_url,
+            'youtube_comments': yt_step,
+        }
+        if not is_failed(yt_step):
+            print(f"   ✅ YouTube 评论: {yt_step.get('count', 0)} 条 "
+                  f"(source={yt_step.get('source')})")
+        else:
+            print("   ⚠️  YouTube 评论抓取失败（不阻塞主流程）")
+    else:
+        print("   · 未检测到 YouTube 搬运链接")
 
     # 失败步骤汇总（不再用 null 掩盖失败）
     failed_steps = [k for k in ('danmaku', 'comments', 'subtitle') if is_failed(results[k])]
@@ -162,6 +261,23 @@ def main():
         print(f"   字幕: ❌ 失败 (returncode={s.get('returncode')})")
     else:
         print(f"   字幕: {s.get('method', 'unknown')} → {s.get('txt_path', s.get('json_path', 'N/A'))}")
+
+    cp = results['cross_platform']
+    if cp:
+        yc = cp.get('youtube_comments', {})
+        if is_failed(yc):
+            print(f"   搬运: 🎯 {cp['youtube_url']} (YouTube 评论 ❌ 失败)")
+        else:
+            print(f"   搬运: 🎯 {cp['youtube_url']} (YouTube 评论 {yc.get('count', 0)} 条)")
+    else:
+        print("   搬运: · 未检测到 YouTube 链接")
+
+    # 5. 生成 Obsidian 报告（--report 时；不改动下方 RESULT_JSON 输出，向后兼容）
+    if want_report:
+        print("\n📝 [报告] 生成 Obsidian Markdown 分析报告...")
+        report_path = generate_report(results, bvid)
+        if report_path:
+            results['report_path'] = report_path
 
     # 输出JSON
     print("\n" + "="*70)

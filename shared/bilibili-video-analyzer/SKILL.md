@@ -3,14 +3,15 @@ name: bilibili-video-analyzer
 description: >
   type: routine
   深度分析 Bilibili 视频内容，生成结构化知识资产（13,000+ 字 Obsidian 级 Markdown 报告）。
-  支持官方字幕、whisper.cpp/mlx-whisper 音频转录。功能：弹幕情绪分析、评论深度解读、逻辑拆解、批判审视。
+  支持官方字幕、PlayURL 直拉音频、H200 ASR 默认转录，以及 whisper.cpp/mlx-whisper 本机 fallback。功能：弹幕情绪分析、评论深度解读、逻辑拆解、批判审视。
   支持多视频合并分析（同系列/同UP主）。
+  🆕 搬运视频支持 YouTube 原字幕/评论跨平台同步（向 bilibili×youtube 演进中）。
 
   Use when: user provides Bilibili video link (BV号 or full URL), or says 解析B站视频 / analyze bilibili video / bilibili summary / 视频总结 / 弹幕分析 / 分析这个视频.
 
   DO NOT use for: non-Bilibili videos, general video editing, one-off transcript requests without analysis.
-version: 2.4.0
-author: "Hermes Agent (v2.4: auto fallback chain official→yt-dlp→whisper.cpp→mlx + BV-prefixed danmaku + no null-masking + Depth Quality Gates rubric + verify_report.py)"
+version: 2.6.0
+author: "Hermes Agent (v2.6.0: WRR fact-check integration for policy/news videos → references/wrr-fact-check-policy-videos.md)"
 ---
 
 # Bilibili 视频深度解析器 v2.4
@@ -24,25 +25,49 @@ Transform Bilibili videos into structured, searchable, actionable knowledge asse
 | "The video is short, I'll skip ALL sections" | Even a short tutorial gets metadata + insights + action items. But adapt depth to video type—don't force 8-section analysis on a 10-min how-to. |
 | "Danmaku is only 1-3 comments, I'll write 300 words about scarcity" | Acknowledge scarcity in ≤50 words and move on. Don't inflate empty data into a full section. "数据不足，跳过" is better than filler. |
 | "I'll save to the old clawd path, the user won't notice" | Output path MUST be Obsidian 00-Inbox. Wrong path = lost file. |
-| "Subtitles failed, I'll just summarize from memory" | Fallback chain: `yt-dlp --cookies-from-browser chrome` → whisper.cpp → mlx-whisper. Exhaust fallbacks before summarizing. |
+| "Subtitles failed, I'll just summarize from memory" | Fallback chain: 官方/AI字幕 → PlayURL 直拉音频 → H200 ASR → whisper.cpp → mlx-whisper. Exhaust fallbacks before summarizing. |
+| "We improved fetching, so the project is done" ★ | Wrong priority. Fetching is only the data supply layer; the analysis/content-generation engine is the core product asset. Preserve Alex's distilled old report framework and upgrade it incrementally with BiliNote/GitHub ideas. See `references/content-engine-upgrade-principles-20260630.md`. |
+| "I'll replace the old report engine with BiliNote's NoteGenerator/template" ★ | Do NOT replace the old content engine. BiliNote / GitHub projects are additive references for layering, chunking, checkpoints, and recovery; the old full/condensed/merged report framework + Quality Gates remain the baseline. |
 | "I'll write the Logic Chain as narrative prose with every quote" ★ | Logic Chain is a **structural overview**, not a transcript retelling. Use **tables (narrative arcs) + Mermaid flowcharts** — keep it under 100 lines. Move verbatim quotes and detailed analysis to Deep Dive / Key Insights. Bloated prose in §1 makes the report unreadable. |
 | "I'll skip adding YAML frontmatter, it's just metadata" | Obsidian CLAUDE.md requires frontmatter. Missing = broken knowledge graph. |
 | "Report looks thorough, I'll save without running verify_report.py" ★ | Phase 4 STEP 0 is a **blocking gate**. Run `scripts/verify_report.py <草稿>` before saving — "looks thorough" is exactly the judgment the gate exists to catch. Save only on exit 0. |
 | "User didn't ask for full analysis, but I'll do it anyway" | **Check first.** Present metadata + ask the user which depth they want. Never assume. |
 | "User said to just do it but I showed metadata anyway" ★ | When the user explicitly tells you what to do (整理文档 / 直接分析 / 用bilibili skill 帮我...), skip Phase 0 confirmation. Asking again when they already gave instructions is wasteful. Infer mode from video duration: <20min → 精简版, >=30min → 全量版, unknown → 精简版 (safe default). |
 | "Full version report is done at 10KB" ★ | Size is **not** the bar — **Depth Quality Gates** are. 全量版 must pass G3 (≥3 insights × ≥200 字), G4 (≥3 modules × ≥500 字), G5 (≥5 金句), G7 (≥3 价值 + ≥2 局限 + ≥3 行动). A thin report fails gates regardless of KB. Run `scripts/verify_report.py` to check; if a gate fails, expand that section. |
+| "I'll use my own section header style, the verify script will be fine" ★ | `verify_report.py` enforces **exact format** requirements that are easy to miss: (a) section headers MUST be `## N.` (NOT `## §N`); (b) Deep Dive module headers MUST use Arabic digits — `### 模块 N：` (matching `\d`) NOT Chinese `### 模块一：`; (c) G7 subsections MUST contain specific keywords: `独特价值` (NOT bare `价值点`), `局限` or `偏见`, `可行动` or `行动项`; (d) G7 value/blind-spot items MUST use `- ` bullet format (NOT `1. ` ordered list); (e) §3 insight headers MUST contain 💡 emoji; (f) §5 highlights MUST use `>` blockquote format. If verify_report.py says "section missing" despite the content being there, check these format rules first. |
 | "Deep Dive modules are fixed at 3" ★ | Deep Dive modules are **extensible** — user can request additional modules (e.g. "加一个板块着重研究Codex"). Each module needs: concept definition, architectural context, multi-angle analysis, a Mermaid diagram where applicable, and explicit linkage to the user's own stack where relevant. |
 | "I'll guess the danmaku file path" ★ | As of **v2.4** `fetch_danmaku_v2.py`/`fetch_all.py` save danmaku to **`/tmp/{BV号}_danmaku.json`** (BV-prefixed, aligned with comments/subtitle artifacts). Pure-CID input falls back to `/tmp/cid_{数字}_danmaku.json`. The RESULT_JSON `path` field is authoritative — read it, don't guess. |
-| "Subtitle step failed — I'll just summarize from memory" ★ | As of **v2.4** the fallback chain (official → yt-dlp → whisper.cpp → mlx-whisper) runs **automatically inside** `fetch_subtitle_auto.py`, and `fetch_all.py` no longer masks failure as `null` — a failed step is `{"status":"failed","error":...}`. If subtitle status is `failed`, read the `error` (often bilibili **HTTP 412** → use `yt-dlp --cookies-from-browser chrome`) before summarizing from memory. |
+| "I'll pass the b23.tv short link directly to the scripts" ★ 🆕 | `fetch_all.py` / `fetch_danmaku_v2.py` / `fetch_comments.py` / `fetch_subtitle_auto.py` all require **BV号 format** (e.g. `BV1p2DyB4Ee3`). b23.tv short links, bare video IDs, or full bilibili.com URLs will fail with parse errors. **Always resolve short links first**: `curl -sI -o /dev/null -w '%{redirect_url}' '<b23.tv URL>'` → extract `BV...` from the redirected full URL. Then pass the BV号 to scripts. |
+| "fetch_all 字幕失败不是终点，所以我可以直接写完整版" ★ | Wrong. `fetch_all` 字幕失败后必须继续手动排查 PlayURL/H200 ASR，直到拿到 transcript 或明确证明所有 ASR 路径不可用。**无字幕/无 ASR 不得保存正式 full 报告**；只能生成 `预分析_未通过ASR_...`，并在 YAML/标题/正文显式降级。简介/时间轴/金句只能做预分析素材，不能替代 transcript 证据链。详见 `references/asr-evidence-gates-and-single-note-output-20260630.md`。 |
+| "B站 412 = 需要 cookie" ★ | Wrong default diagnosis. Cookie is only login-state assistance. For no-subtitle B站 videos, Hermes runtime should prefer **PlayURL API direct DASH audio per `page.cid` → H200 ASR → local whisper/mlx fallback** before any yt-dlp audio fallback. BiliNote `dm_img` patch helps only **in-process yt-dlp**; it does not protect CLI yt-dlp. See `references/playurl-multip-asr-lock-20260630.md`. |
+| "ASR model is fixed" ★ | Wrong. ASR provider/model/path/language are configurable: `BILI_ASR_PROVIDER=auto|h200_asr|whisper_cpp|mlx_whisper`, `BILI_ASR_ENDPOINT`, `BILI_ASR_MODEL`, `BILI_ASR_MODEL_PATH`, `BILI_ASR_LANGUAGE`. Default `auto` is now H200 HTTP ASR → VoiceInk/whisper.cpp → mlx-whisper; explicit provider must not silently fall through. See `references/playurl-multip-asr-lock-20260630.md`. |
+| "H200 ASR is available, so set `BILI_ASR_MODEL_PATH=http://...`" ★ | Wrong variable. SURGExZR H200 is an HTTP ASR gateway (`POST /ASR/transcribe`) and is now exposed as `BILI_ASR_PROVIDER=h200_asr` / default `auto` first step. Use `BILI_ASR_ENDPOINT` to override its URL. `BILI_ASR_MODEL_PATH` remains for local whisper.cpp/mlx model paths. Verify short + minutes-long audio before documenting. See `references/h200-asr-vs-bili-asr-20260630.md`. |
+| "fetch_all 的 info 是 null，所以我没法写元数据" ★ | `fetch_all.py` can return `info:null` while danmaku/comments still include title/owner and `/x/web-interface/view` public API works. Always recover metadata with `curl 'https://api.bilibili.com/x/web-interface/view?bvid={BV}' -H 'User-Agent: ...' -H 'Referer: https://www.bilibili.com/'` before drafting a report. |
+| "中文标题的视频，转录也一定是中文" ★ | B站搬运/解说视频可能中文标题 + 英文原声/英文转录。If transcript language differs from title/description, explicitly add a data-limitation note: analysis is based on the transcribed audio, do not infer unverified original-source facts. |
+| "技术解读视频里 UP 主已经总结了官方事实，我照抄即可" ★ 🆕 | 对外部产品/API/论文/框架的技术解读视频，视频转录只是二手来源。若简介或内容指向官方博客/Docs/GitHub/论文，必须用官方/一手资料交叉校验关键数字、API 名称、版本、限制与 availability，再写事实对照表；不要把 UP 主口播当最终事实。 |
+| "标题/简介说了 Profile Builder、Agent Swarms、Kanban，所以报告就按这些写" ★ 🆕 | 技术/产品视频常有标题党或搬运再包装：标题/简介/UP主置顶评论可能强调一组功能，但实际转录只讲其中 1-2 个点（如 `/learn` + Petdex）。必须做 **标题/简介 vs 实际转录 Alignment Check**：列出承诺点、转录覆盖度、证据和判断；报告以转录和一手资料为准，明确标注错位。详见 `references/title-description-transcript-mismatch.md`。 |
+| "mlx-whisper is pre-installed, just use it" ★ 🆕 | mlx-whisper may NOT be installed. If `import mlx_whisper` fails, install: `pip3 install mlx-whisper` (~60s, installs to `/Users/alexcai/Library/Python/3.9/` for `/usr/bin/python3`). Do NOT waste time searching for it across Python versions. |
+| "B站 26 分钟，P1 肯定覆盖全部内容，P2 不用看" ★ 🆕 | B 站多 P 视频的总时长 = 各 Part 之和，不一定是额外内容。曾踩坑：P1 (13:19 中文配音) + P2 (13:18 英文原声) = 26:37 总时长 → 双音轨，零额外内容。用户明确要求「这么长的时长都要完整看一遍」——`fetch_subtitle_auto.py` v2.6.1 在 whisper fallback 会遍历 `pages[]`、逐 CID 走 PlayURL API 直拉音频并合并 P1/P2 转录；报告前仍要检查合并 TXT 中是否包含所有 `## Pn` 标题。 |
+| "verify_report says G4 failed with 'min X words' but I'll just add text to the last module" ★ 🆕 | verify_report.py 的 G4 输出 `min X words` 是**所有模块的最小值**——它不告诉你哪个模块拖后腿。不要盲目给最后一个模块加文字。用 `references/merged-report-tips.md` 中的诊断脚本找出具体哪个模块不足，精准扩充。 |
+| "I'll use write_file to save the final report to Obsidian" ★ 🆕 | `write_file`（无论是直接调用还是通过 `execute_code`）在 Obsidian vault 路径（iCloud/Documents 同步目录）上可能**静默成功但文件未实际落盘**。`ls` 后文件不存在是已知症状。**Phase 4 保存必须用 terminal `cp`**，不要用 `write_file`。`cp` 后立即 `ls -la` + `wc -c` 确认文件存在且非空。 |
+| "字幕全失败了，一定是 Phase 1 改坏了" ★ 🆕 | 字幕失败 ≠ 代码回归。先读 RESULT_JSON 的 `trace` 数组逐步骤诊断：方案0/1 fail + reason=「无字幕」→ 视频确实没字幕（B站未生成AI字幕），**代码正常**；方案2 fail + reason=「412」→ 当且仅当之前同一视频方案2成功过才算回归。**不要因为一个没字幕的视频而回滚整个 subtitle 模块。** |
 
 ## 🔀 Decision Tree
 
 ```
+🆕 Received a YouTube URL (非搬运，直接分析原片)?
+└── → scripts/fetch_youtube.py <url> [--limit N] → /tmp/{video_id}_youtube_report.md (引擎报告，独立流程)
+
 Received Bilibili URL(s)?
 ├── Multiple URLs (same creator/series)? → 🆕 Offer merged report. Collect all metadata first.
 │   └── User confirms merge → Phase 1 for all videos → generate unified report
 ├── Single URL → Phase 0: Fetch metadata ONLY (no transcription yet)
+│   ├── 🆕 Is it a b23.tv short link? Resolve first:
+│   │   `curl -sI -o /dev/null -w '%{redirect_url}' '<b23.tv URL>'` → extract BV号
 │   ├── Get: title, author, duration, views, subtitle availability
+│   │   🆕 When yt-dlp 412's (no Chrome cookies), use public API directly:
+│   │   `curl -s 'https://api.bilibili.com/x/web-interface/view?bvid={BV}' -H 'User-Agent: ...' -H 'Referer: https://www.bilibili.com/'`
+│   │   → Parse `data.title|owner.name|duration|stat.view|stat.danmaku|stat.reply|stat.favorite|cid|desc`
 │   └── ⚠️ STOP HERE. Present metadata to user. Ask: "先看看再说" or "完整版" or "精简版"?
 │       ├── "先看看再说" → Wait for user decision. Do NOT transcribe.
 │       ├── "完整版" → Phase 1 full: transcription + all sections (see 全量版 below)
@@ -51,13 +76,17 @@ Received Bilibili URL(s)?
 │           "用bilibili skill 帮我...") → skip confirmation, auto-select mode:
 │           <20min → 精简版, ≥30min → 全量版, unknown → 精简版 (safe default)
 ├── Phase 1: Fetch data (metadata → subtitles → danmaku → comments)
-│   ├── Subtitles: yt-dlp → mlx-whisper (fallback chain)
+│   ├── Subtitles: official/AI subtitles → PlayURL direct audio → H200 ASR → whisper.cpp → mlx-whisper
 │   ├── Danmaku: ≥30-60 samples
-│   └── Comments: top 50 hot comments
-├── Phase 2: Analysis (type diagnosis → depth selection → analysis)
+│   ├── Comments: top 50 hot comments
+│   └── 🆕 YouTube cross-platform (搬运视频): detect YouTube URL in description → fetch original subtitles + comments
+├── Phase 2: Analysis engine (type diagnosis → evidence map → depth selection → report plan)
+│   ├── ⚠️ Core asset: preserve Alex's old report framework as baseline; GitHub/BiliNote ideas are additive only
 │   ├── Type diagnosis: Tutorial / Interview / Review / Narrative / Speech
 │   └── Depth: 全量版 vs 精简版 (see below)
 ├── Phase 3: Generate report (adaptive sections)
+│   ├── 🆕 引擎快速通道：`fetch_all.py BV.. --report`（或 `generate_report.py`）一键产出 /tmp/{BV}_report.md
+│   │   适合「直接分析/整理文档」类指令；人工深度版仍走下方全量/精简 8-section 模板
 │   └── 🆕 Merged report: per-video Meta tables, interleaved analysis, unified Insights/Deep Dive
 └── Phase 4: 🚦 verify_report.py depth gate (blocking) → Save to Obsidian 00-Inbox + cleanup temp files
 ```
@@ -97,11 +126,24 @@ After Phase 0 metadata is shown, user picks one. If they don't specify, default 
 # One-shot all data (recommended)
 python3 scripts/fetch_all.py BV1ut6YByEZq
 
+# 🆕 一键采集 + 引擎报告：附 --report 自动产出 Obsidian Markdown 到 /tmp/{BV号}_report.md
+python3 scripts/fetch_all.py BV1ut6YByEZq --report
+#   · 向后兼容：原 RESULT_JSON 输出不变，仅追加 report_path 字段
+#   · 搬运视频自动含 cross_platform（B站 vs YouTube 评论）对比
+
 # Individual scripts
 python3 scripts/fetch_danmaku_v2.py BV1ut6YByEZq    # Danmaku
 python3 scripts/fetch_comments.py BV1ut6YByEZq       # Comments
 python3 scripts/fetch_subtitle_auto.py BV1ut6YByEZq  # Subtitles (auto-fallback)
 ```
+
+> [!tip] 🆕 **引擎报告流水线（Phase 3 引擎对接）**：`generate_report.py` 把 `fetch_all.py` 的结果收敛为分析引擎输入并渲染完整 Obsidian Markdown。三种喂入方式：
+> ```bash
+> python3 scripts/generate_report.py --bvid BV1xx                  # 直接读 /tmp/{BV}_*.json 重建
+> python3 scripts/generate_report.py --input /tmp/BV1xx_fetch_all.json  # 读 fetch_all 输出文件
+> python3 scripts/fetch_all.py BV1xx | python3 scripts/generate_report.py  # 管道
+> ```
+> 自动从 `/tmp/{BV}_fact_checks.json` 读 claim（无则从字幕现场提取）。`fetch_all --report` 内部即复用此模块。
 
 See `references/execution-guide.md` for dependencies (yt-dlp, whisper.cpp) and troubleshooting.
 
@@ -110,12 +152,19 @@ See `references/execution-guide.md` for dependencies (yt-dlp, whisper.cpp) and t
 
 ## Phase 2: Deep Analysis
 
-1. **Type diagnosis**: Tutorial / Interview / Review / Narrative / Speech
-2. **Danmaku analysis**: 6 emotion categories, high-frequency terms, cultural memes → see `references/danmaku-analysis-guide.md`
-3. **Comments analysis**: Hot comment curation, opinion clustering, creator interaction
-4. **🆕 Dominant-entity detection**: During type diagnosis, scan for entities (tools/APIs/characters/technologies) referenced in ≥3 sections. If found, auto-propose an additional Deep Dive module for panoramic analysis. Example: Codex appeared in architecture, insights, demo, and critical review of the Niuma videos → triggered "模块 7：Codex 角色全景".
-5. **3-layer dissection**: Explicit / Implicit / Meta-narrative
-6. **Critical review**: Validity / Blind spots / Audience fit
+2. **Type diagnosis**: Tutorial / Interview / Review / Narrative / Speech
+3. **Danmaku analysis**: 6 emotion categories, high-frequency terms, cultural memes → see `references/danmaku-analysis-guide.md`
+4. **Comments analysis**: Hot comment curation, opinion clustering, creator interaction
+5. **🆕 First-source cross-check for technical/news/policy videos**: 
+   - **技术/产品类**：视频解释外部产品/API/框架/论文，且简介或内容指向官方博客/Docs/GitHub/论文 → 用官方/一手资料交叉校验关键数字、API 名称、版本、限制与 availability
+   - **政策/新闻类**：视频做公共政策解读（教育/医疗/房地产/社保等），UP 主以"专家/教师/内部人士"身份做断言式声明 → 启用 WRR 多引擎交叉验证（Brave + Exa 双主力，grounding 模式），逐条核查可验证声明
+   - 两种类型均在报告 §8 附录中加入「事实核查溯源」Source Map 表格（ID / 来源 / 核心事实 / URL）
+   | `references/wrr-fact-check-policy-videos.md` |
+   | **🆕 技术视频标题/简介错位核查**：标题/简介/UP主热评 vs 实际转录 Alignment Check，尤其适用于 Hermes/AI 工具类搬运或营销视频 → 见 `references/title-description-transcript-mismatch.md` |
+   - 核心原则：B站转录是评论，不是最终权威；弹幕中的众包质疑是高质量的核查信号
+6. **🆕 Dominant-entity detection**: During type diagnosis, scan for entities (tools/APIs/characters/technologies) referenced in ≥3 sections. If found, auto-propose an additional Deep Dive module for panoramic analysis. Example: Codex appeared in architecture, insights, demo, and critical review of the Niuma videos → triggered "模块 7：Codex 角色全景".
+7. **3-layer dissection**: Explicit / Implicit / Meta-narrative
+8. **Critical review**: Validity / Blind spots / Audience fit
 
 Full analysis framework: `references/v3-detailed-prompt.md`
 
@@ -191,21 +240,52 @@ python3 scripts/verify_report.py /tmp/报告草稿.md --mode condensed   # 精�
 
 **Then save:**
 
+- 🚨 **Use terminal `cp`, NOT `write_file`** — `write_file` 在 Obsidian vault 同步目录上可能静默失败（报告成功但文件未落盘）。正确做法：`cp /tmp/报告草稿.md "<vault路径>" && ls -la "<vault路径>" && wc -c "<vault路径>"`。三步验证：cp → ls 确认存在 → wc 确认非空。
 - ✅ Save to: `~/Documents/Obsidian/AlexCai/00-Inbox/B站笔记_[主题简述]_YYYYMMDD.md`
 - ⚠️ **Filename convention**: follow the vault's CLAUDE.md — for this vault it's `B站笔记_主题简述_YYYYMMDD.md` (NOT `视频解析_...`). Check the target vault's CLAUDE.md for its actual convention.
 - ✅ Must include YAML frontmatter（status/type/priority/aliases/tags/created/modified）
-- ✅ Clean temp files: `rm -f /tmp/bili_hermes* /tmp/BV* /tmp/cid_* /tmp/报告草稿.md`
+- ✅ **Re-run `verify_report.py` on the final saved Obsidian path**, not only on the `/tmp` draft. This catches wrong-path saves, copy/truncation mistakes, and final filename/path issues before reporting success.
+- ✅ Clean temp files: `rm -f /tmp/bili_hermes* /tmp/BV* /tmp/cid_* /tmp/报告草稿.md` — do this only after the final saved file has passed verification.
 - ❌ Never save to: `~/clawd/00-Inbox/` or vault root
+
+## 🆕 Phase 2: YouTube 评论同步 + WRR 事实核查
+
+**搬运视频评论同步**：
+```bash
+# 独立使用 YouTube 评论抓取
+python3 scripts/fetch_youtube_comments.py <youtube_url或video_id> --limit 50
+# 输出：/tmp/{video_id}_youtube_comments.json
+```
+
+**🆕 YouTube 视频独立分析入口**（对标 fetch_all，非搬运场景直接分析 YouTube 原片）：
+```bash
+python3 scripts/fetch_youtube.py <youtube_url或video_id> [--limit 50]
+# 采集：yt-dlp --dump-json 元数据 + 字幕(youtube-transcript-api 优先, yt-dlp --write-auto-subs 兜底) + 评论
+# 调 video_analysis_engine(platform='youtube') → 输出 /tmp/{video_id}_youtube_report.md
+# 走 RESULT_JSON 协议；全程 best-effort 降级（字幕/评论任一失败不阻塞其余）
+```
+
+**WRR 事实核查链**：
+```bash
+# Step 1: 从字幕提取可验证 claim
+python3 scripts/fact_check_wrr.py --transcript /tmp/BVxxx_subtitle_official.txt --bvid BVxxx
+# 输出：/tmp/{BVxxx}_fact_checks.json
+
+# Step 2: 人工或 WRR 对 claims 逐条核查 → 更新 verdict/sources 字段
+# Step 3: 将 fact_checks 结果传入 video_analysis_engine 生成报告 §4 关键声明核查
+```
 
 ## Script Reference
 
 | Script | Function | Dependency |
 |:---|:---|:---|
-| `fetch_all.py` ⭐ | One-shot: danmaku + comments + subtitles (dispatches sub-scripts via `/usr/bin/python3`; failures reported, not masked) | yt-dlp, mlx-whisper/whisper-cli |
+| `fetch_all.py` ⭐ | One-shot: danmaku + comments + subtitles (dispatches sub-scripts via `/usr/bin/python3`; failures reported, not masked). 🆕 `--report` 追加 Obsidian 报告 | yt-dlp, mlx-whisper/whisper-cli |
+| `generate_report.py` 🆕 | 胶水层：fetch_all 结果 → AnalysisInput → 引擎 → Obsidian Markdown（`--bvid`/`--input`/stdin 三入口） | stdlib only |
+| `fetch_youtube.py` 🆕 | YouTube 视频独立分析入口（metadata + 字幕 + 评论 → 引擎报告，对标 fetch_all） | yt-dlp, youtube-transcript-api |
 | `fetch_danmaku_v2.py` | Danmaku (BV号 direct, BV-prefixed output) | requests |
 | `fetch_comments.py` | Comments (top 50 hot) | requests |
 | `fetch_subtitle_auto.py` | Subtitles (auto-fallback: official→yt-dlp→whisper.cpp→mlx) | yt-dlp, whisper.cpp, mlx-whisper |
-| `mlx_transcribe.py` | mlx-whisper Python-API transcription (local snapshot, offline) | mlx-whisper (`/usr/bin/python3`) |
+| `fetch_youtube_comments.py` 🆕 | YouTube 评论双路径抓取（yt-dlp → yt-comment-dl fallback） | yt-dlp, yt-comment-dl |\n| `fact_check_wrr.py` 🆕 | WRR 事实核查路由：从字幕提取可验证 claim | stdlib only |\n| `video_analysis_engine.py` 🆕 | 平台无关视频分析引擎骨架（数据类 + 报告渲染） | stdlib only |\n| `bilibili_dm_patch.py` 🆕 | yt-dlp dm_img monkey-patch 412 绕过（移植自 BiliNote） | yt-dlp (optional) |\n| `mlx_transcribe.py` | mlx-whisper Python-API transcription (local snapshot, offline) | mlx-whisper (`/usr/bin/python3`) |
 | `verify_report.py` 🆕 | Static Depth-Quality-Gate checker for a report `.md` | stdlib only |
 | `transcribe_whisper_cpp.sh` | Audio transcription | whisper-cli, ffmpeg |
 
@@ -215,12 +295,57 @@ python3 scripts/verify_report.py /tmp/报告草稿.md --mode condensed   # 精�
 
 - ⚠️ Official subtitle API requires login (SESSDATA); **preferred path: `yt-dlp --cookies-from-browser chrome`** — single command extracts both official + AI subtitles without API calls (see below)
 - ⚠️ Comment API returns max 3-5 hot comments for new videos (<24h)
-- ⚠️ whisper.cpp: ~68-85s per 19-minute video (Apple M4 GPU) — only use as last resort when yt-dlp+cookie fails
-- ⚠️ Fallback chain: `yt-dlp --cookies-from-browser chrome` → mlx-whisper (preferred on Apple Silicon, ~60s per 7-min video) → whisper.cpp → summarize from context
-- ✅ **Fallback chain is automatic (v2.4)** — `fetch_subtitle_auto.py` runs official → yt-dlp(download) → whisper.cpp → mlx-whisper **in-process** and reports the engine that actually succeeded in the `method` field. `fetch_all.py` surfaces failures as `{"status":"failed","returncode":N,"error":...}` (no more silent `null`). When every transcription path fails (commonly bilibili **HTTP 412** on yt-dlp, which needs a login cookie), fall back to the `yt-dlp --cookies-from-browser chrome` method documented below.
+- ⚠️ whisper.cpp: ~68-85s per 19-minute video (Apple M4 GPU) — now local fallback only when H200 HTTP ASR fails/unavailable
+- ⚠️ Fallback chain: official/AI subtitles → PlayURL direct audio → H200 ASR (default) → whisper.cpp → mlx-whisper. **No transcript, no formal full report**: if all subtitle/ASR paths fail, output only a clearly-labeled `预分析_未通过ASR_...` file; do not save it as a normal `B站笔记_...`. Source-gate and single-note-output details: `references/asr-evidence-gates-and-single-note-output-20260630.md`.
+- ⚠️ 🆕 **PlayURL 音频抽样下载不要用 `curl --max-filesize`**：`--max-filesize` 会因远端 Content-Length 超限直接退出（不是音频不可下载）。测试片段请用 Range：`-H 'Range: bytes=0-10485759'`；完整转录直接下载低码率 DASH audio，再 ffmpeg 切 5 分钟 chunk → H200 ASR。
+- ⚠️ 🆕 **`bilibili_dm_patch.py` 仅对 in-process yt-dlp 生效**：monkey-patch 通过修改 `yt_dlp.extractor.bilibili.BiliBliIE._build_dm_params` 绕过 412，但 `fetch_subtitle_auto.py`/`bili_env.py` 中的 yt-dlp 调用走 `subprocess.run(['yt-dlp', ...])`（CLI 进程），不经过 Python 模块——**dm_patch 对 CLI 调用零效果**。CLI 412 先走 PlayURL API 直连下载音频，再走 H200/local ASR。
+- ✅ **Fallback chain is automatic (v2.6.2)** — `fetch_subtitle_auto.py` runs official → yt-dlp subtitles → PlayURL direct audio → H200 ASR → whisper.cpp → mlx-whisper **in-process** and reports the engine that actually succeeded in the `method` field. `fetch_all.py` surfaces failures as `{"status":"failed","returncode":N,"error":...}` (no more silent `null`).
 - ⚠️ Multi-video merge: when user provides multiple B站 URLs from the same creator/series, offer to merge into a single unified report. Collect all data first, then interleave analysis with per-video Meta tables.
+| **🆕 合并报告特殊技巧**：G4 诊断脚本、§1 flowchart 压缩策略、多视频并行采集模式 → 见 `references/merged-report-tips.md` |
+| **🆕 Hermes/飞书配置视频交叉校验**：多 profile、多 gateway、飞书群聊/bot-to-bot 的官方核验点与评论区故障映射 → 见 `references/hermes-feishu-video-crosscheck.md` |
+| **🆕 政策/新闻类视频 WRR 事实核查**：公共政策解读类视频的声明提取、WRR 多引擎交叉验证（Brave+Exa）、声明-来源对照表、弹幕众包信号利用 → 见 `references/wrr-fact-check-policy-videos.md` |
 - ⚠️ Tutorial/How-to videos <20min: use **精简版** — full 8-section analysis is overkill
 - ⚠️ New videos (<24h, <500 views): expect 0-3 comments and 0-10 danmaku. Don't force analysis on empty data.
+- ⚠️ 🆕 **Multi-P 视频总时长陷阱**：`x/web-interface/view` API 返回的 `duration` 是所有 Part 的**总和**，不是单 Part 时长。必须分别获取每个 CID 的时长才能判断内容关系。曾出现 P1+P2 双音轨（中配+原声）= 26 分钟但零额外内容的案例——不能凭总时长推测有增补解说，必须全量转录后判断。
+- ⚠️ 🆕 **mlx-whisper 不一定预装**：skill 假设 `mlx-whisper` 已安装在 `/usr/bin/python3`，但实际可能缺失。若 `import mlx_whisper` 失败，执行 `pip3 install mlx-whisper`（安装到 `~/Library/Python/3.9/`，~60s）。whisper.cpp 模型文件也可能缺失（需 `ggml-large-v3-turbo.bin`），优先用 mlx-whisper。
+- ⚠️ 🆕 **fetch_all 字幕失败不是终点**：即使 `fetch_all.py` 的字幕步骤返回 `status=failed`，先读 trace。当前自动链路会在 PlayURL API 下载音频后优先调用 **H200 ASR**；只有 H200 不通/失败才继续本机 `whisper.cpp` / `/usr/bin/python3 scripts/mlx_transcribe.py ... zh`。不要因为 `python3 -c 'import mlx_whisper'` 失败就误判无法转录。
+- ⚠️ 🆕 **转载/搬运视频优先检查原始来源字幕**：如果 B站简介给出 YouTube/原站链接（如 `来源：https://www.youtube.com/watch?...`），且 B站无官方字幕或 yt-dlp 412，先尝试原始来源字幕：`yt-dlp --write-auto-subs --sub-lang 'en.*,zh.*' --skip-download --convert-subs srt -o '/tmp/<topic>' '<原始URL>'`。原始英文字幕通常比中文音频转录更完整；可作为主分析文本，B站 PlayURL+H200/local ASR 转录作为辅助核对。报告 §0/§8 必须明确数据来源差异，避免把 YouTube 字幕误称为 B站字幕。
+- 🆕 **YouTube 原视频评论同步（搬运视频）**：当 B站视频标题/简介含 `youtube.com/watch?v=` / `youtu.be/` / 「来源」「搬运」「中配」等关键词时，自动触发 YouTube 原视频评论抓取 → `yt-dlp --write-comments --skip-download -o '/tmp/yt_%(id)s' '<youtube_url>'`。抓取后在 §2.5 Comments Analysis 下增加「YouTube 原视频评论对比」子节。详见 `references/bilinote-cross-reference.md` §3。
+- 🆕 **BiliNote / jz-skills 交叉参考**：2026-06-29/30 深度分析了 [JefferyHcool/BiliNote](https://github.com/JefferyHcool/BiliNote) 与旧版 `jz-skills/shared/bilibili-video-analyzer`。结论：BiliNote 提供 Downloader/Transcriber/GPT/NoteGenerator 分层与 RequestChunker/checkpoint 蓝图；旧 skill 提供 Hermes-native RESULT_JSON、真实 home/user-site 兜底、PlayURL direct audio 稳定路径。详见 `references/bilinote-cross-reference.md` 与 `references/bilinote-and-jz-source-absorption-20260630.md`。
+- 🆕 **P0 防回归锁定参考**：修改 `fetch_subtitle_auto.py` / `bilibili_dm_patch.py` / `fetch_all.py` 前先读 `references/p0-regression-lock-20260630.md`。其中记录了 PlayURL 逐 P 音频主 fallback、4 个 P0 回归测试、Hermes 复跑命令和 OMP 审核证据。
+- 🆕 **内容引擎升级原则**：下一阶段优化重点是分析与内容产出引擎，不是继续堆 fetcher。旧版报告框架是 Alex 蒸馏资产，必须作为基线保留；BiliNote/GitHub 只提供增量增强。见 `references/content-engine-upgrade-principles-20260630.md`。
+- 🆕 **H200 ASR 与 B站本机 ASR 配置边界**：SURGExZR H200 `/ASR/transcribe` 已实测短音频和约 5 分钟长音频可用，现已作为 `BILI_ASR_PROVIDER=auto` 的默认首选；本机 whisper.cpp / mlx-whisper 保留 fallback。覆盖 H200 地址用 `BILI_ASR_ENDPOINT`，不要用 `BILI_ASR_MODEL_PATH`。参考 `references/h200-asr-vs-bili-asr-20260630.md`。
+
+### 🆕 Audio Download via Bilibili PlayURL API (yt-dlp 412 Bypass)
+
+When `yt-dlp --cookies-from-browser chrome` fails with HTTP 412 (extracts 0 cookies, Chrome not running or cookie DB locked), bypass yt-dlp entirely by using Bilibili's public playurl API + curl:
+
+**Step 1: Get audio stream URLs from playurl API** (no auth needed):
+
+```bash
+curl -s 'https://api.bilibili.com/x/player/playurl?bvid={BV}&cid={CID}&qn=80&fnval=16&fourk=1' \
+  -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' \
+  -H 'Referer: https://www.bilibili.com/'
+```
+
+Parse `data.dash.audio[]` for stream URLs — pick the highest-bitrate one. If `data.dash` is absent, fall back to `data.durl[0].url` (FLV).
+
+**Step 2: Download audio with curl:**
+
+```bash
+curl -sL -o '/tmp/bv_{BV}_audio.m4s' \
+  -H 'User-Agent: Mozilla/5.0 ...' \
+  -H 'Referer: https://www.bilibili.com/' \
+  '<audio_url_from_step_1>'
+```
+
+**Step 3: Convert m4s to WAV:**
+
+```bash
+ffmpeg -y -i /tmp/bv_{BV}_audio.m4s -ar 16000 -ac 1 /tmp/bv_{BV}_audio.wav
+```
+
+Proceed with mlx-whisper transcription as normal. Notes: (a) this method works without any browser login — the playurl API is public; (b) the audio URL is time-limited (~6h), so download immediately after fetching; (c) the BV号 and CID must match — get CID from `x/web-interface/view` API or from `fetch_all.py` output.
 
 ### Subtitle Extraction — Verified Method (2026-06-02, double-validated)
 
@@ -302,15 +427,24 @@ read_file /tmp/bv_transcript.txt
 
 > [!warning] 🪤 HF repo ID pitfall
 > Using `path_or_hf_repo='mlx-community/whisper-large-v3-turbo-mlx'` triggers a HuggingFace 401 Unauthorized error even when the model is already cached locally. **Always resolve to the local snapshot path** — use `ls ~/.cache/huggingface/hub/models--mlx-community--whisper-large-v3-turbo/snapshots/` to find the hash, then pass the full path.
+>
+> [!warning] 🪤 mlx_transcribe.py argument format
+> `scripts/mlx_transcribe.py` takes **positional arguments only**: `<audio_path> <output_txt_path> [language]`. Named flags like `--language`, `--output-txt`, `--output-srt` are NOT supported and will be silently treated as positional args — `--language` becomes the output filename. The script only produces TXT, not SRT. Usage: `/usr/bin/python3 scripts/mlx_transcribe.py /tmp/audio.wav /tmp/transcript.txt zh`
+> Using `path_or_hf_repo='mlx-community/whisper-large-v3-turbo-mlx'` triggers a HuggingFace 401 Unauthorized error even when the model is already cached locally. **Always resolve to the local snapshot path** — use `ls ~/.cache/huggingface/hub/models--mlx-community--whisper-large-v3-turbo/snapshots/` to find the hash, then pass the full path.
 
 Changelog: `references/changelog.md` — timeout optimization, multi-P video support, BV号 direct access.
 
 ## ✅ Verification Checklist
 
+- [ ] Final Obsidian output is **exactly one user-facing note** for one video link: `B站笔记_...md`. Do NOT leave `完整记录稿_...`, `预分析_...`, raw transcript, or accident/intermediate drafts in the vault unless the user explicitly asks for source transcript/audit artifacts.
+- [ ] Formal report has a transcript evidence source? 官方字幕 or H200/local ASR path recorded in §0/§8. If not, filename/title/YAML must be `预分析_未通过ASR_...`, not normal `B站笔记_...`.
+- [ ] EvidenceSourceGate checked? `report.evidence_gate.can_generate_formal_report` must pass before formal save; `external_research.route` should be `wrr_local` when local WRR exists, otherwise `fallback_search` for configured web/search tools.
 - [ ] Danmaku file read from RESULT_JSON `path` (v2.4: `/tmp/{BV号}_danmaku.json`, BV-prefixed)?
 - [ ] Subtitles extracted via `yt-dlp --cookies-from-browser chrome` first (not whisper unless cookie method failed)?
 - [ ] Subtitle step: if status `failed`, checked the `error` field (e.g. 412 → cookies) before manual fallback?
 - [ ] If yt-dlp subtitles unavailable, mlx-whisper used with local cache path (not HF repo ID)?
+- [ ] 🆕 For technical/news videos about external products/APIs/frameworks/papers, official/first-source claims cross-checked and a 事实对照/data-source note added?
+- [ ] 🆕 For policy/news commentary videos with verifiable claims, WRR fact-check triggered (Brave+Exa dual-engine, grounding mode)? Source Map table in §8 with per-claim verdict (✅/🟡/🔴)?
 - [ ] Output mode selected? (全量版 or 精简版 — user chose explicitly?)
 - [ ] 🆕 Multi-video merge: per-video Meta tables + interleaved analysis?
 - [ ] YAML frontmatter present? (status/type/priority/aliases/tags/created/modified)
@@ -320,7 +454,7 @@ Changelog: `references/changelog.md` — timeout optimization, multi-P video sup
 - [ ] 精简版: sections 2/4/5/6 condensed, G7 kept full (≥3+2+3)?
 - [ ] Dominant entities scanned? (tools/APIs/characters referenced in ≥3 sections → extra Deep Dive module?)
 - [ ] Sparse danmaku/comments handled with ≤50 words, not inflated into full analysis?
-- [ ] Output saved to Obsidian `00-Inbox/` (NOT clawd path or vault root)?
+- [ ] Output saved to Obsidian `00-Inbox/` using terminal `cp` (NOT `write_file`) + verified with `ls -la` and `wc -c`?
 - [ ] Temporary files cleaned from `/tmp/`?
 
 ---
