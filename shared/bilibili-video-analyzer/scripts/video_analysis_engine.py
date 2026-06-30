@@ -699,25 +699,104 @@ def _emit_section_skeleton(lines: List[str], sid: str, cands: List[Dict[str, Any
         lines.append('')
 
 
-def _emit_source_appendix(lines: List[str], report: Dict[str, Any]) -> None:
-    """渲染用户可见的 transcript Source Appendix。
+# §8 Source Appendix 表的固定列与固定行顺序（确定性渲染）。
+_SOURCE_TABLE_COLUMNS = [
+    'source_type', 'available', 'method', 'language', 'segments', 'chars',
+    'count', 'json_path', 'txt_path', 'parts', 'failed_parts', 'notes',
+]
+_SOURCE_TABLE_ROW_ORDER = [
+    'transcript', 'comments', 'danmaku', 'fact_checks', 'external_research',
+]
 
-    数据只读 evidence_gate.sources.transcript（available/source/language/
-    segments/chars），不依赖 evidence_map.by_section。source 原样保留 P2-B3
-    编码串（method|json_path=...|txt_path=...|parts=2/3|failed_parts=...）。
-    无 transcript 时只标 transcript_available=false，不伪造任何路径字段。
+
+def _parse_transcript_source(source: str) -> Dict[str, str]:
+    """拆解 P2-B3 编码的 transcript.source 串为字段字典，不改上游 schema。
+
+    形如 `mlx-whisper|json_path=/x.json|txt_path=/x.txt|parts=2/3|failed_parts=...`。
+    第一段为 method，其余 `key=value` 段落进入对应键（json_path/txt_path/
+    parts/failed_parts）。无法解析时返回空 method。
+    """
+    parts = (source or '').split('|')
+    out: Dict[str, str] = {'method': parts[0].strip() if parts and parts[0] else ''}
+    for token in parts[1:]:
+        if '=' in token:
+            key, value = token.split('=', 1)
+            out[key.strip()] = value.strip()
+    return out
+
+
+def _table_cell(value: Any) -> str:
+    """把单元格值转为安全的 Markdown 表格文本：空值留空，转义 `|` 与换行。"""
+    if value in (None, ''):
+        return ''
+    return str(value).replace('|', '\\|').replace('\n', ' ').strip()
+
+
+def _source_table_rows(report: Dict[str, Any]) -> List[Dict[str, str]]:
+    """从 evidence_gate.sources 构建固定行顺序的表格行（缺省单元格留空）。"""
+    sources = ((report.get('evidence_gate') or {}).get('sources') or {})
+    rows: List[Dict[str, str]] = []
+    for name in _SOURCE_TABLE_ROW_ORDER:
+        src = sources.get(name) or {}
+        row: Dict[str, str] = {col: '' for col in _SOURCE_TABLE_COLUMNS}
+        row['source_type'] = name
+        row['available'] = 'true' if src.get('available') else 'false'
+        if name == 'transcript':
+            if src.get('available'):
+                parsed = _parse_transcript_source(src.get('source', ''))
+                row['method'] = parsed.get('method', '')
+                row['json_path'] = parsed.get('json_path', '')
+                row['txt_path'] = parsed.get('txt_path', '')
+                row['parts'] = parsed.get('parts', '')
+                row['failed_parts'] = parsed.get('failed_parts', '')
+                row['language'] = str(src.get('language', '') or '')
+                row['segments'] = str(src.get('segments', 0))
+                row['chars'] = str(src.get('chars', 0))
+        elif name in ('comments', 'danmaku'):
+            row['count'] = str(src.get('count', 0))
+        elif name == 'fact_checks':
+            row['count'] = str(src.get('claims', 0))
+        elif name == 'external_research':
+            row['method'] = str(src.get('route', '') or '')
+            row['notes'] = str(src.get('reason', '') or '')
+        rows.append(row)
+    return rows
+
+
+def _emit_source_appendix(lines: List[str], report: Dict[str, Any],
+                          section: str) -> None:
+    """渲染用户可见的 Source Appendix。
+
+    数据只读 evidence_gate.sources，不依赖 evidence_map.by_section。
+      - §0：精简版，只给 transcript_available 与 method/language/segments/chars，
+        绝不展开 json_path / txt_path / parts / failed_parts。
+      - §8：确定性 Markdown 表格，固定列与固定行顺序，transcript.source 解析进
+        各单元格；无 transcript 时各路径单元格留空，不伪造任何字段。
     """
     tr = (((report.get('evidence_gate') or {}).get('sources') or {})
           .get('transcript') or {})
     available = bool(tr.get('available'))
     lines.append('### Source Appendix')
     lines.append('')
+
+    if section == '0':
+        lines.append(f'- transcript_available={"true" if available else "false"}')
+        if available:
+            method = _parse_transcript_source(tr.get('source', '')).get('method', '')
+            lines.append(f'- method: {method}')
+            lines.append(f'- language: {tr.get("language", "")}')
+            lines.append(f'- segments: {tr.get("segments", 0)}')
+            lines.append(f'- chars: {tr.get("chars", 0)}')
+        lines.append('')
+        return
+
     lines.append(f'- transcript_available={"true" if available else "false"}')
-    if available:
-        lines.append(f'- source: {tr.get("source", "")}')
-        lines.append(f'- language: {tr.get("language", "")}')
-        lines.append(f'- segments: {tr.get("segments", 0)}')
-        lines.append(f'- chars: {tr.get("chars", 0)}')
+    lines.append('')
+    lines.append('| ' + ' | '.join(_SOURCE_TABLE_COLUMNS) + ' |')
+    lines.append('| ' + ' | '.join(['---'] * len(_SOURCE_TABLE_COLUMNS)) + ' |')
+    for row in _source_table_rows(report):
+        cells = [_table_cell(row.get(col, '')) for col in _SOURCE_TABLE_COLUMNS]
+        lines.append('| ' + ' | '.join(cells) + ' |')
     lines.append('')
 
 
@@ -736,7 +815,7 @@ def _render_plan_skeleton(report: Dict[str, Any], lines: List[str],
             lines.append('')
         _emit_section_skeleton(lines, sid, by_section.get(sid, []))
         if sid in ('0', '8'):
-            _emit_source_appendix(lines, report)
+            _emit_source_appendix(lines, report, sid)
     return '\n'.join(lines)
 
 
