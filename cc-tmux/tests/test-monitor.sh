@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+# test-monitor.sh — TDD test for cc-monitor.sh state priority fix
+#
+# Creates real tmux sessions with fixture pane content,
+# runs cc-monitor.sh, checks detected state from META stderr line.
+
+set -euo pipefail
+
+MONITOR="$(cd "$(dirname "$0")/../scripts" && pwd)/cc-monitor.sh"
+SESSION="cctmux-test-fix"
+PASS=0 FAIL=0
+
+cleanup() {
+  tmux kill-session -t "$SESSION" 2>/dev/null || true
+  rm -f "/tmp/cc-heartbeat-${SESSION}" "/tmp/cc-state-${SESSION}.log" "/tmp/cc-fixture-${SESSION}.txt"
+}
+trap cleanup EXIT
+
+run_test() {
+  local name="$1" fixture="$2" expected_state="$3"
+  
+  cleanup
+  
+  # Write fixture to a file, then cat it in a tmux session so capture-pane sees it
+  printf '%s\n' "$fixture" > "/tmp/cc-fixture-${SESSION}.txt"
+  tmux new-session -d -s "$SESSION" -x 120 -y 20 "cat /tmp/cc-fixture-${SESSION}.txt; sleep 999" </dev/null >/dev/null 2>&1
+  sleep 0.8  # let cat display the content
+  
+  # Run monitor, capture stderr
+  local stderr_file="/tmp/cc-monitor-stderr-${SESSION}.txt"
+  bash "$MONITOR" --session "$SESSION" >/dev/null 2>"$stderr_file" || true
+  local meta result
+  meta=$(grep "^META" "$stderr_file" | head -1 || echo "")
+  result=$(echo "$meta" | grep -o 'state=[A-Z_]*' | cut -d= -f2 || echo "UNKNOWN")
+  
+  if [[ "$result" == "$expected_state" ]]; then
+    echo "  ✅ $name → $result"
+    PASS=$((PASS+1))
+  else
+    echo "  ❌ $name → expected $expected_state, got $result"
+    FAIL=$((FAIL+1))
+  fi
+  
+  rm -f "$stderr_file"
+  cleanup
+}
+
+echo "=== cc-monitor TDD: State Priority Fix (§3.1) ==="
+echo ""
+
+# Test 1: TOOL active (⏺) + empty ❯ at bottom → TOOL wins
+run_test "TOOL > IDLE (⏺ + ❯)" \
+'⏺ Writing file…
+❯ ' \
+"TOOL"
+
+# Test 2: THINKING active (✻) + empty ❯ → THINKING wins
+run_test "THINKING > IDLE (✻ + ❯)" \
+'✻ Thinking about code…
+❯ ' \
+"THINKING"
+
+# Test 3: Pure IDLE — only empty ❯
+run_test "Pure IDLE (only ❯)" \
+'❯ ' \
+"IDLE"
+
+# Test 4: ✢ character (previously undetected by old regex)
+run_test "✢ detected (✢ Julienning)" \
+'✢ Julienning…
+❯ ' \
+"THINKING"
+
+# Test 5: ✳ character
+run_test "✳ detected" \
+'✳ Canoodling…
+❯ ' \
+"THINKING"
+
+# Test 6: ✶ character
+run_test "✶ detected" \
+'✶ Jitterbugging…
+❯ ' \
+"THINKING"
+
+# ─── §Phase-2 fast path: fresh hook heartbeat → skip expensive capture-pane ───
+echo ""
+echo "§Phase-2 fast path (fresh heartbeat → report liveness without capture)"
+SFP="cctmux-test-fastpath-$$"
+fp_cleanup(){ tmux kill-session -t "$SFP" 2>/dev/null || true; rm -f "/tmp/cc-heartbeat-${SFP}" "/tmp/cc-state-${SFP}.log" /tmp/cc-fixture-fp.txt; }
+fp_cleanup
+
+# Test 7: fresh heartbeat present → fast path → state=ACTIVE_HOOK, no capture
+tmux new-session -d -s "$SFP" -x 120 -y 20 "sleep 999" </dev/null >/dev/null 2>&1
+sleep 0.3
+NOWFP=$(date +%s); printf '%s|1|TOOL|?|%s|1\n' "$NOWFP" "$NOWFP" > "/tmp/cc-heartbeat-${SFP}"
+err=$(bash "$MONITOR" --session "$SFP" 2>&1 >/dev/null || true)
+st=$(echo "$err" | grep -o 'state=[A-Z_]*' | head -1 | cut -d= -f2 || true)
+[[ "$st" == "ACTIVE_HOOK" ]] && { echo "  ✅ fresh heartbeat → fast path (state=ACTIVE_HOOK)"; PASS=$((PASS+1)); } \
+  || { echo "  ❌ fast path not taken: state=$st"; FAIL=$((FAIL+1)); }
+
+# Test 8: --force-capture bypasses fast path even with a fresh heartbeat → real capture
+printf '⏺ Writing…\n❯ \n' > /tmp/cc-fixture-fp.txt
+tmux kill-session -t "$SFP" 2>/dev/null || true
+tmux new-session -d -s "$SFP" -x 120 -y 20 "cat /tmp/cc-fixture-fp.txt; sleep 999" </dev/null >/dev/null 2>&1
+sleep 0.6
+NOWFP=$(date +%s); printf '%s|1|TOOL|?|%s|1\n' "$NOWFP" "$NOWFP" > "/tmp/cc-heartbeat-${SFP}"
+err=$(bash "$MONITOR" --session "$SFP" --force-capture 2>&1 >/dev/null || true)
+st=$(echo "$err" | grep -o 'state=[A-Z_]*' | head -1 | cut -d= -f2 || true)
+[[ "$st" == "TOOL" ]] && { echo "  ✅ --force-capture bypasses fast path (state=TOOL from pane)"; PASS=$((PASS+1)); } \
+  || { echo "  ❌ --force-capture did not capture: state=$st"; FAIL=$((FAIL+1)); }
+fp_cleanup
+
+# ─── §P1-1 状态权威 fast path: fresh heartbeat + cc-status-<s>.json → state from hook ───
+echo ""
+echo "§P1-1 status fast path (fresh hb + status file → state 直接取自 hook 权威)"
+SSP="cctmux-test-statusfp-$$"
+ssp_cleanup(){ tmux kill-session -t "$SSP" 2>/dev/null || true; rm -f "/tmp/cc-heartbeat-${SSP}" "/tmp/cc-state-${SSP}.log" "/tmp/cc-status-${SSP}.json"; }
+ssp_cleanup
+tmux new-session -d -s "$SSP" -x 120 -y 20 "sleep 999" </dev/null >/dev/null 2>&1
+sleep 0.3
+NOWSP=$(date +%s)
+printf '%s|1|TOOL|?|%s|1\n' "$NOWSP" "$NOWSP" > "/tmp/cc-heartbeat-${SSP}"
+# hook 写的权威状态：COMPLETED（capture-pane 永远推不出这个 → 证明走的是 status 文件）
+printf '{"state":"COMPLETED","state_since":"2026-06-22T00:00:00Z","last_event":"Stop","last_tool":"Write","last_tool_since":"2026-06-22T00:00:00Z","seq":9,"heartbeat":"2026-06-22T00:00:00Z"}\n' > "/tmp/cc-status-${SSP}.json"
+out_file="/tmp/cc-monitor-out-${SSP}.txt"
+err_file="/tmp/cc-monitor-err-${SSP}.txt"
+set +e
+bash "$MONITOR" --session "$SSP" >"$out_file" 2>"$err_file"
+rc=$?
+set -e
+out=$(cat "$out_file")
+err=$(cat "$err_file")
+st=$(echo "$err" | grep -o 'state=[A-Z_]*' | head -1 | cut -d= -f2 || true)
+if [[ "$rc" -eq 0 && "$st" == "COMPLETED" && "$out" == *"last_tool=Write"* && "$err" != *"unbound variable"* ]]; then
+  echo "  ✅ status fast path → state=COMPLETED + last_tool 输出无 set -u 崩溃"
+  PASS=$((PASS+1))
+else
+  echo "  ❌ status fast path 异常: rc=$rc state=$st out='${out//$'\n'/ }' err='${err//$'\n'/ }'"
+  FAIL=$((FAIL+1))
+fi
+rm -f "$out_file" "$err_file"
+ssp_cleanup
+
+echo ""
+echo "=== Results: $PASS/$((PASS+FAIL)) passed ==="
+rm -f /tmp/cc-monitor-stderr-*.txt
+[[ "$FAIL" -eq 0 ]] && exit 0 || exit 1
