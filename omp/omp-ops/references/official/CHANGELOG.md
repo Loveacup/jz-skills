@@ -2,6 +2,52 @@
 
 ## [Unreleased]
 
+## [16.2.8] - 2026-06-30
+
+### Added
+
+- Added built-in Go coding rules including `go-add-cleanup`, `go-bench-loop`, `go-exp-promoted`, `go-ioutil`, `go-join-hostport`, `go-new-expr`, `go-rand-v2`, and `go-range-int`
+
+### Changed
+
+- Relaxed strict bash tool constraints regarding the use of search, grep, ls, and find commands
+
+### Fixed
+
+- Fixed auto-compaction dead-ends by automatically triggering a shake rescue to elide oversized tails
+- Improved compaction warning message to suggest running `/shake images` for irreducible image tails
+- Fixed `grep`/`search` direct execution to accept JSON-array string `paths` for string-or-array inputs. ([#3873](https://github.com/can1357/oh-my-pi/issues/3873))
+- Fixed auto-compaction dead-ending with "Compaction freed too little context to make progress" when a single recent turn (large tool output, heavy fenced/XML block) is itself bigger than the recovery band — `findCutPoint` can't cut inside one message, so the summarizer had no lever left. The guard now runs an artifact-backed `shake` elide pass over the oversized tail and re-tests headroom before pausing, and the remaining warning points at `/shake images` for image-only tails it can't elide. ([#3786](https://github.com/can1357/oh-my-pi/issues/3786))
+- Fixed reviewer/`task` subagents whose incremental `yield` (`type: ["overall_correctness"]`, `type: ["findings"]`, …) carried a value that mismatched the matching property's sub-schema being silently accepted and then post-mortem rejected with `schema_violation` — opaquely swapping the agent's accepted output for an error blob. The yield tool now validates each incremental section's `data` against its top-level property's sub-schema (items schema for array-typed labels) and surfaces the same retry feedback as terminal yields, so models like `deepseek-v4-pro` that emit `"Correct"`/`"correct."`/`"approved"` for an enum field get up to three corrective retries; the existing `MAX_SCHEMA_RETRIES` override then accepts the value with `SUBAGENT_WARNING_SCHEMA_OVERRIDDEN` instead of losing the entire result. Unknown labels stay unconstrained ([#3870](https://github.com/can1357/oh-my-pi/issues/3870)).
+- Fixed streaming tool-call previews (notably `write`) showing an empty body for the entire streaming phase by surfacing the partial JSON already in hand on the first reveal, then pacing only subsequent growth ([#3881](https://github.com/can1357/oh-my-pi/issues/3881)).
+- Fixed hashline edit mode preserving UTF-8 BOM bytes on edited files. ([#3867](https://github.com/can1357/oh-my-pi/issues/3867))
+- Fixed slow local LLM streams by forwarding persisted stream timeout settings (`providers.streamFirstEventTimeoutSeconds`, `providers.streamIdleTimeoutSeconds`) into model requests, so users can widen or disable watchdogs without environment variables. ([#3878](https://github.com/can1357/oh-my-pi/issues/3878))
+- Fixed the bash interceptor blocking `echo` / `printf` redirects to `/dev/null`, `/dev/tty`, `/dev/stdout`, and `/dev/stderr` device sinks while still directing real file writes to the write tool. ([#3763](https://github.com/can1357/oh-my-pi/issues/3763))
+- Fixed long snapcompact sessions re-sending multi-megabyte standing image archives on every provider request by enforcing a per-request frame byte budget, letting auto-compaction fall back to context-full summaries when snapcompact output is too large, and omitting legacy over-budget frames from rebuilt LLM contexts. ([#3792](https://github.com/can1357/oh-my-pi/issues/3792))
+
+## [16.2.7] - 2026-06-30
+
+### Breaking Changes
+
+- Replaced the global `serviceTier` and `fastModeScope` settings with granular, per-family settings (`tier.openai`, `tier.anthropic`, and `tier.google`) to control service tiers, subagents, advisors, and `/fast` mode targets.
+
+### Changed
+
+- Improved binary file detection and terminal handling to prevent corruption from non-UTF-8 content, and updated file summaries to explicitly note skipped binary files.
+- Enhanced context compaction (snapcompact) to resolve shapes contextually based on rendered text content.
+
+### Fixed
+
+- Improved reliability of DuckDuckGo web searches by updating browser request headers and parameters
+- Fixed an issue where CJK (Chinese, Japanese, Korean) history could become unrenderable during repeated context compactions.
+- Fixed a memory exhaustion bug in the TUI when using `/resume` on large previous sessions.
+- Fixed an issue where the `irc` inbox missed messages that arrived while the recipient agent was already running.
+- Fixed a startup hang caused by system-prompt GPU detection blocking and repeatedly running failed probes.
+- Improved error reporting for `omp tiny-models download` by displaying the actual worker-side download error.
+- Resolved status inconsistencies between `/extensions`, `/mcp list`, and the dashboard, ensuring MCP server states, allowlists/denylists, and configuration files (like `mcp.json`) stay fully synchronized.
+- Improved branch-mode task merges to preserve the agent's original commit history (messages and authors) and fixed a bug where merges were rejected due to unrelated dirty changes in the parent checkout.
+- Fixed an issue where the `Working...` loader spinner would prematurely disappear or fail to re-arm after a subagent (`task`) tool completed or during transient overlays (such as auto-compaction or auto-retry).
+
 ## [16.2.6] - 2026-06-29
 
 ### Changed
@@ -452,49 +498,3 @@
 - Fixed prompt-template and file slash-command submissions rendering both the raw slash invocation and the expanded prompt in the interactive transcript. ([#3199](https://github.com/can1357/oh-my-pi/issues/3199))
 - Fixed the `/model` thinking picker labeling the OpenAI GPT-5.5 top effort as `max` instead of the catalog-declared `xhigh` ([#3194](https://github.com/can1357/oh-my-pi/issues/3194)).
 - Fixed session-title generation silently falling back to the online `smol` model (and billing whatever provider held the resolved API key — OpenRouter in the reporter's case) when the user had explicitly configured a **local** `providers.tinyModel`: `generateSessionTitle` raced local against online with a 10s timeout and fired the online request immediately whenever the local worker returned `null` (unknown key, model not downloaded, transformers.js failure). Now an explicit local-model choice is honored end-to-end — on local failure the session is left untitled with a `logger.warn` instead of billing the smol fallback ([#3187](https://github.com/can1357/oh-my-pi/issues/3187))
-- Fixed OpenCode MCP discovery so array commands are normalized into a stdio executable plus arguments, `environment` is accepted as the OpenCode env key, and argument lists are omitted when empty. ([#3180](https://github.com/can1357/oh-my-pi/issues/3180))
-- Fixed plan mode leaving `write` hidden under `tools.discoveryMode: "all"`, which made the agent attempt to create the plan file via `edit` and stall. Plan-mode entry now force-activates `write` whenever the registry built it, matching the `write`+`edit` instructions in the plan-mode prompt ([#3165](https://github.com/can1357/oh-my-pi/issues/3165))
-- Fixed `edit` and `patch` tool writes bypassing the ACP client's open buffer when Zed (or another ACP client) advertises the `fs.writeTextFile` capability: all three write-mode tools (`edit`, `patch`, `replace`) now route through the client bridge when it is available, so the editor's TypeScript diagnostics panel updates immediately instead of requiring a workspace reload.
-- Fixed the agent dashboard new-agent description and the hook editor (default hook-style mode) treating Ctrl+Q as plain text on Windows Terminal, leaving Windows users unable to submit because the terminal cannot deliver a distinct Ctrl+Enter event. Both forms now submit on the shared `app.message.followUp` chord (Ctrl+Q or Ctrl+Enter), matching the main prompt editor and any user remap of `app.message.followUp` ([#2118](https://github.com/can1357/oh-my-pi/issues/2118)).
-- Fixed `pi.sendMessage({ display: true })` rendering the custom message twice when fired from a `session_start` extension handler (or any other non-streaming dispatch before the initial transcript render). `ExtensionUiController.#applyCustomMessageDisplay` rebuilt the chat from the freshly-persisted session entry, and `main.ts`'s subsequent `renderInitialMessages(undefined, { preserveExistingChat: true })` then both re-rendered from session entries AND re-appended the preserved chat children — duplicating the message. The rebuild now waits until `renderInitialMessages` has completed at least once (tracked via `InteractiveModeContext.initialChatRendered`); after that, post-init extension sends still rebuild as before so messages from `tool_result` / `agent_end` / etc. surface immediately ([#1955](https://github.com/can1357/oh-my-pi/issues/1955)).
-- Fixed Git-mutating automation silently mis-handling pure Jujutsu workspaces (`.jj/repo/` present, no colocated `.git/`). `task/worktree.ts#getRepoRoot` previously threw a generic "Git repository not found" for isolated subagent setup, and `autoresearch/git.ts#ensureAutoresearchBranch` returned a soft "Not in a git repository" warning that let `/autoresearch` proceed with no branch isolation or auto-commits. Both paths now detect a pure jj workspace via the new `jj.isPureJjRepo` helper and surface an actionable Jujutsu-specific error pointing at `jj git init --colocate`. Colocated jj-git (both `.jj/` and `.git/` at the same root) and plain Git checkouts behave exactly as before ([#1935](https://github.com/can1357/oh-my-pi/issues/1935)).
-- Fixed `auto` thinking mode being silently dropped when a session is resumed (`--continue`/`--resume`/in-app switch). The session log persisted only the resolved per-turn effort, not the `auto` selector, so resume froze the session at the last concrete level and never reclassified again. The log now records the configured selector (`auto` vs concrete) alongside the resolved effort, so resumed `auto` sessions stay in auto (shown as pending until the next turn reclassifies) and manual concrete pins still restore as concrete — including a pin whose level matches the effort `auto` had just resolved to.
-- Fixed transcript scrollback stability on terminals with eager erase risk so completed assistant messages remain stable while new streaming lines are rendering
-- Fixed Hindsight retain (and the shared mnemopi/Hindsight recall paths) framing assistant turns whose only content was punctuation/whitespace — most commonly the lone `.` some providers emit for tool-call-only or thinking-only turns — into `[role: assistant]\n.\n[assistant:end]` blocks that polluted the bank, wasted retain tokens, and degraded recall. `prepareRetentionTranscript`, `extractMessages`, and `flattenMessagesForRecall` now require at least one letter or digit per message via a shared `hasSubstantiveContent` predicate ([#1806](https://github.com/can1357/oh-my-pi/issues/1806)).
-- Fixed `/resume` rendering forked child sessions without a fork tag, making them indistinguishable from their parent when titles match ([#1792](https://github.com/can1357/oh-my-pi/issues/1792)).
-
-## [16.1.10] - 2026-06-21
-
-### Added
-
-- Added `tab.ariaSnapshot(selector?)` to the browser tool for Playwright-format ARIA-tree YAML
-- Added `tab.ref("e5")` and support for `aria-ref=e5` selectors in all `tab` action methods
-
-### Changed
-
-- Made `write` and `find` tools essential so they are always available initially (surviving `tools.discoveryMode === "all"` hiding) to ensure instructions to write/find files are immediately executable ([#3165](https://github.com/can1357/oh-my-pi/issues/3165))
-
-### Fixed
-
-- Fixed streamed tool-call previews freezing on their placeholder body (`$ …`, `Write: …`, an empty args tree) even after the tool finished: the pending card was created while arguments streamed, but when the closing full-arguments `message_update` never arrived (smooth-streaming disabled leaving the throttled arguments stale, an owned-dialect projector, or a superseded/aborted turn that still ran the call) nothing re-applied the final args. `tool_execution_start` — the one event every execution path emits with validated full arguments right before the result — now reconciles them onto the existing pending card and cancels any in-flight reveal so a late tick can't re-truncate the body.
-
-## [16.1.9] - 2026-06-21
-
-### Added
-
-- Added LLM request JSON export functionality to `/dump`
-
-### Changed
-
-- Improved browser stealth by suppressing common automation flags and patching property descriptors
-- Enhanced stealth for `WebGL`, `Worker`, `IFrame`, `Screen`, and `Audio` APIs to evade detection
-- Updated `toString` patching to register native function sources for improved fingerprint protection
-
-### Fixed
-
-- Fixed `omp list` and `omp remove` silently starting an interactive agent session (forwarding the bare verb to the model as a prompt) instead of surfacing the real `omp plugin list` / `omp plugin uninstall <name>` commands ([#2935](https://github.com/can1357/oh-my-pi/issues/2935))
-- Fixed lazy-initialized LSP servers (basedpyright/pyright, and likely gopls/rust-analyzer) hanging on the first request: the message reader matched incoming messages against pending client requests by id before checking for a `method`, so a server-originated `workspace/configuration` pull whose id collided with an in-flight request was swallowed as a bogus response, leaving the pull unanswered and the server wedged. The reader now routes any message carrying a `method` as a server request before id-matching ([#3001](https://github.com/can1357/oh-my-pi/issues/3001))
-- Fixed `omp --approval-mode=yolo acp` and other global option flags placed before a subcommand being rewritten to `launch` with the subcommand swallowed as prompt text; the CLI resolver now skips leading global flags (using the launch parser's value-consumption contract) and dispatches the real subcommand with the flags applied, so ACP mode honors the configured approval policy. ([#2970](https://github.com/can1357/oh-my-pi/issues/2970))
-- Fixed `/mcp enable` and `/mcp disable` reconnecting unrelated MCP servers by scoping toggle reconnect/disconnect work to the named server. ([#3157](https://github.com/can1357/oh-my-pi/issues/3157))
-- Stopped the local llama.cpp no-auth login placeholder from being sent as a discovery bearer token.
-
