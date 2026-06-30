@@ -17,7 +17,7 @@
 
 set -euo pipefail
 
-SESSION="" CONTEXT="" MESSAGE="" DRYRUN=0 EXPECT_GLOB=""
+SESSION="" CONTEXT="" MESSAGE="" DRYRUN=0 EXPECT_GLOB="" NO_PREFIX=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -26,12 +26,13 @@ while [[ $# -gt 0 ]]; do
     --message) MESSAGE="$2"; shift 2 ;;
     --dry-run) DRYRUN=1; shift ;;
     --expect)  EXPECT_GLOB="$2"; shift 2 ;;
+    --no-prefix) NO_PREFIX=1; shift ;;
     *) echo "Unknown arg: $1" >&2; exit 1 ;;
   esac
 done
 
 if [[ -z "$SESSION" ]]; then
-  echo "Usage: cc-send.sh --session <name> --context <file> [--message <text>] [--dry-run] [--expect <glob>]" >&2
+  echo "Usage: cc-send.sh --session <name> [--context <file> | --message <text>] [--dry-run] [--expect <glob>] [--no-prefix]" >&2
   exit 1
 fi
 
@@ -55,9 +56,32 @@ SKILL_DIR="${CC_TMUX_SKILL_ROOT:-$(cd "$(dirname "$0")" && pwd)}"
 }
 
 # ── Build the message to send ──
-if [[ -n "$CONTEXT" && -f "$CONTEXT" ]]; then
-  MSG="Please read $CONTEXT — $(head -1 "$CONTEXT" | cut -c1-80)"
+if [[ -n "$CONTEXT" ]]; then
+  if [[ "$CONTEXT" == *$'\n'* ]]; then
+    echo "❌ cc-send: --context must be a single file path, not multiline content" >&2
+    exit 1
+  fi
+  if [[ ! -f "$CONTEXT" ]]; then
+    echo "❌ cc-send: context file not found: $CONTEXT" >&2
+    exit 1
+  fi
+  if [[ ! -s "$CONTEXT" ]]; then
+    echo "❌ cc-send: context file is empty: $CONTEXT" >&2
+    exit 1
+  fi
+  if [[ "$NO_PREFIX" -eq 1 ]]; then
+    # Back-compat flag: no longer injects file body. Keep accepted so old callers
+    # do not break, but preserve the path-only safety contract.
+    MSG="$CONTEXT"
+  else
+    # Path-only contract: never inject markdown body into the pane.
+    MSG="Please read $CONTEXT and follow it."
+  fi
 elif [[ -n "$MESSAGE" ]]; then
+  if [[ "$MESSAGE" == *$'\n'* ]]; then
+    echo "❌ cc-send: multiline --message is not allowed; write content to /tmp/*.md and send the file path with --context" >&2
+    exit 1
+  fi
   MSG="$MESSAGE"
 else
   echo "⚠️  No context file or message provided." >&2

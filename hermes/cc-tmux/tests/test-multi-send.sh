@@ -78,8 +78,8 @@ else
 fi
 
 # ── Test 3: back-to-back sends don't cross-contaminate ──
-# Verify that two rapid sends with different context produce distinct
-# message lines in the right order.
+# Verify that two rapid sends with different context paths produce distinct
+# path-only message lines in the right order.
 start_busy_session
 echo "MSG-A-unique-tag" > "$TMP/ctx-a.md"
 echo "MSG-B-unique-tag" > "$TMP/ctx-b.md"
@@ -90,10 +90,10 @@ sleep 0.5
 
 # Capture what was typed into the pane
 captured=$(tmux capture-pane -t "$SESSION" -p -S -20 2>/dev/null || echo "")
-if echo "$captured" | grep -q "MSG-A-unique-tag" && echo "$captured" | grep -q "MSG-B-unique-tag"; then
-  ok "背靠背 send: 两条消息都到达 pane"
+if echo "$captured" | grep -q "$TMP/ctx-a.md" && echo "$captured" | grep -q "$TMP/ctx-b.md"; then
+  ok "背靠背 send: 两条 path-only 消息都到达 pane"
 else
-  bad "背靠背 send: 消息可能丢失 (A=$(echo "$captured" | grep -c 'MSG-A' || echo 0), B=$(echo "$captured" | grep -c 'MSG-B' || echo 0))"
+  bad "背靠背 send: 消息可能丢失 (A=$(echo "$captured" | grep -c "$TMP/ctx-a.md" || echo 0), B=$(echo "$captured" | grep -c "$TMP/ctx-b.md" || echo 0))"
 fi
 tmux kill-session -t "$SESSION" 2>/dev/null || true
 

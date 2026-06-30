@@ -113,6 +113,61 @@ run_test --redraw 'Press up to edit queued messages' "Stuck queue → escalation
 run_test --redraw '❯ leftover unsent text' "Dry-run over stuck residual → rc 0" 0 \
   --session "$SESSION" --message "go" --dry-run
 
+# Test 10: missing --context file fails early
+run_test "Missing context file → rc 1" 1 \
+  --session "$SESSION" --context "/tmp/cc-send-missing-context.md" --dry-run
+
+# Test 11: --context is path-only; markdown body must not appear in dry-run payload
+cleanup
+cat > "/tmp/cc-send-test-ctx.md" <<'EOF'
+# SECRET BODY LINE SHOULD NOT BE SENT
+Second markdown line should not be sent either.
+EOF
+tmux new-session -d -s "$SESSION" -x 120 -y 20 "sleep 999" </dev/null >/dev/null 2>&1
+out=$(bash "$SEND" --session "$SESSION" --context "/tmp/cc-send-test-ctx.md" --dry-run 2>&1); rc=$?
+if [[ "$rc" -eq 0 && "$out" == *"Please read /tmp/cc-send-test-ctx.md and follow it."* && "$out" != *"SECRET BODY"* && "$out" != *"Second markdown"* ]]; then
+  echo "  ✅ Context path-only dry-run does not include markdown body"
+  PASS=$((PASS+1))
+else
+  echo "  ❌ Context path-only dry-run failed"
+  printf '%s\n' "$out" | sed 's/^/      | /'
+  FAIL=$((FAIL+1))
+fi
+cleanup
+
+# Test 12: multiline --message is rejected
+cleanup
+tmux new-session -d -s "$SESSION" -x 120 -y 20 "sleep 999" </dev/null >/dev/null 2>&1
+set +e
+out=$(bash "$SEND" --session "$SESSION" --message $'line1\nline2' --dry-run 2>&1); rc=$?
+set -e
+if [[ "$rc" -eq 1 && "$out" == *"multiline --message is not allowed"* ]]; then
+  echo "  ✅ Multiline --message rejected"
+  PASS=$((PASS+1))
+else
+  echo "  ❌ Multiline --message expected rc=1 got rc=$rc"
+  printf '%s\n' "$out" | sed 's/^/      | /'
+  FAIL=$((FAIL+1))
+fi
+cleanup
+
+# Test 13: --context --no-prefix remains path-only (no body injection)
+cleanup
+cat > "/tmp/cc-send-test-ctx.md" <<'EOF'
+# NO_PREFIX BODY SHOULD NOT BE SENT
+EOF
+tmux new-session -d -s "$SESSION" -x 120 -y 20 "sleep 999" </dev/null >/dev/null 2>&1
+out=$(bash "$SEND" --session "$SESSION" --context "/tmp/cc-send-test-ctx.md" --no-prefix --dry-run 2>&1); rc=$?
+if [[ "$rc" -eq 0 && "$out" == *"/tmp/cc-send-test-ctx.md"* && "$out" != *"NO_PREFIX BODY"* ]]; then
+  echo "  ✅ --context --no-prefix is still path-only"
+  PASS=$((PASS+1))
+else
+  echo "  ❌ --context --no-prefix leaked body or failed"
+  printf '%s\n' "$out" | sed 's/^/      | /'
+  FAIL=$((FAIL+1))
+fi
+cleanup
+
 echo ""
 echo "=== Results: $PASS/$((PASS+FAIL)) passed ==="
 [[ "$FAIL" -eq 0 ]] && exit 0 || exit 1

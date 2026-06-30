@@ -8,7 +8,17 @@
 
 场景：你刚发出 `按 /tmp/task.md 执行... Enter`，马上调用 `cc-wait-marker.sh`，但 CC 仍是 IDLE，pane 显示的正是**刚才那句任务指令**。
 
-处理：`cc-wait-marker.sh` startup gate 默认 **exit 4 fail-fast**，避免 900s 空等；不会自动 Enter。只有调用方明确知道残留就是刚发送的任务行时，才可显式启用：
+处理：`cc-wait-marker.sh` startup gate 默认 **exit 4 fail-fast**，避免 900s 空等；不会自动 Enter。Hermes 不应直接解释这个 exit 4，而应跑：
+
+```bash
+cc-wait-decision.sh --session <s> --timeout 600 --expect /tmp/<artifact>.md
+```
+
+根据 JSON 决策：
+- `active_no_resend`：CC 实际已进入 THINKING/TOOL/STARTING 或产物在动，**不要重发**。
+- `not_started_retryable`：确认为 clean IDLE/residual/queue 后，清理并只用单行 path 指令重发一次。
+
+只有调用方明确知道残留就是刚发送的任务行时，才可显式启用：
 
 ```bash
 CC_WAIT_AUTO_SUBMIT_RESIDUAL=1 cc-wait-marker.sh --session <s> --timeout 600
@@ -18,7 +28,7 @@ CC_WAIT_AUTO_SUBMIT_RESIDUAL=1 cc-wait-marker.sh --session <s> --timeout 600
 
 ```bash
 cc-wait-marker.sh --session <s> --timeout 600
-# exit 4 = 任务未真正提交；不要继续等，清理/重发
+# exit 4 = startup gate 拒绝长等；下一步跑 cc-wait-decision.sh，不要直接判死/重发
 ```
 
 ### B. 旧输入框残留（本文件原始模式）
@@ -102,13 +112,13 @@ tmux capture-pane -t <s> -p | tail -3
 # ⏵⏵ bypass permissions on ...
 
 # 3. 然后才发真消息
-bash cc-send.sh --session <s> --context /tmp/new-context.md --no-prefix
+bash cc-send.sh --session <s> --context /tmp/new-context.md
 ```
 
 ## 预防
 
 1. **每次 `cc-send.sh` 之前先抓屏确认 ❯ 空**（Pitfall #18 / §3.2 已要求，作为防御深度）
-2. **不要用裸 `tmux send-keys` 发 follow-up**——Pitfall #31 已修（cc-send.sh `--no-prefix`）
+2. **不要用裸 `tmux send-keys` 发 follow-up**——用 `cc-send.sh --message` 发单行，或 `cc-send.sh --context /tmp/file.md` 只传文件路径
 3. **如果 send_to_pane 看到 ❯ 后有残留**（它的 §3.2 防护会重发 Enter），**先 `/clear` 再发**
 
 ## 与 AskUserQuestion 模式的区别
@@ -129,7 +139,7 @@ bash cc-send.sh --session <s> --context /tmp/new-context.md --no-prefix
 1. 先试 `tmux send-keys Escape` → ❌ 无效，文本仍在
 2. 再试 `tmux send-keys C-u` → ❌ 无效，文本仍在
 3. 改用 `cc-send.sh --session hermes-cc-default-mac-doctor-0628-1601 --message "/clear"` → ✅ 输入框清空
-4. 再用 `cc-send.sh --session ... --context /tmp/cc-p3-context.md --no-prefix` → ✅ P3 context 正确发送
+4. 再用 `cc-send.sh --session ... --context /tmp/cc-p3-context.md` → ✅ P3 context 路径正确发送，CC 自己读文件
 
 ## 关联
 

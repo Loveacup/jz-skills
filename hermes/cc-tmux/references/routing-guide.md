@@ -88,11 +88,16 @@ CC 正忙（THINKING/TOOL/WAITING_AGENTS），消息不该打断它。
 
 行动：
 1. 告诉用户"CC 正在 X，消息已排队，完成后转发"
-2. 调 `cc-wait-marker.sh --session <s> --after <now_epoch>` 等 turn-done
-3. turn-done 出现 → 用 `tmux_type` 把用户原消息发给 CC + Enter
-4. 📡 汇报"已转发"
+2. 调 `cc-wait-decision.sh --session <s> --after <now_epoch> --expect <artifact>` 等待/判定
+3. 根据 JSON `.decision.state` 行动：
+   - `marker_done` / `artifact_satisfied_no_marker` → 读 marker/产物，再转发用户原消息
+   - `active_no_resend` → **不要重发**，继续 monitor/artifact check
+   - `not_started_retryable` → 清理后只允许单行 path 指令重发一次
+   - `frozen_needs_confirm` → 先问用户确认，禁止自动 C-c
+4. 📡 汇报"已转发"或"仍在活跃/阻塞"
 
-> ⚠️ 不要在 queue 期间阻塞回复用户。先回用户的询问，再后台等 turn-done。
+> ⚠️ 不要在 queue 期间阻塞回复用户。先回用户的询问，再用 wait-decision 判断。
+> `cc-wait-marker.sh` 是低层原语；Hermes 默认不要直接解释它的 exit 4。
 
 ### `forward_now`
 
@@ -145,7 +150,7 @@ CC THINKING + 冻结 + 用户要重定向。高风险。
   │                    └── 读 .recommendation.action：
   │                          ├── handle_directly → Hermes 处理
   │                          ├── report_status   → 📡 状态汇报
-  │                          ├── queue           → 回用户 + 等 turn-done + 转发
+  │                          ├── queue           → 回用户 + cc-wait-decision + 转发/继续监控
   │                          ├── forward_now     → tmux_type + Enter
   │                          └── interrupt       → 确认 → Escape + 转发
 ```
@@ -158,7 +163,7 @@ CC THINKING + 冻结 + 用户要重定向。高风险。
 |------|------|
 | cc-route.sh 返回 `error: jq_unavailable` | action 已降级为 handle_directly，Hermes 自行处理 |
 | 多个 CC session 且无 topic 匹配 | 列给用户选（"route-review 还是 wrr-research？"） |
-| queue 等了超过 10 分钟 | 主动抓屏确认 CC 是否冻结，汇报用户 |
+| queue 等了超过 10 分钟 | 跑 `cc-wait-decision.sh`；若 `active_no_resend` 继续 monitor，若 `wait_timeout_unresolved` 汇报阻塞 |
 | CC 状态是 GONE/ERROR/SHELL | action 必定是 handle_directly，可建议用户跑 cc-finish 收尾 |
 | 用户消息是"CC 在干嘛" | intent=status_query → report_status，不碰 CC |
 | forward_now 发了但 CC 没消费 | cc-send-robust.sh 会自动重试，3 次失败则汇报 |
@@ -169,6 +174,7 @@ CC THINKING + 冻结 + 用户要重定向。高风险。
 
 - `scripts/cc-route.sh` — 路由决策引擎
 - `scripts/cc-active-sessions.sh` — 活跃 session 枚举
-- `scripts/cc-wait-marker.sh` — turn-done 事件等待
+- `scripts/cc-wait-marker.sh` — turn-done 事件等待（低层原语）
+- `scripts/cc-wait-decision.sh` — Hermes-facing wait 决策层（解释 rc4/timeout）
 - `scripts/cc-send-robust.sh` — send-keys 健壮封装
 - `tests/test-route.sh` — 21 项路由测试

@@ -8,8 +8,8 @@ description: >
   Use when: 调 CC, 用 claude, 拉 CC, delegate to CC, agent team, 重活调 CC.
   Do NOT use for: simple single-tool calls, grammar fixes, non-coding tasks.
 type: routine
-version: 1.38.0
-author: "Hermes Agent + Claude Code (v1.38.0: cc-wait-marker startup gate — prevent IDLE/residual 900s empty waits)"
+version: 1.39.0
+author: "Hermes Agent + Codex (v1.39.0: cc-wait-decision — exit4 evidence-based wait decisions + path-only send guard)"
 license: MIT
 ---
 
@@ -29,6 +29,8 @@ license: MIT
 4. 按 `.recommendation.action` 行动
 
 完整操作流程见 `references/routing-guide.md`；决策矩阵见 `scripts/cc-route.sh` 头部注释。
+
+Startup gate / 未提交任务空等的审查细节见 `references/cc-stuck-input-box-pattern.md` 与 `references/routing-guide.md`：包含默认不自动 Enter、`exit 4` fail-fast、`cc-wait-decision` 二次采证，以及 Codex review 对文档计数/引用完整性的阻断规则。
 5 类 intent × 10 种 CC state → 4 种 action：`handle_directly` | `queue` | `forward_now` | `interrupt`（confirm_required=true）。
 测试：test-route.sh 21/21 + test-active-sessions.sh 10/10。
 
@@ -66,13 +68,23 @@ tmux `capture-pane -S -` 只能读到 pane 的 scrollback buffer（默认 ~2000 
 | `cc-send.sh` | `--session <name>` | `--context <file>` + `--message "..."` |
 | `cc-monitor.sh` | `--session <name>` | — |
 
-## ⚠️ Pitfall #51：cc-send.sh --context 注入 markdown → CC 把散文当命令执行
+## ⚠️ Pitfall #51：`cc-send.sh --context` 必须是 path-only（不要注入 markdown 正文）
 
-当 `--context` 文件内容为 markdown 时，cc-send 将其 `send-keys` 到 CC pane。若 CC 未就绪（仍在 zsh 提示符），zsh 会逐行当命令执行，产生大量 `command not found` 错误且 CC 永不会处理任务。
+当前 `cc-send.sh --context <file>` 的契约是：**只把文件路径发给 CC**，让 CC 自己读取文件；不会、也不应该把 markdown 正文 paste/send-keys 到 pane。
 
-症状：pane 里循环输出 `zsh: command not found: 阅读` / `cd: too many arguments` / 中文乱码，CC 状态永远是 STARTING。
+正确：
 
-**规则**：`cc-send.sh --message` 里只写简短指令 + 文件路径引用（如 "阅读 /tmp/brief.md，分析后产出报告到 /tmp/report.md"），**不要把完整评估简报用 --context 注入**。若需传递大段上下文，先启动 CC，确认 pane 显示 `❯` 提示符后再发。
+```bash
+cc-send.sh --session <s> --context /tmp/brief.md
+# 实际发送一行：Please read /tmp/brief.md and follow it.
+```
+
+错误：用裸 `tmux send-keys` 或旧脚本把 markdown 正文逐行注入 pane。若 CC 未就绪（仍在 zsh 提示符），正文会被 shell 当命令执行，出现 `zsh: command not found` / `cd: too many arguments`。
+
+**硬规则**：
+- 长上下文写入 `/tmp/*.md`，只发送文件路径。
+- `cc-send.sh --message` 只允许单行；多行会被拒绝。
+- 不要用 `--context` 传“内容字符串”；它必须是存在且非空的文件路径。
 
 ## ⚠️ Pitfall #52：cc-start.sh exit 1 ≠ 无 session 创建（WRR v5.1 验证）
 
@@ -196,13 +208,27 @@ CC 的 `--effort high` 和 `--effort xhigh` 对代码任务**不仅无益，反�
 
 经 WRR OB 三梁重构 + WRR v6 实现两轮实战，「裸 tmux + 单行指令 + 读文件」是**唯一跨任务类型稳定的 CC 启动模式**。
 
-**2026-06-30 v1.38 脚本硬约束：`cc-wait-marker.sh` 内置 startup gate。** 不能只看 session 存在或输入框里出现文字；wait 前若没有新 turn-done marker，脚本会检查 pane：
-- `IDLE` + 无 marker → exit 4 fail-fast，不再空等 900s
-- `❯` 后有残留文本 → 默认 exit 4，不自动 Enter（防误提交旧残留）
-- `Press up to edit queued messages` → exit 4，不自动 Enter（避免队列越积越多）
-- 只有明确知道残留就是刚发送的任务行时，才可显式 `CC_WAIT_AUTO_SUBMIT_RESIDUAL=1 cc-wait-marker.sh ...` 让脚本补一次 Enter
+**2026-06-30 v1.39 补充：`cc-wait-marker.sh` 是低层原语；Hermes 面向 `cc-wait-decision.sh`。**
 
-因此标准流程变成：发送任务 → `cc-wait-marker.sh`。如果返回 4，说明任务根本没提交成功，先清/重发，不要继续 wait。
+v1.38 的 startup gate 方向正确：不再让未提交任务空等 900s。但 `cc-wait-marker.sh exit 4` 不是最终结论，只表示“startup gate 拒绝长等，需要二次采证”。
+
+等待流程现在是：
+
+```bash
+cc-wait-decision.sh --session "cc-<name>" --timeout 600 --expect "/tmp/report.md"
+```
+
+`cc-wait-decision.sh` 会调用 `cc-wait-marker.sh`；如果 marker 未出现或 startup gate exit 4，会自动采集 `cc-monitor --force-capture`、pane tail、freeze marker、expected artifacts，并输出 JSON decision：
+
+| decision.state | 含义 | Hermes 行动 |
+|---|---|---|
+| `marker_done` / `artifact_satisfied_no_marker` | 完成 | 读 marker/产物 |
+| `active_no_resend` | CC 实际在 THINKING/TOOL/STARTING 等活跃状态 | **不要重发**，继续 monitor/artifact check |
+| `not_started_retryable` | clean IDLE / residual / queue，确实像没提交 | 清理后只允许单行 path 指令重发一次 |
+| `wait_timeout_unresolved` | 超时且无活跃证据 | 汇报阻塞，人工判断 |
+| `frozen_needs_confirm` | 冻结 | 先问用户确认，禁止自动 C-c |
+
+**旧规则废止**：不要再把 `cc-wait-marker exit 4` 直接理解成“任务根本没提交成功”。先看 `cc-wait-decision` 的 JSON。
 
 不要用 `cc-start.sh --task`（会注入长 prompt 触发过度思考）、不要用 send-keys 多行（会触发行队列）、不要用 `-p` 非交互模式（执行完即退出，不适合编码任务）。
 
@@ -220,9 +246,8 @@ sleep 5
 # 4. 单行指令
 tmux send-keys -t "cc-<name>" "按 /tmp/cc-task-<name>.md 执行。直接动手。" Enter
 
-# 5. 等 turn-done（v1.38: wait-marker 内置 startup gate）
-# 如果任务没真正提交，cc-wait-marker 会 exit 4 fail-fast，不再空等 900s
-cc-wait-marker.sh --session "cc-<name>" --timeout 600
+# 5. 等 turn-done / 或拿到 wait decision（Hermes 面向 cc-wait-decision）
+cc-wait-decision.sh --session "cc-<name>" --timeout 600 --expect "/tmp/<expected-output>.md"
 ```
 
 这个模式下 CC 自己读文件 → 理解 → 执行，不会因「prompt 太长/太复杂」触发思考瘫痪。OB 三梁重构用它 2 分钟出审查报告。

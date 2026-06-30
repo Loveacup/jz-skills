@@ -2,7 +2,7 @@
 
 > **Canonical 架构参考。在本代码库工作前先读这里。**
 > 分工：**本文件 = 实现/架构权威**；需求/设计权威在 OB（见文末）。
-> 当前：v1.38.0 · 测试 23/23 文件、210/210 断言 · 健康分 0.96+。
+> 当前：v1.39.0 · 测试 24/24 文件、229/229 断言 · 健康分 0.96+。
 
 ## 是什么
 
@@ -24,7 +24,8 @@ cc-tmux = Hermes ↔ Claude Code 的 tmux-based 编排层。**Thin skill**：脚
 | `cc-send-robust.sh` | send-keys 健壮封装（回读+重试） | v1.14.0 |
 | `cc-monitor.sh` | 6 状态机 + esc 金标准 + cc-status fast-path + last_tool 插值规范化 + 回归测试 | v1.15.0/18.0/28.0 |
 | `cc-finish.sh` | 7 步安全门 + topic-map 清理 | v1.22.0 |
-| `cc-wait-marker.sh` | fswatch 事件驱动等待 + startup gate 防 IDLE/residual 空等 | v1.38.0 |
+| `cc-wait-marker.sh` | fswatch 事件驱动等待 + startup gate 防 IDLE/residual 空等（低层原语） | v1.38.0 |
+| `cc-wait-decision.sh` | Hermes-facing wait 决策层：rc4/timeout 后采证并输出 JSON action | v1.39.0 |
 | `cc-watcher.sh` | 守护探针（缩职责） | v1.18.0 |
 | `cc-usage.sh` | 用量管理 pre/post | v1.16.0 |
 | `cc-gc.sh` | Session GC scan/gc/suggest | v1.17.0 |
@@ -64,7 +65,7 @@ cc-tmux = Hermes ↔ Claude Code 的 tmux-based 编排层。**Thin skill**：脚
 
 ## 工作约定（coding agent）
 
-- **TDD 红线**：实现类先写测试 → 确认失败 → 写代码 → 确认通过。当前 **210/210**。
+- **TDD 红线**：实现类先写测试 → 确认失败 → 写代码 → 确认通过。当前 **229/229**。
 - **Hook/脚本是单一真源**：改 `hooks/`/`templates/settings.runtime.json` → 下个 CC 启动经 `--settings` 自动生效，零 cp/jq/重启。
 - **杀 session 必须用户确认**（`cc-finish.sh --kill-session` 永不自动）。
 - **改完同步 deploy**：`~/.hermes/skills/autonomous-ai-agents/cc-tmux/`，`md5` 校验 parity。
@@ -72,7 +73,7 @@ cc-tmux = Hermes ↔ Claude Code 的 tmux-based 编排层。**Thin skill**：脚
 ## 关键文件
 
 - `SKILL.md` — 操作手册（红线 / 决策树 / 4 步流程 / Pitfalls / R4c checkpoint）。
-- `scripts/` — 核心脚本 + cc-send-robust/cc-usage/cc-gc/cc-topic-map/cc-dogfood-report/eval + `gate/`。`tests/` — 23 文件 210/210。`references/` — 设计依据 / Hook 事实 / 事件驱动 / R2.1 澄清协议 / R8b 配置指南 / R4c smoke 流程 等。
+- `scripts/` — 核心脚本 + cc-send-robust/cc-usage/cc-gc/cc-topic-map/cc-dogfood-report/eval + `gate/`。`tests/` — 24 文件 229/229。`references/` — 设计依据 / Hook 事实 / 事件驱动 / R2.1 澄清协议 / R8b 配置指南 / R4c smoke 流程 等。
 
 ## 需求与设计权威（在 OB，非本库）
 
