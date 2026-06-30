@@ -96,8 +96,71 @@ def _parse_txt_subtitle(path):
     return out
 
 
+def _coerce_float(value):
+    """宽容地把值转 float；失败返回 None。"""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _segment_end(item, start):
+    """从 json body item 推导片段终点：item.to / item.end / start+item.duration。
+
+    三者皆缺则返回 None（终点未知，调用方回退 start）。
+    """
+    for key in ('to', 'end'):
+        if key in item:
+            end = _coerce_float(item.get(key))
+            if end is not None:
+                return end
+    if 'duration' in item:
+        dur = _coerce_float(item.get('duration'))
+        if dur is not None:
+            return start + dur
+    return None
+
+
+def _pick_language(data):
+    """从 dict 取 language / lang / lan 中第一个非空值（统一为 str）。"""
+    if not isinstance(data, dict):
+        return None
+    for key in ('language', 'lang', 'lan'):
+        val = data.get(key)
+        if val:
+            return str(val)
+    return None
+
+
+def _encode_transcript_source(method, json_path, txt_path, parts, total_parts, failed_parts):
+    """把 method + 路径 + 多P 分片信息编码进 Transcript.source（管道分隔）。
+
+    形如：'official | json_path=/tmp/x.json | txt_path=/tmp/x.txt | parts=2/3 | failed_parts=P3: ...'
+    """
+    tokens = [method or 'unknown']
+    if json_path:
+        tokens.append(f'json_path={json_path}')
+    if txt_path:
+        tokens.append(f'txt_path={txt_path}')
+    if parts is not None and total_parts is not None:
+        tokens.append(f'parts={parts}/{total_parts}')
+    elif parts is not None:
+        tokens.append(f'parts={parts}')
+    if failed_parts:
+        if isinstance(failed_parts, (list, tuple)):
+            failed_parts = ', '.join(str(x) for x in failed_parts)
+        tokens.append(f'failed_parts={failed_parts}')
+    return ' | '.join(tokens)
+
+
 def _build_transcript(subtitle_step, bvid):
     """从 subtitle 子步骤重建 Transcript。优先 json_path 的 body，回退 txt_path。
+
+    保真 metadata：
+      - 片段 end（to/end/from+duration）写入 TranscriptSegment.end；
+      - duration 取 max(end or start)，避免只看 start 低估时长；
+      - language 从 step 的 language/lang/lan 继承，缺失时从 json data 继承；
+      - source 保留 method，并编码 json_path/txt_path/多P parts/failed_parts。
 
     返回 (Transcript|None, derived_duration_sec)。
     """
@@ -106,29 +169,36 @@ def _build_transcript(subtitle_step, bvid):
         return None, 0
 
     method = sub.get('method') or 'unknown'
+    language = _pick_language(sub)
     segments = []
 
-    # 路径1：json_path（B站官方/yt-dlp 字幕，结构 {body:[{from,content}]}）
+    # 路径1：json_path（B站官方/yt-dlp 字幕，结构 {body:[{from,content,to/end/duration}]}）
     json_path = sub.get('json_path') or (f'/tmp/{bvid}_subtitle_official.json' if bvid else None)
-    if json_path and os.path.exists(json_path):
+    json_path_present = bool(json_path and os.path.exists(json_path))
+    if json_path_present:
         try:
             with open(json_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             body = data.get('body') if isinstance(data, dict) else None
             for item in (body or []):
-                try:
-                    start = float(item.get('from', 0) or 0)
-                except (TypeError, ValueError):
+                if not isinstance(item, dict):
+                    continue
+                start = _coerce_float(item.get('from', 0))
+                if start is None:
                     start = 0.0
-                text = item.get('content', '')
+                text = item.get('content') or item.get('text') or ''
                 if text:
-                    segments.append(TranscriptSegment(start=start, text=text))
+                    segments.append(TranscriptSegment(
+                        start=start, text=text, end=_segment_end(item, start)))
+            # step 未给 language 时，从 json data 继承
+            if not language:
+                language = _pick_language(data)
         except (OSError, json.JSONDecodeError):
             pass
 
     # 路径2：txt_path（whisper 转录无 json body 时）
+    txt_path = sub.get('txt_path')
     if not segments:
-        txt_path = sub.get('txt_path')
         if txt_path and os.path.exists(txt_path):
             for start, text in _parse_txt_subtitle(txt_path):
                 segments.append(TranscriptSegment(start=start, text=text))
@@ -136,8 +206,18 @@ def _build_transcript(subtitle_step, bvid):
     if not segments:
         return None, 0
 
-    duration = int(max((s.start for s in segments), default=0))
-    return Transcript(segments=segments, language='unknown', source=method), duration
+    # duration 用 end（缺则回退 start），避免只取 max(start) 而漏掉末段时长
+    duration = int(max(
+        ((s.end if s.end is not None else s.start) for s in segments), default=0))
+    source = _encode_transcript_source(
+        method,
+        json_path if json_path_present else None,
+        txt_path,
+        sub.get('parts'),
+        sub.get('total_parts'),
+        sub.get('failed_parts'),
+    )
+    return Transcript(segments=segments, language=language or 'unknown', source=source), duration
 
 
 def _build_comments(comments_step):
