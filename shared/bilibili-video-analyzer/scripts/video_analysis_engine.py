@@ -662,6 +662,48 @@ def _emit_evidence(lines: List[str], cands: List[Dict[str, Any]], top_n: int = 3
     return emitted
 
 
+# ============ §5 高光时刻 writer（P2-C2）============
+def write_highlights_section(section_context: Dict[str, Any]) -> str:
+    """§5「高光时刻」纯确定性 writer：从 transcript 金句候选生成 blockquote 正文。
+
+    入参：build_writer_section_context() 产出的单个 section dict（id=="5"）。
+    出参：## 5. 节的正文 Markdown（不含 ## 标题，只含正文）。
+
+    仅取 section_context['evidence'] 中 source_type=='transcript' 且
+    reason=='quote_candidate' 且 text 非空的候选，逐条渲染为独立 blockquote 组
+    （组间空行分隔，使 verify_report.measure_g5 把每条计为一个引用块组）。
+      - 有 url：`> "text" — [timestamp](url)`
+      - 无 url：`> "text" — timestamp`
+      - 零候选：仅 `### 高光时刻` + 占位行，不输出任何 blockquote。
+    不调用 LLM / 不合成内容。
+    """
+    lines: List[str] = ['### 高光时刻', '']
+    quotes: List[Dict[str, Any]] = []
+    for cand in (section_context.get('evidence') or []):
+        if not isinstance(cand, dict):
+            continue
+        if cand.get('source_type') != 'transcript':
+            continue
+        if cand.get('reason') != 'quote_candidate':
+            continue
+        if not (cand.get('text') or '').strip():
+            continue
+        quotes.append(cand)
+
+    if not quotes:
+        lines.append('_骨架占位：暂无原文金句。_')
+        return '\n'.join(lines) + '\n'
+
+    for cand in quotes:
+        text = (cand.get('text') or '').strip()
+        timestamp = (cand.get('timestamp') or '').strip()
+        url = (cand.get('url') or '').strip()
+        ref = f'[{timestamp or url}]({url})' if url else timestamp
+        lines.append(f'> "{text}" — {ref}')
+        lines.append('')
+    return '\n'.join(lines)
+
+
 def _emit_section_skeleton(lines: List[str], sid: str, cands: List[Dict[str, Any]]) -> None:
     """给 verify_report 关注的 §3/§4/§5/§7 最小子结构；其余节注入证据或占位。"""
     if sid == '3':
@@ -679,9 +721,8 @@ def _emit_section_skeleton(lines: List[str], sid: str, cands: List[Dict[str, Any
         lines.append('')
         return
     if sid == '5':
-        if not _emit_evidence(lines, cands):
-            lines.append('> _骨架占位：高光引用待填充。_')
-            lines.append('')
+        body = write_highlights_section({'evidence': cands})
+        lines.extend(body.split('\n'))
         return
     if sid == '7':
         lines.append('### 独特价值')
