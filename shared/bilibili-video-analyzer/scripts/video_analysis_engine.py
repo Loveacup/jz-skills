@@ -620,9 +620,7 @@ def analyze_video(inp: AnalysisInput) -> Dict[str, Any]:
     }
 
 
-def render_markdown(report: Dict[str, Any]) -> str:
-    """把 analyze_video 的报告字典渲染成完整 Markdown 文本（含 YAML frontmatter）。"""
-    fm = report.get('frontmatter', {})
+def _render_frontmatter(fm: Dict[str, Any]) -> List[str]:
     lines = ['---']
     for k, v in fm.items():
         if isinstance(v, list):
@@ -631,6 +629,106 @@ def render_markdown(report: Dict[str, Any]) -> str:
             lines.append(f'{k}: {v}')
     lines.append('---')
     lines.append('')
+    return lines
+
+
+def _format_evidence_line(cand: Dict[str, Any]) -> str:
+    """把一条证据候选渲染成 blockquote 行，并保留 source_type/reason 标记。
+
+    有 url → `> [timestamp](url) text`；无 url → `> {source_type}证据：text`。
+    标记以 HTML 注释承载，不污染正文词数。
+    """
+    text = (cand.get('text') or '').strip()
+    url = cand.get('url') or ''
+    src = cand.get('source_type') or ''
+    reason = cand.get('reason') or ''
+    marker = f'  <!-- source={src} reason={reason} -->'
+    if url:
+        label = cand.get('timestamp') or url
+        return f'> [{label}]({url}) {text}{marker}'
+    return f'> {src}证据：{text}{marker}'
+
+
+def _emit_evidence(lines: List[str], cands: List[Dict[str, Any]], top_n: int = 3) -> bool:
+    """注入前 1-3 条证据候选；有内容返回 True。"""
+    emitted = False
+    for cand in (cands or [])[:top_n]:
+        if not (cand.get('text') or '').strip():
+            continue
+        lines.append(_format_evidence_line(cand))
+        emitted = True
+    if emitted:
+        lines.append('')
+    return emitted
+
+
+def _emit_section_skeleton(lines: List[str], sid: str, cands: List[Dict[str, Any]]) -> None:
+    """给 verify_report 关注的 §3/§4/§5/§7 最小子结构；其余节注入证据或占位。"""
+    if sid == '3':
+        lines.append('### 💡 Skeleton Insight')
+        lines.append('')
+        _emit_evidence(lines, cands)
+        lines.append('_骨架占位：核心洞察待 LLM 基于上方证据填充。_')
+        lines.append('')
+        return
+    if sid == '4':
+        lines.append('### 模块 1: Skeleton Module')
+        lines.append('')
+        _emit_evidence(lines, cands)
+        lines.append('_骨架占位：深度拆解待 LLM 基于上方证据填充。_')
+        lines.append('')
+        return
+    if sid == '5':
+        if not _emit_evidence(lines, cands):
+            lines.append('> _骨架占位：高光引用待填充。_')
+            lines.append('')
+        return
+    if sid == '7':
+        lines.append('### 独特价值')
+        lines.append('- 骨架占位：独特价值待填充。')
+        lines.append('')
+        lines.append('### 局限与偏见')
+        lines.append('- 骨架占位：局限与偏见待填充。')
+        lines.append('')
+        lines.append('### 可行动项')
+        lines.append('- [ ] 骨架占位：可行动项待填充。')
+        lines.append('')
+        return
+    if not _emit_evidence(lines, cands):
+        lines.append('_骨架占位：暂无证据候选。_')
+        lines.append('')
+
+
+def _render_plan_skeleton(report: Dict[str, Any], lines: List[str],
+                          plan_sections: List[Dict[str, Any]]) -> str:
+    """按 SectionSpec 顺序渲染老版 §0–§8 骨架，注入 evidence_map 候选。"""
+    by_section = (report.get('evidence_map') or {}).get('by_section') or {}
+    for spec in plan_sections:
+        sid = str(spec.get('id', ''))
+        title = spec.get('title', '')
+        lines.append(f'## {sid}. {title}')
+        lines.append('')
+        purpose = spec.get('purpose')
+        if purpose:
+            lines.append(f'_目的：{purpose}_')
+            lines.append('')
+        _emit_section_skeleton(lines, sid, by_section.get(sid, []))
+    return '\n'.join(lines)
+
+
+def render_markdown(report: Dict[str, Any]) -> str:
+    """把 analyze_video 的报告字典渲染成完整 Markdown 文本（含 YAML frontmatter）。
+
+    若 report 含 report_plan.sections，则按 SectionSpec 顺序输出老版 §0–§8
+    plan-aware skeleton（注入 evidence_map 候选）；否则退回旧版 sections 渲染。
+    """
+    fm = report.get('frontmatter', {})
+    lines = _render_frontmatter(fm)
+
+    plan_sections = (report.get('report_plan') or {}).get('sections') or []
+    if plan_sections:
+        return _render_plan_skeleton(report, lines, plan_sections)
+
     for title, body in report.get('sections', {}).items():
         lines.append(f'## {title}')
         lines.append('')
