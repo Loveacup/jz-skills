@@ -295,6 +295,158 @@ def build_report_plan(inp: AnalysisInput, evidence_gate: Optional[Dict[str, Any]
     )
 
 
+# ============ EvidenceMap：transcript → 带时间戳引用候选 ============
+@dataclass
+class EvidenceCandidate:
+    """一条可引用的证据候选。
+
+    硬约束：直接来自原始素材片段（transcript/danmaku/comments），不做 LLM 合成、
+    embedding 或外部检索。B站时间戳 URL 用秒数公式，不是 MM:SS。
+    """
+    source_type: str            # transcript | danmaku | comments
+    section_id: str
+    start: Optional[float] = None
+    end: Optional[float] = None
+    timestamp: str = ''         # 'M:SS' / 'H:MM:SS' 可读标签
+    url: str = ''
+    text: str = ''
+    context: str = ''           # 暂等于 text，后续可扩展前后文窗口
+    score: float = 0.0          # 简单启发式显著度，>0
+    reason: str = ''            # 对应 section purpose 的候选用途标记
+
+
+@dataclass
+class EvidenceMap:
+    """按 SectionSpec.id 分组的证据候选表。"""
+    video_id: str = ''
+    baseline: str = ''
+    by_section: Dict[str, List[EvidenceCandidate]] = field(default_factory=dict)
+    warnings: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'video_id': self.video_id,
+            'baseline': self.baseline,
+            'by_section': {
+                sid: [asdict(c) for c in cands] for sid, cands in self.by_section.items()
+            },
+            'warnings': list(self.warnings),
+        }
+
+
+# 老版 §1/§3/§4/§5/§7 由 transcript 直接支撑；reason 标明该节的候选用途
+_TRANSCRIPT_SECTION_REASON = {
+    '1': 'logic_candidate',
+    '3': 'insight_candidate',
+    '4': 'deep_dive_candidate',
+    '5': 'quote_candidate',
+    '7': 'critical_candidate',
+}
+_TRANSCRIPT_EVIDENCE_SECTIONS = tuple(_TRANSCRIPT_SECTION_REASON.keys())
+
+
+def _seg_score(text: str) -> float:
+    """简单启发式显著度（恒 >0）：按片段文本长度归一，避免引入依赖/LLM。"""
+    return round(max(0.01, len((text or '').strip()) / 100.0), 4)
+
+
+def _bili_timestamp_url(video_id: str, start: Optional[float]) -> str:
+    """B站秒数定位 URL：?t={int(start)}。start=150 → ?t=150（不是 ?t=230）。"""
+    if start is None:
+        return ''
+    return f'https://www.bilibili.com/video/{video_id}?t={int(start)}'
+
+
+def _timestamp_url(platform: str, video_id: str, start: Optional[float]) -> str:
+    if platform == 'bilibili':
+        return _bili_timestamp_url(video_id, start)
+    return ''
+
+
+def build_evidence_map(inp: AnalysisInput, report_plan: ReportPlan) -> EvidenceMap:
+    """从原始素材直接生成各章节的带时间戳引用候选。
+
+    - transcript 片段 → §1/§3/§4/§5/§7（每节挂全量候选，由上层挑选）。
+    - danmaku（带 time）→ §2；comments → §2.5。
+    - 无 comments/danmaku 时不为 §2/§2.5 伪造候选。
+    - 不调用 LLM / embedding / 外部检索，纯片段抽取。
+    """
+    by_section: Dict[str, List[EvidenceCandidate]] = {}
+    warnings: List[str] = []
+    section_ids = {s.id for s in report_plan.sections}
+    section_allowed = {s.id: s.allowed for s in report_plan.sections}
+
+    tr = inp.transcript
+    segments = tr.segments if (tr and tr.segments) else []
+
+    def _seg_candidate(sid: str, seg: TranscriptSegment) -> EvidenceCandidate:
+        return EvidenceCandidate(
+            source_type='transcript',
+            section_id=sid,
+            start=seg.start,
+            end=seg.end,
+            timestamp=_fmt_duration(int(seg.start)) if seg.start is not None else '',
+            url=_timestamp_url(inp.platform, inp.video_id, seg.start),
+            text=seg.text,
+            context=seg.text,
+            score=_seg_score(seg.text),
+            reason=_TRANSCRIPT_SECTION_REASON[sid],
+        )
+
+    if not segments:
+        warnings.append('no_transcript: transcript-backed sections (§1/§3/§4/§5/§7) left empty')
+
+    for sid in _TRANSCRIPT_EVIDENCE_SECTIONS:
+        if sid not in section_ids or not section_allowed.get(sid, True):
+            continue
+        if not segments:
+            continue
+        by_section[sid] = [_seg_candidate(sid, seg) for seg in segments if seg.text]
+
+    # §2 弹幕：仅在有弹幕时生成
+    if inp.danmaku and '2' in section_ids and section_allowed.get('2', True):
+        by_section['2'] = [
+            EvidenceCandidate(
+                source_type='danmaku',
+                section_id='2',
+                start=d.time,
+                end=None,
+                timestamp=_fmt_duration(int(d.time)) if d.time is not None else '',
+                url=_timestamp_url(inp.platform, inp.video_id, d.time),
+                text=d.text,
+                context=d.text,
+                score=_seg_score(d.text),
+                reason='danmaku_signal',
+            )
+            for d in inp.danmaku if d.text
+        ]
+
+    # §2.5 评论：评论无可靠视频时间戳，start/end/url/timestamp 留空，不伪造 ?t
+    if inp.comments and '2.5' in section_ids and section_allowed.get('2.5', True):
+        by_section['2.5'] = [
+            EvidenceCandidate(
+                source_type='comments',
+                section_id='2.5',
+                start=None,
+                end=None,
+                timestamp='',
+                url='',
+                text=c.text,
+                context=c.text,
+                score=_seg_score(c.text),
+                reason='comment_signal',
+            )
+            for c in inp.comments if c.text
+        ]
+
+    return EvidenceMap(
+        video_id=inp.video_id,
+        baseline=report_plan.baseline,
+        by_section=by_section,
+        warnings=warnings,
+    )
+
+
 # ============ 基础分析工具 ============
 # 高频词停用词（中文常见虚词 + 英文 stopwords 的精简集），不追求完整
 _STOPWORDS = set("""
@@ -436,6 +588,7 @@ def analyze_video(inp: AnalysisInput) -> Dict[str, Any]:
     """
     evidence_gate = build_evidence_source_gate(inp)
     report_plan = build_report_plan(inp, evidence_gate)
+    evidence_map = build_evidence_map(inp, report_plan)
     transcript_source = evidence_gate['sources']['transcript']['source']
     frontmatter = {
         'title': inp.title,
@@ -462,6 +615,7 @@ def analyze_video(inp: AnalysisInput) -> Dict[str, Any]:
         'frontmatter': frontmatter,
         'evidence_gate': evidence_gate,
         'report_plan': report_plan.to_dict(),
+        'evidence_map': evidence_map.to_dict(),
         'sections': sections,
     }
 
