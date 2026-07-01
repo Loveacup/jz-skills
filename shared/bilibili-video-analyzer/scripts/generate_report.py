@@ -43,6 +43,7 @@ import argparse
 from video_analysis_engine import (
     AnalysisInput, Transcript, TranscriptSegment, Comment, Danmaku,
     analyze_video, render_markdown,
+    cli_writer_provider, deepseek_writer_provider,
 )
 
 
@@ -308,11 +309,23 @@ def build_analysis_input(results, run_fact_check=True):
     )
 
 
-def report_markdown(results, run_fact_check=True):
+def resolve_writer_provider(args):
+    """把 CLI 参数解析为 writer provider callable；默认 None 保持旧行为。"""
+    name = getattr(args, 'writer_provider', 'none') or 'none'
+    if name == 'none':
+        return None
+    if name == 'cli':
+        return cli_writer_provider
+    if name == 'deepseek':
+        return deepseek_writer_provider
+    raise ValueError(f'未知 writer provider: {name}')
+
+
+def report_markdown(results, run_fact_check=True, provider=None):
     """results → (markdown 文本, report dict)。供 fetch_all --report 直接复用。"""
     inp = build_analysis_input(results, run_fact_check=run_fact_check)
     report = analyze_video(inp)
-    return render_markdown(report), report
+    return render_markdown(report, provider=provider), report
 
 
 # ============ 输入加载 ============
@@ -381,6 +394,8 @@ def main():
     parser.add_argument('--output', help='Markdown 输出路径（默认 /tmp/{video_id}_report.md）')
     parser.add_argument('--no-fact-check', action='store_true',
                         help='不现场提取 claim（仍会读已落盘的 fact_checks.json）')
+    parser.add_argument('--writer-provider', choices=('none', 'cli', 'deepseek'), default='none',
+                        help='LLM writer provider：none=旧骨架/确定性输出；cli=沿用 BILI_WRITER_CLI/OMP；deepseek=直接 DeepSeek API')
     args = parser.parse_args()
 
     try:
@@ -396,7 +411,12 @@ def main():
     print(f'📝 生成分析报告: {bvid}')
     print('=' * 60)
 
-    markdown, report = report_markdown(results, run_fact_check=not args.no_fact_check)
+    provider = resolve_writer_provider(args)
+    markdown, report = report_markdown(
+        results,
+        run_fact_check=not args.no_fact_check,
+        provider=provider,
+    )
 
     out_path = args.output or f'/tmp/{bvid}_report.md'
     try:

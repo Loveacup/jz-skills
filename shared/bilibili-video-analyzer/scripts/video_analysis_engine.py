@@ -28,9 +28,10 @@ import os
 import re
 import json
 import argparse
+import warnings
 from collections import Counter
 from dataclasses import dataclass, field, asdict
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Callable
 
 
 # ============ 统一数据类 ============
@@ -704,36 +705,117 @@ def write_highlights_section(section_context: Dict[str, Any]) -> str:
     return '\n'.join(lines)
 
 
-def _emit_section_skeleton(lines: List[str], sid: str, cands: List[Dict[str, Any]]) -> None:
-    """给 verify_report 关注的 §3/§4/§5/§7 最小子结构；其余节注入证据或占位。"""
+def _emit_section_skeleton(
+    lines: List[str],
+    sid: str,
+    cands: List[Dict[str, Any]],
+    report: Optional[Dict[str, Any]] = None,
+    provider: Optional[WriterProvider] = None
+) -> None:
+    """给 verify_report 关注的 §3/§4/§5/§7 最小子结构；其余节注入证据或占位。
+
+    如果 provider 非 None 且 sid 为 '3'/'4'/'7'，尝试调用 LLM 生成内容；验证通过
+    则用 LLM 内容替换标题和正文，否则 fallback 到骨架占位。
+    """
     if sid == '3':
-        lines.append('### 💡 Skeleton Insight')
+        # 默认骨架标题
+        heading = '### 💡 Skeleton Insight'
+        fallback_body = ['_骨架占位：核心洞察待 LLM 基于上方证据填充。_', '']
+
+        if provider and report:
+            try:
+                contexts = build_typed_writer_section_contexts(report)
+                ctx = next((c for c in contexts if c.section_id == '3'), None)
+                if ctx:
+                    result = write_llm_section(ctx, provider, retries=2)
+                    if result.validation_passed:
+                        # 用 LLM 内容替换
+                        lines.append(f'### {ctx.heading}')
+                        lines.append('')
+                        lines.append(result.content)
+                        lines.append('')
+                        return
+                    warnings.warn(
+                        f"§3 LLM writer validation failed, falling back to skeleton: {result.validation_errors}"
+                    )
+            except Exception as e:
+                # 任何异常都 fallback 到骨架，但记录 warning 供调试
+                warnings.warn(f"§3 LLM writer failed, falling back to skeleton: {e}")
+                pass
+
+        # fallback 到原骨架
+        lines.append(heading)
         lines.append('')
         _emit_evidence(lines, cands)
-        lines.append('_骨架占位：核心洞察待 LLM 基于上方证据填充。_')
-        lines.append('')
+        lines.extend(fallback_body)
         return
     if sid == '4':
-        lines.append('### 模块 1: Skeleton Module')
+        # 默认骨架标题
+        heading = '### 模块 1: Skeleton Module'
+        fallback_body = ['_骨架占位：深度拆解待 LLM 基于上方证据填充。_', '']
+
+        if provider and report:
+            try:
+                contexts = build_typed_writer_section_contexts(report)
+                ctx = next((c for c in contexts if c.section_id == '4'), None)
+                if ctx:
+                    result = write_llm_section(ctx, provider, retries=2)
+                    if result.validation_passed:
+                        # 用 LLM 内容替换
+                        lines.append(f'### {ctx.heading}')
+                        lines.append('')
+                        lines.append(result.content)
+                        lines.append('')
+                        return
+                    warnings.warn(
+                        f"§4 LLM writer validation failed, falling back to skeleton: {result.validation_errors}"
+                    )
+            except Exception as e:
+                # 任何异常都 fallback 到骨架，但记录 warning 供调试
+                warnings.warn(f"§4 LLM writer failed, falling back to skeleton: {e}")
+                pass
+
+        # fallback 到原骨架
+        lines.append(heading)
         lines.append('')
         _emit_evidence(lines, cands)
-        lines.append('_骨架占位：深度拆解待 LLM 基于上方证据填充。_')
-        lines.append('')
+        lines.extend(fallback_body)
         return
     if sid == '5':
         body = write_highlights_section({'evidence': cands})
         lines.extend(body.split('\n'))
         return
     if sid == '7':
-        lines.append('### 独特价值')
-        lines.append('- 骨架占位：独特价值待填充。')
+        # 默认骨架标题
+        heading = '### 观众反馈 Skeleton'
+        fallback_body = ['_骨架占位：观众反馈待 LLM 基于上方证据填充。_', '']
+
+        if provider and report:
+            try:
+                contexts = build_typed_writer_section_contexts(report)
+                ctx = next((c for c in contexts if c.section_id == '7'), None)
+                if ctx:
+                    result = write_llm_section(ctx, provider, retries=2)
+                    if result.validation_passed:
+                        # 用 LLM 内容替换
+                        lines.append(f'### {ctx.heading}')
+                        lines.append('')
+                        lines.append(result.content)
+                        lines.append('')
+                        return
+                    warnings.warn(
+                        f"§7 LLM writer validation failed, falling back to skeleton: {result.validation_errors}"
+                    )
+            except Exception as e:
+                # 任何异常都 fallback 到骨架，但记录 warning 供调试
+                warnings.warn(f"§7 LLM writer failed, falling back to skeleton: {e}")
+                pass
+
+        # fallback 到原骨架
+        lines.append(heading)
         lines.append('')
-        lines.append('### 局限与偏见')
-        lines.append('- 骨架占位：局限与偏见待填充。')
-        lines.append('')
-        lines.append('### 可行动项')
-        lines.append('- [ ] 骨架占位：可行动项待填充。')
-        lines.append('')
+        _emit_evidence(lines, cands)
+        lines.extend(fallback_body)
         return
     if not _emit_evidence(lines, cands):
         lines.append('_骨架占位：暂无证据候选。_')
@@ -841,9 +923,16 @@ def _emit_source_appendix(lines: List[str], report: Dict[str, Any],
     lines.append('')
 
 
-def _render_plan_skeleton(report: Dict[str, Any], lines: List[str],
-                          plan_sections: List[Dict[str, Any]]) -> str:
-    """按 SectionSpec 顺序渲染老版 §0–§8 骨架，注入 evidence_map 候选。"""
+def _render_plan_skeleton(
+    report: Dict[str, Any],
+    lines: List[str],
+    plan_sections: List[Dict[str, Any]],
+    provider: Optional[WriterProvider] = None
+) -> str:
+    """按 SectionSpec 顺序渲染老版 §0–§8 骨架，注入 evidence_map 候选。
+
+    如果 provider 非 None，则传给 _emit_section_skeleton 用于 LLM 生成。
+    """
     by_section = (report.get('evidence_map') or {}).get('by_section') or {}
     for spec in plan_sections:
         sid = str(spec.get('id', ''))
@@ -854,24 +943,26 @@ def _render_plan_skeleton(report: Dict[str, Any], lines: List[str],
         if purpose:
             lines.append(f'_目的：{purpose}_')
             lines.append('')
-        _emit_section_skeleton(lines, sid, by_section.get(sid, []))
+        _emit_section_skeleton(lines, sid, by_section.get(sid, []), report, provider)
         if sid in ('0', '8'):
             _emit_source_appendix(lines, report, sid)
     return '\n'.join(lines)
 
 
-def render_markdown(report: Dict[str, Any]) -> str:
+def render_markdown(report: Dict[str, Any], provider: Optional[WriterProvider] = None) -> str:
     """把 analyze_video 的报告字典渲染成完整 Markdown 文本（含 YAML frontmatter）。
 
     若 report 含 report_plan.sections，则按 SectionSpec 顺序输出老版 §0–§8
     plan-aware skeleton（注入 evidence_map 候选）；否则退回旧版 sections 渲染。
+
+    如果 provider 非 None，则传给骨架渲染用于 LLM 生成（默认使用 deepseek_writer_provider）。
     """
     fm = report.get('frontmatter', {})
     lines = _render_frontmatter(fm)
 
     plan_sections = (report.get('report_plan') or {}).get('sections') or []
     if plan_sections:
-        return _render_plan_skeleton(report, lines, plan_sections)
+        return _render_plan_skeleton(report, lines, plan_sections, provider)
 
     for title, body in report.get('sections', {}).items():
         lines.append(f'## {title}')
@@ -967,6 +1058,524 @@ def build_writer_section_context(report: Dict[str, Any], top_n: int = 5) -> Dict
         'sections': sections,
         'warnings': warnings,
     }
+
+
+# ============ LLM Writer Harness（可插拔）============
+WriterProvider = Callable[[str, str], str]
+
+
+def make_cli_writer_provider(command: Optional[str] = None, timeout: Optional[int] = None) -> WriterProvider:
+    """创建一个通用 CLI writer provider。
+
+    默认命令读取环境变量 ``BILI_WRITER_CLI``；未设置时使用已配置好的 OMP：
+    ``omp -p --no-session --max-time 120 --no-skills --no-extensions --no-rules``。
+
+    CLI 的模型/provider/key 配置由该 CLI 自己负责，video_analysis_engine 只负责把
+    system/user prompt 合并成单个 prompt 参数传入，因此可沿用调用环境中的 OMP / Hermes /
+    其他 agent CLI 配置。
+    """
+    import shlex
+    import subprocess
+
+    command_text = command or os.environ.get(
+        'BILI_WRITER_CLI',
+        'omp -p --no-session --max-time 120 --no-skills --no-extensions --no-rules'
+    )
+    run_timeout = timeout or int(os.environ.get('BILI_WRITER_CLI_TIMEOUT', '180'))
+    base_cmd = shlex.split(command_text)
+    if not base_cmd:
+        raise ValueError('BILI_WRITER_CLI 为空，无法创建 CLI writer provider')
+
+    def provider(system: str, user: str) -> str:
+        prompt = (
+            f"{system}\n\n"
+            "---\n\n"
+            f"{user}\n\n"
+            "请只输出 Markdown 正文，不要输出解释、JSON、代码块或额外前后缀。"
+        )
+        completed = subprocess.run(
+            base_cmd + [prompt],
+            capture_output=True,
+            text=True,
+            timeout=run_timeout,
+        )
+        if completed.returncode != 0:
+            stderr = (completed.stderr or '').strip()
+            stdout = (completed.stdout or '').strip()
+            detail = stderr or stdout or f'exit {completed.returncode}'
+            raise RuntimeError(f'CLI writer provider failed: {detail}')
+        output = (completed.stdout or '').strip()
+        if not output:
+            raise RuntimeError('CLI writer provider returned empty output')
+        return output
+
+    return provider
+
+
+def cli_writer_provider(system: str, user: str) -> str:
+    """默认 CLI writer provider；等价于 make_cli_writer_provider()(system, user)。"""
+    return make_cli_writer_provider()(system, user)
+
+
+def deepseek_writer_provider(system: str, user: str) -> str:
+    """
+    DeepSeek API writer provider（纯标准库实现）。
+
+    读取环境变量 DEEPSEEK_API_KEY，调用 DeepSeek chat/completions endpoint。
+    model: deepseek-chat，temperature: 0.3，max_tokens: 4096。
+
+    Raises:
+        ValueError: DEEPSEEK_API_KEY 未设置
+        RuntimeError: API 请求失败
+    """
+    import urllib.request
+    import urllib.error
+
+    api_key = os.environ.get('DEEPSEEK_API_KEY')
+    if not api_key:
+        raise ValueError(
+            "DEEPSEEK_API_KEY 环境变量未设置。请设置后再使用 deepseek_writer_provider。"
+        )
+
+    url = "https://api.deepseek.com/v1/chat/completions"
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user}
+        ],
+        "temperature": 0.3,
+        "max_tokens": 4096
+    }
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode('utf-8'),
+        headers=headers,
+        method='POST'
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            data = json.loads(response.read().decode('utf-8'))
+            return data['choices'][0]['message']['content']
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode('utf-8', errors='ignore')
+        raise RuntimeError(
+            f"DeepSeek API 请求失败 (HTTP {e.code}): {error_body}"
+        ) from e
+    except Exception as e:
+        raise RuntimeError(f"DeepSeek API 调用异常: {str(e)}") from e
+
+
+@dataclass
+class WriterEvidenceCandidate:
+    """writer prompt 中的单条证据候选。"""
+    index: int
+    text: str
+    timestamp: Optional[str] = None
+    source: Optional[str] = None
+
+
+@dataclass
+class WriterSectionContext:
+    """传给 LLM 写手的结构化上下文。"""
+    section_id: str
+    heading: str
+    purpose: str
+    quality_gate: Optional[str] = None
+    min_items: Optional[int] = None
+    min_words_per_item: Optional[int] = None
+    evidence: List[WriterEvidenceCandidate] = field(default_factory=list)
+    draft_placeholder: str = ""
+    transcript_summary: Optional[str] = None
+
+
+@dataclass
+class WriterResult:
+    """LLM 写手的输出 + 验证结果。"""
+    section_id: str
+    content: str
+    sources_used: List[int] = field(default_factory=list)
+    validation_passed: bool = False
+    validation_errors: List[str] = field(default_factory=list)
+    raw_response: str = ""
+
+
+def build_typed_writer_section_contexts(report: dict) -> List[WriterSectionContext]:
+    """
+    将 build_writer_section_context 的输出转为 typed dataclasses。
+    """
+    writer_ctx = build_writer_section_context(report)
+    typed = []
+    for sec in writer_ctx.get('sections', []):
+        evidence_candidates = []
+        for idx, ev in enumerate(sec.get('evidence', []), start=1):
+            evidence_candidates.append(WriterEvidenceCandidate(
+                index=idx,
+                text=ev.get('text', ''),
+                timestamp=ev.get('timestamp'),
+                source=ev.get('source_type') or ev.get('source')
+            ))
+
+        typed.append(WriterSectionContext(
+            section_id=sec.get('id', ''),
+            heading=sec.get('heading', ''),
+            purpose=sec.get('purpose', ''),
+            quality_gate=sec.get('quality_gate'),
+            min_items=sec.get('min_items'),
+            min_words_per_item=sec.get('min_words_per_item'),
+            evidence=evidence_candidates,
+            draft_placeholder=sec.get('draft_placeholder', ''),
+            transcript_summary=sec.get('transcript_summary')
+        ))
+    return typed
+
+
+WRITER_PROMPTS = {
+    "3": {
+        "system": """你是一位专业的视频分析师，负责从采集到的证据中提炼核心观点。
+
+输出约束：
+- 只输出 Markdown 格式内容，不添加额外说明
+- 禁止编造或猜测视频中未提及的内容
+- 必须使用 [E#] 引用证据（如 [E1]、[E2]）
+- 对不确定的信息，使用"从现有证据只能看出..."表述
+- 禁止使用"显然""必然""毫无疑问"等绝对化表达""",
+        "user": """# 任务：{heading}
+
+目的：{purpose}
+
+质量标准：{quality_gate}
+
+最少条目数：{min_items}
+每条最少字数：{min_words}
+
+## 可用证据
+{evidence}
+
+请根据以上证据撰写该节内容，确保每条观点都引用 [E#] 标记。"""
+    },
+    "4": {
+        "system": """你是一位专业的视频分析师，负责从采集到的证据中分析技术方法和工具使用。
+
+输出约束：
+- 只输出 Markdown 格式内容，不添加额外说明
+- 禁止编造或猜测视频中未提及的内容
+- 必须使用 [E#] 引用证据（如 [E1]、[E2]）
+- 对不确定的信息，使用"从现有证据只能看出..."表述
+- 禁止使用"显然""必然""毫无疑问"等绝对化表达""",
+        "user": """# 任务：{heading}
+
+目的：{purpose}
+
+质量标准：{quality_gate}
+
+最少条目数：{min_items}
+每条最少字数：{min_words}
+
+## 可用证据
+{evidence}
+
+请根据以上证据撰写该节内容，确保每条技术点都引用 [E#] 标记。"""
+    },
+    "7": {
+        "system": """你是一位专业的视频分析师，负责整理观众讨论和反馈。
+
+输出约束：
+- 只输出 Markdown 格式内容，不添加额外说明
+- 禁止编造或猜测评论区中未提及的内容
+- 必须使用 [E#] 引用证据（如 [E1]、[E2]）
+- 对不确定的信息，使用"从现有证据只能看出..."表述
+- 禁止使用"显然""必然""毫无疑问"等绝对化表达""",
+        "user": """# 任务：{heading}
+
+目的：{purpose}
+
+质量标准：{quality_gate}
+
+最少条目数：{min_items}
+每条最少字数：{min_words}
+
+## 可用证据
+{evidence}
+
+请根据以上证据撰写该节内容，确保每条讨论点都引用 [E#] 标记。"""
+    }
+}
+
+
+FABRICATION_MARKERS = [
+    "根据公开资料",
+    "业内普遍认为",
+    "数据显示",
+    "研究表明",
+    "众所周知",
+    "显而易见",
+    "不言而喻"
+]
+
+
+def _format_evidence_for_prompt(candidates: List[WriterEvidenceCandidate]) -> str:
+    """
+    将证据候选列表格式化为 prompt 可读文本。
+    """
+    lines = []
+    for c in candidates:
+        parts = [f"[E{c.index}] \"{c.text}\""]
+        if c.timestamp:
+            parts.append(f"— {c.timestamp}")
+        if c.source:
+            parts.append(f"({c.source})")
+        lines.append(" ".join(parts))
+    return "\n".join(lines)
+
+
+def _extract_markdown_items(content: str) -> List[str]:
+    """
+    从 markdown 内容中提取列表项或段落。
+    """
+    items = []
+    for line in content.splitlines():
+        line = line.strip()
+        if line.startswith('- ') or line.startswith('* '):
+            items.append(line[2:].strip())
+        elif line.startswith(tuple(f"{i}. " for i in range(1, 100))):
+            items.append(re.sub(r'^\d+\.\s*', '', line))
+        elif line and not line.startswith('#'):
+            if len(line) > 10:
+                items.append(line)
+    return items
+
+
+def _count_writer_words(text: str) -> int:
+    """
+    中英文混合词数统计。
+    """
+    chinese_chars = len(re.findall(r'[一-鿿]', text))
+    english_words = len(re.findall(r'\b[a-zA-Z]+\b', text))
+    return chinese_chars + english_words
+
+
+def validate_section(result: WriterResult, contract: WriterSectionContext) -> WriterResult:
+    """
+    确定性验证 LLM 输出是否符合约束。
+    """
+    errors = []
+
+    for marker in FABRICATION_MARKERS:
+        if marker in result.content:
+            errors.append(f"包含编造标记词：{marker}")
+
+    if not re.search(r'\[E\d+\]', result.content):
+        errors.append("未找到任何 [E#] 证据引用")
+
+    if contract.min_items:
+        items = _extract_markdown_items(result.content)
+        if len(items) < contract.min_items:
+            errors.append(f"条目数不足：需要 {contract.min_items}，实际 {len(items)}")
+
+    if contract.min_words_per_item:
+        items = _extract_markdown_items(result.content)
+        for i, item in enumerate(items, 1):
+            word_count = _count_writer_words(item)
+            if word_count < contract.min_words_per_item:
+                errors.append(
+                    f"第 {i} 条词数不足：需要 {contract.min_words_per_item}，实际 {word_count}"
+                )
+
+    result.validation_passed = len(errors) == 0
+    result.validation_errors = errors
+    return result
+
+
+def write_llm_section(
+    context: WriterSectionContext,
+    provider: WriterProvider,
+    retries: int = 2
+) -> WriterResult:
+    """
+    调用 LLM provider 生成章节内容，并进行确定性验证。
+    """
+    if context.section_id not in WRITER_PROMPTS:
+        return WriterResult(
+            section_id=context.section_id,
+            content=context.draft_placeholder,
+            validation_passed=False,
+            validation_errors=[f"未找到 section_id={context.section_id} 的 prompt"]
+        )
+
+    prompts = WRITER_PROMPTS[context.section_id]
+    system = prompts["system"]
+    user_template = prompts["user"]
+
+    evidence_text = _format_evidence_for_prompt(context.evidence)
+    user = user_template.format(
+        heading=context.heading,
+        purpose=context.purpose,
+        quality_gate=context.quality_gate or "无",
+        min_items=context.min_items or "无",
+        min_words=context.min_words_per_item or "无",
+        evidence=evidence_text
+    )
+
+    for attempt in range(retries + 1):
+        raw = provider(system, user)
+        result = WriterResult(
+            section_id=context.section_id,
+            content=raw.strip(),
+            raw_response=raw
+        )
+
+        sources = re.findall(r'\[E(\d+)\]', raw)
+        result.sources_used = sorted(set(int(s) for s in sources))
+
+        result = validate_section(result, context)
+        if result.validation_passed:
+            return result
+
+    return result
+
+
+# ============ Report Coherence Checker ============
+@dataclass
+class ReportCoherenceIssue:
+    """跨节一致性检查发现的单个问题。"""
+    severity: str      # 'nit' | 'concern' | 'blocker'
+    code: str          # stable machine code
+    message: str
+    section_id: Optional[str] = None
+
+
+@dataclass
+class ReportCoherenceResult:
+    """跨节一致性检查结果。"""
+    passed: bool
+    issues: List[ReportCoherenceIssue] = field(default_factory=list)
+
+
+def check_report_coherence(markdown: str) -> ReportCoherenceResult:
+    """
+    确定性检查报告的跨节一致性。
+
+    检查规则：
+    1. section 顺序：应按 ## 0. → ## 1. → ... → ## 8. 单调递增
+       缺 §0 或 §8 = concern；倒序 = blocker
+    2. skeleton residue：LLM 内容不应残留 _骨架占位 或 Skeleton
+       发现 = concern
+    3. duplicate paragraphs：相同非空正文段落（≥30字）出现 2 次以上 = concern
+    4. evidence citation syntax：[E 后必须跟数字，否则 = concern
+    5. empty LLM section：§3/§4/§7 标题存在但正文少于 20 字 = blocker
+    """
+    issues = []
+
+    # Rule 1: section 顺序检查
+    section_pattern = re.compile(r'^## (\d+)\.')
+    section_ids = []
+    for line in markdown.splitlines():
+        m = section_pattern.match(line)
+        if m:
+            section_ids.append(int(m.group(1)))
+
+    if section_ids:
+        if 0 not in section_ids:
+            issues.append(ReportCoherenceIssue(
+                severity='concern',
+                code='missing_section_0',
+                message='报告缺少 §0 元信息节'
+            ))
+        if 8 not in section_ids:
+            issues.append(ReportCoherenceIssue(
+                severity='concern',
+                code='missing_section_8',
+                message='报告缺少 §8 数据源节'
+            ))
+
+        for i in range(len(section_ids) - 1):
+            if section_ids[i] > section_ids[i + 1]:
+                issues.append(ReportCoherenceIssue(
+                    severity='blocker',
+                    code='section_order',
+                    message=f'章节顺序错误：§{section_ids[i]} 出现在 §{section_ids[i+1]} 之前'
+                ))
+                break
+
+    # 先切分章节内容，供 LLM 节检查复用
+    section_contents = {}
+    current_section = None
+    current_content = []
+
+    for line in markdown.splitlines():
+        m = section_pattern.match(line)
+        if m:
+            if current_section:
+                section_contents[current_section] = '\n'.join(current_content)
+            current_section = m.group(1)
+            current_content = []
+        elif current_section:
+            current_content.append(line)
+
+    if current_section:
+        section_contents[current_section] = '\n'.join(current_content)
+
+    # Rule 2: skeleton residue 检查（只检查 LLM writer 节 §3/§4/§7）
+    for sec_id in ('3', '4', '7'):
+        content = section_contents.get(sec_id, '')
+        if re.search(r'(Skeleton|_骨架占位)', content):
+            issues.append(ReportCoherenceIssue(
+                severity='concern',
+                code='skeleton_residue',
+                message=f'§{sec_id} 中残留 skeleton 占位符',
+                section_id=sec_id,
+            ))
+
+    # Rule 3: duplicate paragraphs 检查
+    paragraphs = []
+    for line in markdown.splitlines():
+        line = line.strip()
+        if line and not line.startswith('#') and not line.startswith('-') and not line.startswith('*'):
+            if len(line) >= 30:
+                paragraphs.append(line)
+
+    para_counts = Counter(paragraphs)
+    for para, count in para_counts.items():
+        if count >= 2:
+            issues.append(ReportCoherenceIssue(
+                severity='concern',
+                code='duplicate_paragraph',
+                message=f'发现重复段落（{count} 次）: {para[:50]}...'
+            ))
+
+    # Rule 4: evidence citation syntax 检查
+    bad_citations = re.findall(r'\[E(?!\d)[^\]]*\]', markdown)
+    if bad_citations:
+        issues.append(ReportCoherenceIssue(
+            severity='concern',
+            code='bad_evidence_citation',
+            message=f'发现错误的证据引用格式: {", ".join(set(bad_citations))}'
+        ))
+
+    # Rule 5: empty LLM section 检查（§3/§4/§7）
+    llm_sections = ['3', '4', '7']
+
+    for sec_id in llm_sections:
+        if sec_id in section_contents:
+            content = section_contents[sec_id].strip()
+            if len(content) < 20:
+                issues.append(ReportCoherenceIssue(
+                    severity='blocker',
+                    code='empty_llm_section',
+                    message=f'§{sec_id} 标题存在但正文少于 20 字',
+                    section_id=sec_id
+                ))
+
+    passed = not any(issue.severity == 'blocker' for issue in issues)
+    return ReportCoherenceResult(passed=passed, issues=issues)
 
 
 # ============ 自检 demo ============

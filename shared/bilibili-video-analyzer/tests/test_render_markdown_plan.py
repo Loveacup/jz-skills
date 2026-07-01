@@ -87,9 +87,8 @@ def test_section_substructure_present():
     md = _render()
     assert "### 💡" in md            # §3 至少一个洞察小节
     assert re.search(r"###\s*模块\s*1", md)  # §4 至少一个模块
-    assert "### 独特价值" in md       # §7
-    assert "### 局限与偏见" in md
-    assert "### 可行动项" in md
+    # §7 现为 LLM writer，无 provider 时 fallback 到 "### 观众反馈 Skeleton"
+    assert "### 观众反馈 Skeleton" in md or "### 观众" in md  # §7
 
 
 def test_verify_report_no_section_missing():
