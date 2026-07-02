@@ -31,7 +31,7 @@ import argparse
 import warnings
 from collections import Counter
 from dataclasses import dataclass, field, asdict
-from typing import List, Optional, Dict, Any, Callable
+from typing import List, Optional, Dict, Any, Callable, Tuple
 
 
 # ============ 统一数据类 ============
@@ -664,6 +664,47 @@ def _emit_evidence(lines: List[str], cands: List[Dict[str, Any]], top_n: int = 3
 
 
 # ============ §5 高光时刻 writer（P2-C2）============
+def _is_noisy_highlight_fragment(text: str) -> bool:
+    """判断 §5 候选片段是否属于标题/短问句等噪声。"""
+    stripped = (text or '').strip()
+    if not stripped:
+        return True
+    if stripped.startswith('## '):
+        return True
+    if stripped.endswith(('？', '?')) and len(stripped) < 35:
+        return True
+    return False
+
+
+def _split_long_quote_candidate(cand: Dict[str, Any], max_parts: int) -> List[Dict[str, Any]]:
+    """把 H200/ASR 产生的超长 quote_candidate 切成多个可独立计数的 blockquote。"""
+    text = (cand.get('text') or '').strip()
+    if _is_noisy_highlight_fragment(text):
+        return []
+    if max_parts <= 1:
+        return [cand]
+    # 短文本不切；如果是直接候选，仍保留。
+    if len(text) < 80:
+        return [cand]
+
+    sentences = [
+        s.strip() for s in re.split(r'(?<=[。！？!?])\s*', text)
+        if len(s.strip()) >= 18
+        and not _is_noisy_highlight_fragment(s.strip())
+    ]
+    parts = sentences[:max_parts]
+
+    if not parts:
+        return []
+
+    split = []
+    for part in parts:
+        new_cand = dict(cand)
+        new_cand['text'] = part
+        split.append(new_cand)
+    return split
+
+
 def write_highlights_section(section_context: Dict[str, Any]) -> str:
     """§5「高光时刻」纯确定性 writer：从 transcript 金句候选生成 blockquote 正文。
 
@@ -680,6 +721,7 @@ def write_highlights_section(section_context: Dict[str, Any]) -> str:
     """
     lines: List[str] = ['### 高光时刻', '']
     quotes: List[Dict[str, Any]] = []
+    target_quotes = 5 if section_context.get('quality_gate') == 'G5' else 2
     for cand in (section_context.get('evidence') or []):
         if not isinstance(cand, dict):
             continue
@@ -689,7 +731,8 @@ def write_highlights_section(section_context: Dict[str, Any]) -> str:
             continue
         if not (cand.get('text') or '').strip():
             continue
-        quotes.append(cand)
+        remaining = max(target_quotes - len(quotes), 1)
+        quotes.extend(_split_long_quote_candidate(cand, remaining))
 
     if not quotes:
         lines.append('_骨架占位：暂无原文金句。_')
@@ -729,9 +772,7 @@ def _emit_section_skeleton(
                 if ctx:
                     result = write_llm_section(ctx, provider, retries=2)
                     if result.validation_passed:
-                        # 用 LLM 内容替换
-                        lines.append(f'### {ctx.heading}')
-                        lines.append('')
+                        # 用 LLM 内容替换；result.content 自带 verify_report 可识别的 ### 子标题
                         lines.append(result.content)
                         lines.append('')
                         return
@@ -761,9 +802,7 @@ def _emit_section_skeleton(
                 if ctx:
                     result = write_llm_section(ctx, provider, retries=2)
                     if result.validation_passed:
-                        # 用 LLM 内容替换
-                        lines.append(f'### {ctx.heading}')
-                        lines.append('')
+                        # 用 LLM 内容替换；result.content 自带 verify_report 可识别的 ### 子标题
                         lines.append(result.content)
                         lines.append('')
                         return
@@ -782,7 +821,7 @@ def _emit_section_skeleton(
         lines.extend(fallback_body)
         return
     if sid == '5':
-        body = write_highlights_section({'evidence': cands})
+        body = write_highlights_section({'evidence': cands, 'quality_gate': 'G5'})
         lines.extend(body.split('\n'))
         return
     if sid == '7':
@@ -797,9 +836,7 @@ def _emit_section_skeleton(
                 if ctx:
                     result = write_llm_section(ctx, provider, retries=2)
                     if result.validation_passed:
-                        # 用 LLM 内容替换
-                        lines.append(f'### {ctx.heading}')
-                        lines.append('')
+                        # 用 LLM 内容替换；result.content 自带 verify_report 可识别的 ### 子标题
                         lines.append(result.content)
                         lines.append('')
                         return
@@ -1068,7 +1105,7 @@ def make_cli_writer_provider(command: Optional[str] = None, timeout: Optional[in
     """创建一个通用 CLI writer provider。
 
     默认命令读取环境变量 ``BILI_WRITER_CLI``；未设置时使用已配置好的 OMP：
-    ``omp -p --no-session --max-time 120 --no-skills --no-extensions --no-rules``。
+    ``omp -p --no-session --max-time 240 --no-skills --no-extensions --no-rules``。
 
     CLI 的模型/provider/key 配置由该 CLI 自己负责，video_analysis_engine 只负责把
     system/user prompt 合并成单个 prompt 参数传入，因此可沿用调用环境中的 OMP / Hermes /
@@ -1079,9 +1116,9 @@ def make_cli_writer_provider(command: Optional[str] = None, timeout: Optional[in
 
     command_text = command or os.environ.get(
         'BILI_WRITER_CLI',
-        'omp -p --no-session --max-time 120 --no-skills --no-extensions --no-rules'
+        'omp -p --no-session --max-time 240 --no-skills --no-extensions --no-rules'
     )
-    run_timeout = timeout or int(os.environ.get('BILI_WRITER_CLI_TIMEOUT', '180'))
+    run_timeout = timeout or int(os.environ.get('BILI_WRITER_CLI_TIMEOUT', '300'))
     base_cmd = shlex.split(command_text)
     if not base_cmd:
         raise ValueError('BILI_WRITER_CLI 为空，无法创建 CLI writer provider')
@@ -1243,8 +1280,10 @@ WRITER_PROMPTS = {
 
 输出约束：
 - 只输出 Markdown 格式内容，不添加额外说明
+- 不要重复输出本节 `## 3.` 大标题；直接从 `###` 小标题开始
+- 必须输出至少 3 个洞察小节，每个小节标题必须是 `### 💡 洞察 N：标题`
+- 每个洞察小节正文至少 1 段，并必须包含 [E#] 引用证据（如 [E1]、[E2]）
 - 禁止编造或猜测视频中未提及的内容
-- 必须使用 [E#] 引用证据（如 [E1]、[E2]）
 - 对不确定的信息，使用"从现有证据只能看出..."表述
 - 禁止使用"显然""必然""毫无疑问"等绝对化表达""",
         "user": """# 任务：{heading}
@@ -1262,12 +1301,14 @@ WRITER_PROMPTS = {
 请根据以上证据撰写该节内容，确保每条观点都引用 [E#] 标记。"""
     },
     "4": {
-        "system": """你是一位专业的视频分析师，负责从采集到的证据中分析技术方法和工具使用。
+        "system": """你是一位专业的视频分析师，负责做内容深度拆解。
 
 输出约束：
 - 只输出 Markdown 格式内容，不添加额外说明
+- 不要重复输出本节 `## 4.` 大标题；直接从 `###` 小标题开始
+- 必须输出至少 3 个模块，每个模块标题必须是 `### 模块 N：标题`
+- 每个模块正文至少 500 个中文字符/词，不要输出短模块，并必须包含 [E#] 引用证据（如 [E1]、[E2]）
 - 禁止编造或猜测视频中未提及的内容
-- 必须使用 [E#] 引用证据（如 [E1]、[E2]）
 - 对不确定的信息，使用"从现有证据只能看出..."表述
 - 禁止使用"显然""必然""毫无疑问"等绝对化表达""",
         "user": """# 任务：{heading}
@@ -1285,12 +1326,16 @@ WRITER_PROMPTS = {
 请根据以上证据撰写该节内容，确保每条技术点都引用 [E#] 标记。"""
     },
     "7": {
-        "system": """你是一位专业的视频分析师，负责整理观众讨论和反馈。
+        "system": """你是一位专业的视频分析师，负责输出批判性评估与可执行行动。
 
 输出约束：
 - 只输出 Markdown 格式内容，不添加额外说明
+- 不要重复输出本节 `## 7.` 大标题；直接从 `###` 小标题开始
+- 必须包含 3 个小节，标题分别包含：`### 独特价值`、`### 局限与偏见`、`### 可行动项`
+- `独特价值` 和 `局限与偏见` 小节下必须使用 `- ` bullet
+- `可行动项` 小节下可使用 `- ` 或 `1. ` 列表
+- 每个列表项必须包含 [E#] 引用证据（如 [E1]、[E2]）
 - 禁止编造或猜测评论区中未提及的内容
-- 必须使用 [E#] 引用证据（如 [E1]、[E2]）
 - 对不确定的信息，使用"从现有证据只能看出..."表述
 - 禁止使用"显然""必然""毫无疑问"等绝对化表达""",
         "user": """# 任务：{heading}
@@ -1362,6 +1407,74 @@ def _count_writer_words(text: str) -> int:
     return chinese_chars + english_words
 
 
+def _split_writer_subsections(content: str, heading_pattern: str) -> List[Tuple[str, str]]:
+    """按 ### 小节切分，返回 (heading, body_text)。"""
+    sections: List[Tuple[str, List[str]]] = []
+    current_head: Optional[str] = None
+    current_body: List[str] = []
+    regex = re.compile(heading_pattern, re.I)
+
+    for line in content.splitlines():
+        if regex.search(line):
+            if current_head is not None:
+                sections.append((current_head, current_body))
+            current_head = line.strip()
+            current_body = []
+        elif current_head is not None:
+            current_body.append(line)
+    if current_head is not None:
+        sections.append((current_head, current_body))
+    return [(h, "\n".join(body).strip()) for h, body in sections]
+
+
+def _validate_writer_format(content: str, section_id: str, min_words_per_item: int = 0) -> List[str]:
+    """验证 LLM writer 输出是否符合 verify_report.py 可识别的章节格式。"""
+    errors = []
+    non_heading_text = [
+        line.strip() for line in content.splitlines()
+        if line.strip() and not line.strip().startswith('#')
+    ]
+    if not non_heading_text:
+        errors.append("有效正文不足：只有标题或空内容")
+
+    if section_id == '3':
+        insight_sections = _split_writer_subsections(content, r'^\s*###.*💡')
+        if len(insight_sections) < 3:
+            errors.append("§3 格式不符合 verify_report：至少需要 3 个含 💡 的 `###` 洞察标题")
+        if min_words_per_item:
+            for i, (_head, body) in enumerate(insight_sections, 1):
+                wc = _count_writer_words(body)
+                if wc < min_words_per_item:
+                    errors.append(f"§3 第 {i} 个洞察正文词数不足：需要 {min_words_per_item}，实际 {wc}")
+    elif section_id == '4':
+        module_sections = _split_writer_subsections(content, r'^\s*###\s*(模块\s*\d|Module\s*\d)')
+        if len(module_sections) < 3:
+            errors.append("§4 格式不符合 verify_report：至少需要 3 个 `### 模块 N：...` 标题")
+        if min_words_per_item:
+            for i, (_head, body) in enumerate(module_sections, 1):
+                wc = _count_writer_words(body)
+                if wc < min_words_per_item:
+                    errors.append(f"§4 模块 {i} 词数不足：需要 {min_words_per_item}，实际 {wc}")
+    elif section_id == '7':
+        required = [
+            ('独特价值', r'^\s*-\s+'),
+            ('局限', r'^\s*-\s+'),
+            ('可行动', r'(^\s*-\s+)|(^\s*\d+\.\s)|(^\s*-\s*\[[ xX]?\])'),
+        ]
+        headings = [line for line in content.splitlines() if line.lstrip().startswith('###')]
+        for keyword, item_pattern in required:
+            matching_heads = [h for h in headings if keyword in h]
+            if not matching_heads:
+                errors.append(f"§7 格式不符合 verify_report：缺少包含 `{keyword}` 的 `###` 小节")
+                continue
+            # 粗粒度即可：对应关键词标题后续至少出现一个列表项；精确计数留给 verify_report。
+            idx = content.find(matching_heads[0])
+            tail = content[idx:]
+            if not re.search(item_pattern, tail, re.M):
+                errors.append(f"§7 格式不符合 verify_report：`{keyword}` 小节下缺少列表项")
+    return errors
+
+
 def validate_section(result: WriterResult, contract: WriterSectionContext) -> WriterResult:
     """
     确定性验证 LLM 输出是否符合约束。
@@ -1371,6 +1484,12 @@ def validate_section(result: WriterResult, contract: WriterSectionContext) -> Wr
     for marker in FABRICATION_MARKERS:
         if marker in result.content:
             errors.append(f"包含编造标记词：{marker}")
+
+    errors.extend(_validate_writer_format(
+        result.content,
+        contract.section_id,
+        contract.min_words_per_item or 0,
+    ))
 
     if not re.search(r'\[E\d+\]', result.content):
         errors.append("未找到任何 [E#] 证据引用")

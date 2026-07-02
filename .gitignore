@@ -5,3 +5,4 @@ __pycache__/
 .claude/
 .merge_waterline
 .dirty
+shared/bilibili-video-analyzer/.cookies/
