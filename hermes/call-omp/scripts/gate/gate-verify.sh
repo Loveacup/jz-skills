@@ -7,7 +7,10 @@
 #              稳健提取与 lib/omp-lib.sh:extract_verdict_json 同语义，为保持自包含刻意内联复制。
 #
 # 职责：验证两类对象具备"最小可信结构"——
-#   package 模式：委派包字段是否齐（task/scope/criterion/threshold/output）。
+#   package 模式：委派包字段是否齐（task/scope/criterion/threshold/output），且
+#                 channel∈{shell,rpc,acp}、mode∈枚举、auditor.independence_level∈
+#                 {bundle_only,independent_readonly}；bundle_only 须带 evidence_bundle.path。
+#                 execute 模式豁免 criterion（通用执行任务无需可裁决验收条件）。
 #   output  模式：OMP 的 --mode json 原始 JSONL 是否完整，且内层审计 JSON 有 severity、
 #                 evidence 非空。evidence 为空是硬红线（不采信无证据的"完成"）。
 #
@@ -50,7 +53,12 @@ if [[ "$MODE" == "package" ]]; then
   if ! jq -e 'type=="object"' "$FILE" >/dev/null 2>&1; then
     emit false "委派包不是合法 JSON 对象"; exit 1
   fi
-  # 一次性算出缺失字段数组（criterion 须为非空数组；output 须 json+evidence_required）
+  # 一次性算出缺失/非法字段数组：
+  #   - criterion 须为非空数组（execute 模式豁免——通用执行任务无需可裁决 criterion）
+  #   - channel（可选）须 shell|rpc|acp；mode 须在枚举内；
+  #     auditor.independence_level（可选）须 bundle_only|independent_readonly；
+  #     bundle_only 必须带 .evidence_bundle.path（否则审计者无离线证据基座）。
+  #   - output 须 json + evidence_required
   set +e
   missing=$(jq -c '
     [ (if (.task_id // "")     =="" then "task_id" else empty end),
@@ -58,6 +66,10 @@ if [[ "$MODE" == "package" ]]; then
       (if (.task // "")        =="" then "task" else empty end),
       (if (.scope|type)        !="object" then "scope" else empty end),
       (if (.mode // "audit" | test("^execute")) then empty elif (.criterion|type)!="array" or (.criterion|length)==0 then "criterion" else empty end),
+      (if ((.channel // "shell") | test("^(shell|rpc|acp)$")|not) then "channel(invalid)" else empty end),
+      (if (.mode // "")=="" then empty elif (.mode | test("^(audit|execute|govern:(inspect|clean|deep-clean|evidence|sql))$")) then empty else "mode(invalid)" end),
+      (if ((.auditor.independence_level // "independent_readonly") | test("^(bundle_only|independent_readonly)$")|not) then "auditor.independence_level(invalid)" else empty end),
+      (if ((.auditor.independence_level // "")=="bundle_only") and ((.evidence_bundle.path // "")=="") then "evidence_bundle.path" else empty end),
       (if (.threshold.round_limit|type)!="number"  then "threshold.round_limit" else empty end),
       (if (.threshold.reject_limit|type)!="number" then "threshold.reject_limit" else empty end),
       (if (.output.format)         !="json" then "output.format" else empty end),
@@ -69,7 +81,7 @@ if [[ "$MODE" == "package" ]]; then
   if [[ "$n" -eq 0 ]]; then
     emit true "委派包字段齐全" "[]"; exit 0
   else
-    emit false "委派包缺必填字段" "$missing"; exit 1
+    emit false "委派包缺必填字段或字段值非法" "$missing"; exit 1
   fi
 fi
 

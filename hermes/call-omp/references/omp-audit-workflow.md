@@ -37,6 +37,27 @@ Hermes 阅读审计报告，决策：
 | 修正 | 扩展 `omp-monitor.sh` + --watch（+88行），ACP 走回调 |
 | 结果 | v0.4.0 落地，58/58 测试 + smoke test 通过 |
 
+## 审计独立级别 · `bundle_only` vs `independent_readonly`
+
+委派包 `auditor.independence_level` 决定审计者如何取证：
+
+- `independent_readonly`（默认）：OMP 现场只读访问工作区（read/grep/glob/lsp/web_search）。
+- `bundle_only`：OMP **不**现场访问，仅凭离线证据包核查。证据包由只读生成器产出（不改动被审仓库）：
+
+```bash
+scripts/omp-bundle-code-audit.sh --repo <被审仓库> --out <证据包目录> \
+  --scope src/auth --base HEAD
+# 产出 manifest.json / summary.md / file-list.txt / git-status.txt / diff.patch（非 git 目录优雅退化）
+# 委派包填 evidence_bundle.path = <证据包目录>/manifest.json（gate-verify 强校验：bundle_only 必带此字段）
+# best-effort 剔除 .env / *secret* / *token* / *credential* / *.pem / *.key 等敏感路径
+```
+
+## OMP 完整 CLI / execute 通道
+
+OMP 是完整 CLI agent，不止审计。委派包 `mode=execute` 走 `execute-prompt-template.md`（通用执行者），
+可跑 build/test/lint/任意 shell 任务。execute 模式豁免 criterion 与 evidence 红线（通用执行无需可裁决验收），
+但状态机不变——仍走 start → send → monitor → finish 四步，不新增状态。
+
 ## 触发条件
 
 - 设计方案涉及通道/协议/安全/竞态等复杂交互

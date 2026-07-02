@@ -15,7 +15,7 @@ description: >-
   与 cc-tmux 互补（cc-tmux 管长会话编码委派，omp 管审计/治理/工具面 + 沙箱逃生通道 + 任意 CLI 任务）。
 tags: []
 related_skills: []
-version: 0.6.4
+version: 0.6.5
 type: autonomous-ai-agents
 author: anyis (Hermes Agent Team)
 license: MIT
@@ -329,6 +329,15 @@ scripts/omp-finish.sh --state <状态文件> --human-review   # 升级人工（�
 
 - 委派包共享 `task / criterion / threshold / risk / auditor / independence_level`（见 templates/）。
 - verdict 共享 `severity / evidence / reject_instruction`，附 `summary / next_action`。
+- **输入契约收窄**（gate-verify `--mode package` 强校验）：`channel∈{shell,rpc,acp}`、
+  `mode∈{audit,execute,govern:inspect|clean|deep-clean|evidence|sql}`、
+  `auditor.independence_level∈{independent_readonly,bundle_only}`。`execute` 模式豁免 criterion。
+- **审计独立级别**：`independent_readonly`（默认，现场只读核查）vs `bundle_only`（仅凭离线证据包核查，
+  委派包**须带 `evidence_bundle.path`**）。证据包用只读生成器 `scripts/omp-bundle-code-audit.sh`
+  （`--repo/--out/--scope/--base`）产出 `manifest.json / summary.md / file-list.txt / git-status.txt /
+  diff.patch`，容忍非 git 目录，best-effort 剔除 `.env` / 密钥凭据类敏感路径，不改动被审仓库。
+- **OMP 完整 CLI / execute 通道**：`mode=execute` 走 `execute-prompt-template.md`（通用执行者），
+  可跑 build/test/lint/任意 shell，豁免 evidence 红线；仍走 start→send→monitor→finish 四步，不扩状态机。
 
 ## 与 cc-tmux 的分工边界
 
@@ -490,9 +499,21 @@ enforcement。**待验证项不得在输出中写成已实现事实。**
 ## 测试
 
 `bash tests/run-all.sh` —— 自包含套件（mock omp，零 token），覆盖 gate 硬卡 + 四步状态机 +
-async 监控/干预 + ACP delegate_task + 红线 + 稳健 verdict 提取。当前 **70/70 通过**（含 --watch 3 项）。
+async 监控/干预 + ACP delegate_task + 红线 + 稳健 verdict 提取 + 证据包生成器 + execute smoke。当前 **95/95 通过**（含 --watch 3 项）。
 
 ## 版本历史
+
+### v0.6.5（2026-07-02）— Package B：evidence bundle + input contract + execute smoke
+
+本版把 call-OMP 从“审计输出提取修复”推进到“审计输入工程化 + OMP 完整 CLI 能力面最小闭环”，不扩状态机、不新增 `needs_evidence`：
+
+| 级别 | 新增/修复 | 描述 |
+|:---:|------|------|
+| P0 | code-audit evidence bundle | 新增 `scripts/omp-bundle-code-audit.sh`，只读生成 `manifest.json` / `summary.md` / `file-list.txt` / `git-status.txt` / `diff.patch`；支持 repo 内绝对/相对 scope 归一化，best-effort 剔除敏感路径。 |
+| P0 | package input contract | `gate-verify.sh --mode package` 强校验 `channel`、`mode`、`auditor.independence_level`；`bundle_only` 必须带 `evidence_bundle.path`；保留 `execute` criterion 豁免。 |
+| P1 | execute smoke | `tests/run-all.sh` 新增 execute mock 端到端：start → send → monitor → finish accept，验证 execute 空 evidence 可接受。 |
+| P1 | audit profile docs | 模板/参考文档/SKILL 补 `bundle_only` vs `independent_readonly`，明确 OMP 是完整 CLI agent，不只审计。 |
+| P1 | regression tests | 当前 95/95 通过；OMP bundle-only 审计 accepted，severity=pass，evidence=13。 |
 
 ### v0.6.4（2026-07-02）— robust verdict extraction / 稳健判决提取
 

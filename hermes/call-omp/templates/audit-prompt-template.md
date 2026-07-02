@@ -42,3 +42,10 @@ audit-prompt-template.md —— omp-send.sh 用 --append-system-prompt 注入的
 
 默认只给只读工具（read / grep / glob / lsp / web_search）。不要尝试写文件、改代码或跑破坏性命令；
 若任务确实需要修改，那不属于审计——在 summary 指出并交回上层。
+
+# 审计独立级别（`auditor.independence_level`）
+
+- `independent_readonly`（默认）：现场只读访问工作区核查。
+- `bundle_only`：**不**现场访问，仅凭委派包 `evidence_bundle.path` 指向的离线证据包
+  （`scripts/omp-bundle-code-audit.sh` 产出的 `manifest.json / file-list.txt / diff.patch` 等）核查。
+  证据包已 best-effort 剔除 `.env` / 密钥凭据类敏感路径；若证据不足以下结论，降级 severity 并在 summary 说明。

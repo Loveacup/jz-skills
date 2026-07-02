@@ -183,17 +183,17 @@ STATEEOF
 
 # 13a: ACP 拒绝 --watch
 echo -n "  🧪 watch-acp-reject ... "
-OUT=$(bash scripts/omp-monitor.sh --state /tmp/omp-test-state.json --watch 2>&1) || true
+OUT=$(bash "$S/omp-monitor.sh" --state /tmp/omp-test-state.json --watch 2>&1) || true
 if echo "$OUT" | grep -q "不支持 ACP"; then echo "✅"; else echo "❌ 未检测到 ACP 拒绝 (got: ${OUT:0:80})"; ((F++)); fi
 
 # 13b: --interval 非法值
 echo -n "  🧪 watch-bad-interval ... "
-bash scripts/omp-monitor.sh --state /tmp/omp-test-state.json --watch --interval abc 2>/dev/null; RC=$?
+bash "$S/omp-monitor.sh" --state /tmp/omp-test-state.json --watch --interval abc 2>/dev/null; RC=$?
 [[ $RC -eq 3 ]] && echo "✅" || { echo "❌ exit=$RC 期望 3"; ((F++)); }
 
 # 13c: --help 覆盖 --watch
 echo -n "  🧪 watch-help ... "
-OUT=$(bash scripts/omp-monitor.sh --help 2>&1)
+OUT=$(bash "$S/omp-monitor.sh" --help 2>&1)
 if echo "$OUT" | grep -q "\-\-watch"; then echo "✅"; else echo "❌"; ((F++)); fi
 
 ((P+=3))
@@ -257,6 +257,69 @@ echo "$GP" | bash "$S/omp-start.sh" --package-json - --task-id le1 >/dev/null 2>
 OMP_BIN="$TD/mock-lastempty.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-le1.json" >/dev/null 2>&1
 bash "$S/omp-monitor.sh" --state "$TD/omp-state-le1.json" >/dev/null 2>&1; chk "末个空证据 monitor→10" 10 $?
 chk "  状态 rejected" rejected "$(jq -r .status "$TD/omp-state-le1.json")"
+
+# ════ 15. 证据包生成器 + 输入契约收窄 + execute 端到端 ══════════════
+echo "═══ 15. 证据包 + 契约收窄 + execute 端到端 ═══"
+
+# 15a: bundle --help → 0
+bash "$S/omp-bundle-code-audit.sh" --help >/dev/null 2>&1; chk "bundle --help→0" 0 $?
+
+# 15b: bundle 生成形状 + 敏感路径排除（非 git 目录，验证 tolerate 非 git）
+SRC="$TD/bundle-src"; mkdir -p "$SRC/lib" "$SRC/config"
+printf 'console.log(1)\n' > "$SRC/app.js"
+printf 'export const x=1\n' > "$SRC/lib/util.js"
+printf 'API_KEY=xxx\n'   > "$SRC/.env"
+printf 'shhh\n'          > "$SRC/config/secret-config.txt"
+printf 'PRIVATE\n'       > "$SRC/api.key"
+BND="$TD/bundle-out"
+bash "$S/omp-bundle-code-audit.sh" --repo "$SRC" --out "$BND" >/dev/null 2>&1; chk "bundle 生成→0" 0 $?
+_shape=y
+for art in manifest.json summary.md file-list.txt git-status.txt diff.patch; do
+  [[ -f "$BND/$art" ]] || _shape=n
+done
+chk "  bundle 5 产物齐全" y "$_shape"
+jq -e 'type=="object" and .kind=="omp-code-audit-evidence-bundle"' "$BND/manifest.json" >/dev/null 2>&1 && chk "  manifest 合法 JSON" y y || chk "  manifest 合法 JSON" y n
+grep -q '^app.js$' "$BND/file-list.txt" 2>/dev/null && chk "  普通文件入包" y y || chk "  普通文件入包" y n
+if grep -Eq '(^|/)(\.env|api\.key|config/secret-config\.txt)$' "$BND/file-list.txt" 2>/dev/null; then chk "  敏感路径已排除" y n; else chk "  敏感路径已排除" y y; fi
+chk "  manifest sensitive_excluded=3" 3 "$(jq -r '.sensitive_excluded' "$BND/manifest.json" 2>/dev/null)"
+chk "  manifest is_git=false" false "$(jq -r '.is_git' "$BND/manifest.json" 2>/dev/null)"
+BND_ABS="$TD/bundle-out-abs"
+bash "$S/omp-bundle-code-audit.sh" --repo "$SRC" --out "$BND_ABS" --scope "$SRC/lib" >/dev/null 2>&1; chk "bundle 绝对 scope→0" 0 $?
+grep -q '^lib/util.js$' "$BND_ABS/file-list.txt" 2>/dev/null && chk "  绝对 scope 归一为相对路径" y y || chk "  绝对 scope 归一为相对路径" y n
+
+# 15c: gate-verify package 契约收窄
+mkpkg '.task_id="t"|.channel="ftp"' > "$TD/pkg-badch.json"
+bash "$S/gate/gate-verify.sh" --mode package --file "$TD/pkg-badch.json" >/dev/null 2>&1; chk "非法 channel→1" 1 $?
+mkpkg '.task_id="t"|.mode="destroy"' > "$TD/pkg-badmode.json"
+bash "$S/gate/gate-verify.sh" --mode package --file "$TD/pkg-badmode.json" >/dev/null 2>&1; chk "非法 mode→1" 1 $?
+mkpkg '.task_id="t"|.mode="govern:clean"' > "$TD/pkg-gov.json"
+bash "$S/gate/gate-verify.sh" --mode package --file "$TD/pkg-gov.json" >/dev/null 2>&1; chk "govern:clean mode→0" 0 $?
+mkpkg '.task_id="t"|.mode="execute"|.criterion=[]' > "$TD/pkg-exe.json"
+bash "$S/gate/gate-verify.sh" --mode package --file "$TD/pkg-exe.json" >/dev/null 2>&1; chk "execute 空 criterion 豁免→0" 0 $?
+mkpkg '.task_id="t"|.auditor.independence_level="bundle_only"' > "$TD/pkg-bo-no.json"
+GVBO=$(bash "$S/gate/gate-verify.sh" --mode package --file "$TD/pkg-bo-no.json" 2>/dev/null); chk "bundle_only 缺 path→1" 1 $?
+echo "$GVBO" | grep -q 'evidence_bundle.path' && chk "  缺失字段含 evidence_bundle.path" y y || chk "  缺失字段含 evidence_bundle.path" y n
+mkpkg '.task_id="t"|.auditor.independence_level="bundle_only"|.evidence_bundle={path:"'"$BND/manifest.json"'"}' > "$TD/pkg-bo-ok.json"
+bash "$S/gate/gate-verify.sh" --mode package --file "$TD/pkg-bo-ok.json" >/dev/null 2>&1; chk "bundle_only 带 path→0" 0 $?
+mkpkg '.task_id="t"|.auditor.independence_level="wild"' > "$TD/pkg-il.json"
+bash "$S/gate/gate-verify.sh" --mode package --file "$TD/pkg-il.json" >/dev/null 2>&1; chk "非法 independence_level→1" 1 $?
+
+# 15d: execute 模式端到端（空证据允许——execute 豁免证据红线）
+cat > "$TD/mock-exec.sh" <<'M'
+#!/usr/bin/env bash
+printf '%s\n' \
+'{"type":"session","id":"e1"}' \
+'{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"STATUS: completed\nSUMMARY: 跑通 build\nFILES: app.js"}]}}' \
+'{"type":"turn_end","message":{"role":"assistant","stopReason":"stop","content":[{"type":"text","text":"done"}]}}'
+M
+chmod +x "$TD/mock-exec.sh"
+echo "$GP" | jq '.mode="execute"|.criterion=[]' | bash "$S/omp-start.sh" --package-json - --task-id ex1 >/dev/null 2>&1; chk "execute start→gated" 0 $?
+chk "  状态 gated" gated "$(jq -r .status "$TD/omp-state-ex1.json")"
+OMP_BIN="$TD/mock-exec.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-ex1.json" >/dev/null 2>&1; chk "execute send→0" 0 $?
+bash "$S/omp-monitor.sh" --state "$TD/omp-state-ex1.json" >/dev/null 2>&1; chk "execute monitor→reported" 0 $?
+chk "  状态 reported" reported "$(jq -r .status "$TD/omp-state-ex1.json")"
+bash "$S/omp-finish.sh" --state "$TD/omp-state-ex1.json" --accept >/dev/null 2>&1; chk "execute accept 空证据→0" 0 $?
+chk "  状态 accepted" accepted "$(jq -r .status "$TD/omp-state-ex1.json")"
 
 echo; echo "════════ PASS=$P  FAIL=$F ════════"
 [[ $F -eq 0 ]] && exit 0 || exit 1
