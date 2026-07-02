@@ -198,6 +198,66 @@ if echo "$OUT" | grep -q "\-\-watch"; then echo "✅"; else echo "❌"; ((F++));
 
 ((P+=3))
 
+# ════ 14. 稳健判决提取（多 fenced / 多裸对象 / text_delta / 空证据红线）══════════
+echo "═══ 14. 稳健判决提取 ═══"
+
+# 14a mock：prose + 两个 fenced 块，前 blocker（陈旧草稿）后 pass（终稿）→ 应选末个 pass
+cat > "$TD/mock-multifence.sh" <<'M'
+#!/usr/bin/env bash
+printf '%s\n' '{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"初审草稿\n```json\n{\"severity\":\"blocker\",\"summary\":\"旧稿误报\",\"evidence\":[{\"ref\":\"a:1\"}]}\n```\n复核后终稿：\n```json\n{\"severity\":\"pass\",\"summary\":\"复核通过\",\"evidence\":[{\"ref\":\"b:2\"}]}\n```"}]}}' '{"type":"turn_end","message":{"stopReason":"stop"}}'
+M
+# 14b mock：自由文本里多个裸对象，末个才是合法判决 → 应选末个 concern
+cat > "$TD/mock-baremulti.sh" <<'M'
+#!/usr/bin/env bash
+printf '%s\n' '{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"元数据 {\"note\":\"ignore\"} 前置草稿 {\"severity\":\"blocker\",\"summary\":\"stale\",\"evidence\":[{\"ref\":\"a\"}]} 最终结论 {\"severity\":\"concern\",\"summary\":\"最终裁决\",\"evidence\":[{\"ref\":\"b\"}]}"}]}}' '{"type":"turn_end","message":{"stopReason":"stop"}}'
+M
+# 14c mock：仅 text_delta 流（无 message_end 汇总块）→ 按序拼接还原后提取
+cat > "$TD/mock-delta.sh" <<'M'
+#!/usr/bin/env bash
+printf '%s\n' \
+'{"type":"session","id":"d1"}' \
+'{"type":"assistantMessageEvent","assistantMessageEvent":{"type":"text_delta","delta":"delta prefix "}}' \
+'{"type":"assistantMessageEvent","assistantMessageEvent":{"type":"text_delta","delta":"{\"severity\":\"pass\","}}' \
+'{"type":"assistantMessageEvent","assistantMessageEvent":{"type":"text_delta","delta":"\"summary\":\"delta 拼接终稿\",\"evidence\":[{\"ref\":\"z:1\"}]}"}}' \
+'{"type":"turn_end","message":{"stopReason":"stop"}}'
+M
+# 14d mock：两 fenced，前 blocker（有证据）后 pass（空证据）→ 选末个 pass，但空证据仍触发 exit 10
+cat > "$TD/mock-lastempty.sh" <<'M'
+#!/usr/bin/env bash
+printf '%s\n' '{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"草稿\n```json\n{\"severity\":\"blocker\",\"summary\":\"有证据草稿\",\"evidence\":[{\"ref\":\"a:1\"}]}\n```\n终稿\n```json\n{\"severity\":\"pass\",\"summary\":\"空证据终稿\",\"evidence\":[]}\n```"}]}}' '{"type":"turn_end","message":{"stopReason":"stop"}}'
+M
+chmod +x "$TD"/mock-multifence.sh "$TD"/mock-baremulti.sh "$TD"/mock-delta.sh "$TD"/mock-lastempty.sh
+
+# 14a: gate-verify 直判 + monitor 端到端都应选末个 pass（非首个 blocker）
+"$TD/mock-multifence.sh" > "$TD/raw-mf.json"
+GVMF=$(bash "$S/gate/gate-verify.sh" --mode output --file "$TD/raw-mf.json" 2>/dev/null); chk "多fenced gate→0" 0 $?
+echo "$GVMF" | grep -q 'severity=pass' && chk "  多fenced gate 选 pass" y y || chk "  多fenced gate 选 pass" y n
+echo "$GP" | bash "$S/omp-start.sh" --package-json - --task-id mf1 >/dev/null 2>&1
+OMP_BIN="$TD/mock-multifence.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-mf1.json" >/dev/null 2>&1
+bash "$S/omp-monitor.sh" --state "$TD/omp-state-mf1.json" >/dev/null 2>&1; chk "多fenced monitor→reported" 0 $?
+chk "  monitor 选末个 severity=pass" pass "$(jq -r .monitor.severity "$TD/omp-state-mf1.json")"
+
+# 14b: 多裸对象 → 选末个合法判决 concern
+"$TD/mock-baremulti.sh" > "$TD/raw-bm.json"
+GVBM=$(bash "$S/gate/gate-verify.sh" --mode output --file "$TD/raw-bm.json" 2>/dev/null); chk "多裸对象 gate→0" 0 $?
+echo "$GVBM" | grep -q 'severity=concern' && chk "  多裸对象选末个 concern" y y || chk "  多裸对象选末个 concern" y n
+
+# 14c: text_delta-only → 拼接还原后提取成功
+"$TD/mock-delta.sh" > "$TD/raw-dl.json"
+bash "$S/gate/gate-verify.sh" --mode output --file "$TD/raw-dl.json" >/dev/null 2>&1; chk "text_delta gate→0" 0 $?
+echo "$GP" | bash "$S/omp-start.sh" --package-json - --task-id dl1 >/dev/null 2>&1
+OMP_BIN="$TD/mock-delta.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-dl1.json" >/dev/null 2>&1
+bash "$S/omp-monitor.sh" --state "$TD/omp-state-dl1.json" >/dev/null 2>&1; chk "text_delta monitor→reported" 0 $?
+chk "  text_delta severity=pass" pass "$(jq -r .monitor.severity "$TD/omp-state-dl1.json")"
+
+# 14d: 末个合法判决为空证据 → 仍触发 evidence 硬红线 exit 10 / rejected（选末不绕过红线）
+"$TD/mock-lastempty.sh" > "$TD/raw-le.json"
+bash "$S/gate/gate-verify.sh" --mode output --file "$TD/raw-le.json" >/dev/null 2>&1; chk "末个空证据 gate→10" 10 $?
+echo "$GP" | bash "$S/omp-start.sh" --package-json - --task-id le1 >/dev/null 2>&1
+OMP_BIN="$TD/mock-lastempty.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-le1.json" >/dev/null 2>&1
+bash "$S/omp-monitor.sh" --state "$TD/omp-state-le1.json" >/dev/null 2>&1; chk "末个空证据 monitor→10" 10 $?
+chk "  状态 rejected" rejected "$(jq -r .status "$TD/omp-state-le1.json")"
+
 echo; echo "════════ PASS=$P  FAIL=$F ════════"
 [[ $F -eq 0 ]] && exit 0 || exit 1
 

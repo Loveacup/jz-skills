@@ -209,8 +209,19 @@ fi
 # ── 提取内层审计 JSON（execute 模式跳过校验）──
 if [[ "$MONITOR_MODE" != "execute" ]]; then
 # ── 提取内层审计 JSON（用于 severity/summary 校验 + 存档供 finish）──
+# 稳健提取：取"最后一个合法判决对象"（跳过前置陈旧/非法草稿）；无合法判决时退化取
+# 最后一个 JSON 对象，让下方 severity/summary 校验能给出精确错误而非笼统"无 JSON"。
 FINAL=$(jsonl_final_text "$RAW")
-INNER=$(extract_inner_json "$FINAL")
+INNER=$(extract_verdict_json "$FINAL" 2>/dev/null || true)
+[[ -z "$INNER" ]] && INNER=$(extract_last_json_object "$FINAL" 2>/dev/null || true)
+[[ -z "$INNER" ]] && INNER=$(extract_inner_json "$FINAL" 2>/dev/null || true)
+# 可选紧凑调试摘要（OMP_DEBUG=1 时）：只出 bytes/lines/候选数/final_text 尾部，绝不回吐整个 raw。
+if [[ -n "${OMP_DEBUG:-}" ]]; then
+  _dbg_sz=$(wc -c <"$RAW" 2>/dev/null | tr -d ' '); _dbg_ln=$(wc -l <"$RAW" 2>/dev/null | tr -d ' ')
+  _dbg_nc=$(printf '%s' "$FINAL" | _json_objects_nul | tr -cd '\0' | wc -c | tr -d ' ')
+  echo "🔎 omp-monitor debug · raw=${_dbg_sz}B/${_dbg_ln}行 · 候选对象=${_dbg_nc} · final_text 尾部:" >&2
+  printf '%s' "${FINAL: -2000}" >&2; echo >&2
+fi
 SEV=""; SUMMARY=""; EVN=0; SEV_VALID=false
 if [[ -n "$INNER" ]] && inner_json_valid "$INNER"; then
   SEV=$(printf '%s' "$INNER" | jq -r '.severity // ""')

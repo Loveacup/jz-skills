@@ -15,7 +15,7 @@ description: >-
   与 cc-tmux 互补（cc-tmux 管长会话编码委派，omp 管审计/治理/工具面 + 沙箱逃生通道 + 任意 CLI 任务）。
 tags: []
 related_skills: []
-version: 0.6.3
+version: 0.6.4
 type: autonomous-ai-agents
 author: anyis (Hermes Agent Team)
 license: MIT
@@ -490,9 +490,20 @@ enforcement。**待验证项不得在输出中写成已实现事实。**
 ## 测试
 
 `bash tests/run-all.sh` —— 自包含套件（mock omp，零 token），覆盖 gate 硬卡 + 四步状态机 +
-async 监控/干预 + ACP delegate_task + 红线。当前 **58/58 通过**（含 --watch 3 项）。
+async 监控/干预 + ACP delegate_task + 红线 + 稳健 verdict 提取。当前 **70/70 通过**（含 --watch 3 项）。
 
 ## 版本历史
+
+### v0.6.4（2026-07-02）— robust verdict extraction / 稳健判决提取
+
+WRR Package A 复审实战暴露 monitor 会误抓首个 fenced JSON、漏掉 OMP 自我修正后的最终 verdict。本版收窄修复 I/O 契约，不改变 accept/reject 红线：
+
+| 级别 | 修复 | 描述 |
+|:---:|------|------|
+| P0 | last valid verdict extraction | `jsonl_final_text` 增加 `assistantMessageEvent.type=text_delta`/`delta` 兜底；`extract_verdict_json` 枚举全部 top-level JSON 对象，选择最后一个合法 `{severity,summary,evidence}` verdict，避免多 fenced / 多裸对象取错。 |
+| P0 | evidence hardline preserved | 空 evidence 仍由 `gate-verify` exit 10、`omp-monitor` rejected、`omp-finish --accept` 拒绝；`verdict_valid` 只验证 evidence 是数组，避免空 evidence 终稿被跳过而误采旧对象。 |
+| P1 | gate self-contained retained | `gate-verify.sh` 仍不 source skill lib；内联同语义提取器，保持基质无关。 |
+| P1 | regression tests | `tests/run-all.sh` 新增多 fenced、裸多对象、text_delta-only、末个空证据红线 4 组场景；当前 70/70 通过。 |
 
 ### v0.6.3（2026-06-29）— plist EnvironmentVariables 半截修复陷阱 + OMP 已配 model 边界反转
 

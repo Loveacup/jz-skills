@@ -3,7 +3,8 @@
 # gate-verify.sh —— 结构验收 gate（委派包 / OMP 输出）
 #
 # 【基质无关】 不依赖 Hermes / omp 在线 / 本 skill 的 lib；纯参数进、退出码出、自包含。
-#              JSONL 双层解析就地内联（只用 jq），任何 agent/编排基质可直接调。
+#              JSONL 双层解析 + 稳健判决提取就地内联（只用 jq / perl），任何 agent/编排基质可直接调。
+#              稳健提取与 lib/omp-lib.sh:extract_verdict_json 同语义，为保持自包含刻意内联复制。
 #
 # 职责：验证两类对象具备"最小可信结构"——
 #   package 模式：委派包字段是否齐（task/scope/criterion/threshold/output）。
@@ -84,17 +85,41 @@ fi
 final_text=$(jq -c 'select(.type=="message_end" and .message.role=="assistant")
                     | .message.content[]? | select(.type=="text") | .text' "$FILE" 2>/dev/null \
              | tail -1 | jq -r . 2>/dev/null)
+# text_delta 兜底：v16.2.x 只发 assistantMessageEvent.type=text_delta 流、无 message_end 汇总块时，
+# grep 预筛 delta 行 + 逐行 jq（容忍流式末行不完整）按序拼接还原最终文本。
+if [[ -z "$final_text" ]]; then
+  final_text=$(grep '"text_delta"' "$FILE" 2>/dev/null | while IFS= read -r _line; do
+      printf '%s' "$_line" | jq -rj 'if (.assistantMessageEvent.type=="text_delta") then (.assistantMessageEvent.delta // .assistantMessageEvent.text // "")
+                                    elif (.type=="text_delta") then (.text // "") else empty end' 2>/dev/null
+    done)
+fi
 if [[ -z "$final_text" ]]; then
   emit false "OMP 无 assistant 文本输出" "[]"; exit 1
 fi
-# fenced ```json 优先；否则首{…末}贪婪切片
-inner=$(printf '%s' "$final_text" | awk '
-  /^[[:space:]]*```[[:space:]]*[jJ][sS][oO][nN][[:space:]]*$/ {f=1; next}
-  /^[[:space:]]*```[[:space:]]*$/ {if(f){exit}}
-  f {print}')
-if [[ -z "$inner" ]]; then
-  inner=$(printf '%s' "$final_text" | perl -0777 -ne 'if (/(\{.*\})/s){print $1}' 2>/dev/null || true)
-fi
+# 稳健提取（与 omp-lib.sh extract_verdict_json 同语义，此处就地内联以保持 gate-verify 自包含）：
+# 枚举文本中全部 top-level 平衡花括号对象（JSON 字符串感知），取「最后一个合法判决」
+# （severity∈集合 / summary 非空 / evidence 为数组）；无合法判决则退化取最后一个对象，
+# 使下方 severity/evidence 校验给出精确错误。这解决"多 fenced 块 / 多裸对象取错块"的脆弱性。
+inner=""; _last_obj=""; _cand=""
+while IFS= read -r -d '' _cand; do
+  [[ -n "$_cand" ]] || continue
+  _last_obj="$_cand"
+  if printf '%s' "$_cand" | jq -e '
+      type=="object"
+      and ((.severity? // "") | test("^(nit|concern|blocker|pass)$"))
+      and ((.summary?  // "") | (type=="string" and length>0))
+      and ((.evidence?)       | type=="array")' >/dev/null 2>&1; then
+    inner="$_cand"
+  fi
+done < <(printf '%s' "$final_text" | perl -0777 -ne '
+  my $s=$_; my $d=0; my $st=-1; my $in=0; my $es=0;
+  for my $i (0..length($s)-1){ my $c=substr($s,$i,1);
+    if($in){ if($es){$es=0} elsif($c eq "\\"){$es=1} elsif($c eq "\""){$in=0} next }
+    if($c eq "\""){$in=1; next}
+    if($c eq "{"){ $st=$i if $d==0; $d++ }
+    elsif($c eq "}"){ if($d>0){$d--; if($d==0 && $st>=0){ print substr($s,$st,$i-$st+1),"\0"; $st=-1 }} }
+  }' 2>/dev/null)
+[[ -z "$inner" ]] && inner="$_last_obj"
 if [[ -z "$inner" ]] || ! printf '%s' "$inner" | jq -e 'type=="object"' >/dev/null 2>&1; then
   emit false "OMP 文本中无合法审计 JSON（应输出 {severity,evidence,summary}）" "[]"; exit 1
 fi
