@@ -97,15 +97,15 @@ fi
 # classify→repair→retry loop (max 3 retries by default, robust handles both
 # queue-banner/Escape and residual-text/Enter stuck states).
 #
-# Exit codes from send_to_pane: 0=ok, 1=retry exhausted, 3=tmux error
+# Exit codes from send_to_pane: 0=ok, 1=retry exhausted, 3=tmux error, 4=unsafe prompt text
 if [[ "$DRYRUN" -eq 1 ]]; then
   echo "[dry-run] would send: $MSG"
   echo "[dry-run] via send_to_pane() with classify→repair→retry pipeline"
   exit 0
 fi
 
-send_to_pane "$SESSION" "$MSG" 4    # max 4 retries (was 3 default; bump for safety)
-rc=$?
+rc=0
+send_to_pane "$SESSION" "$MSG" 4 || rc=$?    # max 4 retries (was 3 default; bump for safety)
 
 if [[ "$rc" -eq 0 ]]; then
   echo "✓ Sent to $SESSION (via send_to_pane)"
@@ -113,4 +113,8 @@ if [[ "$rc" -eq 0 ]]; then
 fi
 
 echo "⚠️  send_to_pane 失败 (rc=$rc) — 人工 capture-pane 介入" >&2
+if [[ "$rc" -eq 4 ]]; then
+  printf "   next step: cc-wait-decision.sh --session %q --sent-line %q --timeout 30\n" "$SESSION" "$MSG" >&2
+  echo "   不要自动 Enter/Tab/Escape；先用该命令二次采证 prompt 是否为 fresh_sent_line。" >&2
+fi
 exit 2

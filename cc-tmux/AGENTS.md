@@ -2,7 +2,7 @@
 
 > **Canonical 架构参考。在本代码库工作前先读这里。**
 > 分工：**本文件 = 实现/架构权威**；需求/设计权威在 OB（见文末）。
-> 当前：v1.41.0 · 测试 24/24 文件、235/235 断言 · 健康分 0.96+。
+> 当前：v1.42.0 · 测试 24/24 文件、240/240 断言 · 健康分 0.96+。
 
 ## 是什么
 
@@ -65,7 +65,7 @@ cc-tmux = Hermes ↔ Claude Code 的 tmux-based 编排层。**Thin skill**：脚
 
 ## 工作约定（coding agent）
 
-- **TDD 红线**：实现类先写测试 → 确认失败 → 写代码 → 确认通过。当前 **235/235**。
+- **TDD 红线**：实现类先写测试 → 确认失败 → 写代码 → 确认通过。当前 **240/240**。
 - **Hook/脚本是单一真源**：改 `hooks/`/`templates/settings.runtime.json` → 下个 CC 启动经 `--settings` 自动生效，零 cp/jq/重启。
 - **杀 session 必须用户确认**（`cc-finish.sh --kill-session` 永不自动）。
 - **改完同步 deploy**：`~/.hermes/skills/autonomous-ai-agents/cc-tmux/`，`md5` 校验 parity。

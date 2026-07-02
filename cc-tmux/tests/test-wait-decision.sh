@@ -58,6 +58,7 @@ if [[ "${1:-}" == "capture-pane" ]]; then
     thinking) printf '✻ Thinking 3s\nesc to interrupt\n' ;;
     queue) printf 'Press up to edit queued messages\n❯ 按 /tmp/task.md 执行\n' ;;
     residual) printf '────────────────\n❯ 按 /tmp/task.md 执行\n' ;;
+    path_anchor) printf '────────────────\n❯ Please read /tmp/cc-friction-task.md\nand follow it. If this context references a skill\n' ;;
     prediction) printf '────────────────\n❯ read the task file\n' ;;
     stale_text) printf '────────────────\n❯ some old echo text\n' ;;
     idle) printf '────────────────\n❯ \n' ;;
@@ -164,6 +165,10 @@ run_decision "$(make_wait_stub 4 '' 'startup gate')" queue 4 "rc4 + queue → no
 
 # Test 6: rc4 + residual with matching --sent-line => not_started_retryable exit4
 run_decision "$(make_wait_stub 4 '' 'startup gate')" residual 4 "rc4 + residual + sent-line match → not_started_retryable" not_started_retryable --sent-line "按 /tmp/task.md 执行"
+
+# Test 6a: rc4 + wrapped/path-anchor residual with orchestration-hint sent line
+# classifies as fresh_sent_line and safe to submit/resend, despite pane wrapping.
+run_decision_pk "$(make_wait_stub 4 '' 'startup gate')" path_anchor 4 "rc4 + path-anchor orchestration hint → fresh_sent_line" not_started_retryable fresh_sent_line --sent-line "Please read /tmp/cc-friction-task.md and follow it. If this context references a skill with its own multi-agent, agent-team, workflow, or multi-stage process, load and follow that complete skill process yourself. Do not wait for Hermes to split it into workers; Hermes is the messenger, CC is the factory."
 
 # Test 6b: rc4 + residual without --sent-line => prompt_text_needs_clear exit6
 run_decision "$(make_wait_stub 4 '' 'startup gate')" residual 6 "rc4 + residual no sent-line → prompt_text_needs_clear" prompt_text_needs_clear

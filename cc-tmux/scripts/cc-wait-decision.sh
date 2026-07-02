@@ -176,13 +176,50 @@ lines=[ln for ln in pane.splitlines() if ln.strip()]
 prompt_lines=[ln for ln in lines[-6:] if '❯' in ln]
 residual=False; clean_idle=False
 prompt_kind='none'; prompt_text=''; safe_to_submit=False; matched_sent_line=False
+
+def normalize_msg(s):
+    s=s.replace('\u00a0', ' ')
+    s=re.sub(r'[│╎┃|]', ' ', s)
+    return re.sub(r'\s+', ' ', s).strip()
+
+def path_anchor(s):
+    m=re.search(r'(/private/tmp|/tmp|/Users/\S+|\.{1,2}/)\S+', s)
+    return m.group(0) if m else ''
+
+def lead_before_anchor(s, anchor):
+    before=s.split(anchor, 1)[0] if anchor else ''
+    parts=normalize_msg(before).split()
+    return ' '.join(parts[:2]) if len(parts) >= 2 else (parts[0] if parts else '')
+
+def is_fresh_sent_line(content, sent):
+    if not content or not sent:
+        return False
+    c=normalize_msg(content)
+    s=normalize_msg(sent)
+    if c == s:
+        return True
+    anchor=path_anchor(s)
+    if not anchor or anchor not in c:
+        return False
+    lead=lead_before_anchor(s, anchor)
+    if not lead:
+        return False
+    return re.search(r'(^|\s)' + re.escape(lead) + r'(\s|$)', c, re.IGNORECASE) is not None
+
 if prompt_lines:
-    pl=prompt_lines[-1]
-    content=re.sub(r'^[\s│╎┃|]*❯\s*', '', pl).strip(' │╎┃|')
+    tail_window=lines[-6:]
+    prompt_idx=max(i for i, ln in enumerate(tail_window) if '❯' in ln)
+    prompt_block=tail_window[prompt_idx:]
+    prompt_block[0]=re.sub(r'^[\s│╎┃|]*❯\s*', '', prompt_block[0]).strip(' │╎┃|')
+    # Empty prompt is consumed/idle. Do not append later tty echo as wrapped text.
+    if prompt_block[0]:
+        content='\n'.join(prompt_block).strip(' │╎┃|')
+    else:
+        content=''
     if content:
         residual=True; signals.append('prompt_text_present'); prompt_text=content
         # v1.40: classify prompt text
-        if P_SENT and content.strip() == P_SENT:
+        if is_fresh_sent_line(content, P_SENT):
             prompt_kind='fresh_sent_line'
             matched_sent_line=True; safe_to_submit=True
             signals.append('prompt_text_fresh_sent_line')

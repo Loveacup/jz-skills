@@ -46,9 +46,11 @@ strip_ansi() {
   sed $'s/\x1b\\[[0-9;?]*[a-zA-Z]//g' 2>/dev/null || cat
 }
 
-# 规范化消息文本用于匹配比较（去除首尾空格、压缩连续空格）
+# 规范化消息文本用于匹配比较（去除首尾空格、压缩连续空格/换行/常见 TUI 边框）
 _normalize_msg() {
-  printf '%s' "$1" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s/[[:space:]][[:space:]]*/ /g'
+  printf '%s' "$1" \
+    | tr '\302\240' ' ' 2>/dev/null \
+    | sed -E 's/[│╎┃|]/ /g; s/^[[:space:]]*//; s/[[:space:]]*$//; s/[[:space:]][[:space:]]*/ /g'
 }
 
 # 读 pane 底部有效内容（去空行，取末 4 行），与 cc-send.sh 同口径
@@ -58,13 +60,59 @@ _capture_tail() {
     | strip_ansi | grep -v '^[[:space:]]*$' | tail -4 || true
 }
 
-# 获取 ❯ 后的文本内容（空 = idle empty）
+# 获取最后一个 ❯ 后的文本内容；包含后续 wrapped 行（空 = idle empty）
 _prompt_text() {
-  local tail4="$1" pl
-  pl=$(printf '%s' "$tail4" | grep '❯' | tail -1 || true)
-  if [[ -n "$pl" ]]; then
-    printf '%s' "$pl" | sed -E 's/^[[:space:]│╎┃|]*❯[[:space:]]*//; s/[[:space:]│╎┃|]*$//'
+  local tail4="$1"
+  printf '%s\n' "$tail4" | awk '
+    /❯/ {
+      buf=$0
+      sub(/^[[:space:]│╎┃|]*❯[[:space:]]*/, "", buf)
+      gsub(/^[[:space:]│╎┃|]+|[[:space:]│╎┃|]+$/, "", buf)
+      # Empty prompt is a consumed/idle prompt. Do NOT treat later terminal echo
+      # lines as wrapped prompt text; only non-empty prompt lines may wrap.
+      seen=(buf != "")
+      next
+    }
+    seen { buf=buf "\n" $0 }
+    END {
+      gsub(/^[[:space:]│╎┃|]+|[[:space:]│╎┃|]+$/, "", buf)
+      print buf
+    }'
+}
+
+_regex_escape() {
+  printf '%s' "$1" | sed -E 's/[][(){}.^$*+?|\\/]/\\&/g'
+}
+
+_path_anchor() {
+  printf '%s' "$1" \
+    | grep -Eo '(/private/tmp|/tmp|/Users/[^[:space:]]+|[.]{1,2}/)[^[:space:]]+' \
+    | head -1 || true
+}
+
+_lead_before_anchor() {
+  local msg="$1" anchor="$2" before
+  before="${msg%%$anchor*}"
+  printf '%s' "$before" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/[[:space:]]+/ /g' | awk '{ if (NF >= 2) print $1 " " $2; else print $1 }'
+}
+
+_is_fresh_sent_line() {
+  local prompt_text="$1" sent_msg="$2" pt_norm sent_norm anchor lead
+  [[ -n "$prompt_text" && -n "$sent_msg" ]] || return 1
+  pt_norm=$(_normalize_msg "$prompt_text")
+  sent_norm=$(_normalize_msg "$sent_msg")
+  [[ "$pt_norm" == "$sent_norm" ]] && return 0
+
+  anchor=$(_path_anchor "$sent_norm")
+  [[ -n "$anchor" ]] || return 1
+  [[ "$pt_norm" == *"$anchor"* ]] || return 1
+
+  lead=$(_lead_before_anchor "$sent_norm" "$anchor")
+  [[ -n "$lead" ]] || return 1
+  if printf '%s' "$pt_norm" | grep -Eiq "(^|[[:space:]])$(_regex_escape "$lead")([[:space:]]|$)"; then
+    return 0
   fi
+  return 1
 }
 
 # 分类 pane 状态并提取 prompt text（通过变量 PT_TEXT / PT_SIGNAL 返回）：
@@ -84,8 +132,8 @@ _classify_pane() {
     PT_SIGNAL="prompt_empty_or_busy"; return 0
   fi
   PT_TEXT="$pt"
-  # 文本匹配刚发送消息（normalized 比较）→ Enter 未生效
-  if [[ -n "$sent_msg" ]] && [[ "$(_normalize_msg "$pt")" == "$(_normalize_msg "$sent_msg")" ]]; then
+  # 文本匹配刚发送消息（exact normalized 或 path-anchor proof）→ Enter 未生效
+  if _is_fresh_sent_line "$pt" "$sent_msg"; then
     PT_SIGNAL="prompt_text_fresh_sent_line"; return 1
   fi
   # 文本不匹配（未知/预测/stale）→ 不安全

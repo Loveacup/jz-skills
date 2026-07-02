@@ -14,6 +14,8 @@
 #  5. C-u 清行 → pane 由脏变净 → 后续发送 consumed → rc 0
 #  6. 不存在的 target → 非 0
 #  7. v1.40: 发送文本 ≠ 残留文本 → rc=4（未知/预测，立即拒绝）
+#  8. v1.42: wrapped/path-anchor prompt text matching current sent line → safe repair
+#  9. v1.42: prediction/stale prompt text remains unsafe
 
 set -uo pipefail
 
@@ -71,6 +73,16 @@ while IFS= read -rsn1 c; do
   case "$c" in
     $'\x15') clean=1; draw ;;
   esac
+done
+EOF
+
+# Wrapped/path-anchor residual: prompt line contains the leading task + /tmp anchor,
+# while later wrapped lines contain a suffix from the original sent instruction.
+cat > "$FIXDIR/path_anchor.sh" <<'EOF'
+#!/usr/bin/env bash
+while true; do
+  printf '\033[2J\033[H────────────────\n❯ Please read /tmp/cc-friction-task.md\nand follow it. If this context references a skill\n'
+  sleep 0.1
 done
 EOF
 chmod +x "$FIXDIR"/*.sh
@@ -135,6 +147,18 @@ fi
 run_test "bash $FIXDIR/cu.sh" \
   "发送文本≠残留文本 → rc=4（不重试不修复）" 4 \
   send-to-pane "$SESSION" "unrelated-text" 3
+
+# 8. v1.42: wrapped prompt containing the same /tmp path anchor + leading task verb
+#    is treated as the just-sent line, so the safe repair path is allowed. The fixture
+#    never consumes, therefore rc=1 after bounded repair exhaustion (not rc=4 unsafe).
+run_test "bash $FIXDIR/path_anchor.sh" \
+  "wrapped/path-anchor fresh sent → safe repair attempted (rc=1)" 1 \
+  send-to-pane "$SESSION" "Please read /tmp/cc-friction-task.md and follow it. If this context references a skill with its own multi-agent process, load and follow it." 1
+
+# 9. v1.42: prediction/stale text with no current sent anchor remains unsafe.
+run_test "bash $FIXDIR/cu.sh" \
+  "prediction/stale without sent anchor → rc=4（unsafe）" 4 \
+  send-to-pane "$SESSION" "Please read /tmp/current-task.md and follow it." 3
 
 echo ""
 echo "=== Results: $PASS/$((PASS+FAIL)) passed ==="
