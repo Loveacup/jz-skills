@@ -23,6 +23,7 @@ if str(SCRIPT_DIR) not in sys.path:
 
 import generate_report
 import verify_report
+import verify_publishable_report
 from video_analysis_engine import check_report_coherence
 
 WriterProvider = Callable[[str, str], str]
@@ -107,6 +108,7 @@ def run_quality_gate(
     mode: str = "full",
     run_fact_check: bool = False,
     fail_on_fallback_warning: bool = False,
+    publishable_gate: bool = False,
 ) -> Tuple[bool, Dict[str, Any]]:
     """Run the report quality gate and return (passed, summary)."""
     results = _load_results(input_path)
@@ -129,8 +131,23 @@ def run_quality_gate(
 
     verify_results, verify_passed = verify_report.evaluate(markdown, mode)
     coherence = check_report_coherence(markdown)
+    publishable_results = None
+    publishable_passed = None
+    publishable_failed_codes = []
+    if publishable_gate:
+        publishable_results, publishable_passed = verify_publishable_report.evaluate(markdown)
+        publishable_failed_codes = [
+            code for code, gate in publishable_results.items()
+            if not gate.get("pass")
+        ]
     failed_due_to_fallback_warning = bool(fail_on_fallback_warning and fallback_warnings)
-    passed = bool(verify_passed and coherence.passed and not failed_due_to_fallback_warning)
+    failed_due_to_publishable_gate = bool(publishable_gate and not publishable_passed)
+    passed = bool(
+        verify_passed
+        and coherence.passed
+        and not failed_due_to_fallback_warning
+        and not failed_due_to_publishable_gate
+    )
     summary = {
         "passed": passed,
         "input_path": input_path,
@@ -144,6 +161,11 @@ def run_quality_gate(
         "fallback_warnings": fallback_warnings,
         "fallback_warning_count": len(fallback_warnings),
         "failed_due_to_fallback_warning": failed_due_to_fallback_warning,
+        "publishable_gate": publishable_gate,
+        "publishable_passed": publishable_passed,
+        "publishable_failed_codes": publishable_failed_codes,
+        "publishable_gates": publishable_results,
+        "failed_due_to_publishable_gate": failed_due_to_publishable_gate,
         "verify_passed": verify_passed,
         "verify_gates": verify_results,
         "coherence_passed": coherence.passed,
@@ -183,6 +205,11 @@ def main() -> None:
         action="store_true",
         help="Fail if LLM writer validation/error warnings show fallback to skeleton; recommended for real sample smoke",
     )
+    parser.add_argument(
+        "--publishable",
+        action="store_true",
+        help="Run the stricter publishable Obsidian note gate. This is opt-in; default gate is engineering-only.",
+    )
     parser.add_argument("--json", action="store_true", dest="as_json")
     args = parser.parse_args()
 
@@ -199,6 +226,7 @@ def main() -> None:
             mode=args.mode,
             run_fact_check=args.run_fact_check,
             fail_on_fallback_warning=args.fail_on_fallback_warning,
+            publishable_gate=args.publishable,
         )
     except Exception as exc:
         print(f"❌ quality gate failed before evaluation: {exc}", file=sys.stderr)
@@ -214,6 +242,11 @@ def main() -> None:
     print(f"   output: {summary['output_path']} ({summary['markdown_chars']} chars)")
     print(f"   verify_report: {summary['verify_passed']}")
     print(f"   coherence    : {summary['coherence_passed']} ({len(summary['coherence_issues'])} issues)")
+    if summary["publishable_gate"]:
+        print(
+            f"   publishable  : {summary['publishable_passed']}"
+            f" ({len(summary['publishable_failed_codes'])} failed gates)"
+        )
     print(
         f"   fallback warn: {summary['fallback_warning_count']}"
         + (" (fail-on-fallback enabled)" if summary["fail_on_fallback_warning"] else "")

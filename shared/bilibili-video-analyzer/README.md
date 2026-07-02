@@ -17,6 +17,31 @@ Default release gate runs:
 2. full pytest suite excluding local ASR config tests (`pytest -q tests --ignore=tests/test_asr_config.py`)
 
 This path does **not** call network services or spend LLM tokens.
+It is an **engineering gate**, not a publishability guarantee for Obsidian notes.
+
+## Publishable Obsidian gate
+
+Before saving a generated report as a formal `B站笔记_*.md`, run the stricter publish gate:
+
+```bash
+PYTHONPATH=scripts python3 scripts/verify_publishable_report.py /path/to/report.md
+```
+
+Or opt into it from the quality harness:
+
+```bash
+PYTHONPATH=scripts python3 scripts/run_quality_gate.py \
+  --input tests/fixtures/p2e_fetch_all.json \
+  --writer-provider fixture \
+  --fail-on-fallback-warning \
+  --publishable
+```
+
+Expected behavior:
+
+- historical high-quality human-readable notes should pass;
+- skeleton/debug reports fail;
+- any generated formal `B站笔记_*.md` output is blocked if this gate fails.
 
 ## Real sample smoke
 

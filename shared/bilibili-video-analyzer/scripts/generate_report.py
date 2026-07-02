@@ -45,6 +45,7 @@ from video_analysis_engine import (
     analyze_video, render_markdown,
     cli_writer_provider, deepseek_writer_provider,
 )
+import verify_publishable_report
 
 
 # ============ 通用解析工具 ============
@@ -385,6 +386,36 @@ def load_results(args):
     raise ValueError('需提供 --input FILE 或 --bvid BVxxx，或通过管道传入 fetch_all 输出')
 
 
+def is_formal_report_output(path) -> bool:
+    """Return True for paths that look like final Obsidian video notes.
+
+    Debug/tmp reports are allowed to be skeleton drafts. `B站笔记_*.md` and
+    files saved under the formal video-note directory are publish artifacts and
+    must pass the publishable gate.
+    """
+    p = os.fspath(path)
+    name = os.path.basename(p)
+    normalized = p.replace('\\', '/')
+    return bool(
+        (name.startswith('B站笔记_') and name.endswith('.md'))
+        or '/30-Resources/60_视频笔记/' in normalized
+    )
+
+
+def check_formal_output_publishable(path, markdown):
+    """Check publish gate for formal outputs; debug paths are skipped."""
+    if not is_formal_report_output(path):
+        return True, {'skipped': True, 'passed': True, 'failed_codes': []}
+    gates, passed = verify_publishable_report.evaluate(markdown)
+    failed_codes = [code for code, gate in gates.items() if not gate.get('pass')]
+    return passed, {
+        'skipped': False,
+        'passed': passed,
+        'failed_codes': failed_codes,
+        'gates': gates,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='fetch_all 结果 → 分析引擎 → Obsidian Markdown 报告（胶水层）',
@@ -419,6 +450,22 @@ def main():
     )
 
     out_path = args.output or f'/tmp/{bvid}_report.md'
+    publishable_ok, publishable_summary = check_formal_output_publishable(out_path, markdown)
+    if not publishable_ok:
+        print('❌ 正式报告发布闸未通过：拒绝写入 B站笔记/正式视频库路径')
+        for code in publishable_summary.get('failed_codes', []):
+            gate = publishable_summary.get('gates', {}).get(code, {})
+            print(f"   {code}: {gate.get('reason') or gate.get('measured')}")
+        print('\nRESULT_JSON_START')
+        print(json.dumps({
+            'status': 'failed',
+            'error': 'publishable gate failed for formal output path',
+            'report_path': out_path,
+            'publishable': publishable_summary,
+        }, ensure_ascii=False, indent=2))
+        print('RESULT_JSON_END')
+        sys.exit(1)
+
     try:
         with open(out_path, 'w', encoding='utf-8') as f:
             f.write(markdown)

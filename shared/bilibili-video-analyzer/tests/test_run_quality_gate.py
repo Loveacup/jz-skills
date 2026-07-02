@@ -111,3 +111,24 @@ def test_quality_gate_can_fail_on_writer_fallback_warning(monkeypatch, tmp_path)
     assert summary["fallback_warning_count"] >= 1
     assert summary["failed_due_to_fallback_warning"] is True
     assert any("falling back to skeleton" in msg for msg in summary["fallback_warnings"])
+
+
+def test_quality_gate_can_run_publishable_gate_as_stricter_layer(tmp_path):
+    """Publish gate is opt-in and stricter than engineering structure gates."""
+    out = tmp_path / "fixture_publish_report.md"
+
+    passed, summary = run_quality_gate.run_quality_gate(
+        str(FIXTURE),
+        str(out),
+        writer_provider="fixture",
+        mode="full",
+        run_fact_check=False,
+        fail_on_fallback_warning=True,
+        publishable_gate=True,
+    )
+
+    assert passed is False
+    assert summary["verify_passed"] is True
+    assert summary["coherence_passed"] is True
+    assert summary["publishable_passed"] is False
+    assert "P0_NO_SKELETON" in summary["publishable_failed_codes"]
