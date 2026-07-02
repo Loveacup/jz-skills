@@ -31,6 +31,7 @@ def test_fixture_quality_provider_runs_full_pipeline(tmp_path):
     assert summary["verify_gates"]["G4"]["pass"] is True
     assert summary["verify_gates"]["G5"]["pass"] is True
     assert summary["verify_gates"]["G7"]["pass"] is True
+    assert summary["fallback_warning_count"] == 0
 
     md = out.read_text(encoding="utf-8")
     assert "### 💡 洞察 1" in md
@@ -52,6 +53,7 @@ def test_quality_gate_cli_outputs_json_and_exit_zero(tmp_path):
             str(out),
             "--writer-provider",
             "fixture",
+            "--fail-on-fallback-warning",
             "--json",
         ],
         cwd=Path(__file__).resolve().parents[1],
@@ -68,6 +70,8 @@ def test_quality_gate_cli_outputs_json_and_exit_zero(tmp_path):
     assert data["passed"] is True
     assert data["verify_passed"] is True
     assert data["coherence_passed"] is True
+    assert data["fail_on_fallback_warning"] is True
+    assert data["fallback_warning_count"] == 0
 
 
 def test_quality_gate_none_provider_fails_full_gates(tmp_path):
@@ -83,3 +87,27 @@ def test_quality_gate_none_provider_fails_full_gates(tmp_path):
 
     assert passed is False
     assert summary["verify_passed"] is False or summary["coherence_passed"] is False
+
+
+def test_quality_gate_can_fail_on_writer_fallback_warning(monkeypatch, tmp_path):
+    """真实样片 smoke 可要求 LLM writer fallback warning 直接失败。"""
+    out = tmp_path / "fallback_report.md"
+
+    def bad_fixture_provider(system, user):
+        return "这段输出没有合法小节格式，也没有证据引用。"
+
+    monkeypatch.setattr(run_quality_gate, "fixture_writer_provider", bad_fixture_provider)
+
+    passed, summary = run_quality_gate.run_quality_gate(
+        str(FIXTURE),
+        str(out),
+        writer_provider="fixture",
+        mode="full",
+        run_fact_check=False,
+        fail_on_fallback_warning=True,
+    )
+
+    assert passed is False
+    assert summary["fallback_warning_count"] >= 1
+    assert summary["failed_due_to_fallback_warning"] is True
+    assert any("falling back to skeleton" in msg for msg in summary["fallback_warnings"])

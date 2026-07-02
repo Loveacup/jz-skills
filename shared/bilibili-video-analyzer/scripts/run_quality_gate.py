@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""P2-E quality gate harness: fetch_all JSON → report → verify_report → coherence.
+"""P2-E/P2-F quality gate harness: fetch_all JSON → report → gates.
 
 This script is deliberately deterministic by default (`--writer-provider fixture`):
 it exercises the same generate_report/render/verify/coherence pipeline without
 network calls or LLM tokens. Use `--writer-provider cli` for a real model-backed
-sample smoke.
+sample smoke. P2-F adds fallback-warning detection so real sample runs can fail
+when the LLM writer silently falls back to skeleton output.
 """
 
 import argparse
 import json
-import os
-import re
 import sys
+import warnings
 from pathlib import Path
 from typing import Callable, Dict, Any, Optional, Tuple
 
@@ -106,21 +106,31 @@ def run_quality_gate(
     writer_provider: str = "fixture",
     mode: str = "full",
     run_fact_check: bool = False,
+    fail_on_fallback_warning: bool = False,
 ) -> Tuple[bool, Dict[str, Any]]:
-    """Run the deterministic report quality gate and return (passed, summary)."""
+    """Run the report quality gate and return (passed, summary)."""
     results = _load_results(input_path)
     provider = resolve_quality_provider(writer_provider)
-    markdown, report = generate_report.report_markdown(
-        results,
-        run_fact_check=run_fact_check,
-        provider=provider,
-    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        markdown, report = generate_report.report_markdown(
+            results,
+            run_fact_check=run_fact_check,
+            provider=provider,
+        )
+    warning_messages = [str(w.message) for w in caught]
+    fallback_warnings = [
+        msg for msg in warning_messages
+        if "falling back to skeleton" in msg
+        or ("LLM writer" in msg and "fallback" in msg.lower())
+    ]
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     Path(output_path).write_text(markdown, encoding="utf-8")
 
     verify_results, verify_passed = verify_report.evaluate(markdown, mode)
     coherence = check_report_coherence(markdown)
-    passed = bool(verify_passed and coherence.passed)
+    failed_due_to_fallback_warning = bool(fail_on_fallback_warning and fallback_warnings)
+    passed = bool(verify_passed and coherence.passed and not failed_due_to_fallback_warning)
     summary = {
         "passed": passed,
         "input_path": input_path,
@@ -129,6 +139,11 @@ def run_quality_gate(
         "mode": mode,
         "markdown_chars": len(markdown),
         "video_id": report.get("frontmatter", {}).get("video_id"),
+        "fail_on_fallback_warning": fail_on_fallback_warning,
+        "warnings": warning_messages,
+        "fallback_warnings": fallback_warnings,
+        "fallback_warning_count": len(fallback_warnings),
+        "failed_due_to_fallback_warning": failed_due_to_fallback_warning,
         "verify_passed": verify_passed,
         "verify_gates": verify_results,
         "coherence_passed": coherence.passed,
@@ -163,6 +178,11 @@ def main() -> None:
         action="store_true",
         help="Allow generate_report to run fact_check_wrr extraction; default is off for deterministic CI",
     )
+    parser.add_argument(
+        "--fail-on-fallback-warning",
+        action="store_true",
+        help="Fail if LLM writer validation/error warnings show fallback to skeleton; recommended for real sample smoke",
+    )
     parser.add_argument("--json", action="store_true", dest="as_json")
     args = parser.parse_args()
 
@@ -178,6 +198,7 @@ def main() -> None:
             writer_provider=args.writer_provider,
             mode=args.mode,
             run_fact_check=args.run_fact_check,
+            fail_on_fallback_warning=args.fail_on_fallback_warning,
         )
     except Exception as exc:
         print(f"❌ quality gate failed before evaluation: {exc}", file=sys.stderr)
@@ -193,12 +214,19 @@ def main() -> None:
     print(f"   output: {summary['output_path']} ({summary['markdown_chars']} chars)")
     print(f"   verify_report: {summary['verify_passed']}")
     print(f"   coherence    : {summary['coherence_passed']} ({len(summary['coherence_issues'])} issues)")
+    print(
+        f"   fallback warn: {summary['fallback_warning_count']}"
+        + (" (fail-on-fallback enabled)" if summary["fail_on_fallback_warning"] else "")
+    )
     for gid, gate in summary["verify_gates"].items():
         status = "PASS" if gate["pass"] else "FAIL"
         print(f"   {gid}: {status} — {gate['measured']}")
     if summary["coherence_issues"]:
         for issue in summary["coherence_issues"]:
             print(f"   coherence {issue['severity']} {issue['code']}: {issue['message']}")
+    if summary["fallback_warnings"]:
+        for msg in summary["fallback_warnings"]:
+            print(f"   fallback warning: {msg}")
 
     if args.as_json:
         print("RESULT_JSON_START")
