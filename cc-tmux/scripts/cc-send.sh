@@ -75,7 +75,10 @@ if [[ -n "$CONTEXT" ]]; then
     MSG="$CONTEXT"
   else
     # Path-only contract: never inject markdown body into the pane.
-    MSG="Please read $CONTEXT and follow it."
+    # v1.41: append orchestration hint so CC knows it may use native agent teams/workflows
+    # when the context references a complex skill.
+    ORCHESTRATION_HINT="If this context references a skill with its own multi-agent, agent-team, workflow, or multi-stage process, load and follow that complete skill process yourself. Do not wait for Hermes to split it into workers; Hermes is the messenger, CC is the factory."
+    MSG="Please read $CONTEXT and follow it. $ORCHESTRATION_HINT"
   fi
 elif [[ -n "$MESSAGE" ]]; then
   if [[ "$MESSAGE" == *$'\n'* ]]; then

@@ -188,6 +188,14 @@ tmux send-keys -t "cc-<name>" "读 /tmp/task.md 执行。" Enter
 
 用户明确纠正：**“CC 可靠；如果不可靠，大概率是用法出问题。”** 未来遇到 CC 超时/零产出，优先诊断任务粒度、send-keys 注入、effort、session 污染和产物路径，而不是结论化为“CC 不可靠”。详见 `references/cc-reliability-is-usage-pattern.md`。
 
+**残留输入恢复**：`cc-wait-decision` 报 `prompt_text_needs_clear / stale_or_unknown` 时，如果 pane 可见内容正是刚发送的任务行且无其它 stale 文本，按一次 Enter 提交，禁止重发；随后若 rc=5 `active_no_resend`/THINKING，只监控 artifact。详见 `references/residual-input-submit-pitfall-20260630.md`。
+
+**写入任务验收硬规则（v1.41 · 2026-06-30）**：CC 的 result 文件/口头汇报不能证明文件真的写了、测试真的基于当前代码跑了。任何写入类任务在 accept 前必须由 Hermes 重新取证：读当前生产文件的目标 symbol、看 `git status --short` + `git diff` 是否包含预期生产文件、亲自跑 targeted/full tests。若 CC 声称 green 但生产文件没改，按 blocker 处理，退回一个极小修正任务（"只改 production file，测试已存在"）。详见 `references/cc-self-report-file-write-false-positive-20260630.md`。
+
+**测试 mock 数据与生产字段不匹配陷阱（v1.42 · 2026-07-01）**：CC 生成代码时可能直接访问一个测试 mock 里存在的字段，但该字段在生产 dataclass 中不存在。症状：测试全部 green（因为 mock 构造了该字段），但生产运行时 KeyError/AttributeError。典型案例：`ev['index']` —— CC 假设 EvidenceCandidate 有 `index` 字段，但实际 dataclass 无此字段。修复：改用 `enumerate()` 在消费端分配索引。验收时必须对照生产 dataclass 定义检查所有 dict-key 访问和 `.attribute` 访问。
+
+**Artifact 已满足后的预测文本不要提交（v1.41 · 2026-06-30）**：`cc-wait-decision` 若返回 `artifact_satisfied_no_marker`，但 pane 同时有 `prompt_text_prediction_candidate`（例如 `commit this`），以 artifact 为准进入验收；不要按 Enter、不要把预测文本当用户指令、不要让 CC 自动 commit/push。Delegator/Hermes 负责最终 diff review、测试、commit/push 与文档 closeout。详见 `references/cc-prediction-text-after-artifact-pattern-20260630.md`。
+
 ## ⚠️ Pitfall #59：`--effort high` 使思考瘫痪更严重（v1.37 · 2026-06-29）
 
 CC 的 `--effort high` 和 `--effort xhigh` 对代码任务**不仅无益，反而有明确害处**。它们让 CC 在「我应该深度思考」和「我应该动手做事」之间反复徘徊，结果两样都没做好。
@@ -231,6 +239,7 @@ cc-wait-decision.sh --session "cc-<name>" --timeout 600 --expect "/tmp/report.md
 **旧规则废止**：不要再把 `cc-wait-marker exit 4` 直接理解成“任务根本没提交成功”。先看 `cc-wait-decision` 的 JSON。
 
 CC 补全/预测行为 ≠ 残留输入——见 `references/cc-autocomplete-prediction-behavior.md`。
+当 `cc-wait-decision` 因 prompt_text/residual 拒绝等待，但 pane 中确实是本轮刚发送的单行任务时，手动 Enter 一次提交；若 state=active_no_resend 则不要重发，继续等 artifact。详见 `references/cc-autocomplete-residual-submit-pattern-20260630.md`。
 多轮 Codex planning 讨论模式——见 `references/multi-round-codex-planning-pattern.md`。
 
 不要用 `cc-start.sh --task`（会注入长 prompt 触发过度思考）、不要用 send-keys 多行（会触发行队列）、不要用 `-p` 非交互模式（执行完即退出，不适合编码任务）。
@@ -321,8 +330,30 @@ CC 启动后自动注入 `<persisted-output>` 块，包含历史会话的摘要�
 
 **修复**：调用外部 API 前清代理（详见 skill 内部 proxy-env API 干扰记录）。
 
+## ⚠️ Pitfall #61：Hermes 不要替复杂 CC skill 拆 worker（v1.41 · 2026-06-30）
+
+如果任务引用的 skill 内部已经定义 agent team / workflow / 多阶段 DAG，Hermes 只负责传递完整任务包和 skill 引用；**不要手写 Worker A/B/C，也不要开多个裸 tmux session 模拟 skill 内部编排。**
+
+错误做法：读 skill → 自己拆成 N 个 task → 开 N 个裸 tmux → 每个手敲 prompt → 拼结果。
+正确做法：写 `/tmp/cc-task-*.md`，说明目标、skill 路径/名称、期望产物，用 `cc-send.sh --context` 单行交给 CC。CC 自己读取 skill，决定使用 subagents、agent teams 还是 workflow。
+
+**原则：Hermes 是信使，CC 是工厂。** `cc-send.sh --context` 默认已包含编排提示，CC 收到后会自动判断是否需要内部编排。
+
 ## 🔗 多 Agent 协作模式
 
 五阶段 STDD 评估流水线：CC+Codex→规划→CC→OMP→验收。
 案例：WRR v5.2 本地搜索层、WRR v6.0 OB 三梁重构。
 OB 文档重构专用参考见 skill 内部 agent-team STDD Obsidian restructure 记录。
+
+战略/市场深研报告流水线（WRR → Codex planning-only → CC 3-worker team → Hermes synthesis → Obsidian Inbox）见 `references/strategic-research-report-agent-team-pattern.md`。适用于用户要求“深度研究 + Codex 规划 + CC agent team + 保存到 OB”的报告类任务。
+
+### 长任务进度汇报与收尾恢复（2026-07-01 新增）
+
+当 CC agent team 跑方法论转化、研究加固、文档重构等 5min+ 长任务时，Hermes 必须主动维护“用户可见进度”，不能只等最终 marker：
+
+- **有实质状态变化就汇报**：如 `THINKING → WAITING_AGENTS`、阶段产物出现/增大、诊断完成进入焊接、收尾 session 启动、最终验收开始。避免无变化刷屏；但用户问“进度呢”时，下一次可发消息机会必须立即补状态。
+- **WAITING_AGENTS/token 冻结先看产物**：若 `/tmp` 已有 draft/diag/report 等阶段成果，先检查文件存在、mtime/size、内容是否足够继续，不要只盯 pane 或等待原 worker 完美收尾。
+- **大 team 卡在最后一刀时，另起小粒度收尾 session**：把已有 draft + diag + base 作为输入，只要求“按 research-fortification additive-first 写最终文件 + marker”。这是恢复路径，不是放弃原 team。
+- **最终仍由 Hermes 验收**：CC marker/汇报不算真相。重新检查目标文件存在、YAML 符合当前 vault AGENTS、无 TODO/骨架占位、焊接台账存在、源文件未被改动。
+
+详细案例：`references/methodology-conversion-progress-and-weld-recovery-20260701.md`。
