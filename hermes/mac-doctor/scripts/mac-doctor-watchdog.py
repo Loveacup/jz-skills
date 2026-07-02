@@ -424,7 +424,7 @@ def main():
     mem = snap.get('memory_pressure', '?')
     swap_mb = snap.get('swap_used_mb')
     disk_gb = snap.get('disk_free_gb')
-    print(f"CPU: {cpu if cpu is not None else '?'}%  |  Mem: {mem}  |  "
+    print(f"CPU: {f'{cpu:.1f}%' if cpu is not None else '?'}  |  Mem: {mem}  |  "
           f"Swap: {f'{swap_mb:.0f}MB' if swap_mb is not None else '?'}  |  "
           f"Disk: {f'{disk_gb:.1f}GB' if disk_gb is not None else '?'}")
     if diagnosis and diagnosis != "All clear":
