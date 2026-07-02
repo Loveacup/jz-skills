@@ -1109,6 +1109,8 @@ const {{ chromium }} = require('playwright');
     displayHeaderFooter: true,
     headerTemplate: '<div></div>',
     footerTemplate: '<div style="font-size:9px;color:#888;width:100%;text-align:center;padding-bottom:2mm;">\\u2014 <span class="pageNumber"></span> / <span class="totalPages"></span> \\u2014</div>',
+    outline: true,
+    tagged: true,
   }});
   await browser.close();
   console.log('OK');
@@ -1202,37 +1204,49 @@ def remove_blank_pages(pdf_path):
     if total <= 1:
         return 0
 
-    # Identify pages to keep
-    keep = []
+    # Identify pages to drop
+    drop = []
     for i, page in enumerate(reader.pages):
         text = (page.extract_text() or "").strip()
         is_last = i == total - 1
         # Remove if: completely empty, OR last page with < 50 chars
         if len(text) == 0 or (is_last and len(text) < 50):
-            continue
-        keep.append(i)
+            drop.append(i)
 
-    removed = total - len(keep)
-    if removed == 0:
+    if not drop:
         return 0
 
-    writer = PdfWriter()
-    for i in keep:
-        writer.add_page(reader.pages[i])
+    # clone_from 保留原生 outline/StructTreeRoot（tagged PDF），逐页 remove_page；
+    # 空白页无标题，不会有书签目标悬空
+    writer = PdfWriter(clone_from=str(pdf_path))
+    for i in reversed(drop):
+        writer.remove_page(i)
 
     tmp_path = pdf_path.with_suffix(".tmp.pdf")
     with open(tmp_path, "wb") as f:
         writer.write(f)
     tmp_path.replace(pdf_path)
-    return removed
+    return len(drop)
 
 
 def add_pdf_bookmarks(pdf_path, md_path):
-    """Add PDF outline bookmarks based on Markdown heading hierarchy using pypdf."""
+    """Add PDF outline bookmarks based on Markdown heading hierarchy using pypdf.
+
+    Chromium 原生 `outline: true` 已在渲染时直出书签（含正确目标页）；
+    检测到原生 outline 即跳过，避免 pypdf 重写剥掉 tagged 结构。
+    本函数保留为 pandoc 救生艇等无原生书签产物的兜底。
+    """
     try:
         from pypdf import PdfReader, PdfWriter
     except ImportError:
         return  # silently skip if pypdf not available
+
+    try:
+        if PdfReader(str(pdf_path)).outline:
+            print("  \U0001F516 native outline present (Chromium), skip pypdf bookmarks")
+            return
+    except Exception:
+        pass
 
     # Extract headings from markdown
     with open(md_path, "r", encoding="utf-8") as f:
@@ -1343,7 +1357,7 @@ def add_pdf_metadata(pdf_path, md_path, extra=None):
     extra: 附加自定义键（如 /JZDiagramTotal 图数对账）。pypdf 缺失则静默跳过。
     """
     try:
-        from pypdf import PdfReader, PdfWriter
+        from pypdf import PdfWriter
     except ImportError:
         return
     fm = _parse_frontmatter(md_path)
@@ -1371,9 +1385,8 @@ def add_pdf_metadata(pdf_path, md_path, extra=None):
     if not meta:
         return
     try:
-        reader = PdfReader(str(pdf_path))
-        writer = PdfWriter()
-        writer.append(reader)
+        # clone_from（而非 reader+append）保留原生 outline 与 tagged 结构
+        writer = PdfWriter(clone_from=str(pdf_path))
         writer.add_metadata(meta)
         tmp = pdf_path.with_suffix(".meta.pdf")
         with open(tmp, "wb") as f:

@@ -144,11 +144,11 @@ Obsidian MD → preprocess → Python markdown (md_in_html) → section wrap →
 1. **Preprocess**: Strip YAML frontmatter, convert all 26 Obsidian callout types (including foldable), remove wikilinks, convert highlights (`==text==` → `<mark>`), convert task lists, embed local images as base64
 2. **Convert**: Python `markdown` library with extensions: `tables`, `fenced_code`, `toc`, `sane_lists`, `md_in_html`, `footnotes`
 3. **Section Wrap**: Post-process HTML — wrap `<h2>` into `<section class="doc-section">`, wrap `<h3>` into `<div class="doc-subsection">`
-4. **Mermaid**: Convert mermaid code blocks → `<div class="mermaid">`, load Mermaid JS (auto-downloads to `/tmp/mermaid.min.js` on first use), auto-scale SVG
+4. **Mermaid**: Convert mermaid code blocks → `<div class="mermaid">`, load pinned Mermaid JS vendored next to the script (`scripts/mermaid.min.js` + `vendor.lock.json`, downloaded by `--setup`), auto-scale SVG
 5. **Syntax Highlighting**: highlight.js CDN with theme-aware styling (atom-one-dark / atom-one-light)
 6. **Content Adaptation JS**: Adaptive table font sizing (5+ cols → 10px, 7+ → 9px), section density analysis (auto-shrink dense sections)
-7. **Render**: Playwright Chromium headless — `waitForFunction` waits for Mermaid SVG rendering, `networkidle` ensures all resources loaded, then `page.pdf()` with A4 format + page numbers
-8. **Post-process**: Remove blank pages + add PDF bookmarks (h1-h3 outline) via pypdf
+7. **Render**: Playwright Chromium headless — `waitForFunction` waits for Mermaid SVG rendering, `networkidle` ensures all resources loaded, then `page.pdf()` with A4 format + page numbers + native bookmarks & accessibility tags (`outline: true, tagged: true`)
+8. **Post-process**: Remove blank pages + write metadata via pypdf `clone_from` (preserves native outline/tags); pypdf bookmark builder kept only as fallback for PDFs without a native outline (e.g. pandoc lifeboat)
 
 For pagination rules, font sizing tables, Mermaid details, callout types, and CSS customization, see `references/md2pdf-details.md`.
 

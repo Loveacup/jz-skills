@@ -69,11 +69,11 @@ Fenced code blocks are syntax-highlighted via **highlight.js** (CDN):
 
 ## PDF Bookmarks
 
-After Chrome generates the PDF, **pypdf** post-processes it to add a navigable outline:
-- Extracts h1-h3 headings from the Markdown source
-- Maps each heading to its PDF page via text search
-- Creates a hierarchical bookmark tree (h1 > h2 > h3)
-- Enables sidebar navigation in PDF viewers
+Chromium generates the outline natively at render time (`page.pdf({ outline: true, tagged: true })`, Playwright ≥1.42):
+- Bookmark tree derives from the HTML heading structure — hierarchy and target pages are exact (no text-search page mapping)
+- `tagged: true` additionally emits PDF/UA accessibility structure tags (~2% size cost)
+- Post-processing (blank-page removal, metadata) uses pypdf `PdfWriter(clone_from=...)` so the native outline and StructTreeRoot survive — a plain reader+append rewrite would strip them
+- The legacy pypdf bookmark builder (`add_pdf_bookmarks`) auto-skips when a native outline exists; it remains as fallback for PDFs without one (e.g. the pandoc lifeboat, which loses bookmarks otherwise)
 
 ## Local Image Embedding
 

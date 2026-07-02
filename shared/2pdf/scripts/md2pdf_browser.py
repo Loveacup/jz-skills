@@ -343,37 +343,48 @@ def remove_blank_pages(pdf_path):
     if total <= 1:
         return 0
 
-    # Identify pages to keep
-    keep = []
+    # Identify pages to drop
+    drop = []
     for i, page in enumerate(reader.pages):
         text = (page.extract_text() or "").strip()
         is_last = i == total - 1
         # Remove if: completely empty, OR last page with < 50 chars
         if len(text) == 0 or (is_last and len(text) < 50):
-            continue
-        keep.append(i)
+            drop.append(i)
 
-    removed = total - len(keep)
-    if removed == 0:
+    if not drop:
         return 0
 
-    writer = PdfWriter()
-    for i in keep:
-        writer.add_page(reader.pages[i])
+    # clone_from 保留原生 outline/StructTreeRoot（tagged PDF），逐页 remove_page；
+    # 空白页无标题，不会有书签目标悬空
+    writer = PdfWriter(clone_from=str(pdf_path))
+    for i in reversed(drop):
+        writer.remove_page(i)
 
     tmp_path = pdf_path.with_suffix(".tmp.pdf")
     with open(tmp_path, "wb") as f:
         writer.write(f)
     tmp_path.replace(pdf_path)
-    return removed
+    return len(drop)
 
 
 def add_pdf_bookmarks(pdf_path, md_path):
-    """Add PDF outline bookmarks based on Markdown heading hierarchy using pypdf."""
+    """Add PDF outline bookmarks based on Markdown heading hierarchy using pypdf.
+
+    检测到 Chromium 原生 outline（page.pdf outline:true 直出）即跳过，
+    避免 pypdf 重写剥掉 tagged 结构。仅作无原生书签产物的兜底。
+    """
     try:
         from pypdf import PdfReader, PdfWriter
     except ImportError:
         return  # silently skip if pypdf not available
+
+    try:
+        if PdfReader(str(pdf_path)).outline:
+            print("  \U0001F516 native outline present (Chromium), skip pypdf bookmarks")
+            return
+    except Exception:
+        pass
 
     # Extract headings from markdown
     with open(md_path, "r", encoding="utf-8") as f:
@@ -909,6 +920,8 @@ def md_to_pdf(md_path, pdf_path=None, header_text=None, directives=None, theme="
         "    displayHeaderFooter: true,\n",
         "    headerTemplate: '<div style=\"font-size:8px;color:#aaa;width:100%;text-align:center;padding-top:4mm;font-family:-apple-system,sans-serif;\">", header_js, "</div>',\n",
         "    footerTemplate: '<div style=\"font-size:9px;color:#888;width:100%;text-align:center;padding-bottom:2mm;font-family:-apple-system,sans-serif;\">\\u2014 <span class=\"pageNumber\"></span> / <span class=\"totalPages\"></span> \\u2014</div>',\n",
+        "    outline: true,\n",
+        "    tagged: true,\n",
         "  });\n",
         "  await browser.close();\n",
         "  const fs = require('fs');\n",
