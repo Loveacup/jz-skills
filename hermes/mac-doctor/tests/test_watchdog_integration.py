@@ -146,6 +146,32 @@ def test_save_report_state_keeps_zombie_sig_and_mcp_msg(monkeypatch, tmp_path):
     assert state["mcp_cleaned_msg"] == "清理了 2 个孤儿 MCP 进程"
 
 
+def test_watchdog_gated_message_does_not_crash_on_unknown_ppid(monkeypatch, tmp_path, capsys):
+    """⏸️ 拦截判定对 PPID 不在 known_zombie_parents 的 zombie 不崩 (回归 2026-07-03 01:40 cron 挂)。
+
+    之前: known_parents.get(ppid) 返回 None, None.get("auto_kill") 抛 AttributeError → exit 1
+    修正: (known_parents.get(ppid) or {}).get("auto_kill") — 找不到 PPID 时当 {} 处理, 跳过。
+    """
+    mod = load_watchdog()
+    # 9 个 zombie 全部 PPID 不在 known_parents (sshd-session / iii 都不是 auto_kill=true)
+    monkeypatch.setattr(mod, "check_zombies", lambda: (
+        "warn", [{"pid": str(i), "ppid": "99999", "cmd": "<defunct>"} for i in range(1, 10)]
+    ))
+    monkeypatch.setattr(mod, "check_kanban", lambda: ("ok", None))
+    monkeypatch.setattr(mod, "check_mcp_cleanup", lambda: ("ok", None))
+    monkeypatch.setattr(mod, "load_state", lambda: {})
+    monkeypatch.setattr(mod, "load_prefs", lambda: {
+        "facts": {
+            "known_zombie_parents": {"31909": {"auto_kill": True}},  # 99999 不在里面
+            "user_preferences": {"auto_kill_zombies": False},  # gated=True
+        }
+    })
+    # 不应抛异常
+    mod.main()
+    out = capsys.readouterr().out
+    assert "⏸️" not in out, "99999 不在 prefs, 不应报拦截"
+
+
 def test_watchdog_gated_message_only_prints_when_actual_intersection(monkeypatch, tmp_path, capsys):
     """⏸️ 拦截信息只对 zombie 集里 PPID auto_kill=true 的 PPID 显示 (回归 2026-07-02)。
 

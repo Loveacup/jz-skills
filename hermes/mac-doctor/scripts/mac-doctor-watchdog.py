@@ -416,7 +416,7 @@ def main():
         known_parents = prefs.get("facts", {}).get("known_zombie_parents", {}) or {}
         gated_ppids = sorted({str(z["ppid"]) for z in (data if isinstance(data, list) else [])
                               if isinstance(z, dict)
-                              and known_parents.get(str(z.get("ppid", ""))).get("auto_kill") is True})
+                              and (known_parents.get(str(z.get("ppid", ""))) or {}).get("auto_kill") is True})
         if gated_ppids:
             print(f"⏸️  zombie 父进程 auto_kill=true 被总开关拦截: PPID {', '.join(gated_ppids)} (auto_kill_zombies=False)— 仍按配置未杀")
     print()
