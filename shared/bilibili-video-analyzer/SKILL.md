@@ -288,6 +288,7 @@ python3 scripts/fact_check_wrr.py --transcript /tmp/BVxxx_subtitle_official.txt 
 | `fetch_comments.py` | Comments (top 50 hot) | requests |
 | `fetch_subtitle_auto.py` | Subtitles (auto-fallback: official→yt-dlp→whisper.cpp→mlx) | yt-dlp, whisper.cpp, mlx-whisper |
 | `fetch_youtube_comments.py` 🆕 | YouTube 评论双路径抓取（yt-dlp → yt-comment-dl fallback） | yt-dlp, yt-comment-dl |\n| `fact_check_wrr.py` 🆕 | WRR 事实核查路由：从字幕提取可验证 claim | stdlib only |\n| `video_analysis_engine.py` 🆕 | 平台无关视频分析引擎骨架（数据类 + 报告渲染） | stdlib only |\n| `bilibili_dm_patch.py` 🆕 | yt-dlp dm_img monkey-patch 412 绕过（移植自 BiliNote） | yt-dlp (optional) |\n| `mlx_transcribe.py` | mlx-whisper Python-API transcription (local snapshot, offline) | mlx-whisper (`/usr/bin/python3`) |
+| `release_gate.py` 🆕 | 发布前统一质量入口：fixture quality gate + pytest；真实样片 smoke 需显式 `--real-sample` | stdlib only |
 | `verify_report.py` 🆕 | Static Depth-Quality-Gate checker for a report `.md` | stdlib only |
 | `transcribe_whisper_cpp.sh` | Audio transcription | whisper-cli, ffmpeg |
 
@@ -329,6 +330,7 @@ python3 scripts/fact_check_wrr.py --transcript /tmp/BVxxx_subtitle_official.txt 
 - 🆕 **P2-E Quality Gate 三方协作记录**：新增 `scripts/run_quality_gate.py`，以 deterministic `fixture_writer_provider` 串起 `fetch_all JSON → generate_report.report_markdown() → verify_report full gates → check_report_coherence()`；默认不联网、不烧 LLM，`--writer-provider cli|deepseek` 保留真实样片 smoke 入口。见 `references/content-engine-p2e-quality-gate-triad-20260702.md`。
 - 🆕 **P2-F Real Sample Fallback Guard 记录**：`run_quality_gate.py` 增加 `--fail-on-fallback-warning`，捕获 `generate_report.report_markdown()` 期间的 LLM writer fallback warnings；真实样片 smoke 可在 §3/§4/§7 静默回退 skeleton 时直接 fail，避免“结构通过但质量退化”。见 `references/content-engine-p2f-real-sample-fallback-guard-20260702.md`。
 - 🆕 **P3-A Release Gate Runner 记录**：新增 `scripts/release_gate.py` 作为发布前统一入口；默认运行 fixture quality gate + `pytest -q tests --ignore=tests/test_asr_config.py`，真实样片 smoke 通过 `--real-sample ... --real-writer-provider cli|deepseek` 显式启用。见 `references/content-engine-p3a-release-gate-runner-20260702.md`。
+- 🆕 **P3-B Usage Surface 记录**：新增项目根 `README.md`，把 release gate、real sample smoke、generate/verify 常用命令前置为使用入口；避免质量闸只存在于聊天记录或 reference 中。见 `references/content-engine-p3b-usage-surface-20260702.md`。
 - 🆕 **H200 ASR 与 B站本机 ASR 配置边界**：SURGExZR H200 `/ASR/transcribe` 已实测短音频和约 5 分钟长音频可用，现已作为 `BILI_ASR_PROVIDER=auto` 的默认首选；本机 whisper.cpp / mlx-whisper 保留 fallback。覆盖 H200 地址用 `BILI_ASR_ENDPOINT`，不要用 `BILI_ASR_MODEL_PATH`。参考 `references/h200-asr-vs-bili-asr-20260630.md`。
 
 ### 🆕 Audio Download via Bilibili PlayURL API (yt-dlp 412 Bypass)
