@@ -8,7 +8,7 @@ type: routine
   系统评分, 健康检查, 磁盘空间, 内存压力, swap, 清理缓存, brew/npm/uv cache,
   CPU 大户, 安全检查, 电池健康, 网络配置审计, 历史趋势, 异常检测, 臃肿/隐私扫描。
   Do NOT use for: GUI 操作, 实时网络诊断 (ping/traceroute), 清理孤儿 App 数据。
-version: 2.4.1
+version: 2.4.3
 author: Hermes Agent
 platforms: [macos]
 metadata:
@@ -427,6 +427,32 @@ launchctl list com.hermes.inspection-collector
 | mac-doctor-weekly | weekly | 0 9 * * 1 | LLM agent | mac-doctor |
 
 详见 `references/cron-module.md` §3。
+
+### L2 Zombie Auto-Kill Hook (driven by cron-worker watchdog, v2.4.3, 2026-07-02)
+
+**问题背景**: Raycast Helper (`PPID 31909`) 长期累积 `<defunct>` 子进程,僵尸数常驻 1+。
+`prefs.known_zombie_parents[ppid].auto_kill=true` 早就在 preferences.json 里,
+但 L2 watchdog 没消费这个配置 — 第 3 次 triage 报告后才补钩子。
+
+**实现**: `scripts/zombie_killer.py` (v1.0) 独立模块,被 cron-worker L2 通过
+`importlib.util.spec_from_file_location` 动态加载。
+
+**安全门** (按 Codex 评审, 4 层):
+1. `user_preferences.auto_kill_zombies=False` 总开关 → 全程不杀 (gated)
+2. `known_zombie_parents[ppid].auto_kill=true` 显式 opt-in
+3. 3h 冷却 marker (`~/.hermes/inspection/.known-zombie-killed.json`) — 防 Raycast 反复自启被杀循环
+4. `kill` 失败分桶 (cooldown / not_found / permission_denied / error), marker 健壮 fail-soft
+
+**触发路径**: L2 `check_zombies()` 检出 >4 僵尸 → 调 `zombie_killer.kill_known_zombies()` →
+重检集合大小 → 若成功 reap 降级为 ok。
+
+**消费方**:
+- `cron-worker/scripts/mac-doctor-watchdog.py` (动态加载)
+- 未来 default profile 也可独立消费 (如果其他 cron job 看到类似模式)
+
+**测试**: 20 个单测在 `tests/test_zombie_killer.py` (jz-skills),
+2 个 smoke 集成在 `tests/test_watchdog_integration.py` (`test_watchdog_integrates_zombie_killer_hook`
++ `test_watchdog_line_count_stays_under_460`)。
 
 ---
 

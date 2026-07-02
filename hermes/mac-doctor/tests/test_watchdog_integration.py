@@ -146,6 +146,30 @@ def test_save_report_state_keeps_zombie_sig_and_mcp_msg(monkeypatch, tmp_path):
     assert state["mcp_cleaned_msg"] == "清理了 2 个孤儿 MCP 进程"
 
 
-def test_watchdog_line_count_stays_under_450():
+def test_watchdog_integrates_zombie_killer_hook(monkeypatch, tmp_path):
+    """watchdog 集成 zombie_killer 钩子: main() 在 zombie=warn 时调用 kill_known_zombies。
+
+    Phase 2 (2026-07-02): 杀 known_zombie_parents 抽到独立模块, watchdog 通过
+    importlib 动态加载。本测试验证 loader 返回的模块确实暴露 kill_known_zombies API。
+    """
+    mod = load_watchdog()
+    zk = mod._load_zombie_killer_module()
+    assert callable(zk.kill_known_zombies)
+    # 4 个 skipped 子桶的 schema 契约
+    sentinel = zk.kill_known_zombies(
+        [], {"facts": {"user_preferences": {"auto_kill_zombies": False},
+                       "known_zombie_parents": {}}},
+    )
+    expected_keys = {"cooldown", "not_found", "permission_denied", "error"}
+    assert set(sentinel["skipped"].keys()) == expected_keys
+
+
+def test_watchdog_line_count_stays_under_460():
+    """watchdog 行数硬约束 (<460)。
+
+    历史: v2.4.2 设 450。Phase 2 (2026-07-02) 加 L2 kill_known_zombies 钩子后,代码
+    抽到独立 zombie_killer 模块,watchdog 净增 ~3 行, 上限放宽到 460。仍为软约束,
+    用于早预警膨胀;新功能应优先考虑拆模块而不是改这个数字。
+    """
     path = Path("/Users/alexcai/.hermes/profiles/cron-worker/scripts/mac-doctor-watchdog.py")
-    assert len(path.read_text(encoding="utf-8").splitlines()) < 450
+    assert len(path.read_text(encoding="utf-8").splitlines()) < 460

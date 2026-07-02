@@ -12,8 +12,10 @@ from pathlib import Path
 
 COLLECTOR = Path("/Users/alexcai/.hermes/skills/apple/mac-doctor/scripts/collector-daemon.py")
 PREFERENCES_MODULE = Path("/Users/alexcai/.hermes/skills/apple/mac-doctor/scripts/preferences.py")
+ZOMBIE_KILLER_MODULE = Path("/Users/alexcai/.hermes/skills/apple/mac-doctor/scripts/zombie_killer.py")
 PREFERENCES_FILE = Path.home() / ".hermes" / "inspection" / "preferences.json"
 TRIAGE_TRIGGER_FILE = Path.home() / ".hermes" / "inspection" / ".triage-trigger"
+ZOMBIE_KILL_MARKER = Path.home() / ".hermes" / "inspection" / ".known-zombie-killed.json"
 STATE_FILE = Path("/Users/alexcai/.hermes/profiles/cron-worker/state/mac-doctor-watchdog-state.json")
 KANBAN_DB = Path("/Users/alexcai/.hermes/kanban.db")
 ZOMBIE_MAX = 4
@@ -154,17 +156,30 @@ def check_kanban():
 
 
 def check_zombies():
-    """僵尸进程检测。"""
+    """僵尸进程检测。返回 [{pid, ppid, cmd}, ...], PPID 供 kill_known_zombies 决策。"""
     try:
-        r = subprocess.run(["ps", "aux"], capture_output=True, text=True, timeout=10)
-        zombies = []
-        for line in r.stdout.splitlines():
-            parts = line.split(None, 10)
-            if len(parts) >= 8 and parts[7] == "Z":
-                zombies.append({"pid": parts[1], "cmd": parts[10] if len(parts) > 10 else "?"})
+        r = subprocess.run(["ps", "axo", "pid,ppid,stat,args"], capture_output=True, text=True, timeout=10)
+        zombies = [
+            {"pid": p[0], "ppid": p[1], "cmd": p[3][:80]}
+            for line in r.stdout.splitlines()
+            for p in [line.split(None, 3)]
+            if len(p) == 4 and "Z" in p[2]
+        ]
         return ("ok", None) if len(zombies) <= ZOMBIE_MAX else ("warn", zombies)
     except Exception as e:
         return ("error", str(e))
+
+
+def _load_zombie_killer_module():
+    """动态加载 zombie_killer.py（同 PREFERENCES_MODULE 模式）。"""
+    if not ZOMBIE_KILLER_MODULE.exists():
+        # 子 agent D 坑: 部署漂移时无感; 启动期 fail-loud 一次性 stderr
+        print(f"watchdog: zombie_killer 模块丢失 ({ZOMBIE_KILLER_MODULE}), L2 kill 钩子失效", file=sys.stderr)
+    spec = importlib.util.spec_from_file_location("mac_doctor_zombie_killer", ZOMBIE_KILLER_MODULE)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+_EMPTY_KILL_ACTION = {"killed": [], "skipped": {"cooldown": [], "not_found": [], "permission_denied": [], "error": []}, "gated": False, "reason": None}
 
 
 def check_mcp_cleanup():
@@ -334,14 +349,25 @@ def main():
     threshold_alerts = [a for a in alerts if not a.get("is_anomaly", False)]
     prefs = load_prefs()
     threshold_alerts = filter_known_short_running_alerts(threshold_alerts, prefs)
-    # 2. Kanban
+    # 2. Kanban + 3. Zombie + L2 kill hook
     status, data = check_kanban()
     checks["kanban"] = status
     if status != "ok":
         issues.append(("kanban", data))
-    # 3. Zombie（同 PID 集合 + 冷却期内 → 静默，僵尸是父进程的债子进程端无解）
+    # 3. Zombie + L2 kill hook（同 PID 集合 + 冷却期内 → 静默，僵尸是父进程的债子进程端无解）
     status, data = check_zombies()
     checks["zombie"] = status
+    zombie_kill_action = _EMPTY_KILL_ACTION
+    if status == "warn" and isinstance(data, list):
+        try:
+            zk = _load_zombie_killer_module()
+            zombie_kill_action = zk.kill_known_zombies(data, prefs, marker_path=ZOMBIE_KILL_MARKER)
+            if zombie_kill_action["killed"] or zombie_kill_action["skipped"]["not_found"]:
+                time.sleep(1)  # 给 SIGCHLD 一帧传 init
+                status, data = check_zombies()
+                checks["zombie"] = status
+        except Exception as e:
+            print(f"zombie_killer 加载/调用失败: {e}", file=sys.stderr)
     if status == "warn":
         if is_duplicate_zombie_alert(data, load_state()):
             checks["zombie"] = "ok_silent"
@@ -382,6 +408,14 @@ def main():
     z_disp = "ok" if checks["zombie"] == "ok_silent" else checks["zombie"]
     m_disp = "ok" if checks["mcp"] == "ok_silent" else checks["mcp"]
     print(f"状态: kanban={checks['kanban']}  zombie={z_disp}  mcp={m_disp}")
+    # 显示 zombie kill action(若有)— 让用户看到 L2 消费了 auto_kill
+    if zombie_kill_action.get("killed"):
+        print(f"🔪 已消费 prefs.auto_kill=true: kill -9 PPID [{', '.join(zombie_kill_action['killed'])}] (3h 冷却)")
+    elif zombie_kill_action.get("gated") and any(
+        z.get("ppid") in (prefs.get("facts", {}).get("known_zombie_parents", {}) or {})
+        for z in (data if isinstance(data, list) else [])
+    ):
+        print(f"⏸️  zombie 父进程 auto_kill=true 但被总开关拦截(auto_kill_zombies=False)— 仍按配置未杀")
     print()
     cpu = snap.get('cpu_percent')
     mem = snap.get('memory_pressure', '?')
