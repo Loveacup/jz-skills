@@ -46,14 +46,16 @@ This skill teaches agents how to operate, configure, and troubleshoot
 
 Use this skill when the user asks about any of the following:
 
-- Model provider setup: Anthropic, OpenAI, Google, Groq, OpenRouter, local
-  engines (Ollama, llama.cpp, LM Studio), custom providers in `models.yml`.
+- Model provider setup and API behavior: Anthropic, OpenAI, Google, Groq,
+  OpenRouter, local engines (Ollama, llama.cpp, LM Studio), custom providers in
+  `models.yml`, and `providers.anthropic.serverSideFallback`.
 - API key handling: env vars, `.env`, `agent.db`, `/login`, auth broker.
-- Search providers: Exa, Brave, Tavily, SearXNG, Perplexity, z.ai, Kagi,
-  Jina, Parallel, Anthropic search, Codex search, Kimi/Moonshot search.
+- Search providers and caveats: Exa, Brave, Tavily, DuckDuckGo
+  datacenter/shared-egress limitations, SearXNG, Perplexity, z.ai, Kagi, Jina,
+  Parallel, Anthropic search, Codex search, Kimi/Moonshot search.
 - `modelRoles`, `cycleOrder`, `modelProviderOrder`, `enabledModels`,
-  `disabledProviders`.
-- `.env` precedence, `PI_CODING_AGENT_DIR`, profiles.
+  `disabledProviders`, `task.softRequestBudgetNotice`, `task.maxConcurrency`,
+  and `task.maxRecursionDepth`.
 - Hidden/undocumented runtime switches shown in OMP `tips.txt`, such as
   `PI_DIALECT`, `/btw`, `/tan`, `/force`, `/shake`, magic keywords
   (`ultrathink`, `orchestrate`, `workflowz`), or `omp stats`.
@@ -113,8 +115,12 @@ runtime override (e.g. --api-key)
 ### Built-in model roles
 
 `default`, `smol`, `slow`, `vision`, `plan`, `designer`, `commit`, `tiny`,
-`title`, `task`, `advisor`. Values may append `:minimal`, `:low`, `:medium`, `:high`,
-  `:xhigh`.
+`title`, `task`, `advisor`. Values may append `:minimal`, `:low`, `:medium`,
+`:high`, `:xhigh`.
+
+Built-in subagent names changed separately from model roles: `quick_task` was
+renamed to `sonic` in 16.2.9, built-in `oracle` was removed in 16.2.9, and
+`Tester` was added in 16.2.9.
 
 ### Local engines
 
@@ -134,6 +140,30 @@ explicitly configured or listed in `disabledProviders`.
 | Anthropic search | `ANTHROPIC_SEARCH_API_KEY` |
 | Codex search | `OPENAI_API_KEY` or stored Codex OAuth |
 
+### Recent OMP 16.2.9–16.3.0 operator notes
+
+- 16.3.0 config additions: `providers.anthropic.serverSideFallback` opt-in
+  Anthropic server-side fallback beta; `task.softRequestBudgetNotice` enables
+  subagent soft-budget wrap-up notices while keeping graceful abort guard
+  active.
+- 16.3.0 reliability: signed thinking/reasoning payload persistence fixed for
+  Anthropic/OpenAI/Google; session shutdown saves editor drafts and cleans
+  background jobs; git clone/fetch gets a separate 30-minute network-transfer
+  deadline; `task.maxConcurrency` and `task.maxRecursionDepth` bypasses fixed.
+- 16.3.0 tools/search: `apply_patch`/edit dirty-buffer and overwrite handling
+  fixed; grep/ast_grep URL-scope parsing fixed for `www.` and collapsed-scheme
+  spellings; Tavily retries without recency filters when content is empty;
+  DuckDuckGo error clarity documents datacenter/shared-egress limitations.
+- 16.2.12 breaking model behavior: canonical-alias grouping removed;
+  `equivalence` in `models.yml`/`models.json` is inert; `omp models canonical`
+  and the interactive `CANONICAL` tab were removed; model selectors now resolve
+  by exact/flat ID plus provider preference.
+- 16.2.9 subagents: `quick_task` renamed to `sonic`; built-in `oracle`
+  removed; built-in `Tester` added.
+- 16.2.7 provider behavior: Google Gemini/Vertex service-tier support and
+  Vertex bearer access-token/API-key precedence changes; Google Vertex AI
+  supported.
+
 ## Verification Checklist
 
 Before answering, confirm:
@@ -141,7 +171,7 @@ Before answering, confirm:
 - [ ] No real API key, token, or password appears in the final response.
 - [ ] `references/official/` was consulted for behavior that may have changed.
 - [ ] `references/providers/` was consulted for provider-specific env vars.
-- [ ] `modelRoles` examples use canonical or concrete selectors correctly.
+- [ ] `modelRoles` examples use exact flat IDs or provider/model selectors; do not document canonical alias coalescing as active behavior.
 - [ ] Project/global scope and array-replacement behavior were mentioned when
       relevant.
 - [ ] The user was directed to `/login` or env vars instead of being told to

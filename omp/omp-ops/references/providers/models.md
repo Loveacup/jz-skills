@@ -33,6 +33,10 @@ The table below lists the environment variable used by each core model provider 
 | `lm-studio` | `LM_STUDIO_API_KEY` (optional) | keyless by default |
 | `llama.cpp` | `LLAMA_CPP_API_KEY` (only when server requires auth) | keyless by default |
 
+16.2.7 changed Google Vertex precedence so explicit env credentials override
+stored auth before broker migration; verify exact env names against official
+docs before advising a user to set them.
+
 ## Built-in local engines
 
 Local engines are discovered automatically if not explicitly configured in `models.yml` and not disabled.
@@ -45,6 +49,15 @@ Local engines are discovered automatically if not explicitly configured in `mode
 | `litellm` | `LITELLM_BASE_URL` | `http://127.0.0.1:4000/v1` | `LITELLM_API_KEY` (when proxy requires key) |
 
 `litellm` discovery probes LiteLLM management metadata first (`GET /model_group/info`, then `GET /v2/model/info`), then falls back to the OpenAI-compatible `GET /models` list. Rich metadata maps `max_input_tokens`, `max_output_tokens`, `supports_vision`, and `supports_reasoning`; bare fallback ids are enriched against bundled reference metadata when available.
+
+Release caveats:
+
+- 16.3.0 fixed llama.cpp router/preset status-bar context reporting; do not
+  tell users every preset is 128k just because status previously showed that.
+- 16.2.12 fixed OpenAI-compatible discovery for LM Studio/proxies by enriching
+  flat IDs from bundled model metadata when context length is omitted.
+- 16.2.11 fixed timeout cleanup for Ollama, Llama.cpp, LM Studio, OpenAI,
+  LiteLLM, and vLLM discovery.
 
 ## Quick `models.yml` examples
 
@@ -137,6 +150,9 @@ Built-in roles:
 | `task` | Task-tool subagent model. |
 | `advisor` | Advisor/WATCHDOG reviewer model (16.2.3+: full tool access, multi-advisor via WATCHDOG.yml). |
 
+`Tester` and `sonic` are built-in subagents, not `modelRoles`; `oracle` is no
+longer built in as of 16.2.9.
+
 ### Example configuration
 
 ```yaml
@@ -176,16 +192,31 @@ modelRoles:
   advisor: anthropic/claude-sonnet-4-5:medium
 ```
 
-### Canonical ids
+### Exact flat IDs and provider preference
 
-Use a canonical upstream id to let OMP pick an available concrete provider variant:
+16.2.12 removed canonical alias coalescing.
 
-```yaml
-modelRoles:
-  default: gpt-5.3-codex
-```
+`equivalence` keys in `models.yml`/`models.json` are inert.
 
-`modelProviderOrder` then controls which concrete provider wins.
+Use `provider/model-id` for a concrete provider.
+
+Use a bare exact flat id only when OMP can match that same id through provider preference.
+
+`modelProviderOrder` chooses among provider candidates; it no longer feeds a catalog-wide canonical alias resolver.
+
+### Recent provider notes (16.2.9–16.3.0)
+
+- `providers.anthropic.serverSideFallback` opt-in for Anthropic server-side
+  fallback beta.
+- Anthropic/OpenAI/Google signed thinking and reasoning payload persistence
+  fixes prevent replay HTTP 400s.
+- `NODE_EXTRA_CA_CERTS` is honored by model discovery/provider fetches for
+  private CA gateways.
+- LiteLLM stale reseller display-name suffixes are invalidated on upgrade.
+- OpenAI Responses replay errors from missing reasoning items were fixed.
+- Xiaomi MiMo default/validation uses supported `mimo-v2.5`.
+- ZenMux Anthropic route classification was fixed for Claude Sonnet 5 signature
+  enforcement.
 
 ---
 

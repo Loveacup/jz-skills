@@ -11,6 +11,7 @@ OMP supports multiple web-search backends. Each provider is selected by setting 
 | `exa` | `EXA_API_KEY` | none | `curl -s "https://api.exa.ai/search" -H "x-api-key: $EXA_API_KEY" -d '{"query":"test","numResults":1}'` |
 | `brave` | `BRAVE_API_KEY` | none | `curl -s "https://api.search.brave.com/res/v1/web/search?q=test&count=1" -H "X-Subscription-Token: $BRAVE_API_KEY"` |
 | `tavily` | `TAVILY_API_KEY` | none | `curl -s "https://api.tavily.com/search" -H "content-type: application/json" -d '{"api_key":"'$TAVILY_API_KEY'","query":"test","max_results":1}'` |
+| `duckduckgo` | none | built-in fallback; 16.3.0 improves error clarity and documents datacenter/shared-egress limitations | `omp search --provider duckduckgo "test"` |
 | `perplexity` | `PERPLEXITY_API_KEY` (API-key mode) | `PERPLEXITY_COOKIES` (cookie-auth mode) | `curl -s "https://api.perplexity.ai/chat/completions" -H "Authorization: Bearer $PERPLEXITY_API_KEY" -H "Content-Type: application/json" -d '{"model":"sonar","messages":[{"role":"user","content":"hello"}]}'` |
 | `searxng` | `SEARXNG_ENDPOINT` (`SEARXNG_TOKEN` optional) | `SEARXNG_BASIC_USERNAME`, `SEARXNG_BASIC_PASSWORD`; or `searxng.endpoint`, `searxng.token`, `searxng.basicUsername`, `searxng.basicPassword` in `config.yml` | `curl -s "$SEARXNG_ENDPOINT/search?q=test&format=json" ${SEARXNG_TOKEN:+-H "Authorization: Bearer $SEARXNG_TOKEN"}` |
 | `zai` | `ZAI_API_KEY` | stored OAuth in `agent.db` also accepted | `curl -s "https://api.z.ai/v1/chat/completions" -H "Authorization: Bearer $ZAI_API_KEY" -H "Content-Type: application/json" -d '{"model":"glm-4-flash","messages":[{"role":"user","content":"hello"}]}'` |
@@ -27,6 +28,8 @@ OMP supports multiple web-search backends. Each provider is selected by setting 
   endpoint against the provider's current API documentation before relying on
   them in automation.
 - SearXNG reads both environment variables and equivalent `config.yml` settings under the `searxng` key. Environment variables are fallbacks.
+- Tavily retries without recency filters if the first response returns no
+  content; 16.2.2/16.3.0 release notes document this as current behavior.
 - Perplexity supports API-key mode and cookie-auth mode. Cookie mode is used by the interactive `/login perplexity` flow.
 - `z.ai` search also checks stored OAuth credentials in `agent.db`.
 - Codex search requires either `OPENAI_API_KEY` or a stored Codex OAuth credential.

@@ -20,7 +20,7 @@ OMP uses two scopes. Higher-precedence layers override lower ones.
 ~/.omp/agent/
 ├── config.yml              # global persistent settings
 ├── settings.json           # legacy; migrated to config.yml once
-├── models.yml              # custom providers / overrides / equivalence
+├── models.yml              # custom providers / overrides; legacy equivalence is inert (16.2.12+)
 ├── secrets.yml             # custom secret obfuscation rules
 ├── .env                    # agent-scope env vars (third .env precedence)
 ├── agent.db                # SQLite auth store (API keys + OAuth credentials)
@@ -87,7 +87,19 @@ enabledModels: []
 modelProviderOrder:
   - anthropic
   - openai
+  - google
 
+tier:
+  openai: auto      # per-family service tiers replace global serviceTier (16.2.7+)
+  anthropic: auto
+  google: auto
+
+providers:
+  anthropic:
+    serverSideFallback: false  # opt-in Anthropic beta fallback chain (16.3.0+)
+
+task:
+  softRequestBudgetNotice: false  # opt-in subagent soft-budget wrap-up steering notices (16.3.0+)
 tools:
   approvalMode: write
   approval:
@@ -115,14 +127,15 @@ secrets:
 
 | Key | Type | Purpose |
 |---|---|---|
-| `modelRoles` | record | Map role → `provider/model-id` or canonical id. |
+| `modelRoles` | record | Map role → provider/model-id or exact flat model id. |
 | `modelTags` | record | Custom role/tag metadata. |
 | `cycleOrder` | array | Roles cycled by `/model` switcher. |
-| `modelProviderOrder` | array | Provider precedence for ambiguous canonical ids. |
-| `enabledModels` | array | Allow-list of concrete/canonical models. |
+| `modelProviderOrder` | array | Provider precedence when an exact flat model id is available from multiple providers. |
+| `enabledModels` | array | Allow-list of provider/model ids or exact flat model ids. |
 | `disabledProviders` | array | Block model/discovery providers by id. |
 
-Supported roles: `default`, `smol`, `slow`, `vision`, `plan`, `designer`, `commit`, `title`, `task`, `advisor`.
+Supported roles: `default`, `smol`, `slow`, `vision`, `plan`, `designer`, `commit`, `tiny`, `title`, `task`, `advisor`.
+Subagent names and model roles are separate; do not add `sonic` or `Tester` as `modelRoles`.
 Role values may append a thinking suffix: `:minimal`, `:low`, `:medium`, `:high`, `:xhigh`.
 
 ## Multi-Advisor (`WATCHDOG.yml`)
@@ -209,11 +222,11 @@ OLLAMA_BASE_URL=http://127.0.0.1:11434
 
 ## `modelRoles`
 
-`modelRoles` maps a role alias to a concrete or canonical model selector.
+`modelRoles` maps a role alias to a provider/model-id or exact flat model id.
 Official 16.2.2 adds a `tiny` role for lightweight background tasks such as
 session titles, memory, auto-thinking difficulty classification, and
-unexpected-stop detection. When it is unset, those flows fall back to
-`pi/smol`.
+unexpected-stop detection. When it is unset, those flows fall back to `pi/smol`.
+Subagent names and model roles are separate.
 
 ```yaml
 modelRoles:
@@ -225,7 +238,8 @@ modelRoles:
 ```
 
 - Use `provider/model-id` to pin a concrete variant.
-- Use a canonical id (e.g. `gpt-5.3-codex`) to allow provider coalescing.
+- Use an exact flat model id only when the same id exists across providers and `modelProviderOrder` should choose the provider.
+- Canonical alias coalescing was removed in 16.2.12; `equivalence` in `models.yml`/`models.json` is inert.
 - A thinking suffix overrides the default thinking level for that role.
 - Env overrides: `PI_SMOL_MODEL`, `PI_SLOW_MODEL`, `PI_PLAN_MODEL` (process-local only).
 - CLI flags: `--model`, `--smol`, `--slow`, `--plan`, `--advisor`.
