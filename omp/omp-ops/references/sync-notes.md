@@ -1,5 +1,12 @@
 # Sync Notes
 
+## 2026-07-03
+
+- Official OMP 16.3.2 changed `grep`, `glob`, and `ast_grep` from a `paths`
+  array to a single `path` string that may contain semicolon-delimited
+  entries. Captured this in the recent-notes section of `SKILL.md`; no other
+  authored reference updates were needed in this run.
+
 ## 2026-06-28
 
 - Official OMP 16.2.2 adds the `tiny` model role for lightweight background

@@ -154,6 +154,10 @@ explicitly configured or listed in `disabledProviders`.
   fixed; grep/ast_grep URL-scope parsing fixed for `www.` and collapsed-scheme
   spellings; Tavily retries without recency filters when content is empty;
   DuckDuckGo error clarity documents datacenter/shared-egress limitations.
+- 16.3.2 search tools: `grep`, `glob`, and `ast_grep` now take a single
+  optional `path` string instead of a `paths` array; semicolon-delimited
+  multi-path input is supported, and omitted `path` searches the workspace
+  root.
 - 16.2.12 breaking model behavior: canonical-alias grouping removed;
   `equivalence` in `models.yml`/`models.json` is inert; `omp models canonical`
   and the interactive `CANONICAL` tab were removed; model selectors now resolve
