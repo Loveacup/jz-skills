@@ -12,13 +12,13 @@ MODE="${1:-full}"
 # Resolve paths dynamically — no hardcoded $HOME (platform-agnostic + 不泄露用户名/家目录)
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REAL_HOME="$(python3 -c 'import os, pwd; print(pwd.getpwuid(os.getuid()).pw_dir)')"
-SRC="${SRC:-$REPO_ROOT/shared/pdf}"
-CANON="${CANON:-$REAL_HOME/.agents/shared/pdf}"
+SRC="${SRC:-$REPO_ROOT/shared/2pdf}"
+CANON="${CANON:-$REAL_HOME/.agents/shared/2pdf}"
 RUNTIMES=(
-  "$REAL_HOME/.claude/skills/pdf"
-  "$REAL_HOME/.codex/skills/pdf"
-  "$REAL_HOME/.cursor/skills/pdf"
-  "$REAL_HOME/.hermes/skills/pdf"
+  "$REAL_HOME/.claude/skills/2pdf"
+  "$REAL_HOME/.codex/skills/2pdf"
+  "$REAL_HOME/.cursor/skills/2pdf"
+  "$REAL_HOME/.hermes/skills/2pdf"
 )
 FILT='__pycache__|\.pytest_cache|\.pyc'
 FAIL=0

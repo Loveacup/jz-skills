@@ -6,3 +6,7 @@ __pycache__/
 .merge_waterline
 .dirty
 shared/bilibili-video-analyzer/.cookies/
+# 2pdf vendored assets (downloaded by --setup; only vendor.lock.json is committed)
+shared/2pdf/scripts/mermaid.min.js
+shared/2pdf/scripts/highlight.min.js
+shared/2pdf/scripts/hljs-styles/

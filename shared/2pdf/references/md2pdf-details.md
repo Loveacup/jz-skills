@@ -122,12 +122,22 @@ Standard Markdown footnotes via the `footnotes` extension:
 
 Mermaid diagrams in fenced code blocks are automatically rendered:
 
-- **Rendering**: Mermaid JS v11 (local file or CDN), `startOnLoad: false` + explicit `mermaid.run()` for reliable timing
-- **Offline support**: Place `mermaid.min.js` in `scripts/` directory for air-gapped environments
+- **Rendering**: Mermaid JS pinned version (vendored local file via `--setup`, else pinned CDN), `startOnLoad: false` + **per-block `mermaid.parse()` precheck + `mermaid.render()`** for reliable timing and precise error localization
+- **Fail-fast (quality gate)**: failing blocks are collected into `window.__mermaidStatus.errors`; the Python side aborts with **exit 3 and NO output file**, printing block number + error + source head. Diagram content errors never trigger engine downgrade or the pandoc lifeboat. Escape hatch: `--allow-diagram-errors`
+- **Fence-first preprocessing**: code fences and inline code are placeholder-protected before `==highlight==`/wikilink/tasklist conversions — Mermaid thick arrows (`A ==> B`) are safe
+- **Diagram count reconciliation**: total/rendered counts go into PDF metadata (`/JZDiagramTotal`, `/JZDiagramRendered`); `verify_pdf.py` flags mismatches and fuzzy-scans error-bomb text ("Syntax error", doubled-char variants)
+- **Offline support**: `--setup` vendors `mermaid.min.js` (pinned + sha256 in `vendor.lock.json`) into `scripts/`
 - **Auto-scaling**: After rendering, JS measures each SVG and proportionally scales to fit page (max 580px wide, 650px tall)
 - **Natural sizing**: `useMaxWidth: false` — diagrams render at natural size, then scale down (not stretch up)
 - **ViewBox preservation**: Ensures crisp rendering at any scale via SVG viewBox
 - **Chrome timing**: `--virtual-time-budget=20000` gives Chrome enough virtual time for CDN load + render + post-processing
+
+## Environment Self-Healing
+
+- **Persistent venv**: `~/.venvs/pdf-skill`, shared by all CLI runtimes (they symlink the same canonical skill). Dependency-less interpreters auto re-exec into it (`JZ2PDF_REEXEC` guards loops; `--no-bootstrap` disables)
+- **`--setup`**: idempotent bootstrap — venv + deps + Playwright Chromium + vendored assets + smoke render acceptance (the per-machine cross-platform guarantee)
+- **Vendored assets**: mermaid + highlight.js (+ per-theme hljs CSS) pinned & sha256-locked in `vendor.lock.json`; downloaded files live next to `scripts/` and are gitignored
+- **Cross-platform**: Windows venv layout (`Scripts\python.exe`), `%ProgramFiles%` Chrome discovery, `%LOCALAPPDATA%\ms-playwright` cache detection, platform temp dir instead of `/tmp`, YaHei/Consolas font fallbacks
 
 ## Obsidian Callout Support
 

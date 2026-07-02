@@ -114,7 +114,7 @@ PAIRS=(
   # === shared ===
   "shared/grill-with-docs|governance/grill-with-docs"
   "shared/skill-authoring|governance/skill-authoring"
-  "shared/pdf|productivity/pdf"
+  "shared/2pdf|productivity/pdf"
   "shared/strategic-insight-longform|productivity/strategic-insight-longform"
   "shared/voice-to-markdown-workflow|productivity/voice-to-markdown-workflow"
   "shared/bookmark-organizer|bookmark-organizer"

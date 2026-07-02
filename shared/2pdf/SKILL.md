@@ -1,5 +1,5 @@
 ---
-name: pdf
+name: 2pdf
 description: Comprehensive PDF manipulation toolkit for extracting text and tables, creating new PDFs, merging/splitting documents, and handling forms. Also converts Markdown / Obsidian notes into beautiful CJK-safe styled PDF (and PNG/HTML/WeChat) with themes, Mermaid, and bookmarks. When Claude needs to fill a PDF form, process/generate/analyze PDFs at scale, or turn Markdown/Obsidian notes into PDF. Triggers: md to pdf, markdown to pdf, 转 PDF, Obsidian 导出 PDF, 笔记转 PDF, export note to PDF.
 license: Proprietary. LICENSE.txt has complete terms
 ---
@@ -34,9 +34,9 @@ for page in reader.pages:
 Convert Obsidian Flavored Markdown to styled PDF with perfect Chinese/Japanese/Korean rendering.
 
 **Script**: `scripts/md2pdf_chrome.py`
-**Prerequisites**: Python 3 + `markdown` + `pypdf` (+ `css_inline` for `--format wechat`) — `pip install markdown pypdf css_inline`. Plus Node.js + Playwright (`npm install playwright && npx playwright install chromium`); a system Chrome enables the `--browser chrome|auto` fallback, and `pandoc` powers the last-resort `--fallback pandoc`.
+**Prerequisites — one command**: `python3 scripts/md2pdf_chrome.py --setup` (first run may take minutes: creates the persistent venv `~/.venvs/pdf-skill`, installs `markdown`/`pypdf`/`css_inline`, installs Playwright Chromium if missing, vendors pinned mermaid/highlight.js locally, then runs a smoke render + verify — green means the whole chain works on THIS machine, mac or Windows). Node.js must be present (`brew install node` / `winget install OpenJS.NodeJS`); `pandoc` is optional (lifeboat only).
 
-> ⚠️ The default `python3` may lack these deps. Run `python scripts/md2pdf_chrome.py --preflight` first — it checks the **current interpreter** + deps + browsers — or use a venv with the deps installed.
+> ✅ **Self-healing**: even without `--setup`, any render command run from a dependency-less `python3` auto-switches to (or auto-creates) the persistent venv and re-executes itself — no manual env work. Disable with `--no-bootstrap`. Setup is idempotent; re-run it after upgrades.
 
 ### Usage
 
@@ -44,8 +44,11 @@ Convert Obsidian Flavored Markdown to styled PDF with perfect Chinese/Japanese/K
 python scripts/md2pdf_chrome.py <md_file> [pdf_file] [header_text] \
   [--format pdf|png|html|wechat] [--browser playwright|chrome|auto] \
   [--theme NAME] [--page-size A4|430x932] \
-  [--verify] [--no-metadata] [--fallback pandoc] \
+  [--verify] [--allow-diagram-errors] [--no-metadata] [--fallback pandoc] \
   [--sm PATTERN] [--xs PATTERN] [--sm-after PATTERN] [--xs-after PATTERN]
+
+# One-time environment bootstrap (idempotent; also: --preflight --fix)
+python3 scripts/md2pdf_chrome.py --setup
 
 # Preflight: check current interpreter + deps + browsers BEFORE rendering
 python scripts/md2pdf_chrome.py --preflight            # human-readable
@@ -65,10 +68,13 @@ python scripts/md2pdf_chrome.py report.md output.pdf --theme academic --sm "开�
 | `--format pdf\|png\|html\|wechat` | Output format. `pdf` (default), `png` (full-page screenshot), `html` (standalone), `wechat` (CSS inlined for WeChat paste) |
 | `--browser playwright\|chrome\|auto` | Rendering engine. `playwright` (default, bundled Chromium); `chrome` (system Chrome via `executablePath`); `auto` tries bundled → system Chrome → (pdf only) pandoc, surviving runtime launch failures. Prints actual `engine` + `executable` to stderr |
 | `--page-size A4\|WxH` | `A4` (default) or a custom mobile size like `430x932`. Validated up front |
-| `--preflight [--json]` | Health-check current interpreter, deps, browsers, pandoc, mermaid cache — no rendering. Exit 0 ok / 1 fatal / 2 missing doc |
-| `--verify` | After rendering PDF, run delivery quality gate (`verify_pdf.py`): Mermaid-source leak, file size/magic, page count, metadata |
+| `--setup` | One-time idempotent bootstrap: persistent venv + deps + Playwright Chromium + pinned vendor assets (mermaid/hljs, `vendor.lock.json`) + smoke render acceptance. Alias: `--preflight --fix` |
+| `--preflight [--json]` | Health-check current interpreter, deps, browsers, pandoc, vendored assets, persistent venv — no rendering. Exit 0 ok / 1 fatal / 2 missing doc |
+| `--verify` | After rendering PDF, run delivery quality gate (`verify_pdf.py`): Mermaid-source leak, **Mermaid error-bomb text (fuzzy match)**, **diagram count reconciliation** (`/JZDiagramTotal` vs `/JZDiagramRendered` metadata), file size/magic, page count, metadata |
+| `--allow-diagram-errors` | Explicitly allow a PDF to be produced even when some Mermaid diagrams failed (default: **fail-fast, exit 3, no output file**) |
+| `--no-bootstrap` | Disable the automatic venv self-healing re-exec |
 | `--fallback pandoc` | Force the pandoc lifeboat (pandoc → HTML+CSS → system Chrome print-to-pdf). Style NOT faithful, no Mermaid, A4 only. Also auto-triggered by `--browser auto` when no Chromium can launch |
-| `--no-metadata` | Skip writing source frontmatter into PDF metadata |
+| `--no-metadata` | Skip writing source frontmatter into PDF metadata (including diagram-count keys) |
 
 **Themes** auto-discover from `scripts/themes/*.css` (currently 11: academic, blue, dark, editorial, kami, minimalist, newsletter, social-card, swiss, warm-academic, wechat-article).
 
@@ -78,6 +84,14 @@ python scripts/md2pdf_chrome.py report.md output.pdf --theme academic --sm "开�
 1. **Primary** — Playwright bundled Chromium (`--browser playwright`, default).
 2. **System Chrome** — `--browser chrome`, or `auto` when bundled Chromium fails to launch.
 3. **Pandoc lifeboat** — `--fallback pandoc`, or `auto` when no Chromium launches (pdf only). Style not faithful; emergency use.
+
+**Quality-first fail-fast** (the 7-02 `==>` incident hardening — four defense layers):
+1. **Fence-first preprocessing** — code fences & inline code are extracted to placeholders BEFORE `==highlight==`/wikilink/tasklist conversions, so Mermaid thick arrows (`A ==> B`) and code containing `[[ ]]`/`- [ ]` are never mangled.
+2. **Render-time fail-fast** — every Mermaid block is `mermaid.parse()`-prechecked then rendered individually in the page; any failure aborts with exit 3, block number, error message and source head — **no PDF is produced**. Engine downgrade and the pandoc lifeboat are NOT triggered by diagram content errors.
+3. **Parse precheck reporting** — errors are reported in seconds (before full page render), so the agent can fix the md immediately.
+4. **Independent verify gate** — `--verify` re-checks the delivered PDF in a separate process: error-bomb fuzzy text scan + diagram count reconciliation via PDF metadata.
+
+**Cross-platform (mac + Windows)**: CJK font stacks include PingFang/YaHei (+ Consolas/Cascadia for code); system-Chrome discovery covers `/Applications`, `%ProgramFiles%`, Linux paths; Playwright cache detection covers `Library/Caches`, `.cache`, `%LOCALAPPDATA%`; no `/tmp` hardcoding (uses the platform temp dir); vendored assets live next to `scripts/`. Deploy/sync shell scripts remain mac-side; on Windows just `git pull` + `--setup`.
 
 ### Claude Code Relay Workflow
 
@@ -137,6 +151,8 @@ Obsidian MD → preprocess → Python markdown (md_in_html) → section wrap →
 For pagination rules, font sizing tables, Mermaid details, callout types, and CSS customization, see `references/md2pdf-details.md`.
 
 ### Pitfalls
+
+**Mermaid failures never reach the PDF (by design).** If a render exits with code 3 and a `图#N` error listing, the md has a genuine Mermaid syntax error — fix the listed block and re-run. Historical note: thick arrows `==>` used to be destroyed by the highlight preprocessor (2026-07-02 incident); fence-first protection fixed this permanently, so `==>` is safe to use now.
 
 **Playwright PDFs are heavy.** A 7-page CJK document can produce a ~1.9MB PDF because Chromium embeds all fonts and full CSS. This routinely times out when delivering via messaging platforms (Telegram MEDIA delivery, etc.).
 

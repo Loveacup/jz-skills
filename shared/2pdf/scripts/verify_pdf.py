@@ -9,6 +9,8 @@
   - magic       %PDF- 魔数                        (error)
   - pages       页数 >= 1                          (error；缺 pypdf → skipped)
   - mermaid_leak Mermaid 源码残留(图没渲成 SVG)   (error)
+  - mermaid_bomb Mermaid 错误炸弹文本印进成品     (error；模糊匹配抗字符重复)
+  - diagram_count 源图数↔成功渲染数 metadata 对账 (error；缺 metadata 键则跳过)
   - first_page  首页可提取文本                      (warn)
   - pdf_metadata 源有 frontmatter 但 metadata 空   (warn)
 
@@ -24,6 +26,26 @@ from pathlib import Path
 MERMAID_RE = re.compile(
     r"graph\s+(TD|LR|TB|RL|BT)\b|sequenceDiagram|flowchart\s+(TD|LR|TB|RL|BT)"
     r"|stateDiagram|classDiagram|erDiagram|gantt\b|pie\s+title"
+)
+
+
+def _fuzzy_pattern(s):
+    """错误炸弹文本在 PDF 提取时常出现字符重复（如 SSyynnttaaxx），
+    对每个字符放宽到 1-2 次重复做模糊匹配。空格放宽为任意空白。"""
+    parts = []
+    for c in s:
+        if c == " ":
+            parts.append(r"\s{1,2}")
+        else:
+            parts.append(re.escape(c) + "{1,2}")
+    return "".join(parts)
+
+
+# M1.4 Mermaid 错误炸弹特征（2026-07-02 事故直接漏检项）：
+# 渲染失败时 mermaid 的错误 SVG 含 "Syntax error in text / mermaid version x.y.z"
+ERROR_BOMB_RE = re.compile(
+    _fuzzy_pattern("Syntax error") + "|" + _fuzzy_pattern("mermaid version"),
+    re.IGNORECASE,
 )
 
 
@@ -59,12 +81,19 @@ def verify(pdf, src_md=None):
             f.append(("pages", "error", "0 页"))
         # Mermaid 源码残留（NFKC 归一消除 CJK 兼容映射干扰，不影响 ASCII 特征）
         leak = []
+        bombs = []
         for i, p in enumerate(pages):
             txt = unicodedata.normalize("NFKC", p.extract_text() or "")
             if MERMAID_RE.search(txt):
                 leak.append(i + 1)
+            # M1.4 错误炸弹检测：图渲染失败时的错误 SVG 文本被印进成品
+            if ERROR_BOMB_RE.search(txt):
+                bombs.append(i + 1)
         if leak:
             f.append(("mermaid_leak", "error", f"Mermaid 源码残留于页 {leak}（图未渲染成 SVG）"))
+        if bombs:
+            f.append(("mermaid_bomb", "error",
+                      f"Mermaid 错误炸弹（Syntax error）印于页 {bombs}——图渲染失败被交付"))
         # 首页文本
         if pages and len((pages[0].extract_text() or "").strip()) == 0:
             f.append(("first_page", "warn", "首页无可提取文本（疑似白屏/纯图）"))
@@ -72,6 +101,11 @@ def verify(pdf, src_md=None):
         meta = r.metadata or {}
         if src_md and _has_frontmatter(src_md) and not (meta.get("/Title") or meta.get("/Author")):
             f.append(("pdf_metadata", "warn", "源有 frontmatter 但 PDF metadata 为空"))
+        # M1.4 图数对账：渲染端写入的「源图数/成功渲染数」metadata 必须相等
+        dt, dr = meta.get("/JZDiagramTotal"), meta.get("/JZDiagramRendered")
+        if dt not in (None, "") and dr not in (None, "") and str(dt) != str(dr):
+            f.append(("diagram_count", "error",
+                      f"Mermaid 图数对账不齐：源 {dt} 个、成功渲染 {dr} 个"))
     except ImportError:
         f.append(("pypdf", "skipped", "pypdf 未安装，页级检查跳过"))
     except Exception as e:

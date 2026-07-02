@@ -115,15 +115,73 @@ def embed_local_images(md_text, md_dir):
     return re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", _replace_img, md_text)
 
 
-MERMAID_LOCAL = Path(__file__).parent / "mermaid.min.js"
+# M1.1 fence-first：文本级转换（==高亮==/wikilink/任务清单/图片内嵌）会污染代码
+# 内容——mermaid 粗箭头 `T1 ==> T2` 曾被高亮正则剥成 `T1 > T2`（2026-07-02 事故）。
+# 因此先把 fenced code block 与行内代码抽成占位符，全部转换完成后再回填。
+_FENCE_RE = re.compile(r"^(?P<f>`{3,}|~{3,})[^\n]*\n(?:.*?\n)?(?P=f)[ \t]*$", re.M | re.S)
+_INLINE_CODE_RE = re.compile(r"(?<!`)(`+)([^`\n]+?)\1(?!`)")
 
+
+def protect_code_spans(md_text):
+    """抽取代码围栏与行内代码为占位符，返回 (text, store)。"""
+    store = []
+
+    def _stash(m):
+        store.append(m.group(0))
+        return f"\x02JZCODE{len(store) - 1}\x03"
+
+    md_text = _FENCE_RE.sub(_stash, md_text)
+    md_text = _INLINE_CODE_RE.sub(_stash, md_text)
+    return md_text, store
+
+
+def restore_code_spans(md_text, store):
+    for i, block in enumerate(store):
+        md_text = md_text.replace(f"\x02JZCODE{i}\x03", block)
+    return md_text
+
+
+# ===== M2 环境自愈：持久 venv + vendor 资源 pin（跨平台，/tmp 不可依赖） =====
+SCRIPTS_DIR = Path(__file__).resolve().parent
+VENV_DIR = Path.home() / ".venvs" / "pdf-skill"   # 四端 CLI 软链共享同一 canonical，读同一路径
+MERMAID_PIN = "11.16.0"   # pin 精确版本：消除 CDN @11 浮动与 /tmp 缓存漂移（2026-07-02 定案）
+HLJS_PIN = "11.9.0"
+MERMAID_LOCAL = SCRIPTS_DIR / "mermaid.min.js"
+HLJS_LOCAL = SCRIPTS_DIR / "highlight.min.js"
+HLJS_STYLES_DIR = SCRIPTS_DIR / "hljs-styles"
+VENDOR_LOCK = SCRIPTS_DIR / "vendor.lock.json"
+MERMAID_CDN = f"https://cdn.jsdelivr.net/npm/mermaid@{MERMAID_PIN}/dist/mermaid.min.js"
+HLJS_CDN = f"https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@{HLJS_PIN}/build/highlight.min.js"
+
+
+def _venv_python():
+    """持久 venv 的解释器路径（win 为 Scripts\\python.exe）。"""
+    sub = "Scripts/python.exe" if sys.platform == "win32" else "bin/python"
+    return VENV_DIR / sub
 
 
 def get_mermaid_src():
-    """Return mermaid script src — local file if available, else CDN."""
+    """Return mermaid script src — local pinned copy if available, else pinned CDN."""
     if MERMAID_LOCAL.exists():
         return f"file://{MERMAID_LOCAL}"
-    return "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"
+    return MERMAID_CDN
+
+
+def _hljs_js_src():
+    """highlight.js 脚本地址：本地 pin 副本优先（--setup 下载），否则 pinned CDN。"""
+    if HLJS_LOCAL.exists():
+        return f"file://{HLJS_LOCAL}"
+    return HLJS_CDN
+
+
+def _hljs_css_src(theme):
+    """hljs 样式表地址：本地副本优先，否则 pinned CDN。"""
+    from themes import load_theme as _lt
+    name = _lt(theme).hljs_theme
+    local = HLJS_STYLES_DIR / f"{name}.min.css"
+    if local.exists():
+        return f"file://{local}"
+    return f"https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@{HLJS_PIN}/build/styles/{name}.min.css"
 
 
 def wrap_sections(html):
@@ -179,6 +237,7 @@ def _wrap_subsections(html):
 
 
 def preprocess_markdown(md_text):
+    """文本级转换。调用方须已用 protect_code_spans 保护代码内容（M1.1）。"""
     md_text = re.sub(r"^---\n.*?\n---\n", "", md_text, flags=re.DOTALL)
     md_text = convert_callouts(md_text)
     md_text = re.sub(r"\[\[([^\]|]+)\|([^\]]+)\]\]", r"\2", md_text)
@@ -187,7 +246,30 @@ def preprocess_markdown(md_text):
     # Convert task list checkboxes
     md_text = re.sub(r"^(\s*)- \[x\] ", r"\1- &#x2611; ", md_text, flags=re.MULTILINE)
     md_text = re.sub(r"^(\s*)- \[ \] ", r"\1- &#x2610; ", md_text, flags=re.MULTILINE)
+    # M1.5 嵌套列表缩进归一：python-markdown 需 4 空格才识别嵌套，
+    # Obsidian 常见 2-3 空格缩进会被压扁成一行。
+    md_text = _normalize_list_indent(md_text)
     return md_text
+
+
+def _normalize_list_indent(md_text):
+    """把「真嵌套」的 2-3 空格列表缩进提升为 4 空格（上下文感知）。
+
+    仅当前一非空行处于列表上下文时才升格——文首/段后的孤立 2-3 空格列表项
+    保持原样（升到 4 空格会被 markdown 误判为缩进代码块）。空行不打断列表上下文。
+    """
+    out = []
+    in_list = False
+    for ln in md_text.split("\n"):
+        m = re.match(r"^( {2,3})([-*+] |\d+[.)] )", ln)
+        if m and in_list:
+            ln = "    " + ln[len(m.group(1)):]
+        if re.match(r"^\s*([-*+] |\d+[.)] )", ln):
+            in_list = True
+        elif ln.strip():
+            in_list = False
+        out.append(ln)
+    return "\n".join(out)
 
 
 def convert_callouts(md_text):
@@ -354,9 +436,12 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
         print(f"📋 Outline:\n{outline}")
 
     md_text = apply_directives(md_text, directives or [])
+    # M1.1 fence-first：保护代码围栏/行内代码 → 文本转换 → 回填
+    md_text, _code_store = protect_code_spans(md_text)
     md_text = preprocess_markdown(md_text)
     # Embed local images as base64 data URIs
     md_text = embed_local_images(md_text, md_path.parent)
+    md_text = restore_code_spans(md_text, _code_store)
     body = markdown.markdown(
         md_text,
         extensions=[
@@ -389,7 +474,7 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
     theme: 'default',
     themeVariables: {
       fontSize: '12px',
-      fontFamily: '-apple-system, "PingFang SC", sans-serif'
+      fontFamily: '-apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif'
     },
     flowchart: {
       htmlLabels: true,
@@ -413,52 +498,75 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
     }
   });
 
-  window.addEventListener('load', function() {
-    mermaid.run().then(function() {
-      // Auto-scale: measure each SVG and proportionally fit to page
-      var maxW = 580;  // ~A4 content width at 96dpi minus margins
-      var maxH = 650;  // ~65% of A4 page height, leave room for text
-      var pageBreakH = 750;
+  // M1.2/M1.3 逐块 parse 预检 + render + 错误收集。渲染状态挂 window.__mermaidStatus，
+  // Python 侧据此 fail-fast（有错默认不产出 PDF），而非把错误炸弹印进成品。
+  window.__mermaidStatus = { total: 0, rendered: 0, errors: [], finished: false };
+  window.addEventListener('load', async function() {
+    var st = window.__mermaidStatus;
+    var blocks = Array.from(document.querySelectorAll('.mermaid'));
+    st.total = blocks.length;
+    for (var i = 0; i < blocks.length; i++) {
+      var el = blocks[i];
+      var src = el.textContent;
+      try {
+        await mermaid.parse(src);  // M1.3 渲染前 parse 预检，定位到块号
+        var out = await mermaid.render('jzmm' + i, src);
+        el.innerHTML = out.svg;
+        st.rendered++;
+      } catch (e) {
+        st.errors.push({
+          index: i + 1,
+          message: String((e && e.message) || e).slice(0, 400),
+          head: src.trim().split('\\n').slice(0, 2).join(' | ').slice(0, 120)
+        });
+        el.setAttribute('data-mermaid-failed', '1');
+      }
+    }
 
-      document.querySelectorAll('.mermaid').forEach(function(el) {
-        var svg = el.querySelector('svg');
-        if (!svg) return;
+    // Auto-scale: measure each SVG and proportionally fit to page
+    var maxW = 580;  // ~A4 content width at 96dpi minus margins
+    var maxH = 650;  // ~65% of A4 page height, leave room for text
+    var pageBreakH = 750;
 
-        // Read rendered size from viewBox or attributes
-        var vb = svg.viewBox && svg.viewBox.baseVal;
-        var w = (vb && vb.width > 0) ? vb.width
-              : parseFloat(svg.getAttribute('width'))
-              || svg.getBoundingClientRect().width || 500;
-        var h = (vb && vb.height > 0) ? vb.height
-              : parseFloat(svg.getAttribute('height'))
-              || svg.getBoundingClientRect().height || 300;
+    blocks.forEach(function(el) {
+      var svg = el.querySelector('svg');
+      if (!svg) return;
 
-        if (w <= 0 || h <= 0) return;
+      // Read rendered size from viewBox or attributes
+      var vb = svg.viewBox && svg.viewBox.baseVal;
+      var w = (vb && vb.width > 0) ? vb.width
+            : parseFloat(svg.getAttribute('width'))
+            || svg.getBoundingClientRect().width || 500;
+      var h = (vb && vb.height > 0) ? vb.height
+            : parseFloat(svg.getAttribute('height'))
+            || svg.getBoundingClientRect().height || 300;
 
-        // Proportional scale to fit within bounds
-        var scale = 1;
-        if (w > maxW) scale = Math.min(scale, maxW / w);
-        if (h > maxH) scale = Math.min(scale, maxH / h);
+      if (w <= 0 || h <= 0) return;
 
-        var newW = Math.round(w * scale);
-        var newH = Math.round(h * scale);
+      // Proportional scale to fit within bounds
+      var scale = 1;
+      if (w > maxW) scale = Math.min(scale, maxW / w);
+      if (h > maxH) scale = Math.min(scale, maxH / h);
 
-        // Ensure viewBox is set for crisp scaling
-        if (!vb || vb.width <= 0) {
-          svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
-        }
-        svg.removeAttribute('width');
-        svg.removeAttribute('height');
-        svg.setAttribute('width', newW);
-        svg.setAttribute('height', newH);
-        svg.style.maxWidth = '100%';
+      var newW = Math.round(w * scale);
+      var newH = Math.round(h * scale);
 
-        // Mark very tall diagrams to allow page breaking
-        if (newH > pageBreakH) {
-          el.classList.add('mermaid-large');
-        }
-      });
-    }).catch(function(e) { console.error('Mermaid:', e); });
+      // Ensure viewBox is set for crisp scaling
+      if (!vb || vb.width <= 0) {
+        svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+      }
+      svg.removeAttribute('width');
+      svg.removeAttribute('height');
+      svg.setAttribute('width', newW);
+      svg.setAttribute('height', newH);
+      svg.style.maxWidth = '100%';
+
+      // Mark very tall diagrams to allow page breaking
+      if (newH > pageBreakH) {
+        el.classList.add('mermaid-large');
+      }
+    });
+    st.finished = true;
   });
 </script>""".replace("__MERMAID_SRC__", mermaid_src)
 
@@ -597,13 +705,15 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
 
   /* ===== Code ===== */
   code {{
-    font-family: "SF Mono", "Fira Code", "Menlo", monospace;
+    font-family: "SF Mono", "Fira Code", "Menlo", "Cascadia Code", "Consolas", monospace;
     background: #f0f3f5;
     padding: 1px 4px;
     border-radius: 3px;
     font-size: 11px;
     color: #c0392b;
   }}
+  /* M1.5 行内代码禁断行：`T1 --> T2` 曾被从箭头中间折断（pre 内不受影响） */
+  :not(pre) > code {{ white-space: nowrap; }}
   pre {{
     background: #2c3e50;
     color: #ecf0f1;
@@ -720,8 +830,8 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
   /* ===== Theme overrides ===== */
   {load_theme(theme).css}
 </style>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/styles/{load_theme(theme).hljs_theme}.min.css">
-<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/highlight.min.js"></script>
+<link rel="stylesheet" href="{_hljs_css_src(theme)}">
+<script src="{_hljs_js_src()}"></script>
 <script>hljs.highlightAll();</script>
 {mermaid_script}
 </head>
@@ -773,26 +883,48 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
 
 
 def _localize_mermaid_src(html):
-    """Replace CDN mermaid script with local copy for file:// access."""
-    local_mermaid = Path("/tmp/mermaid.min.js")
-    if not local_mermaid.exists():
+    """Replace CDN mermaid script with local pinned copy for file:// access.
+
+    本地副本存 scripts/ 旁（持久、跨平台），不再用 /tmp（重启即失、Windows 无此路径）。
+    """
+    if not MERMAID_LOCAL.exists():
         try:
             import urllib.request
-            url = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"
-            print(f"  📥 Downloading mermaid.min.js ...")
-            urllib.request.urlretrieve(url, str(local_mermaid))
+            print(f"  📥 Downloading mermaid.min.js {MERMAID_PIN} ...")
+            urllib.request.urlretrieve(MERMAID_CDN, str(MERMAID_LOCAL))
+            _record_vendor("mermaid", MERMAID_PIN, MERMAID_LOCAL)
         except Exception:
             return html  # keep CDN version
 
     html = re.sub(
         r'<script src="https://cdn\.jsdelivr\.net/npm/mermaid[^"]*"',
-        f'<script src="file://{local_mermaid}"',
+        f'<script src="file://{MERMAID_LOCAL}"',
         html,
     )
     return html
 
 
+def _record_vendor(name, version, path):
+    """vendor.lock.json 记录 pin 版本与 sha256（升级须显式重跑 --setup）。"""
+    import hashlib
+    try:
+        lock = json.loads(VENDOR_LOCK.read_text()) if VENDOR_LOCK.exists() else {}
+        lock[name] = {
+            "version": version,
+            "sha256": hashlib.sha256(Path(path).read_bytes()).hexdigest(),
+            "file": Path(path).name,
+        }
+        VENDOR_LOCK.write_text(json.dumps(lock, indent=2, ensure_ascii=False))
+    except Exception:
+        pass
+
+
 # ===== 浏览器选择 / 健康检查 helper（803/1094 共用，杜绝再改源码切浏览器） =====
+
+
+class MermaidRenderError(RuntimeError):
+    """M1.2 Mermaid 图渲染失败＝内容错误：不降级引擎、不转 pandoc、不产出成品，
+    直接终止并报块号+错误信息（质量为先：宁可不出，不出错的）。"""
 
 
 class _NeedPandoc(Exception):
@@ -812,14 +944,23 @@ def _node_env():
 
 
 def _find_system_chrome():
-    """跨平台探测系统 Chrome/Chromium 可执行文件，找不到返回 None。"""
+    """跨平台探测系统 Chrome/Chromium 可执行文件，找不到返回 None（M2.4 X2）。"""
     candidates = [
+        # macOS
         "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
         "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
         "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        # Linux
+        "/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser",
     ]
+    if sys.platform == "win32":
+        for base in (os.environ.get("PROGRAMFILES", r"C:\Program Files"),
+                     os.environ.get("PROGRAMFILES(X86)", r"C:\Program Files (x86)"),
+                     os.environ.get("LOCALAPPDATA", "")):
+            if base:
+                candidates.append(os.path.join(base, "Google", "Chrome", "Application", "chrome.exe"))
     for c in candidates:
-        if os.path.exists(c):
+        if c and os.path.exists(c):
             return c
     for n in ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "chrome"):
         p = shutil.which(n)
@@ -830,8 +971,13 @@ def _find_system_chrome():
 
 def _bundled_launchable():
     """比 require 更接近能否 launch：能拿到存在的 executablePath 才算 OK。"""
-    if not (glob.glob(str(Path.home() / "Library/Caches/ms-playwright/chromium-*"))
-            or glob.glob(str(Path.home() / ".cache/ms-playwright/chromium-*"))):
+    cache_globs = [
+        str(Path.home() / "Library/Caches/ms-playwright/chromium-*"),   # macOS
+        str(Path.home() / ".cache/ms-playwright/chromium-*"),           # Linux
+    ]
+    if sys.platform == "win32" and os.environ.get("LOCALAPPDATA"):     # Windows (M2.4 X3)
+        cache_globs.append(os.path.join(os.environ["LOCALAPPDATA"], "ms-playwright", "chromium-*"))
+    if not any(glob.glob(g) for g in cache_globs):
         return False
     try:
         r = subprocess.run(
@@ -873,11 +1019,63 @@ def _launch_plan(browser):
     raise ValueError(f"Unknown browser '{browser}'")
 
 
-def _render_playwright(html_path, pdf_path, page_size="A4", browser="playwright"):
+def _mermaid_wait_and_check_js(wait_timeout, allow_diagram_errors):
+    """生成等待 Mermaid 渲染完成 + fail-fast 检查的 JS 片段（pdf/png/html 路径共用）。
+
+    __mermaidStatus.finished 由页面内渲染循环置位；有错误且未显式放行时
+    以 exit code 3 终止（内容错误信号，Python 侧不降级引擎、不转 pandoc）。
+    """
+    allow = "true" if allow_diagram_errors else "false"
+    return f"""
+  await page.waitForFunction(() => {{
+    const st = window.__mermaidStatus;
+    return document.querySelectorAll('.mermaid').length === 0 || (st && st.finished);
+  }}, {{ timeout: {wait_timeout} }}).catch(() => console.error('Mermaid wait timeout, proceeding'));
+  const mmSt = await page.evaluate(() => window.__mermaidStatus || null);
+  if (mmSt) console.log('MERMAID_STAT:' + JSON.stringify({{ total: mmSt.total, rendered: mmSt.rendered }}));
+  if (mmSt && mmSt.errors.length > 0) {{
+    console.error('MERMAID_ERRORS:' + JSON.stringify(mmSt.errors));
+    if (!{allow}) {{ await browser.close(); process.exit(3); }}
+  }}
+  await page.waitForTimeout(2000);"""
+
+
+def _parse_mermaid_stat(stdout):
+    """从渲染脚本 stdout 提取 MERMAID_STAT，无则返回 None。"""
+    m = re.search(r"MERMAID_STAT:(\{.*?\})", stdout or "")
+    if not m:
+        return None
+    try:
+        return json.loads(m.group(1))
+    except Exception:
+        return None
+
+
+def _format_mermaid_errors(stderr):
+    m = re.search(r"MERMAID_ERRORS:(\[.*\])", stderr or "")
+    if not m:
+        return "Mermaid 渲染失败（详情缺失）"
+    try:
+        errs = json.loads(m.group(1))
+    except Exception:
+        return f"Mermaid 渲染失败: {m.group(1)[:400]}"
+    lines = [f"Mermaid {len(errs)} 个图渲染失败（已按质量门终止，未产出成品）："]
+    for e in errs:
+        lines.append(f"  图#{e.get('index')}: {e.get('message')}")
+        if e.get("head"):
+            lines.append(f"    源块首行: {e['head']}")
+    lines.append("  修正 md 中对应 mermaid 块后重试；或用 --allow-diagram-errors 显式降级放行。")
+    return "\n".join(lines)
+
+
+def _render_playwright(html_path, pdf_path, page_size="A4", browser="playwright",
+                       allow_diagram_errors=False):
     """Render PDF via Playwright/Chrome. browser ∈ {playwright,chrome,auto}。
 
     auto 逐个尝试 plan 中的引擎：即使前置探测通过、运行时崩溃（如 6-13 的 launch 崩）
     也会继续降级系统 chrome；全部失败抛 _NeedPandoc，交上层转 pandoc。
+    Mermaid 内容错误（exit 3）例外：抛 MermaidRenderError，绝不降级/兜底。
+    返回 mermaid 渲染统计 dict 或 None（供图数对账写入 metadata）。
     """
     has_mermaid = 'class="mermaid"' in html_path.read_text(encoding="utf-8")
     wait_timeout = 60000 if has_mermaid else 10000
@@ -902,12 +1100,7 @@ const {{ chromium }} = require('playwright');
   const browser = await {launch_expr};
   const page = await browser.newPage();
   await page.goto('file://{html_path}', {{ waitUntil: 'networkidle', timeout: 120000 }});
-  // Wait for Mermaid SVG rendering
-  await page.waitForFunction(() => {{
-    const m = document.querySelectorAll('.mermaid');
-    return m.length === 0 || Array.from(m).every(el => el.querySelector('svg') !== null);
-  }}, {{ timeout: {wait_timeout} }}).catch(() => console.error('Mermaid wait timeout, proceeding'));
-  await page.waitForTimeout(2000);
+{_mermaid_wait_and_check_js(wait_timeout, allow_diagram_errors)}
   await page.pdf({{
     path: '{pdf_path}',
     {pw_format},
@@ -921,14 +1114,17 @@ const {{ chromium }} = require('playwright');
   console.log('OK');
 }})();
 """
-        script_path = Path("/tmp") / "pw_render.js"
+        script_path = Path(tempfile.gettempdir()) / "pw_render.js"
         script_path.write_text(script, encoding="utf-8")
         result = subprocess.run(
             ["node", str(script_path)],
             capture_output=True, text=True, timeout=180, env=_node_env(),
         )
+        # M1.2 exit 3 = Mermaid 内容错误：立即终止，不降级引擎、不转 pandoc
+        if result.returncode == 3:
+            raise MermaidRenderError(_format_mermaid_errors(result.stderr))
         if pdf_path.exists() and pdf_path.stat().st_size >= 1024:
-            return
+            return _parse_mermaid_stat(result.stdout)
         last_err = result.stderr
         if idx < len(plan) - 1:
             print(f"  ⚠️  {engine} 渲染失败，降级下一引擎", file=sys.stderr)
@@ -941,7 +1137,7 @@ const {{ chromium }} = require('playwright');
 
 def md_to_pdf(md_path, pdf_path=None, header_text=None, directives=None,
               theme="blue", page_size="A4", browser="playwright",
-              fallback=None, write_metadata=True):
+              fallback=None, write_metadata=True, allow_diagram_errors=False):
     md_path = Path(md_path)
     pdf_path = Path(pdf_path) if pdf_path else md_path.with_suffix(".pdf")
     header_text = header_text or md_path.stem
@@ -952,14 +1148,17 @@ def md_to_pdf(md_path, pdf_path=None, header_text=None, directives=None,
     if 'class="mermaid"' in html:
         html = _localize_mermaid_src(html)
 
-    html_path = Path("/tmp") / f"{md_path.stem}.html"
+    html_path = Path(tempfile.gettempdir()) / f"{md_path.stem}.html"
     html_path.write_text(html, encoding="utf-8")
 
+    diagram_stat = None
     if fallback == "pandoc":
         _render_pandoc_fallback(md_path, pdf_path, theme=theme, page_size=page_size)
     else:
         try:
-            _render_playwright(html_path, pdf_path, page_size=page_size, browser=browser)
+            diagram_stat = _render_playwright(
+                html_path, pdf_path, page_size=page_size, browser=browser,
+                allow_diagram_errors=allow_diagram_errors)
         except _NeedPandoc as e:
             print(f"  ⚠️  {e} → 转 pandoc 救生艇", file=sys.stderr)
             _render_pandoc_fallback(md_path, pdf_path, theme=theme, page_size=page_size)
@@ -973,8 +1172,15 @@ def md_to_pdf(md_path, pdf_path=None, header_text=None, directives=None,
     add_pdf_bookmarks(pdf_path, md_path)
 
     # 源笔记 frontmatter → PDF metadata（独立一步，无标题文档也写）
+    # M1.4 附带写入 mermaid 图数统计，供 verify_pdf 做「源图数↔成功渲染数」对账
     if write_metadata:
-        add_pdf_metadata(pdf_path, md_path)
+        extra = None
+        if diagram_stat:
+            extra = {
+                "/JZDiagramTotal": str(diagram_stat.get("total", "")),
+                "/JZDiagramRendered": str(diagram_stat.get("rendered", "")),
+            }
+        add_pdf_metadata(pdf_path, md_path, extra=extra)
 
     size_kb = pdf_path.stat().st_size / 1024
     print(f"\u2705 {pdf_path.name} ({size_kb:.0f} KB)")
@@ -1130,11 +1336,11 @@ def _to_pdf_date(val):
     return f"D:{y}{mo}{d}{hh}{mm}00"
 
 
-def add_pdf_metadata(pdf_path, md_path):
+def add_pdf_metadata(pdf_path, md_path, extra=None):
     """源笔记 frontmatter → PDF metadata。独立一步，无标题文档也写。
 
     /Author 仅在 frontmatter 显式声明时写（避免把 vault 私有信息/邮箱泄露到外发 PDF）。
-    pypdf 缺失则静默跳过。
+    extra: 附加自定义键（如 /JZDiagramTotal 图数对账）。pypdf 缺失则静默跳过。
     """
     try:
         from pypdf import PdfReader, PdfWriter
@@ -1159,6 +1365,8 @@ def add_pdf_metadata(pdf_path, md_path):
         meta["/CreationDate"] = cd
     if md_mod:
         meta["/ModDate"] = md_mod
+    if extra:
+        meta.update(extra)
     meta = {k: v for k, v in meta.items() if v}
     if not meta:
         return
@@ -1224,6 +1432,190 @@ def _render_pandoc_fallback(md_path, pdf_path, theme="blue", page_size="A4"):
 # ===== preflight 健康检查 =====
 
 
+# ===== M2 环境自愈：引导 / 自动 re-exec / --setup =====
+
+
+def _pandoc_install_hint():
+    """按平台给 pandoc 安装提示（M2.4 X6）。"""
+    if sys.platform == "win32":
+        return "winget install pandoc"
+    if sys.platform == "darwin":
+        return "brew install pandoc"
+    return "apt install pandoc"
+
+
+def _bootstrap_venv():
+    """建持久 venv 并装依赖（幂等）。成功返回 venv python 路径，失败返回 None。"""
+    vp = _venv_python()
+    if not vp.exists():
+        print(f"  🔧 创建持久 venv: {VENV_DIR}（首次较慢，一次性）", file=sys.stderr)
+        try:
+            import venv as _venvmod
+            VENV_DIR.parent.mkdir(parents=True, exist_ok=True)
+            _venvmod.EnvBuilder(with_pip=True).create(str(VENV_DIR))
+        except Exception as e:
+            print(f"  ❌ venv 创建失败: {e}", file=sys.stderr)
+            return None
+    r = subprocess.run([str(vp), "-m", "pip", "install", "-q", "markdown", "pypdf"],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f"  ❌ 依赖安装失败: {r.stderr[-400:]}", file=sys.stderr)
+        return None
+    # css_inline 仅 --format wechat 需要，装失败不阻塞
+    subprocess.run([str(vp), "-m", "pip", "install", "-q", "css_inline"],
+                   capture_output=True, text=True)
+    return vp
+
+
+def _reexec_into_venv(no_bootstrap=False):
+    """当前解释器缺依赖时切到持久 venv 重跑自身；venv 不存在则自动引导。
+
+    Windows 上 os.execv 行为怪异（M2.4 X5），统一用 subprocess + sys.exit。
+    JZ2PDF_REEXEC 环境变量防循环。返回即代表无法自愈（调用方走原错误路径）。
+    """
+    if os.environ.get("JZ2PDF_REEXEC") == "1":
+        return
+    vp = _venv_python()
+    if not vp.exists():
+        if no_bootstrap:
+            return
+        vp = _bootstrap_venv()
+        if not vp:
+            return
+    env = dict(os.environ)
+    env["JZ2PDF_REEXEC"] = "1"
+    print(f"  ♻️  当前解释器缺依赖 → 切换持久 venv 重跑: {vp}", file=sys.stderr)
+    r = subprocess.run([str(vp), str(Path(__file__).resolve()), *sys.argv[1:]], env=env)
+    sys.exit(r.returncode)
+
+
+def _ensure_vendor(force=False):
+    """下载/校验 pinned 前端资源到 scripts/ 旁（mermaid + highlight.js + hljs 主题 CSS）。"""
+    import urllib.request
+    ok = True
+    jobs = [(MERMAID_LOCAL, MERMAID_CDN, "mermaid", MERMAID_PIN),
+            (HLJS_LOCAL, HLJS_CDN, "highlight.js", HLJS_PIN)]
+    try:
+        from themes import list_themes as _lts, load_theme as _lt
+        HLJS_STYLES_DIR.mkdir(exist_ok=True)
+        for t in _lts():
+            name = _lt(t).hljs_theme
+            jobs.append((
+                HLJS_STYLES_DIR / f"{name}.min.css",
+                f"https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@{HLJS_PIN}/build/styles/{name}.min.css",
+                f"hljs-style:{name}", HLJS_PIN))
+    except Exception:
+        pass
+    for path, url, name, ver in jobs:
+        if path.exists() and not force:
+            continue
+        try:
+            print(f"  📥 {name} {ver} → {path.name}")
+            urllib.request.urlretrieve(url, str(path))
+            _record_vendor(name, ver, path)
+        except Exception as e:
+            print(f"  ⚠️  {name} 下载失败（渲染时回退 CDN）: {e}", file=sys.stderr)
+            ok = False
+    return ok
+
+
+_SMOKE_MD = """---
+title: 2pdf setup smoke
+---
+# Setup 冒烟验收：中文排版与图表
+
+中文断行与**加粗**、==高亮==、`行内 --> 代码` 混排；数字 827.1 亿元。
+
+| 列一 | 列二 |
+|---|---|
+| 水土保持 | 防洪评价 |
+
+```mermaid
+flowchart LR
+    A["中文节点"] ==> B{"判断?"}
+    B -->|是| C["通过"]
+```
+
+```python
+def ok() -> str:
+    return "高亮"  # 中文注释
+```
+"""
+
+
+def run_setup():
+    """--setup 一键引导（幂等）：venv+依赖 → 浏览器 → vendor pin → smoke 渲染验收。
+
+    原则：质量为先、首次可以慢——smoke 全绿才算 setup 成功（跨平台保证书）。
+    """
+    print("== 2pdf --setup ==")
+    failures = []
+
+    # 1) venv + python 依赖
+    vp = _bootstrap_venv()
+    print(f"  {'✅' if vp else '❌'} venv+deps: {VENV_DIR}")
+    if not vp:
+        failures.append("venv")
+
+    # 2) node / playwright chromium
+    if not (shutil.which("node") and shutil.which("npx")):
+        hint = "winget install OpenJS.NodeJS" if sys.platform == "win32" else "brew install node"
+        print(f"  ❌ node 缺失：{hint}")
+        failures.append("node")
+    elif not _bundled_launchable():
+        print("  📥 安装 playwright chromium（首次较慢，数百 MB）...")
+        r = subprocess.run(["npx", "-y", "playwright", "install", "chromium"],
+                           env=_node_env(), text=True)
+        if _bundled_launchable():
+            print("  ✅ playwright chromium 就绪")
+        elif _find_system_chrome():
+            print("  ⚠️  bundled chromium 未装成，系统 Chrome 可作降级引擎")
+        else:
+            print("  ❌ 无可用浏览器引擎")
+            failures.append("browser")
+    else:
+        print("  ✅ playwright chromium 已就绪")
+
+    # 3) vendor 资源 pin
+    if _ensure_vendor():
+        print(f"  ✅ vendor: mermaid {MERMAID_PIN} + hljs {HLJS_PIN}（{VENDOR_LOCK.name}）")
+    else:
+        print("  ⚠️  部分 vendor 资源未本地化（渲染时回退 CDN）")
+
+    # 4) pandoc（救生艇，warn 级）
+    if shutil.which("pandoc"):
+        print("  ✅ pandoc 就绪")
+    else:
+        print(f"  ⚠️  pandoc 缺失（救生艇不可用）：{_pandoc_install_hint()}")
+
+    # 5) smoke 渲染验收（用 venv python 子进程跑完整链路 + verify）
+    if vp and "browser" not in failures:
+        smoke_dir = Path(tempfile.mkdtemp(prefix="jz2pdf_smoke_"))
+        smoke_md = smoke_dir / "smoke.md"
+        smoke_pdf = smoke_dir / "smoke.pdf"
+        smoke_md.write_text(_SMOKE_MD, encoding="utf-8")
+        env = dict(os.environ)
+        env["JZ2PDF_REEXEC"] = "1"
+        r = subprocess.run(
+            [str(vp), str(Path(__file__).resolve()), str(smoke_md), str(smoke_pdf),
+             "--browser", "auto", "--verify"],
+            capture_output=True, text=True, env=env, timeout=300)
+        smoke_ok = (r.returncode == 0 and smoke_pdf.exists()
+                    and "error=0" in (r.stdout or ""))
+        print(f"  {'✅' if smoke_ok else '❌'} smoke 渲染验收（mermaid+CJK+高亮+verify）")
+        if not smoke_ok:
+            failures.append("smoke")
+            print((r.stdout or "")[-600:])
+            print((r.stderr or "")[-600:], file=sys.stderr)
+        shutil.rmtree(smoke_dir, ignore_errors=True)
+    else:
+        failures.append("smoke-skipped")
+        print("  ⏭  smoke 跳过（前置步骤未就绪）")
+
+    print(f"  === setup: {'OK，环境已就绪' if not failures else 'FAIL: ' + ','.join(failures)} ===")
+    return 0 if not failures else 1
+
+
 def run_preflight(md_path=None, want_format="pdf", as_json=False):
     """渲染前依赖/环境健康检查。退出码：0 可用(或仅 WARN)，1 致命 FAIL，2 指定 md 不存在。"""
     checks = []
@@ -1249,9 +1641,13 @@ def run_preflight(md_path=None, want_format="pdf", as_json=False):
     chk("system-chrome", okwarn(_find_system_chrome() is not None),
         "安装 Google Chrome（--browser chrome / auto 第二路 / pandoc 救生艇需要）")
     chk("pandoc", okwarn(shutil.which("pandoc") is not None),
-        "brew install pandoc（pandoc 救生艇需要）")
-    chk("mermaid-cache", okwarn(Path("/tmp/mermaid.min.js").exists()),
-        "首次转含 Mermaid 文档需联网下载 mermaid.min.js")
+        f"{_pandoc_install_hint()}（pandoc 救生艇需要）")
+    chk("mermaid-vendor", okwarn(MERMAID_LOCAL.exists()),
+        f"mermaid {MERMAID_PIN} 本地副本缺失（--setup 下载；否则渲染时联网取 pinned CDN）")
+    chk("hljs-vendor", okwarn(HLJS_LOCAL.exists()),
+        "highlight.js 本地副本缺失（--setup 下载；否则渲染时走 CDN，离线降级）")
+    chk("venv:persistent", okwarn(_venv_python().exists()),
+        f"持久 venv 未建（{VENV_DIR}）；跑 --setup 一键引导，或渲染命令将自动引导")
 
     code = 0
     if md_path is not None:
@@ -1299,6 +1695,9 @@ def parse_cli_args(argv):
     write_metadata = True
     as_json = False
     verify = False
+    allow_diagram_errors = False
+    setup = False
+    no_bootstrap = False
     i = 0
     while i < len(argv):
         arg = argv[i]
@@ -1351,6 +1750,15 @@ def parse_cli_args(argv):
         elif arg == "--verify":
             verify = True
             i += 1
+        elif arg == "--allow-diagram-errors":
+            allow_diagram_errors = True
+            i += 1
+        elif arg == "--setup" or (arg == "--fix" and preflight):
+            setup = True
+            i += 1
+        elif arg == "--no-bootstrap":
+            no_bootstrap = True
+            i += 1
         else:
             positional.append(arg)
             i += 1
@@ -1367,6 +1775,9 @@ def parse_cli_args(argv):
         "write_metadata": write_metadata,
         "as_json": as_json,
         "verify": verify,
+        "allow_diagram_errors": allow_diagram_errors,
+        "setup": setup,
+        "no_bootstrap": no_bootstrap,
     }
 
 
@@ -1391,7 +1802,8 @@ def inline_css(html):
     return css_inline.inline(html)
 
 
-def _render_playwright_output(html_path, out_path, fmt, page_size="A4", browser="playwright"):
+def _render_playwright_output(html_path, out_path, fmt, page_size="A4", browser="playwright",
+                              allow_diagram_errors=False):
     """渲染 png/html/wechat（非 pdf）。逐引擎尝试；非 pdf 无 pandoc 兜底。"""
     html_path = Path(html_path)
     out_path = Path(out_path)
@@ -1404,13 +1816,8 @@ def _render_playwright_output(html_path, out_path, fmt, page_size="A4", browser=
     else:
         view_w = int(page_size.split("x")[0])
 
-    # 等待 Mermaid SVG 渲染完成的公共片段
-    common_wait = f"""
-  await page.waitForFunction(() => {{
-    const m = document.querySelectorAll('.mermaid');
-    return m.length === 0 || Array.from(m).every(el => el.querySelector('svg') !== null);
-  }}, {{ timeout: {wait_timeout} }}).catch(() => console.error('Mermaid wait timeout, proceeding'));
-  await page.waitForTimeout(2000);"""
+    # 等待 Mermaid 渲染完成 + M1.2 fail-fast（与 pdf 路径共用同一片段）
+    common_wait = _mermaid_wait_and_check_js(wait_timeout, allow_diagram_errors)
 
     if fmt == "png":
         action = f"""
@@ -1441,12 +1848,16 @@ const {{ chromium }} = require('playwright');
   await browser.close();
 }})();
 """
-        script_path = Path("/tmp") / "pw_render_output.js"
+        script_path = Path(tempfile.gettempdir()) / "pw_render_output.js"
         script_path.write_text(script, encoding="utf-8")
         result = subprocess.run(
             ["node", str(script_path)],
             capture_output=True, text=True, timeout=180, env=_node_env(),
         )
+
+        # M1.2 exit 3 = Mermaid 内容错误：立即终止，不降级引擎
+        if result.returncode == 3:
+            raise MermaidRenderError(_format_mermaid_errors(result.stderr))
 
         if fmt in ("html", "wechat"):
             out = result.stdout
@@ -1468,13 +1879,15 @@ const {{ chromium }} = require('playwright');
 
 def md_to_output(md_path, out_path=None, fmt="pdf", header_text=None,
                  directives=None, theme="blue", page_size="A4",
-                 browser="playwright", fallback=None, write_metadata=True):
+                 browser="playwright", fallback=None, write_metadata=True,
+                 allow_diagram_errors=False):
     """按格式分发。pdf 走原有 md_to_pdf 路径，其余渲染 png/html/wechat。"""
     md_path = Path(md_path)
     if fmt == "pdf":
         md_to_pdf(md_path, out_path, header_text, directives,
                   theme=theme, page_size=page_size, browser=browser,
-                  fallback=fallback, write_metadata=write_metadata)
+                  fallback=fallback, write_metadata=write_metadata,
+                  allow_diagram_errors=allow_diagram_errors)
         return
 
     header_text = header_text or md_path.stem
@@ -1484,11 +1897,12 @@ def md_to_output(md_path, out_path=None, fmt="pdf", header_text=None,
     if 'class="mermaid"' in html:
         html = _localize_mermaid_src(html)
 
-    html_path = Path("/tmp") / f"{md_path.stem}.html"
+    html_path = Path(tempfile.gettempdir()) / f"{md_path.stem}.html"
     html_path.write_text(html, encoding="utf-8")
 
     out = output_path_for(md_path, fmt, out_path)
-    _render_playwright_output(html_path, out, fmt, page_size=page_size, browser=browser)
+    _render_playwright_output(html_path, out, fmt, page_size=page_size, browser=browser,
+                              allow_diagram_errors=allow_diagram_errors)
 
     size_kb = out.stat().st_size / 1024
     print(f"✅ {out.name} ({size_kb:.0f} KB)")
@@ -1503,6 +1917,10 @@ if __name__ == "__main__":
 
     positional = args["positional"]
 
+    # --setup：一键引导（venv+浏览器+vendor+smoke），幂等；--preflight --fix 同义
+    if args["setup"]:
+        sys.exit(run_setup())
+
     # --preflight：依赖/环境自检，可独立运行或对指定 md 体检；本身不依赖 markdown
     if args["preflight"]:
         sys.exit(run_preflight(
@@ -1515,7 +1933,8 @@ if __name__ == "__main__":
         print(
             "Usage: python md2pdf_chrome.py <md_file> [out_file] [header_text] "
             "[--format pdf|png|html|wechat] [--browser playwright|chrome|auto] "
-            "[--fallback pandoc] [--preflight [--json]] [--no-metadata] "
+            "[--fallback pandoc] [--setup] [--preflight [--json] [--fix]] "
+            "[--verify] [--allow-diagram-errors] [--no-bootstrap] [--no-metadata] "
             "[--theme NAME (auto-discovered from scripts/themes/*.css)] "
             "[--page-size A4|430x932] [--sm PATTERN] [--xs PATTERN] "
             "[--sm-after PATTERN] [--xs-after PATTERN]"
@@ -1523,25 +1942,32 @@ if __name__ == "__main__":
         sys.exit(1)
 
     if markdown is None:
+        # M2.1 环境自愈：缺依赖 → 自动切换/引导持久 venv 重跑（成功则 sys.exit 不返回）
+        _reexec_into_venv(no_bootstrap=args["no_bootstrap"])
         print(
-            "❌ 当前解释器缺 markdown 包，无法渲染。请 pip install markdown，"
-            "或改用装齐依赖的 venv；可先跑 `--preflight` 自查。",
+            "❌ 当前解释器缺 markdown 包且自动引导失败。请跑 `--setup` 一键引导，"
+            "或 pip install markdown pypdf；可先 `--preflight` 自查。",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    md_to_output(
-        positional[0],
-        positional[1] if len(positional) > 1 else None,
-        fmt=args["format"],
-        header_text=positional[2] if len(positional) > 2 else None,
-        directives=args["directives"] or None,
-        theme=args["theme"],
-        page_size=args["page_size"],
-        browser=args["browser"],
-        fallback=args["fallback"],
-        write_metadata=args["write_metadata"],
-    )
+    try:
+        md_to_output(
+            positional[0],
+            positional[1] if len(positional) > 1 else None,
+            fmt=args["format"],
+            header_text=positional[2] if len(positional) > 2 else None,
+            directives=args["directives"] or None,
+            theme=args["theme"],
+            page_size=args["page_size"],
+            browser=args["browser"],
+            fallback=args["fallback"],
+            write_metadata=args["write_metadata"],
+            allow_diagram_errors=args["allow_diagram_errors"],
+        )
+    except MermaidRenderError as e:
+        print(f"❌ {e}", file=sys.stderr)
+        sys.exit(3)
 
     if args["verify"] and args["format"] == "pdf":
         try:

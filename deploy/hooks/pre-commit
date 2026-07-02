@@ -3,12 +3,12 @@
 # 安装: bash deploy/hooks/install.sh   （或手动 ln -s ../../deploy/hooks/pre-commit .git/hooks/pre-commit）
 # 绕过: git commit --no-verify
 #
-# 仅当本次提交涉及 shared/pdf/ 时触发；只跑 --source-only（不要求 canonical 已部署）。
+# 仅当本次提交涉及 shared/2pdf/ 时触发；只跑 --source-only（不要求 canonical 已部署）。
 set -uo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-if git diff --cached --name-only | grep -q '^shared/pdf/'; then
-  echo "[pre-commit] shared/pdf 改动 → 跑 pdf-drift-gate --source-only"
-  bash "$REPO_ROOT/deploy/pdf-drift-gate.sh" --source-only || {
+if git diff --cached --name-only | grep -q '^shared/2pdf/'; then
+  echo "[pre-commit] shared/2pdf 改动 → 跑 pdf-drift-gate --source-only"
+  bash "$REPO_ROOT/deploy/2pdf-drift-gate.sh" --source-only || {
     echo "[pre-commit] ❌ pdf source 自洽门未通过，提交已阻止（绕过: git commit --no-verify）"
     exit 1
   }
