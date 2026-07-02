@@ -6,6 +6,8 @@ license: Proprietary. LICENSE.txt has complete terms
 
 # PDF Processing Skill
 
+> **Source repo**: https://github.com/Loveacup/jz-skills (path `shared/2pdf`) — to update this skill: `git pull` then re-run `python3 scripts/md2pdf_chrome.py --setup` (idempotent).
+
 ## Overview
 
 This skill covers PDF processing operations: extract text/tables, merge/split, create new PDFs, fill forms, and convert Markdown to styled PDF with CJK support.

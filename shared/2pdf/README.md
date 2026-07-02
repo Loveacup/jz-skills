@@ -1,6 +1,9 @@
-# PDF Skill
+# 2pdf Skill
 
-一站式 PDF 处理技能，为 Claude Code 提供完整的 PDF 文档处理能力。
+一站式 PDF 处理技能，为 Claude Code / Codex / Cursor / Hermes 提供完整的 PDF 文档处理能力。
+
+> **源仓库**: [Loveacup/jz-skills](https://github.com/Loveacup/jz-skills) · 路径 `shared/2pdf`
+> **更新方式**: `git pull` 拉取最新后跑 `python3 scripts/md2pdf_chrome.py --setup`（幂等，自动补齐环境与 vendor 资源）；mac 端部署走 `deploy/sync-all.sh`，Windows 端 pull 后直接 `--setup` 即可。
 
 ## 核心功能
 
