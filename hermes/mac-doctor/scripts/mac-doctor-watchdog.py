@@ -411,11 +411,14 @@ def main():
     # 显示 zombie kill action(若有)— 让用户看到 L2 消费了 auto_kill
     if zombie_kill_action.get("killed"):
         print(f"🔪 已消费 prefs.auto_kill=true: kill -9 PPID [{', '.join(zombie_kill_action['killed'])}] (3h 冷却)")
-    elif zombie_kill_action.get("gated") and any(
-        z.get("ppid") in (prefs.get("facts", {}).get("known_zombie_parents", {}) or {})
-        for z in (data if isinstance(data, list) else [])
-    ):
-        print(f"⏸️  zombie 父进程 auto_kill=true 但被总开关拦截(auto_kill_zombies=False)— 仍按配置未杀")
+    elif zombie_kill_action.get("gated"):
+        # 修正: 只对当前 zombie 集里 PPID auto_kill=true 的才报拦截
+        known_parents = prefs.get("facts", {}).get("known_zombie_parents", {}) or {}
+        gated_ppids = sorted({str(z["ppid"]) for z in (data if isinstance(data, list) else [])
+                              if isinstance(z, dict)
+                              and known_parents.get(str(z.get("ppid", ""))).get("auto_kill") is True})
+        if gated_ppids:
+            print(f"⏸️  zombie 父进程 auto_kill=true 被总开关拦截: PPID {', '.join(gated_ppids)} (auto_kill_zombies=False)— 仍按配置未杀")
     print()
     cpu = snap.get('cpu_percent')
     mem = snap.get('memory_pressure', '?')

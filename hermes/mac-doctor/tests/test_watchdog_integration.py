@@ -146,6 +146,61 @@ def test_save_report_state_keeps_zombie_sig_and_mcp_msg(monkeypatch, tmp_path):
     assert state["mcp_cleaned_msg"] == "清理了 2 个孤儿 MCP 进程"
 
 
+def test_watchdog_gated_message_only_prints_when_actual_intersection(monkeypatch, tmp_path, capsys):
+    """⏸️ 拦截信息只对 zombie 集里 PPID auto_kill=true 的 PPID 显示 (回归 2026-07-02)。
+
+    旧逻辑 any(z.ppid in known_parents) 会把 auto_kill=false (如 iii PPID 97120) 也算上, 误导。
+    修正后, gated=True 但 zombie 集无交集 → 不打印 ⏸️ 行。
+    """
+    mod = load_watchdog()
+    # monkeypatch check_zombies 返回 zombie 集: 5 个 iii 僵尸 (auto_kill=false) + 0 个 Raycast
+    monkeypatch.setattr(mod, "check_zombies", lambda: (
+        "warn", [
+            {"pid": "4000", "ppid": "97120", "cmd": "<defunct>"},
+            {"pid": "4006", "ppid": "97120", "cmd": "<defunct>"},
+        ]
+    ))
+    prefs_with_iii = {
+        "facts": {
+            "known_zombie_parents": {
+                "97120": {"auto_kill": False, "name": "iii"},
+                "31909": {"auto_kill": True, "name": "Raycast"},  # 不在 zombie 集
+            },
+            "user_preferences": {"auto_kill_zombies": False},
+        }
+    }
+    monkeypatch.setattr(mod, "load_prefs", lambda: prefs_with_iii)
+    # 让 main 不真跑 ps / 不静默
+    monkeypatch.setattr(mod, "check_kanban", lambda: ("ok", None))
+    monkeypatch.setattr(mod, "check_mcp_cleanup", lambda: ("ok", None))
+    monkeypatch.setattr(mod, "load_state", lambda: {})
+    # 触发 main
+    mod.main()
+    out = capsys.readouterr().out
+    assert "⏸️" not in out, "gated=True 但 zombie 集无 auto_kill=true PPID, 不应显示拦截信息"
+    assert "已消费" not in out
+
+
+def test_watchdog_gated_message_prints_for_actual_match(monkeypatch, tmp_path, capsys):
+    """⏸️ 拦截信息打印时, 列出实际被拦截的 PPID (修正: 精确到 PPID 而不只是"gated" 状态)。"""
+    mod = load_watchdog()
+    monkeypatch.setattr(mod, "check_zombies", lambda: (
+        "warn", [{"pid": "31991", "ppid": "31909", "cmd": "<defunct>"}]
+    ))
+    monkeypatch.setattr(mod, "check_kanban", lambda: ("ok", None))
+    monkeypatch.setattr(mod, "check_mcp_cleanup", lambda: ("ok", None))
+    monkeypatch.setattr(mod, "load_state", lambda: {})
+    monkeypatch.setattr(mod, "load_prefs", lambda: {
+        "facts": {
+            "known_zombie_parents": {"31909": {"auto_kill": True, "name": "Raycast"}},
+            "user_preferences": {"auto_kill_zombies": False},
+        }
+    })
+    mod.main()
+    out = capsys.readouterr().out
+    assert "⏸️" in out and "31909" in out, "实际有 31909 在 zombie 集 + auto_kill=true + 总开关 False, 应显示具体 PPID"
+
+
 def test_watchdog_integrates_zombie_killer_hook(monkeypatch, tmp_path):
     """watchdog 集成 zombie_killer 钩子: main() 在 zombie=warn 时调用 kill_known_zombies。
 
