@@ -1469,7 +1469,8 @@ def _bootstrap_venv():
         except Exception as e:
             print(f"  ❌ venv 创建失败: {e}", file=sys.stderr)
             return None
-    r = subprocess.run([str(vp), "-m", "pip", "install", "-q", "markdown", "pypdf"],
+    # pyyaml 缺失时 frontmatter→metadata 会静默降级为空，故列为必装
+    r = subprocess.run([str(vp), "-m", "pip", "install", "-q", "markdown", "pypdf", "pyyaml"],
                        capture_output=True, text=True)
     if r.returncode != 0:
         print(f"  ❌ 依赖安装失败: {r.stderr[-400:]}", file=sys.stderr)
