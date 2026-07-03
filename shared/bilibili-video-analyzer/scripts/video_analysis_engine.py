@@ -140,6 +140,7 @@ class DraftReport:
     publishable: bool = False
     debug_render_allowed: bool = True
     warnings: List[str] = field(default_factory=list)
+    draft_sections: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -698,6 +699,68 @@ def _emit_evidence(lines: List[str], cands: List[Dict[str, Any]], top_n: int = 3
     return emitted
 
 
+# ============ DraftReport deterministic slice writers（§1/§5）============
+def _clean_inline_text(text: str, limit: int = 90) -> str:
+    cleaned = re.sub(r'\s+', ' ', (text or '').strip())
+    cleaned = cleaned.replace('|', '\\|')
+    if len(cleaned) > limit:
+        return cleaned[: max(0, limit - 1)].rstrip() + '…'
+    return cleaned
+
+
+def write_logic_chain_section(section_context: Dict[str, Any]) -> str:
+    """§1「逻辑链」纯确定性 writer：从 logic_candidate 生成结构化表格。
+
+    This writer is intentionally conservative: it summarizes transcript snippets
+    into a deterministic table so publish gate can distinguish a logic chain from
+    raw blockquote dumps. It does not call LLMs and does not infer unseen facts.
+    """
+    raw_candidates = section_context.get('evidence') or []
+    seen = set()
+    candidates: List[Dict[str, Any]] = []
+    for cand in raw_candidates:
+        if not isinstance(cand, dict):
+            continue
+        text = (cand.get('text') or '').strip()
+        if not text:
+            continue
+        if cand.get('source_type') != 'transcript':
+            continue
+        if cand.get('reason') != 'logic_candidate':
+            continue
+        key = re.sub(r'\s+', '', text)[:80]
+        if key in seen:
+            continue
+        seen.add(key)
+        candidates.append(cand)
+
+    if not candidates:
+        return '### 逻辑链总览\n\n_骨架占位：暂无可用逻辑链证据。_\n'
+
+    candidates.sort(key=lambda c: (c.get('start') is None, float(c.get('start') or 0)))
+    stage_names = ['起点', '推进', '转折', '收束']
+    action_names = ['提出问题', '展开机制', '补充条件', '形成结论']
+
+    lines = [
+        '### 逻辑链总览',
+        '',
+        '| 时间 | 阶段 | 逻辑动作 | 证据摘要 | 链接 |',
+        '| --- | --- | --- | --- | --- |',
+    ]
+    for idx, cand in enumerate(candidates, start=1):
+        timestamp = (cand.get('timestamp') or '').strip()
+        url = (cand.get('url') or '').strip()
+        stage = stage_names[idx - 1] if idx <= len(stage_names) else f'补充 {idx - len(stage_names)}'
+        action = action_names[idx - 1] if idx <= len(action_names) else '补充证据'
+        link = f'[{timestamp or url}]({url})' if url else timestamp
+        summary = _clean_inline_text(cand.get('text') or '', 90)
+        lines.append(
+            f'| {_table_cell(timestamp)} | {_table_cell(stage)} | {_table_cell(action)} | {summary} | {_table_cell(link)} |'
+        )
+    lines.append('')
+    return '\n'.join(lines)
+
+
 # ============ §5 高光时刻 writer（P2-C2）============
 def _is_noisy_highlight_fragment(text: str) -> bool:
     """判断 §5 候选片段是否属于标题/短问句等噪声。"""
@@ -711,16 +774,25 @@ def _is_noisy_highlight_fragment(text: str) -> bool:
     return False
 
 
+def _truncate_quote_text(text: str, limit: int = 210) -> str:
+    cleaned = re.sub(r'\s+', ' ', (text or '').strip())
+    if len(cleaned) > limit:
+        return cleaned[: max(0, limit - 3)].rstrip() + '...'
+    return cleaned
+
+
 def _split_long_quote_candidate(cand: Dict[str, Any], max_parts: int) -> List[Dict[str, Any]]:
     """把 H200/ASR 产生的超长 quote_candidate 切成多个可独立计数的 blockquote。"""
     text = (cand.get('text') or '').strip()
     if _is_noisy_highlight_fragment(text):
         return []
-    if max_parts <= 1:
-        return [cand]
+    if max_parts <= 0:
+        return []
     # 短文本不切；如果是直接候选，仍保留。
     if len(text) < 80:
-        return [cand]
+        new_cand = dict(cand)
+        new_cand['text'] = _truncate_quote_text(text)
+        return [new_cand]
 
     sentences = [
         s.strip() for s in re.split(r'(?<=[。！？!?])\s*', text)
@@ -730,12 +802,12 @@ def _split_long_quote_candidate(cand: Dict[str, Any], max_parts: int) -> List[Di
     parts = sentences[:max_parts]
 
     if not parts:
-        return []
+        parts = [_truncate_quote_text(text)]
 
     split = []
-    for part in parts:
+    for part in parts[:max_parts]:
         new_cand = dict(cand)
-        new_cand['text'] = part
+        new_cand['text'] = _truncate_quote_text(part)
         split.append(new_cand)
     return split
 
@@ -766,7 +838,9 @@ def write_highlights_section(section_context: Dict[str, Any]) -> str:
             continue
         if not (cand.get('text') or '').strip():
             continue
-        remaining = max(target_quotes - len(quotes), 1)
+        remaining = target_quotes - len(quotes)
+        if remaining <= 0:
+            break
         quotes.extend(_split_long_quote_candidate(cand, remaining))
 
     if not quotes:
@@ -1025,6 +1099,27 @@ def build_draft_report(report: Dict[str, Any]) -> DraftReport:
     """Wrap analyze_video() output as an explicit non-publishable draft artifact."""
     warnings = list(((report.get('evidence_map') or {}).get('warnings') or []))
     return DraftReport(report=report, warnings=warnings)
+
+
+def assemble_draft_report_slice(report: Dict[str, Any], section_ids=("1", "5")) -> DraftReport:
+    """Populate a DraftReport with deterministic §1/§5 writer output.
+
+    This is a minimal slice writer. It does NOT:
+      - call LLMs or network
+      - write §0, §2-§4, §6-§8
+      - modify the legacy render_markdown / render_debug_markdown paths
+      - return a PublishedMarkdown
+    """
+    draft = build_draft_report(report)
+    evidence_map = (report.get('evidence_map') or {}).get('by_section') or {}
+    for sid in section_ids:
+        cands = evidence_map.get(sid, []) or []
+        if sid == '1':
+            draft.draft_sections['1'] = write_logic_chain_section({'evidence': cands})
+        elif sid == '5':
+            # Use the top-level G5 contract (target 5 highlights, hard cap)
+            draft.draft_sections['5'] = write_highlights_section({'evidence': cands, 'quality_gate': 'G5'})
+    return draft
 
 
 def render_debug_markdown(
