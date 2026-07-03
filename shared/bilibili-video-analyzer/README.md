@@ -29,6 +29,8 @@ AnalysisInput → analyze_video() → DraftReport → debug Markdown → publish
 
 `render_markdown()` / `render_debug_markdown()` return debug/legacy Markdown strings. They are useful for engineering gates and inspection, but not publishable by themselves.
 
+`DraftReport.draft_sections` is the current seam for written-but-not-yet-publishable section bodies. Today it has a deterministic starter slice for §1 logic-chain tables and §5 short highlights via `assemble_draft_report_slice()`; remaining sections still require writer/assembler work before a note can become `PublishedMarkdown`.
+
 Before saving a generated report as a formal `B站笔记_*.md`, run the stricter publish gate:
 
 ```bash
