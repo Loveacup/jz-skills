@@ -31,6 +31,8 @@ AnalysisInput → analyze_video() → DraftReport → debug Markdown → publish
 
 `DraftReport.draft_sections` is the current seam for written-but-not-yet-publishable section bodies. Today it has a deterministic starter slice for §1 logic-chain tables and §5 short highlights via `assemble_draft_report_slice()`. When an explicit provider is passed, the same assembler can also route validated existing §3/§4/§7 LLM writer output into `draft_sections`; it still returns a non-publishable `DraftReport`, not `PublishedMarkdown`.
 
+Use `render_draft_markdown(draft)` for human/CI preview only. It overlays `draft_sections` onto the plan while keeping unfinished sections as skeleton, and emits `publishable: false`; it is not a formal note writer.
+
 Before saving a generated report as a formal `B站笔记_*.md`, run the stricter publish gate:
 
 ```bash

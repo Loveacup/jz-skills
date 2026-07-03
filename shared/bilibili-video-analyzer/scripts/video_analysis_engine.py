@@ -1151,6 +1151,52 @@ def assemble_draft_report_slice(
     return draft
 
 
+def render_draft_markdown(draft: DraftReport) -> str:
+    """Render a non-publishable preview using DraftReport.draft_sections.
+
+    This preview lets humans/CI inspect written draft section bodies without
+    promoting them to PublishedMarkdown. It overlays draft_sections onto the
+    report plan while leaving render_debug_markdown()/render_markdown() legacy
+    behavior untouched.
+    """
+    if not isinstance(draft, DraftReport):
+        raise TypeError('render_draft_markdown expects a DraftReport')
+
+    report = draft.report
+    fm = report.get('frontmatter', {})
+    lines = _render_frontmatter(fm)
+    lines.append('<!-- artifact_kind: draft_markdown_preview; publishable: false -->')
+    lines.append('')
+
+    plan_sections = (report.get('report_plan') or {}).get('sections') or []
+    if not plan_sections:
+        for title, body in report.get('sections', {}).items():
+            lines.append(f'## {title}')
+            lines.append('')
+            lines.append(body)
+            lines.append('')
+        return '\n'.join(lines)
+
+    by_section = (report.get('evidence_map') or {}).get('by_section') or {}
+    for spec in plan_sections:
+        sid = str(spec.get('id', ''))
+        title = spec.get('title', '')
+        lines.append(f'## {sid}. {title}')
+        lines.append('')
+        purpose = spec.get('purpose')
+        if purpose:
+            lines.append(f'_目的：{purpose}_')
+            lines.append('')
+        if sid in draft.draft_sections:
+            lines.append(draft.draft_sections[sid].strip())
+            lines.append('')
+        else:
+            _emit_section_skeleton(lines, sid, by_section.get(sid, []), report, provider=None)
+        if sid in ('0', '8'):
+            _emit_source_appendix(lines, report, sid)
+    return '\n'.join(lines)
+
+
 def render_debug_markdown(
     draft_or_report: Any,
     provider: Optional[WriterProvider] = None
