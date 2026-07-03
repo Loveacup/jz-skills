@@ -158,9 +158,100 @@ class PublishableReportError(ValueError):
     def __init__(self, failed_codes: List[str], gates: Dict[str, Any]):
         self.failed_codes = failed_codes
         self.gates = gates
-        super().__init__(
-            'publishable gate failed: ' + ', '.join(failed_codes)
-        )
+
+
+# ============ Section QA gate (Phase 1) ============
+@dataclass
+class DimensionResult:
+    dimension: str
+    passed: bool
+    score: float
+    issues: List[str]
+
+
+@dataclass
+class SectionQualityResult:
+    section_id: str
+    overall_passed: bool
+    dimension_results: List[DimensionResult]
+    blockers: List[str]
+    critical_issues: List[str]
+    improvements: List[str]
+    word_count: int
+    evidence_refs_count: int
+    time_anchor_count: int
+
+
+def evaluate_draft_section_quality(
+    section_id: str,
+    section_body: str,
+    context: Any = None,
+) -> SectionQualityResult:
+    body = (section_body or '').strip()
+    lines = [ln for ln in body.splitlines() if ln.strip()]
+
+    # ----- word + evidence counts -----
+    word_count = _count_writer_words(body)
+    evidence_refs_count = len(re.findall(r'\[E\d+\]', body))
+    time_anchor_count = len(re.findall(r'\b\d{1,2}:\d{2}\b', body))
+
+    # ----- D5: no-skeleton (P0) -----
+    skeleton_hits = [t for t in ('_骨架占位', '骨架占位', 'TODO', '待补充') if t in body]
+    d5_passed = not skeleton_hits and len(body) > 5
+
+    # ----- D1: evidence-grounded (P1) -----
+    d1_passed = evidence_refs_count >= 1 or time_anchor_count >= 1
+
+    # ----- D2: not-mechanical (P1) -----
+    table_rows = sum(1 for ln in lines if ln.strip().startswith('|'))
+    quote_rows = sum(1 for ln in lines if ln.strip().startswith('>'))
+    mechanical_ratio = (table_rows + quote_rows) / max(len(lines), 1)
+    d2_passed = mechanical_ratio < 0.70
+
+    # ----- D3: human-readable (P2) -----
+    # count complete sentences (ends with 。！？!? and has reasonable length)
+    sentences = re.findall(r'[^。！？!?\n]{5,}[。！？!?]', body)
+    d3_passed = len(sentences) >= 2
+
+    # ----- D4: insight-density (P2) -----
+    insight_markers = re.findall(r'因为|导致|说明|可见|原因|所以|因此|从而|意味着|反映出', body)
+    paragraphs = [ln for ln in lines if ln and not ln.startswith(('#', '|', '>', '-', '*'))]
+    d4_passed = len(insight_markers) >= 1 or len(paragraphs) >= 2
+
+    # ----- dimension results -----
+    dims = [
+        DimensionResult('evidence-grounded', d1_passed, 1.0 if d1_passed else 0.0, [] if d1_passed else ['缺少证据引用 [E#] 或时间锚点 MM:SS']),
+        DimensionResult('not-mechanical', d2_passed, 1.0 if d2_passed else 0.0, [] if d2_passed else [f'表格+blockquote占比 {mechanical_ratio:.0%} ≥70%']),
+        DimensionResult('human-readable', d3_passed, 1.0 if d3_passed else 0.0, [] if d3_passed else ['含完整句子数不足2个']),
+        DimensionResult('insight-density', d4_passed, 1.0 if d4_passed else 0.0, [] if d4_passed else ['缺少因果/分析关键词且纯文本段落不足2段']),
+        DimensionResult('no-skeleton', d5_passed, 1.0 if d5_passed else 0.0, [] if d5_passed else [f'骨架占位: {skeleton_hits}'] if skeleton_hits else ['章节正文为空']),
+    ]
+
+    blockers: List[str] = []
+    critical_issues: List[str] = []
+    improvements: List[str] = []
+
+    for d in dims:
+        if d.dimension == 'no-skeleton' and not d.passed:
+            blockers.append(f'D5 no-skeleton: {d.issues[0]}')
+        elif d.dimension in ('evidence-grounded', 'not-mechanical') and not d.passed:
+            critical_issues.append(f'{d.dimension}: {d.issues[0]}')
+        elif not d.passed:
+            improvements.append(f'{d.dimension}: {d.issues[0]}')
+
+    overall_passed = all(d.passed for d in dims)
+
+    return SectionQualityResult(
+        section_id=section_id,
+        overall_passed=overall_passed,
+        dimension_results=dims,
+        blockers=blockers,
+        critical_issues=critical_issues,
+        improvements=improvements,
+        word_count=word_count,
+        evidence_refs_count=evidence_refs_count,
+        time_anchor_count=time_anchor_count,
+    )
 
 
 OLD_FRAMEWORK_BASELINE = 'old_bilibili_v3_framework'

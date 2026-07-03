@@ -12,7 +12,9 @@ Current quality layers:
 EvidenceBundle → DraftSection writer → Section QA gate → DraftReport preview → PublishableReport
 ```
 
-Next immediate milestone: `evaluate_draft_section_quality()`. See `references/content-engine-strategy-pivot-to-quality-20260703.md`.
+Next immediate milestone: `evaluate_draft_section_quality()`. Phase 1 delivered — see `references/content-engine-section-qa-gate-phase1-20260703.md`.
+
+Next phase: wire QA gate into `assemble_draft_report_slice` to auto-attach quality results to `DraftReport.qa_results`.
 
 
 ## Quick release check
