@@ -761,6 +761,99 @@ def write_logic_chain_section(section_context: Dict[str, Any]) -> str:
     return '\n'.join(lines)
 
 
+# ============ DraftReport §6 deterministic knowledge graph writer ============
+_KG_CONCEPT_PATTERNS = [
+    '虚拟偶像', '人格资产', '粉丝信任', '商业化边界', '过度商业化',
+    '连续互动', '稳定人设', '治理', '知识卡片', '行动清单', 'Obsidian',
+]
+
+
+def _concept_link(concept: str) -> str:
+    return f'[[{concept}]]'
+
+
+def _extract_kg_candidates(section_context: Dict[str, Any]) -> List[Dict[str, Any]]:
+    out = []
+    for cand in section_context.get('evidence') or []:
+        if cand.get('source_type') != 'transcript':
+            continue
+        if cand.get('reason') not in ('knowledge_candidate', 'application_candidate'):
+            continue
+        text = _clean_inline_text(cand.get('text') or '', 220)
+        if not text:
+            continue
+        item = dict(cand)
+        item['text'] = text
+        out.append(item)
+    return out
+
+
+def _concepts_in_text(text: str) -> List[str]:
+    seen = []
+    for concept in _KG_CONCEPT_PATTERNS:
+        if concept in text and concept not in seen:
+            seen.append(concept)
+    return seen
+
+
+def write_knowledge_graph_section(section_context: Dict[str, Any], max_items: int = 8) -> str:
+    """Render §6 as deterministic concept/relation/action bullets.
+
+    This writer is intentionally conservative: it only links known concepts that
+    appear verbatim in transcript knowledge/application candidates. It does not
+    infer hidden entities or call LLM/network.
+    """
+    candidates = _extract_kg_candidates(section_context)
+    if not candidates:
+        return '_骨架占位：暂无可用知识图谱证据。_'
+
+    concepts: List[str] = []
+    relations: List[str] = []
+    applications: List[str] = []
+
+    for cand in candidates:
+        text = cand.get('text') or ''
+        found = _concepts_in_text(text)
+        for concept in found:
+            if concept not in concepts:
+                concepts.append(concept)
+        if len(found) >= 2:
+            rel = ' → '.join(_concept_link(c) for c in found[:3])
+            if rel not in relations:
+                relations.append(rel)
+        if cand.get('reason') == 'application_candidate' or any(k in text for k in ('可以', '行动', '清单', 'Obsidian', '知识卡片')):
+            applications.append(text)
+
+    concepts = concepts[:max_items]
+    relations = relations[:max_items]
+    applications = applications[:max_items]
+
+    if not concepts and not relations and not applications:
+        return '_骨架占位：暂无可用知识图谱证据。_'
+
+    lines = ['### 核心概念', '']
+    if concepts:
+        for concept in concepts:
+            lines.append(f'- {_concept_link(concept)}')
+    else:
+        lines.append('- _暂无可抽取概念_')
+
+    lines.extend(['', '### 关系链', ''])
+    if relations:
+        for rel in relations:
+            lines.append(f'- {rel}')
+    else:
+        lines.append('- _暂无可抽取关系链_')
+
+    lines.extend(['', '### 可落库/可行动项', ''])
+    if applications:
+        for app in applications:
+            lines.append(f'- {app}')
+    else:
+        lines.append('- _暂无可抽取行动项_')
+    return '\n'.join(lines)
+
+
 # ============ §5 高光时刻 writer（P2-C2）============
 def _is_noisy_highlight_fragment(text: str) -> bool:
     """判断 §5 候选片段是否属于标题/短问句等噪声。"""
@@ -1131,6 +1224,8 @@ def assemble_draft_report_slice(
         elif sid == '5':
             # Use the top-level G5 contract (target 5 highlights, hard cap)
             draft.draft_sections['5'] = write_highlights_section({'evidence': cands, 'quality_gate': 'G5'})
+        elif sid == '6':
+            draft.draft_sections['6'] = write_knowledge_graph_section({'evidence': cands})
         elif sid in ('3', '4', '7') and provider and typed_contexts:
             ctx = typed_contexts.get(sid)
             if not ctx:
