@@ -1101,17 +1101,29 @@ def build_draft_report(report: Dict[str, Any]) -> DraftReport:
     return DraftReport(report=report, warnings=warnings)
 
 
-def assemble_draft_report_slice(report: Dict[str, Any], section_ids=("1", "5")) -> DraftReport:
-    """Populate a DraftReport with deterministic §1/§5 writer output.
+def _draft_placeholder_for_section(ctx: WriterSectionContext) -> str:
+    title = ctx.heading.replace('## ', '').strip() or f'§{ctx.section_id}'
+    return f'### {title} Draft Placeholder\n\n_骨架占位：{title} 待 writer 基于证据填充。_\n'
 
-    This is a minimal slice writer. It does NOT:
-      - call LLMs or network
-      - write §0, §2-§4, §6-§8
-      - modify the legacy render_markdown / render_debug_markdown paths
-      - return a PublishedMarkdown
+
+def assemble_draft_report_slice(
+    report: Dict[str, Any],
+    section_ids=("1", "5"),
+    provider: Optional[WriterProvider] = None,
+) -> DraftReport:
+    """Populate a DraftReport with selected written section bodies.
+
+    Deterministic sections (§1/§5) never call external services. LLM-backed
+    sections (§3/§4/§7) are written only when a provider is explicitly supplied.
+    This function returns a non-publishable DraftReport and does not alter the
+    legacy render_markdown/render_debug_markdown paths.
     """
     draft = build_draft_report(report)
     evidence_map = (report.get('evidence_map') or {}).get('by_section') or {}
+    typed_contexts = None
+    if provider:
+        typed_contexts = {ctx.section_id: ctx for ctx in build_typed_writer_section_contexts(report)}
+
     for sid in section_ids:
         cands = evidence_map.get(sid, []) or []
         if sid == '1':
@@ -1119,6 +1131,23 @@ def assemble_draft_report_slice(report: Dict[str, Any], section_ids=("1", "5")) 
         elif sid == '5':
             # Use the top-level G5 contract (target 5 highlights, hard cap)
             draft.draft_sections['5'] = write_highlights_section({'evidence': cands, 'quality_gate': 'G5'})
+        elif sid in ('3', '4', '7') and provider and typed_contexts:
+            ctx = typed_contexts.get(sid)
+            if not ctx:
+                continue
+            try:
+                result = write_llm_section(ctx, provider, retries=0)
+            except Exception as e:
+                draft.warnings.append(f'§{sid} LLM writer failed: {e}')
+                draft.draft_sections[sid] = _draft_placeholder_for_section(ctx)
+                continue
+            if result.validation_passed:
+                draft.draft_sections[sid] = result.content
+            else:
+                draft.warnings.append(
+                    f'§{sid} LLM writer validation failed: {result.validation_errors}'
+                )
+                draft.draft_sections[sid] = _draft_placeholder_for_section(ctx)
     return draft
 
 
