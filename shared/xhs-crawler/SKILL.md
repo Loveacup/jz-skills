@@ -3,7 +3,7 @@
 name: xhs-crawler
 description: >-
   type: routine
-  小红书内容提取与深度分析。主力后端：XHS-Downloader（免登录，库直调子进程），备选：CDP 浏览器自动化 + xhshow 签名。
+  小红书内容提取与深度分析。任务路由：OpenCLI（采样/feed/search/热帖首选）；XHS-Downloader（单笔记深度报告，免登录库直调子进程）；legacy CDP（评论/OCR补齐）；Browser-Harness（UI/DOM诊断fallback）。
   支持链接提取、关键词搜索、创作者主页爬取。提取后生成 7 章节结构化知识资产报告。
   Triggers: 小红书, xhs, rednote, xiaohongshu, 获取小红书, 解析小红书, extract xhs, analyze xhs
 metadata:
@@ -22,17 +22,29 @@ metadata:
 
 # 小红书内容提取器 v6
 
-小红书（XiaoHongShu/RedNote）全功能内容提取技能。**主力后端为 XHS-Downloader**（第三方开源工具，免登录提取），以**直接库调用 + 子进程**形式集成（非 HTTP API、非 MCP），原有 CDP/xhshow 方案隔离保留为备选兜底。
-
-支持三种提取路径：
-
-1. **XHS-Downloader 库直调（⭐ 主力）** — 经 `scripts/xhs_backend.py` 调用跑在独立 Python 3.12 venv 里的 runner 子进程，免 Cookie 提取作品元数据、统计、标签、图片 URL
-2. **CDP 浏览器自动化（备选，`scripts/legacy/`）** — 需 Chrome CDP + 登录态，可补齐完整正文 + 评论 + 轮播图 OCR
-3. **关键词搜索 + 创作者分析** — 通过 xhshow 签名 API（需 Cookie）
+小红书（XiaoHongShu/RedNote）内容提取与趋势采样技能。后端按任务类型路由：
+- **OpenCLI** 是采样 / feed / 热帖估算 / 趋势 / 关键词搜索的首选路径，读取已登录 Chrome 会话并返回结构化列表。
+- **XHS-Downloader** 仍是单篇笔记深度提取与 7 章节报告的首选路径，负责元信息、正文、标签、互动数据、图片 URL 和报告输入契约（第三方开源工具，免登录提取，以**库调用 + 子进程**形式集成，非 HTTP API、非 MCP）。
+- **legacy CDP** 仍用于深度报告中必须补齐的评论与轮播图 OCR（需 Chrome CDP + 登录态）。
+- **Browser-Harness** 只用于 OpenCLI adapter 覆盖不到的 UI/DOM/debug 缺口；结果必须标注 partial/debug evidence，不能冒充完整提取。
 
 提取后由 agent 自身 LLM 能力按 `references/xhs-report-prompt.md` 模板生成知识资产报告。
 
 > **架构**：skill 胶水层跑在 Hermes 默认 `python3`（3.9）；XHS-Downloader 因要求 ≥3.12 且依赖重，被隔离进自己的 uv venv，经子进程（stdin=url / stdout=JSON）调用。详见 `claude.md`。
+
+## 任务路由
+
+1. **采样 / 热帖 / 趋势 / feed / search → OpenCLI**
+   - `opencli xiaohongshu feed/search` 返回 `{id,title,type,author,likes,url}`。
+   - 输出口径必须标注：feed 是个人推荐流采样；search 是关键词局部热度；多关键词聚类也不是官方全站热榜。
+2. **单篇笔记深度提取 / 7 章节报告 → XHS-Downloader**
+   - 保持 `scripts/xhs_backend.py` 与 `cookie=""` 空字符串约束。
+   - 评论/OCR 不足时标注，不杜撰。
+3. **深度报告补评论 / OCR → legacy CDP**
+   - 仅在需要评论或轮播图 OCR 时启用。
+4. **UI/DOM/debug 缺口 → Browser-Harness**
+   - 先 `browser-harness --doctor`，再检查页面/截图/DOM/网络。
+   - 只产出诊断证据或 partial 数据；能沉淀成稳定流程时再回到 OpenCLI adapter。
 
 ## P0 约束（严格遵守）
 
@@ -48,20 +60,27 @@ metadata:
 
 ### 数据获取 Fallback 策略
 
-**链接提取时的降级链（按优先级）：**
+**采样 / search 降级链：**
 
-1. **XHS-Downloader 库直调（首选）** — `python3 scripts/xhs_backend.py <链接>`（或 `from xhs_backend import fetch_note`），免 Cookie 即可获取标题/描述/标签/互动数据/图片 URL。**关键：胶水层永远显式传 `cookie=""` 空字符串触发免登录路径，传 null 或不传会失败（已固化在 `build_command` 里）。**
-2. **XHS-Downloader 失败** → 尝试 CDP 模式补齐评论/OCR（`scripts/legacy/`，需 Chrome CDP + 登录态）
-3. **CDP 模式失败** → 尝试纯 xhshow 签名 API（搜索/创作者，需 Cookie）
-4. **全部失败** → 返回错误 + 已获取的部分数据（不中断流程）
-5. **IP 风控（300012）** — 任何一步触发此错误，**立即止损**：停止所有尝试，向用户汇报已穷尽方案，提供三个选项：(A) 提供 Cookie 换 API 模式 (B) 换代理 IP (C) 手动复制内容。禁止继续轮换其他方案，每多试一次都是浪费 token。
-6. **评论加载失败** → 标注"[评论数据不可用]"，保留其他章节
-7. **OCR 失败** → 跳过 OCR，保留正文和评论文本内容
-8. **轮播图为 0** → 分析无轮播图原因（单图笔记或提取失败）
+1. **OpenCLI adapter**：`feed` / `search` with `--site-session persistent`。
+2. **OpenCLI browser diagnostics**：`opencli doctor`、`opencli browser <session> ...` 仅当 adapter 报错需要 bridge/DOM/network 证据时使用。
+3. **Browser-Harness**：仅当 OpenCLI browser 无法暴露所需 UI/DOM 状态或 agent 需要可视化 CDP 检查时使用。
+4. **Stop 或返回 partial evidence**。不要默默切换到无关的通用爬虫。
+
+**单篇深度提取降级链：**
+
+1. **XHS-Downloader** `xhs_backend.py`（首选）— `python3 scripts/xhs_backend.py <链接>`（或 `from xhs_backend import fetch_note`），免 Cookie 即可获取标题/描述/标签/互动数据/图片 URL。**关键：胶水层永远显式传 `cookie=""` 空字符串触发免登录路径，传 null 或不传会失败（已固化在 `build_command` 里）。**
+2. **ok 且报告不需评论/OCR**：生成报告，标准 missing-data 标注。
+3. **ok 但需要评论/OCR**：legacy CDP fallback。
+4. **XHS-Downloader 失败**：优先带 tokenized 分享链/短链，再尝试 legacy CDP（如有意义）。
+5. **IP 风控 300012**：**立即止损**；停止所有尝试，向用户汇报已穷尽方案，提供三个选项：(A) 提供 Cookie 换 API 模式 (B) 换代理 IP (C) 手动复制内容。禁止继续轮换其他方案，每多试一次都是浪费 token。
+6. **invalid_url**：ask for valid XHS URL。
+7. **legacy CDP 因登录/CDP 失败**：标注不可用或询问用户恢复登录/CDP。
+8. **Browser-Harness 仅用于诊断页面状态**，不能声称完整提取。
 
 **通用浏览器/爬虫工具定位：**
 - 不要用 Crawl4AI、普通 web_extract、通用 browser-agent 替代本 skill 作为小红书主力；这些工具通常缺少小红书专用登录态、评论加载、轮播图 OCR、报告结构和数据完整性检查。
-- 可用 agent-browser/Playwright MCP/现有 browser 工具作为**诊断和兜底**：检查页面是否登录、分享链接是否跳转、DOM 是否变化、评论/轮播图是否能手动展开、截图是否可 OCR。
+- 可用 agent-browser/Playwright MCP/Browser-Harness 作为**诊断和兜底**：检查页面是否登录、分享链接是否跳转、DOM 是否变化、评论/轮播图是否能手动展开、截图是否可 OCR。
 - 通用爬虫只适合尝试公开落地页的 meta/少量文本，结果必须标注为 partial，不能声称完整提取。
 
 ### 数据引用规范
@@ -324,17 +343,56 @@ if out["status"] == "ok":
 
 ---
 
-### 备选方案：CDP 兜底（评论 + 轮播图 OCR）
+### OpenCLI：采样 / feed / 热帖 / search（⭐ 首选）
+
+**适用场景：** 用户问”小红书今天热门是什么””看热帖””看首页推荐流/某关键词热帖/趋势”。此类任务优先用 OpenCLI 读取小红书 hydrated store，字段稳定、输出结构化，不要直接用通用 DOM 抓取作为主路径。
+
+**前置体检：**
+```bash
+opencli --version
+opencli doctor
+opencli list -f json
+opencli xiaohongshu --help
+opencli xiaohongshu whoami -f yaml --window foreground --site-session persistent
+```
+预期证据：version ≥ v1.8.5；doctor green for browser bridge；xiaohongshu command help 列出 `feed` 和 `search`。
+
+**Feed 采样（个人首页推荐流，不是全站热榜）：**
+```bash
+opencli xiaohongshu feed --limit 3 -f yaml --window foreground --site-session persistent
+opencli xiaohongshu feed --limit 30 -f json --window foreground --site-session persistent
+```
+输出字段通常含：`id / title / type / author / likes / url`。报告为”个人推荐流采样”，不是官方热榜。
+
+**关键词搜索 / 趋势采样：**
+```bash
+opencli xiaohongshu search “AI Agent” --limit 20 -f json --window foreground --site-session persistent
+opencli xiaohongshu search “杭州” --limit 20 -f json --window foreground --site-session persistent
+opencli xiaohongshu search “影视飓风 100小时” --limit 20 -f json --window foreground --site-session persistent
+```
+后处理指引（agent）：按 `id` 或规范化 `url` 去重；解析 `likes`（如 `1.3万`）；按点赞与主题重复频率排序；聚类重复标题/主题；标注证据为关键词局部采样。
+
+**关键口径：** 小红书网页版没有稳定公开的全站热榜。所谓”热帖”只能是采样估算：
+- `feed` = 个人首页推荐流
+- `search <query>` = 关键词局部热度
+- 多关键词/多频道聚类 = 更接近趋势，但仍非官方榜单
+
+**Pitfall：不要把隔离浏览器误当主 Chrome。** 如果之前用过 `browser-harness-isolated` 或自启 `--user-data-dir=...isolated-chrome-profile`，先确认并停掉隔离 Chrome，再声明”主 Chrome 登录态”。可用以下检查思路：确认 OpenCLI `whoami.logged_in=true`；若用 browser-harness，确认 daemon log/DevTools endpoint 指向主 Chrome 而非 `9223` isolated profile。用户纠正”这个没登录用户的 Chrome”时，立即重验浏览器来源，不要辩解。
+
+### legacy CDP 兜底（评论 + 轮播图 OCR）
 
 仅当 XHS-Downloader 主力路径已拿到元数据、但报告**必须**补齐评论或图文 OCR 时启用。
 前提：Chrome CDP（端口 19222）+ 小红书登录态。详见 `scripts/legacy/README.md`。
 
 ```bash
-python3 {baseDir}/scripts/legacy/xhs_extractor_v2.py "<小红书链接>"
-python3 {baseDir}/scripts/legacy/xhs_extractor_v2.py "<小红书链接>" --no-ocr
+cd /Users/alexcai/.hermes/skills/xhs-crawler
+python3 scripts/legacy/xhs_extractor_v2.py "<小红书链接>"
+python3 scripts/legacy/xhs_extractor_v2.py "<小红书链接>" --no-ocr
 ```
 
 **流程：** CDP 连接 Chrome（继承登录态）→ 滚动加载评论 → JS 注入提取正文/评论/标签/图片/互动 → 轮播图逐张截图 → Qwen3-VL OCR → 输出 JSON。
+
+预期证据：JSON 包含 title/author/content/tags/comments/images/stats/carousel_ocr/full_content，或明确的 login/CDP/OCR failure。评论和 OCR 缺口必须标注，不能杜撰。
 
 **输出 JSON 结构：**
 ```json
@@ -366,6 +424,60 @@ python3 {baseDir}/scripts/xhs_api.py creator "<用户ID>"
 ```
 
 调用 `get_creator_info()` + `get_creator_notes()` → 返回创作者资料和笔记列表。
+
+### OpenCLI browser 诊断 fallback
+
+仅当 adapter 失败或需要 schema/DOM/debug 证据时使用：
+
+```bash
+opencli doctor
+opencli browser xhs-debug bind
+opencli browser xhs-debug state
+opencli browser xhs-debug network --filter "note,title"
+opencli browser xhs-debug screenshot /tmp/xhs-opencli-debug.png
+opencli browser xhs-debug unbind
+```
+
+或 owned session：
+
+```bash
+opencli browser xhs-debug open "https://www.xiaohongshu.com"
+opencli browser xhs-debug state
+opencli browser xhs-debug close
+```
+
+预期证据：结构化 browser envelope，`error.code` when failing，`matches_n`/`match_level` for interactions，network keys or screenshot path when relevant。
+
+### Browser-Harness fallback
+
+仅在 OpenCLI adapter/browser 路径不足以用于 UI/DOM/visual 诊断之后使用：
+
+```bash
+browser-harness --doctor
+browser-harness <<'PY'
+print(page_info())
+PY
+```
+
+如果主 Chrome 握手失败或有意需要干净隔离 profile：
+
+```bash
+browser-harness-isolated <<'PY'
+print(page_info())
+PY
+```
+
+页面检查（agent 已有真实 tab/session）：
+
+```bash
+browser-harness <<'PY'
+print(page_info())
+capture_screenshot()
+print(js("""(() => ({url: location.href, title: document.title, text: document.body.innerText.slice(0, 1000)}))()"""))
+PY
+```
+
+预期证据：page URL/title，screenshot when visual diagnosis matters，targeted DOM result。如使用 isolated profile，须说明不是登录态主 Chrome session。
 
 ## 报告生成
 
@@ -477,236 +589,28 @@ python3 {baseDir}/scripts/xhs_api.py creator "<用户ID>"
 
 **兜底（CDP，评论 + OCR）：** 见 `scripts/legacy/README.md`。
 
+**External CLI surfaces（外部命令行表面，非 scripts/ 内脚本）：**
+
+| 表面 | 用途 | 用法示例 |
+|------|------|----------|
+| OpenCLI xiaohongshu | feed/search 采样 | `opencli xiaohongshu feed --limit 30 -f json --window foreground --site-session persistent` |
+| OpenCLI browser | adapter 失败时的诊断 | `opencli doctor`、`opencli browser <session> state/network/screenshot` |
+| Browser-Harness | UI/DOM/visual 诊断 fallback | `browser-harness --doctor`、`browser-harness <<'PY' ...` |
+
 **测试：** `python3 -m pytest {baseDir}/tests/`（联网金丝雀默认跳过，`XHS_LIVE_TEST=1` 才跑）。
 
 ## 故障排除
 
-### 常见问题速查 (FAQ)
+常用排障速查。**完整 FAQ、错误代码速查表、调试技巧 → `references/troubleshooting.md`**。
 
-#### Q0: XHS-Downloader 提取失败（`status=failed` / `error`）？
-
-**排查步骤：**
-1. **后端是否就绪** — `python3 {baseDir}/scripts/xhs_bootstrap.py doctor`；`ready:false` 则先跑 `xhs_bootstrap.py`
-2. **链接是否带 token** — 优先用短链或带 `xsec_token` 的分享链；裸 `explore/<id>` 易被风控失败
-3. **链接格式** — 确认是 `explore/`、`discovery/item/` 或 `xhslink.com/`
-4. **IP 是否被封** — `status=ip_risk`（300012）见 Q7，**立即止损**
-5. **更新上游** — `cd {baseDir}/.xhs-downloader && git pull && uv sync --no-dev`
-
-**cookie 陷阱：** 胶水层已固化 `cookie=""`（`build_command`）；若手改 runner/backend 传了 `None` 会失败。
-
-**Python 版本：** XHS-Downloader 需 ≥3.12，由 `.xhs-downloader/.venv`（uv 管理）满足，与 skill 胶水层的 `python3`(3.9) 互不影响。`uv` 未装则 `brew install uv`。
-
----
-
-#### Q1: CDP 连接失败怎么办？
-**症状：** `🔌 连接 Chrome CDP...` 后报错或超时
-
-**排查步骤：**
-1. 检查 Chrome 是否已启动远程调试：
-   ```bash
-   curl http://127.0.0.1:19222/json/list
-   ```
-
-2. 如果未运行，启动 Chrome（带 CDP）：
-   ```bash
-   /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
-     --remote-debugging-port=19222 \
-     --no-first-run \
-     --no-default-browser-check &
-   ```
-
-3. 或使用 Comet（备选）：
-   ```bash
-   /Applications/Comet.app/Contents/MacOS/Comet \
-     --remote-debugging-port=19222 \
-     --no-first-run \
-     --no-default-browser-check &
-   ```
-   此时需设置环境变量：`export CHROME_CDP_URL=http://127.0.0.1:19222`
-
-**预防措施：**
-- 将 Chrome CDP 启动命令加入开机启动项
-- 使用 cron job 保持 Chrome 运行
-
----
-
-#### Q1b: xhshow 导入失败？
-**症状：** `ModuleNotFoundError: No module named 'xhshow'` 或 `xhshow 库未安装`
-
-**解决步骤：**
-```bash
-cd ~/.hermes/skills/xhs-crawler
-# 检查 setup.py 是否存在
-ls setup.py || echo "需要创建 setup.py"
-
-# 创建最小 setup.py（如不存在）
-cat > setup.py << 'EOF'
-from setuptools import setup, find_packages
-setup(name="xhshow", version="0.1.0", packages=find_packages(), python_requires=">=3.9")
-EOF
-
-# 安装
-pip3 install -e .
-
-# 验证
-python3 -c "from xhshow import Xhshow; print('xhshow OK')"
-```
-
-**常见陷阱：**
-- 系统 Python 是 3.9，但 setup.py 要求 `>=3.10` → 修改 setup.py 为 `>=3.9`
-- 使用了 `--user` 安装但不在 PYTHONPATH → 使用 `pip3 install -e .`（开发模式）
-- 在错误目录执行 → 必须在 `~/.hermes/skills/xhs-crawler/` 目录执行
-
----
-
-#### Q2: 评论提取为 0 或很少？
-**症状：** 评论区显示有大量评论，但提取结果只有 0-3 条
-
-**原因分析：**
-1. **滚动加载未完成** - 小红书使用懒加载，需要多次滚动
-2. **DOM 结构变化** - 小红书更新了前端代码
-3. **登录态失效** - 部分评论需要登录才能查看
-
-**解决方案：**
-1. 脚本已内置 5 次滚动，如仍不足可手动增加：
-   ```bash
-   # 修改 xhs_extractor.py 中的 scroll_times 参数
-   python3 scripts/legacy/xhs_extractor_v2.py "<url>" --scroll-times 10
-   ```
-2. 检查 Chrome 中是否已登录小红书
-3. 如 DOM 结构变化，需更新 `extractors.js`（⚠️ 谨慎操作）
-
-**Fallback：**
-- 评论不足时标注 `"[评论数据不足]"`，继续生成其他章节
-
----
-
-#### Q3: OCR 失败或识别率低？
-**症状：** 轮播图 OCR 返回空或乱码
-
-**排查步骤：**
-1. 检查 Qwen3-VL 服务状态：
-   ```bash
-   curl $QWEN_API_URL/../models
-   # 应返回可用模型列表
-   ```
-2. 检查图片是否成功截图：
-   ```bash
-   ls -la /tmp/xhs_*.png
-   ```
-3. 跳过 OCR 快速验证：
-   ```bash
-   python3 scripts/legacy/xhs_extractor_v2.py "<url>" --no-ocr
-   ```
-
-**优化建议：**
-- 确保 Qwen3-VL 服务在本地运行（默认端口 9998）
-- 对于纯文字笔记，可直接使用 `--no-ocr` 提升速度
-
----
-
-#### Q4: Cookie 失效如何更新？
-**症状：** API 模式返回 401 或 "登录过期"
-
-**解决步骤：**
-1. 在 Chrome 中登录小红书
-2. 打开 DevTools → Application → Cookies
-3. 复制 `web_session` 和 `a1` 字段的值
-4. 更新 Cookie：
-   ```bash
-   python3 scripts/legacy/cookie_manager.py save 'web_session=xxx;a1=xxx'
-   ```
-
-**自动化方案：**
-- 使用 CDP 模式继承浏览器登录态，无需手动管理 Cookie
-
----
-
-#### Q7: IP 被小红书封锁（错误 300012）？
-**症状：** 浏览器导航到小红书后显示"安全限制"页面，错误码 300012，`error_msg=IP at risk`
-
-**根因：** 小红书对非住宅代理 IP、数据中心 IP、或频繁访问的 IP 实施风控封锁。CDP 和 API 模式都会同时被封。
-
-**处理流程（严格遵守）：**
-1. ❌ **不要尝试换方案** — web_extract / browser_navigate / Tavily / CDP / API 全都会被同一个 IP 封锁，切换只是浪费 token
-2. ✅ **立即止损** — 确认错误后直接向用户汇报，附上已穷尽的方案列表
-3. ✅ **提供三个选项** — (A) 提供 Cookie（`web_session` + `a1`）用 API 模式 (B) 换代理 IP (C) 手动复制内容发过来
-4. ⚠️ **禁止**手动写 CDP WebSocket 脚本、浏览器截图 OCR、或搜索笔记 ID 跨平台转载 — 这些都已验证无效
-
-**预防措施：**
-- 提前配置 Cookie 可绕过 IP 风控（API 模式对登录用户更宽松）
-- 使用住宅代理（如 Bright Data / Oxylabs）
-
----
-
-#### Q5: 提取速度慢如何优化？
-**优化策略：**
-
-| 瓶颈 | 优化方案 | 效果 |
-|:---|:---|:---|
-| OCR 耗时 | 使用 `--no-ocr` 跳过 | 提升 50-80% |
-| 评论滚动 | 减少 `--scroll-times` | 线性减少时间 |
-| 网络延迟 | 使用代理 `--proxy` | 视网络环境 |
-| 并发提取 | 批量模式（待实现） | 大幅提升 |
-
----
-
-#### Q6: 报告保存到哪里？
-**默认路径：** `~/Documents/Obsidian/AlexCai/00-Inbox/`
-
-**自定义路径：**
-```bash
-export XHS_OUTPUT_DIR="~/Documents/MyReports"
-python3 scripts/legacy/xhs_extractor_v2.py "<url>"
-```
-
-**自动检测逻辑：**
-1. 查找标准 Obsidian Vault 位置
-2. 回退到 `~/clawd/00-Inbox/`
-3. 确保目录存在，不存在则创建
-
----
-
-### 错误代码速查
-
-| 错误信息 | 原因 | 解决方案 |
-|:---|:---|:---|
-| `CDP Connection Error` | 浏览器未启动 | 启动 Chrome（或 Comet） |
-| `TimeoutError` | 页面加载超时 | 检查网络，增加超时时间 |
-| `JSONDecodeError` | 提取数据格式异常 | DOM 结构变化，需更新 extractors.js |
-| `OCR Service Unavailable` | Qwen3-VL 未启动 | 启动 OCR 服务或使用 `--no-ocr` |
-| `Cookie Expired` | 登录态失效 | 更新 Cookie 或使用 CDP 模式 |
-| `Rate Limited` | 请求过快 | 增加延迟，降低并发 |
-| `IP at risk (300012)` | 当前 IP 被小红书风控封锁 | 见 Fallback 策略：立即止损上报用户，禁止继续尝试其他方案。不要换方案魔改 CDP WebSocket 手写脚本。直接用 XHS-Downloader + `cookie:""` 重试 |
-| `XHS-Downloader 失败 (empty cookie)` | cookie 参数传了 null 或未传 | 改为 `"cookie":""` 显式传空字符串 |
-
----
-
-### 调试技巧
-
-**1. 查看详细日志：**
-```bash
-python3 scripts/legacy/xhs_extractor_v2.py "<url>" --verbose
-```
-
-**2. 手动验证 CDP：**
-```bash
-# 检查 CDP 端点 (Chrome Extension)
-curl http://127.0.0.1:18792/json/list | head -20
-
-# 检查页面元素
-# 在 Chrome 中打开笔记，Console 中运行 extractors.js 内容
-```
-
-**3. 测试 API 签名：**
-```bash
-python3 -c "from xhshow import Xhshow; print(Xhshow().sign_headers('GET', '/api/sns/web/v1/feed', ''))"
-```
-
-**4. 清理临时文件：**
-```bash
-rm -f /tmp/xhs_*.json /tmp/xhs_*.png /tmp/xhs_*.txt
-```
+| 症状 | 先看 |
+|---|---|
+| XHS-Downloader 提取失败 | `references/troubleshooting.md` §Q0 |
+| CDP 连接失败 | §Q1 |
+| 评论/OCCR 不足 | §Q2 / §Q3 |
+| IP 风控 300012 | §Q7（立即止损！） |
+| OpenCLI feed/search 失败 | §Q8 |
+| Browser-Harness 连不上 | §Q9 |
 
 ---
 
@@ -718,6 +622,8 @@ rm -f /tmp/xhs_*.json /tmp/xhs_*.png /tmp/xhs_*.txt
 | `references/execution-guide.md` | 详细执行步骤、依赖配置 | 首次使用或遇到问题 |
 | `references/xhs-report-prompt.md` | 报告生成 LLM 模板 | 报告生成阶段 |
 | `references/ARCHITECTURE.md` | 技术架构、错误处理工作流 | 调试/开发时 |
+| `references/troubleshooting.md` | 完整 FAQ、错误代码速查、调试技巧 | 排障时 |
+| `references/changelog.md` | 版本更新日志 | 了解变更历史时 |
 | `OPTIMIZATION.md` | 优化记录、已知问题 | 性能调优时 |
 
 ---
@@ -739,106 +645,9 @@ rm -f /tmp/xhs_*.json /tmp/xhs_*.png /tmp/xhs_*.txt
 
 ## 更新日志
 
-### 2026-06-10 v6.0.0 XHS-Downloader 库直调 TDD 重构版
+最新变更 → `references/changelog.md`。
 
-**架构变更：**
-- ✅ **主力后端改为「库直调 + 子进程」** — 弃用 HTTP API 模式，经 `xhs_backend.fetch_note` 调用跑在独立 Python 3.12 venv 的 runner 子进程（stdin=url / stdout=JSON）
-- ✅ **双解释器模型** — skill 胶水层 3.9 兼容；XHS-Downloader 隔离进 uv venv(3.12)。子进程边界同时是版本隔离层与测试 mock 缝
-- ✅ **幂等 bootstrap** — `xhs_bootstrap.py` 自动 clone 到 gitignored `.xhs-downloader/` 并 uv sync，含 doctor 自检
-- ✅ **数据适配器** — `xhs_adapter.py` 映射返回数据为报告模板输入契约；缺失的评论/OCR 输出标准标注而非杜撰（P0）
-- ✅ **URL 规范化保留 xsec_token** — `prepare_url` 绝不把带 token 的链接削成裸 id
+### 2026-07-03 v6.1.0 任务路由 + 瘦身
 
-**TDD：**
-- ✅ 77 个单元测试（adapter / url / backend / bootstrap），严格先红后绿
-- ✅ 联网金丝雀 `XHS_LIVE_TEST=1`（已验证笔记 `6a116dd8...`），默认跳过
-- ✅ 实跑暴露并修复「库进度信息污染 stdout」bug（runner 重定向 stdout→stderr + classify 末行解析）
-
-**旧代码：**
-- ✅ CDP 链路（v2 + OCR + cookie_manager + extractors.js）隔离到 `scripts/legacy/`，留作评论/OCR 兜底
-- ✅ 删除 `xhs_full_extractor.py`（语法错误）、`xhs_extractor.py`（v1，被 v2 取代）
-- ✅ `claude.md` 从 v5 拉齐到双解释器架构
-
-### 2026-06-10 v5.5.0 XHS-Downloader 集成版
-
-**重大更新：**
-- ✅ **XHS-Downloader 成为主力后端** — 免 Cookie 提取元数据、标签、互动数据、图片 URL
-- ✅ **`cookie:""` 工作记录** — XHS-Downloader 传空字符串才能触发无登录路径
-- ✅ **uv sync 作为安装方案** — 比 pip+venv 更可靠（解决 Python 3.12 venv ensurepip 问题）
-- ✅ **Fallback 策略重排** — XHS-Downloader API → CDP → xhshow API
-- ✅ **IP 风控处理文档** — 遇到 300012 立即止损，不要再轮换方案
-- ✅ **已知问题记录** — xhs_full_extractor.py 语法错误、xhs_extractor_v2 超时
-
-**修复问题：**
-- ✅ **移除 OpenClaw 引用** - 更新为原生 Chrome CDP（端口 19222）
-- ✅ **xhshow 安装文档** - 添加 setup.py 创建和 pip3 install -e . 步骤
-- ✅ **Python 版本兼容** - 记录 3.9+ 降级安装方法
-- ✅ **创建 xhs_extractor_v2.py** - 修复轮播图检测、App限制、降级处理
-- ✅ **更新 SKILL.md** - 同步所有环境变量和端口配置
-
-### 2026-02-23 v5.3.0 完整提取规范版
-
-**新增功能：**
-- ✅ **完整执行检查清单** - 6步骤22项检查点，确保每次提取完整
-- ✅ **xhs_full_extractor.py** - 一键完整提取脚本（含OCR+自动清理）
-- ✅ **即时清理机制** - 每完成一张OCR立即删除截图，避免磁盘堆积
-- ✅ **详细执行指南** - 添加完整执行流程和故障排查速查表
-
-**改进优化：**
-- ✅ 浏览器从 Comet 迁移到 Google Chrome
-- ✅ CDP 地址更新为 `http://127.0.0.1:19222`
-- ✅ 环境变量名更新为 `CHROME_CDP_URL`
-- ✅ 文档中添加完整的检查清单和使用示例
-
-### 2026-02-06 v5.2.0 深度扩展可选版
-
-**新增功能：**
-- ✅ **深度扩展可选项** - 基础报告生成后询问用户是否深度扩展
-- ✅ **多智能体协作流程** - 调用 Librarian 进行多源深度搜索
-- ✅ **扩展内容规范** - 明确深度扩展的搜索维度和内容范围
-- ✅ **用户决策指引** - 提供场景化的决策建议（何时推荐/不推荐）
-
-**改进优化：**
-- ✅ 修复 `xhs_extractor.py` SyntaxWarning（转义序列问题）
-- ✅ 重构 `xhs_carousel_ocr.py` 支持本地文件夹路径
-- ✅ 添加 Issue 追踪文档（`ISSUES/issue-002-carousel-ocr-problems.md`）
-
-### 2026-02-06 v5.1.0 重构优化版
-
-**新增功能：**
-- ✅ **P0 约束章节** - 添加强制输出检查清单和数据获取 Fallback 策略
-- ✅ **扩展故障排除** - FAQ 格式，包含 6 个常见问题及解决方案
-- ✅ **数据引用规范** - 明确评论引用格式和数据不足标注规范
-- ✅ **隐私安全红线** - 明确禁止存储的敏感信息类型
-- ✅ **错误代码速查表** - 快速定位问题原因
-- ✅ **参考文档索引** - 清晰说明各 references 文件的用途和加载时机
-
-**架构改进：**
-- ✅ 完善渐进式披露结构（SKILL.md → references/execution-guide.md）
-- ✅ 添加数据契约验证规范
-- ✅ 明确错误处理工作流
-
-**待实现（参见 OPTIMIZATION.md）：**
-- 🔄 断点续传功能（ResumableCrawler）
-- 🔄 自适应延迟机制
-- 🔄 批量提取模式
-
-### 2026-02-04 v5.0.0 初始版本
-
-**核心功能：**
-- ✅ 链接提取模式（CDP + Playwright）
-- ✅ 关键词搜索模式（API + xhshow 签名）
-- ✅ 创作者分析模式
-- ✅ 轮播图 OCR（Qwen3-VL）
-- ✅ 7 章节报告生成
-
-**技术特性：**
-- ✅ 混合架构（CDP + API）
-- ✅ 实时进度汇报（emoji 前缀）
-- ✅ Cookie 管理器
-- ✅ URL 解析器
-
----
-
-## 📋 优化记录
-
-**已知问题与待实现功能：** 参见 `OPTIMIZATION.md`
+- ✅ **任务路由** — OpenCLI 设为采样/feed/search/热帖首选；XHS-Downloader 保持单篇深度报告首选；legacy CDP 保持评论/OCR 补齐；Browser-Harness 新增为 UI/DOM/debug fallback
+- ✅ **SKILL.md 瘦身** — 故障排除拆到 `references/troubleshooting.md`、历史日志拆到 `references/changelog.md`

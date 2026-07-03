@@ -1,6 +1,13 @@
 # xhs-crawler 开发参考
 
-小红书内容提取 skill。**v6 架构：XHS-Downloader 库直调（子进程）为主力**，CDP 浏览器自动化 + xhshow 签名隔离为备选兜底，agent LLM 能力生成报告。
+小红书内容提取 skill。**v6 架构任务路由**：OpenCLI（采样/feed/search首选）；XHS-Downloader 库直调（子进程，单笔记深度报告）；legacy CDP（评论/OCR补齐）；Browser-Harness（UI/DOM诊断fallback）。agent LLM 能力生成报告。
+
+## External surfaces（外部命令行表面）
+
+本 skill 依赖以下外部 CLI 工具，它们不在 `scripts/` 目录内：
+
+- **OpenCLI**：采样/feed/search 首选路径。`opencli xiaohongshu feed/search` 返回结构化 `{id,title,type,author,likes,url}`。feed=个人推荐流采样；search=关键词局部热度；多关键词聚类≠官方全站热榜。adapter 失败时用 `opencli browser <session> state/network/screenshot` 诊断。
+- **Browser-Harness**：仅用于 OpenCLI adapter 覆盖不到的 UI/DOM/debug 缺口。`browser-harness` 连接主 Chrome（登录态）；`browser-harness-isolated` 是干净隔离 profile（非登录态，结果必须说明）。只产出 partial/debug evidence，能沉淀成稳定流程时再回到 OpenCLI adapter。
 
 ## 核心架构：双解释器 + 子进程边界
 
