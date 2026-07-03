@@ -38,17 +38,17 @@ def test_resolve_writer_provider_deepseek():
     assert generate_report.resolve_writer_provider(args) is generate_report.deepseek_writer_provider
 
 
-def test_report_markdown_passes_provider_to_render_markdown(monkeypatch, tmp_path):
+def test_report_markdown_passes_provider_to_debug_renderer(monkeypatch, tmp_path):
     calls = []
 
-    def fake_render(report, provider=None):
-        calls.append({"report": report, "provider": provider})
+    def fake_render(draft, provider=None):
+        calls.append({"draft": draft, "provider": provider})
         return "# rendered"
 
     def fake_provider(system, user):
         return "unused"
 
-    monkeypatch.setattr(generate_report, "render_markdown", fake_render)
+    monkeypatch.setattr(generate_report, "render_debug_markdown", fake_render)
 
     markdown, report = generate_report.report_markdown(
         _minimal_results(tmp_path),
@@ -59,3 +59,5 @@ def test_report_markdown_passes_provider_to_render_markdown(monkeypatch, tmp_pat
     assert markdown == "# rendered"
     assert report["frontmatter"]["video_id"] == "BVwriter"
     assert calls[0]["provider"] is fake_provider
+    assert calls[0]["draft"].artifact_kind == "draft_report"
+    assert calls[0]["draft"].publishable is False

@@ -21,6 +21,14 @@ It is an **engineering gate**, not a publishability guarantee for Obsidian notes
 
 ## Publishable Obsidian gate
 
+Pipeline artifact boundary:
+
+```text
+AnalysisInput → analyze_video() → DraftReport → debug Markdown → publish_markdown() → PublishedMarkdown
+```
+
+`render_markdown()` / `render_debug_markdown()` return debug/legacy Markdown strings. They are useful for engineering gates and inspection, but not publishable by themselves.
+
 Before saving a generated report as a formal `B站笔记_*.md`, run the stricter publish gate:
 
 ```bash

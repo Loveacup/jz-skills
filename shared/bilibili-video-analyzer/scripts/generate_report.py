@@ -6,7 +6,8 @@ generate_report.py — fetch_all 结果 → 分析引擎 → Obsidian Markdown �
 定位（胶水层）：
   本脚本**不做任何采集、不做任何分析逻辑**，只负责把 fetch_all.py 采集到的
   原始结果（RESULT_JSON）收敛为 video_analysis_engine 的 AnalysisInput，
-  调 analyze_video() / render_markdown() 产出 Obsidian-ready 报告。
+  调 analyze_video() → DraftReport → debug Markdown。正式 `B站笔记_*.md`
+  输出仍必须通过 publishable gate 后才会写入。
 
 输入三选一：
   --input FILE   fetch_all.py 的输出文件（纯 JSON，或含 RESULT_JSON_START/END 的文本）
@@ -42,7 +43,7 @@ import argparse
 
 from video_analysis_engine import (
     AnalysisInput, Transcript, TranscriptSegment, Comment, Danmaku,
-    analyze_video, render_markdown,
+    analyze_video, build_draft_report, render_debug_markdown,
     cli_writer_provider, deepseek_writer_provider,
 )
 import verify_publishable_report
@@ -326,7 +327,8 @@ def report_markdown(results, run_fact_check=True, provider=None):
     """results → (markdown 文本, report dict)。供 fetch_all --report 直接复用。"""
     inp = build_analysis_input(results, run_fact_check=run_fact_check)
     report = analyze_video(inp)
-    return render_markdown(report, provider=provider), report
+    draft = build_draft_report(report)
+    return render_debug_markdown(draft, provider=provider), report
 
 
 # ============ 输入加载 ============

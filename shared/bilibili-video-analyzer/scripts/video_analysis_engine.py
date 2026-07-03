@@ -127,6 +127,41 @@ class ReportPlan:
         return asdict(self)
 
 
+@dataclass
+class DraftReport:
+    """A non-publishable structured draft artifact.
+
+    DraftReport is the explicit home for ReportPlan/EvidenceMap skeleton output.
+    It may be useful for debugging, writer context, and future DraftReport writers,
+    but it is not an Obsidian-ready note.
+    """
+    report: Dict[str, Any]
+    artifact_kind: str = 'draft_report'
+    publishable: bool = False
+    debug_render_allowed: bool = True
+    warnings: List[str] = field(default_factory=list)
+
+
+@dataclass
+class PublishedMarkdown:
+    """Markdown that has passed the publishable Obsidian gate."""
+    markdown: str
+    gates: Dict[str, Any]
+    artifact_kind: str = 'published_markdown'
+    publishable: bool = True
+
+
+class PublishableReportError(ValueError):
+    """Raised when Markdown is not safe to treat as PublishedMarkdown."""
+
+    def __init__(self, failed_codes: List[str], gates: Dict[str, Any]):
+        self.failed_codes = failed_codes
+        self.gates = gates
+        super().__init__(
+            'publishable gate failed: ' + ', '.join(failed_codes)
+        )
+
+
 OLD_FRAMEWORK_BASELINE = 'old_bilibili_v3_framework'
 BILINOTE_ABSORBED_PATTERNS = [
     'BiliNote: subtitle-first before media download',
@@ -986,14 +1021,23 @@ def _render_plan_skeleton(
     return '\n'.join(lines)
 
 
-def render_markdown(report: Dict[str, Any], provider: Optional[WriterProvider] = None) -> str:
-    """把 analyze_video 的报告字典渲染成完整 Markdown 文本（含 YAML frontmatter）。
+def build_draft_report(report: Dict[str, Any]) -> DraftReport:
+    """Wrap analyze_video() output as an explicit non-publishable draft artifact."""
+    warnings = list(((report.get('evidence_map') or {}).get('warnings') or []))
+    return DraftReport(report=report, warnings=warnings)
 
-    若 report 含 report_plan.sections，则按 SectionSpec 顺序输出老版 §0–§8
-    plan-aware skeleton（注入 evidence_map 候选）；否则退回旧版 sections 渲染。
 
-    如果 provider 非 None，则传给骨架渲染用于 LLM 生成（默认使用 deepseek_writer_provider）。
+def render_debug_markdown(
+    draft_or_report: Any,
+    provider: Optional[WriterProvider] = None
+) -> str:
+    """Render a debug/legacy Markdown view of a DraftReport or raw report dict.
+
+    This function is allowed to call `_render_plan_skeleton()`. Its output is
+    useful for inspection and engineering gates, but is not publishable unless a
+    later explicit `publish_markdown()` call succeeds.
     """
+    report = draft_or_report.report if isinstance(draft_or_report, DraftReport) else draft_or_report
     fm = report.get('frontmatter', {})
     lines = _render_frontmatter(fm)
 
@@ -1007,6 +1051,28 @@ def render_markdown(report: Dict[str, Any], provider: Optional[WriterProvider] =
         lines.append(body)
         lines.append('')
     return '\n'.join(lines)
+
+
+def publish_markdown(markdown: str) -> PublishedMarkdown:
+    """Create PublishedMarkdown only after the publishable gate passes."""
+    import verify_publishable_report
+
+    gates, passed = verify_publishable_report.evaluate(markdown)
+    if not passed:
+        failed_codes = [code for code, gate in gates.items() if not gate.get('pass')]
+        raise PublishableReportError(failed_codes, gates)
+    return PublishedMarkdown(markdown=markdown, gates=gates)
+
+
+def render_markdown(report: Dict[str, Any], provider: Optional[WriterProvider] = None) -> str:
+    """Legacy/debug Markdown renderer for analyze_video() output.
+
+    `render_markdown()` intentionally returns a plain string for backwards
+    compatibility. When `report_plan.sections` exists it renders the plan-aware
+    skeleton via `render_debug_markdown()`. Call `publish_markdown()` to promote
+    Markdown into `PublishedMarkdown`; do not treat this string as publishable.
+    """
+    return render_debug_markdown(report, provider)
 
 
 # ============ Writer 适配层（P2-C1）============
