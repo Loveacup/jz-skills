@@ -2,6 +2,19 @@
 
 Bilibili / YouTube video analysis engine for producing Obsidian-ready deep reports with transcript evidence, comments/danmaku context, writer validation, and release quality gates.
 
+## Quality-first pipeline (active roadmap)
+
+After the P0/P1 skeleton guard and DraftReport boundary landed, the strategy pivoted from "fill every section with deterministic extractors" to **"build a section-level content quality gate first, then make every writer pass it."**
+
+Current quality layers:
+
+```text
+EvidenceBundle → DraftSection writer → Section QA gate → DraftReport preview → PublishableReport
+```
+
+Next immediate milestone: `evaluate_draft_section_quality()`. See `references/content-engine-strategy-pivot-to-quality-20260703.md`.
+
+
 ## Quick release check
 
 Before changing writer/render/fetch/report logic, run the cheap deterministic release gate:
