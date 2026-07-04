@@ -1,5 +1,12 @@
 # Sync Notes
 
+## 2026-07-05
+
+- Official OMP 16.3.6 sync completed successfully after a networked retry.
+  The refreshed changelog is mostly transcript/scrollback/retry/title behavior
+  work and did not require authored updates to `architecture.md`,
+  `security.md`, `providers/search.md`, or `providers/models.md` in this run.
+
 ## 2026-07-03
 
 - Official OMP 16.3.2 changed `grep`, `glob`, and `ast_grep` from a `paths`
