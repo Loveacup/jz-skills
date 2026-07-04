@@ -188,10 +188,12 @@ if [[ ! -s "$RAW" ]]; then
 fi
 
 ISSUES=(); REJECT=false; EXITCODE=0
+# ── Package C：紧凑诊断（拒绝且非 execute 时落 .monitor.compact_debug，绝不回吐 raw）──
+FAILSTAGE=""; GATE_REASON=""; CDBG="null"; CDBG_PRESENT=false
 
 # ── 传输层①：turn_end 完整性校验（全部模式）──
 if ! jsonl_has_turn_end "$RAW"; then
-  ISSUES+=("JSONL 缺 turn_end"); REJECT=true; EXITCODE=2
+  ISSUES+=("JSONL 缺 turn_end"); REJECT=true; EXITCODE=2; [[ -z "$FAILSTAGE" ]] && FAILSTAGE="turn_end"
 fi
 
 # ── 传输层 + 应用层①②③：gate-verify（execute 模式跳过）──
@@ -201,8 +203,12 @@ if [[ "$MONITOR_MODE" != "execute" ]]; then
   set -e
   if [[ $GV_RC -eq 10 ]]; then
     ISSUES+=("evidence 为空（gate-verify exit 10）"); REJECT=true; EXITCODE=10
+    [[ -z "$FAILSTAGE" ]] && FAILSTAGE="evidence_empty"
+    GATE_REASON="evidence 为空"
   elif [[ $GV_RC -ne 0 ]]; then
-    ISSUES+=("输出结构不合格: $(echo "$GV_OUT" | jq -r '.reason' 2>/dev/null || echo "$GV_OUT")"); REJECT=true; EXITCODE=1
+    GATE_REASON=$(echo "$GV_OUT" | jq -r '.reason' 2>/dev/null || echo "$GV_OUT")
+    ISSUES+=("输出结构不合格: $GATE_REASON"); REJECT=true; EXITCODE=1
+    [[ -z "$FAILSTAGE" ]] && FAILSTAGE="gate_verify"
   fi
 fi
 
@@ -232,10 +238,12 @@ fi
 # 应用层④：severity 合法值
 if [[ "$REJECT" == false && "$SEV_VALID" == false ]]; then
   ISSUES+=("severity 非法值 '$SEV'（须 nit|concern|blocker|pass）→ human_review"); REJECT=true; EXITCODE=1
+  [[ -z "$FAILSTAGE" ]] && FAILSTAGE=$([[ -z "$INNER" ]] && echo "no_verdict_json" || echo "severity")
 fi
 # 应用层⑤：summary 非空
 if [[ "$REJECT" == false && -z "$SUMMARY" ]]; then
   ISSUES+=("缺 summary 结论摘要"); REJECT=true; EXITCODE=1
+  [[ -z "$FAILSTAGE" ]] && FAILSTAGE="summary"
 fi
 
 fi  # end of execute skip
@@ -246,7 +254,49 @@ if [[ -n "$EC" && "$EC" != "null" && "$EC" -ne 0 ]]; then
     ISSUES+=("omp 退出码非 0（${EC}）— execute 模式仍接受"); STOP="error"
   else
     ISSUES+=("omp 退出码非 0（${EC}）"); REJECT=true; [[ $EXITCODE -eq 0 ]] && EXITCODE=2
+    [[ -z "$FAILSTAGE" ]] && FAILSTAGE="exit_code"
   fi
+fi
+
+# ── Package C：拒绝且非 execute → 构建紧凑诊断（capped，绝不回吐 raw）──
+# 只出 bytes/lines/候选数/keys/尾部片段，供事后诊断拒绝原因而无需把上百 KB raw 打进上下文。
+build_compact_debug() {
+  local errf="$RAW.err" has_err=false errtail=""
+  local rb rl fb nc keys parse ftail stage
+  rb=$(wc -c <"$RAW" 2>/dev/null | tr -d ' '); [[ "$rb" =~ ^[0-9]+$ ]] || rb=0
+  rl=$(wc -l <"$RAW" 2>/dev/null | tr -d ' '); [[ "$rl" =~ ^[0-9]+$ ]] || rl=0
+  fb=$(printf '%s' "${FINAL:-}" | wc -c | tr -d ' '); [[ "$fb" =~ ^[0-9]+$ ]] || fb=0
+  nc=$(printf '%s' "${FINAL:-}" | _json_objects_nul | tr -cd '\0' | wc -c | tr -d ' '); [[ "$nc" =~ ^[0-9]+$ ]] || nc=0
+  if [[ -n "${INNER:-}" ]] && inner_json_valid "${INNER:-}"; then
+    parse=true; keys=$(printf '%s' "$INNER" | jq -c 'keys' 2>/dev/null || echo '[]')
+  else parse=false; keys='[]'; fi
+  [[ "$keys" =~ ^\[ ]] || keys='[]'
+  ftail="${FINAL: -800}"
+  if [[ -f "$errf" ]]; then has_err=true; errtail=$(tail -c 800 "$errf" 2>/dev/null || true); fi
+  # 比 gate_verify 更细：先按最终 assistant 文本/JSON 候选诊断，再保留 gate_reason 作为原始 gate 结果。
+  stage="${FAILSTAGE:-unknown}"
+  if [[ $fb -eq 0 ]]; then stage="no_final_text"
+  elif [[ $nc -eq 0 ]]; then stage="no_candidate"
+  elif [[ -z "${INNER:-}" ]]; then stage="no_verdict_json"
+  elif [[ "$parse" != true && "$stage" == "gate_verify" ]]; then stage="invalid_inner"
+  fi
+  jq -n \
+    --arg raw "$RAW" --arg errf "$errf" --argjson has_err "$has_err" \
+    --argjson rb "$rb" --argjson rl "$rl" --arg errtail "$errtail" \
+    --arg stop "${STOP:-unknown}" --arg greason "${GATE_REASON:-}" \
+    --argjson fb "$fb" --argjson nc "$nc" --argjson parse "$parse" \
+    --argjson keys "$keys" --arg stage "$stage" --arg ftail "$ftail" \
+    '{raw_output:$raw, raw_err:(if $has_err then $errf else null end),
+      raw_bytes:$rb, raw_lines:$rl,
+      raw_err_tail:(if $has_err then $errtail else null end),
+      stop_reason:$stop, gate_reason:$greason,
+      final_text_bytes:$fb, candidate_count:$nc,
+      last_candidate_parseable:$parse, last_candidate_keys:$keys,
+      failure_stage:$stage, final_text_tail:$ftail}' 2>/dev/null || echo null
+}
+if [[ "$MONITOR_MODE" != "execute" && "$REJECT" == true ]]; then
+  CDBG=$(build_compact_debug); [[ -n "$CDBG" ]] || CDBG="null"
+  [[ "$CDBG" != "null" ]] && CDBG_PRESENT=true
 fi
 
 # ── execute 模式：设置默认值后再写 MON ──
@@ -265,9 +315,9 @@ if [[ ${#ISSUES[@]} -eq 0 ]]; then ISSUES_J='[]'
 else ISSUES_J=$(printf '%s\n' "${ISSUES[@]}" | jq -R . | jq -sc .); fi
 MON=$(jq -n --arg now "$(now_iso)" --arg sev "$SEV" --arg sum "$SUMMARY" \
    --argjson evn "${EVN:-0}" --arg stop "$STOP" --argjson sv "$SEV_VALID" \
-   --argjson issues "$ISSUES_J" --argjson inner "${INNER:-null}" \
-   '{checked_at:$now,severity:$sev,severity_valid:$sv,summary:$sum,evidence_count:$evn,stop_reason:$stop,issues:$issues,inner:$inner}' 2>/dev/null \
-   || jq -n --arg now "$(now_iso)" --argjson issues "$ISSUES_J" '{checked_at:$now,issues:$issues,inner:null}')
+   --argjson issues "$ISSUES_J" --argjson inner "${INNER:-null}" --argjson cdbg "${CDBG:-null}" \
+   '{checked_at:$now,severity:$sev,severity_valid:$sv,summary:$sum,evidence_count:$evn,stop_reason:$stop,issues:$issues,inner:$inner,compact_debug:$cdbg}' 2>/dev/null \
+   || jq -n --arg now "$(now_iso)" --argjson issues "$ISSUES_J" --argjson cdbg "${CDBG:-null}" '{checked_at:$now,issues:$issues,inner:null,compact_debug:$cdbg}')
 
 if $REJECT; then
   update_state ".status=\"rejected\" | .monitor=$MON"
@@ -291,9 +341,10 @@ if ! $JSON_ONLY; then
     [[ "$SEV" == "blocker" ]] && echo "   ⛔ severity=blocker → 不应 accept；按 evidence 决定 reject/转 cc-tmux 修复"
   else
     echo "   下一步   : 已 rejected。修复委派包后重 start，或转人工/cc-tmux"
+    $CDBG_PRESENT && echo "   🔎 诊断   : 紧凑诊断已落 .monitor.compact_debug（failure_stage=${FAILSTAGE:-unknown}，含 final_text 尾部/候选数，未回吐原始 raw）"
   fi
   echo "===📡 END==="
 fi
-printf '{"task_id":"%s","phase":"%s","severity":"%s","severity_valid":%s,"evidence_count":%s,"stop_reason":"%s","issues":%s}\n' \
-  "$TASK_ID" "$NEWSTATUS" "$SEV" "$SEV_VALID" "${EVN:-0}" "$STOP" "$ISSUES_J"
+printf '{"task_id":"%s","phase":"%s","severity":"%s","severity_valid":%s,"evidence_count":%s,"stop_reason":"%s","issues":%s,"compact_debug":%s}\n' \
+  "$TASK_ID" "$NEWSTATUS" "$SEV" "$SEV_VALID" "${EVN:-0}" "$STOP" "$ISSUES_J" "$CDBG_PRESENT"
 exit $EXITCODE

@@ -59,8 +59,18 @@ output: { format: json, evidence_required: true }
 
 | 级别 | 语义 | 证据来源 |
 | --- | --- | --- |
-| `independent_readonly`（默认）| 审计者现场只读访问工作区（read/grep/glob/lsp/web_search 白名单） | 现场核查 |
+| `independent_readonly`（默认）| 审计者现场只读访问工作区（read/grep/glob/lsp/web_search 白名单），**独立复核不采信委派方叙事** | 现场核查 |
 | `bundle_only` | 审计者**不**现场访问，仅凭离线证据包核查 | `evidence_bundle.path` 指向的证据包 |
+
+`independent_readonly` 是默认且推荐级别，独立性靠三条硬约束保证（详见 `audit-prompt-template.md`）：
+
+1. **严格只读**——只用只读工具白名单，绝不写文件/改代码/跑破坏性命令；任何写操作即审计失效。
+2. **不采信委派方叙事**——委派包里的「已修复/已通过」只是待核对的声明，审计者须亲自打开对应文件行、
+   亲自跑只读检查重新取证，与声明对照，不一致以现场为准。
+3. **证据现场可复现**——evidence 的 `ref` 必须指向工作区当前真实状态（文件+行号 / 命令+输出），
+   禁止凭记忆或常识下判；守 scope 即守独立，越界取证一律作废。
+
+因此委派方**无须、也不应**把「结论」预写进委派包——只给可裁决的 `criterion`，让审计者独立得出 severity。
 
 `bundle_only` 的证据包用只读生成器产出（不改动被审仓库）：
 

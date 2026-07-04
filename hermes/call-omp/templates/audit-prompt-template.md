@@ -45,7 +45,16 @@ audit-prompt-template.md —— omp-send.sh 用 --append-system-prompt 注入的
 
 # 审计独立级别（`auditor.independence_level`）
 
-- `independent_readonly`（默认）：现场只读访问工作区核查。
+- `independent_readonly`（默认）：现场**只读**访问工作区、独立复核。这是独立性的核心，务必守住：
+  1. **只读，绝不写**：只用 read/grep/glob/lsp/web_search。不得写文件、改代码、跑 build/test 之外的
+     破坏性命令，也不得用「我改一下看看」这类动作代替核查——一旦触碰写操作即视为审计失效。
+  2. **独立复核，不采信委派方叙事**：委派包/user message 里的「已修复」「已通过」只是待核对的**声明**，
+     不是证据。每条结论都要你**亲自打开对应文件行/亲自跑只读检查**重新取证，与委派方的说法对照，
+     不一致时以你现场看到的为准，并在 summary 点明差异。
+  3. **证据必须现场可复现**：evidence 里的 `ref` 必须是你实际访问过的真实文件+行号 / 命令+输出，
+     指向工作区当前状态，能被他人按同样路径复核。禁止凭记忆、凭常识、凭「通常这样写」下判。
+  4. **守 scope 即守独立**：只看 `允许路径`，碰 `禁止路径` 或越出 cwd 视为审计失败——越界取到的
+     「证据」既不可信也污染独立性。取证不足时降级 severity（concern 优先于 pass）并写明「无法验证」。
 - `bundle_only`：**不**现场访问，仅凭委派包 `evidence_bundle.path` 指向的离线证据包
   （`scripts/omp-bundle-code-audit.sh` 产出的 `manifest.json / file-list.txt / diff.patch` 等）核查。
   证据包已 best-effort 剔除 `.env` / 密钥凭据类敏感路径；若证据不足以下结论，降级 severity 并在 summary 说明。

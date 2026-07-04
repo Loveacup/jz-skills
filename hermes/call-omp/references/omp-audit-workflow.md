@@ -58,6 +58,42 @@ OMP 是完整 CLI agent，不止审计。委派包 `mode=execute` 走 `execute-p
 可跑 build/test/lint/任意 shell 任务。execute 模式豁免 criterion 与 evidence 红线（通用执行无需可裁决验收），
 但状态机不变——仍走 start → send → monitor → finish 四步，不新增状态。
 
+## 审计独立级别硬约束（`independent_readonly`）
+
+默认 `independent_readonly` 的独立性不是标签，是三条硬约束（模板 `audit-prompt-template.md` 强制注入）：
+
+1. **严格只读**——审计者只用 read/grep/glob/lsp/web_search，绝不写文件/改代码/跑破坏性命令。
+2. **不采信委派方叙事**——委派包里的「已修复/已通过」只是待核对声明，审计者亲自复核现场重新取证。
+3. **证据现场可复现**——evidence 的 `ref` 指向工作区当前真实状态；守 scope 即守独立，越界取证作废。
+
+因此委派方只给可裁决 `criterion`，不预写「结论」——让 OMP 独立得出 severity，避免锚定偏差。
+
+## 解析/校验失败诊断 · `.monitor.compact_debug`（Package C）
+
+非 execute 模式下若 monitor 判 `rejected`（缺 turn_end / gate-verify 结构不合格 / 空 evidence /
+severity 非法 / 缺 summary / omp 退出码非 0），会把**紧凑诊断**落到 `.monitor.compact_debug`，
+**绝不把上百 KB raw 回吐进上下文**。字段（尾部一律 capped）：
+
+| 字段 | 含义 |
+|------|------|
+| `raw_output` / `raw_err` | raw JSONL 与 stderr 落盘路径（不内联内容，需要时自行按需读） |
+| `raw_bytes` / `raw_lines` | raw 大小 / 行数 |
+| `raw_err_tail` | stderr 尾部（≤800B，存在时才有） |
+| `stop_reason` | 末轮 stopReason |
+| `gate_reason` | gate-verify 拒绝原因（结构/空证据） |
+| `final_text_bytes` | assistant 最终文本字节数（0 = 空最终文本） |
+| `candidate_count` | 最终文本里 top-level JSON 候选对象数（0 = 无 verdict JSON） |
+| `last_candidate_parseable` | 最后一个候选是否合法 JSON 对象 |
+| `last_candidate_keys` | 最后一个候选的键列表（诊断缺字段/拼错键） |
+| `failure_stage` | 诊断阶段。第一层阶段：`turn_end`/`gate_verify`/`evidence_empty`/`no_verdict_json`/`severity`/`summary`/`exit_code`；紧凑诊断会进一步精化：`no_final_text`=assistant 最终文本为空，`no_candidate`=最终文本无 JSON 候选对象，`invalid_inner`=gate-verify 拒收且内层 JSON 不可解析。 |
+| `final_text_tail` | 最终文本尾部（≤800B，看模型到底吐了什么） |
+
+`--json` 输出附带布尔 `compact_debug`（true=已落诊断）作为信号，整体仍是合法 JSON。
+execute 模式与成功 `reported` 路径不落 compact_debug（`compact_debug=null`）。
+
+> 手工真实 smoke（烧 token，非套件）：`references/omp-shell-smoke-test.md`。跑真 OMP 触发一次解析失败后，
+> `jq '.monitor.compact_debug' <state>` 即可拿到诊断而无需 relay 整个 raw。
+
 ## 触发条件
 
 - 设计方案涉及通道/协议/安全/竞态等复杂交互

@@ -321,6 +321,72 @@ chk "  状态 reported" reported "$(jq -r .status "$TD/omp-state-ex1.json")"
 bash "$S/omp-finish.sh" --state "$TD/omp-state-ex1.json" --accept >/dev/null 2>&1; chk "execute accept 空证据→0" 0 $?
 chk "  状态 accepted" accepted "$(jq -r .status "$TD/omp-state-ex1.json")"
 
+# ════ 16. Package C：紧凑诊断 compact_debug（拒绝路径落 .monitor.compact_debug，不回吐 raw）══
+echo "═══ 16. 紧凑诊断 compact_debug ═══"
+
+# 16a mock：turn_end 有但无任何 JSON verdict（纯散文）→ no_candidate 拒绝 + compact_debug
+cat > "$TD/mock-noverdict.sh" <<'M'
+#!/usr/bin/env bash
+printf '%s\n' '{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"我看了一圈代码，感觉没什么大问题，应该可以。"}]}}' '{"type":"turn_end","message":{"stopReason":"stop"}}'
+M
+# 16b mock：JSON verdict 但 severity 非法值 → severity 拒绝 + compact_debug
+cat > "$TD/mock-badsev.sh" <<'M'
+#!/usr/bin/env bash
+printf '%s\n' '{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"```json\n{\"severity\":\"critical\",\"summary\":\"越权\",\"evidence\":[{\"ref\":\"a:1\"}]}\n```"}]}}' '{"type":"turn_end","message":{"stopReason":"stop"}}'
+M
+# 16c mock：assistant 最终文本为空（有 turn_end，但 text 为空串）→ 拒绝 + compact_debug
+cat > "$TD/mock-emptytext.sh" <<'M'
+#!/usr/bin/env bash
+printf '%s\n' '{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":""}]}}' '{"type":"turn_end","message":{"stopReason":"stop"}}'
+M
+chmod +x "$TD"/mock-noverdict.sh "$TD"/mock-badsev.sh "$TD"/mock-emptytext.sh
+
+# 16a: 无 JSON verdict → rejected + compact_debug.failure_stage=no_candidate
+echo "$GP" | bash "$S/omp-start.sh" --package-json - --task-id cd1 >/dev/null 2>&1
+OMP_BIN="$TD/mock-noverdict.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-cd1.json" >/dev/null 2>&1
+bash "$S/omp-monitor.sh" --state "$TD/omp-state-cd1.json" >/dev/null 2>&1
+chk "无verdict→rejected" rejected "$(jq -r .status "$TD/omp-state-cd1.json")"
+chk "  compact_debug 已落且非 null" object "$(jq -r '.monitor.compact_debug|type' "$TD/omp-state-cd1.json")"
+# 纯散文无任何 JSON verdict → 最早在 gate-verify 结构校验被拒（gate_reason 记录原因）
+chk "  failure_stage=no_candidate" no_candidate "$(jq -r '.monitor.compact_debug.failure_stage' "$TD/omp-state-cd1.json")"
+chk "  gate_reason 非空" y "$([[ -n "$(jq -r '.monitor.compact_debug.gate_reason' "$TD/omp-state-cd1.json")" ]] && echo y || echo n)"
+chk "  raw_bytes 为数字" number "$(jq -r '.monitor.compact_debug.raw_bytes|type' "$TD/omp-state-cd1.json")"
+chk "  candidate_count=0" 0 "$(jq -r '.monitor.compact_debug.candidate_count' "$TD/omp-state-cd1.json")"
+chk "  last_candidate_parseable=false" false "$(jq -r '.monitor.compact_debug.last_candidate_parseable' "$TD/omp-state-cd1.json")"
+# 未回吐 raw：compact_debug 尾部截断，整体远小于把 raw 全塞进去（散文 raw 很小，验证字段结构即可）
+chk "  final_text_tail 为字符串" string "$(jq -r '.monitor.compact_debug.final_text_tail|type' "$TD/omp-state-cd1.json")"
+
+# 16b: severity 非法 → rejected + failure_stage=severity + last_candidate_keys 记录键
+echo "$GP" | bash "$S/omp-start.sh" --package-json - --task-id cd2 >/dev/null 2>&1
+OMP_BIN="$TD/mock-badsev.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-cd2.json" >/dev/null 2>&1
+bash "$S/omp-monitor.sh" --state "$TD/omp-state-cd2.json" >/dev/null 2>&1
+chk "非法severity→rejected" rejected "$(jq -r .status "$TD/omp-state-cd2.json")"
+chk "  failure_stage=severity" severity "$(jq -r '.monitor.compact_debug.failure_stage' "$TD/omp-state-cd2.json")"
+chk "  last_candidate_parseable=true" true "$(jq -r '.monitor.compact_debug.last_candidate_parseable' "$TD/omp-state-cd2.json")"
+jq -e '.monitor.compact_debug.last_candidate_keys|index("severity")' "$TD/omp-state-cd2.json" >/dev/null 2>&1 && chk "  last_candidate_keys 含 severity" y y || chk "  last_candidate_keys 含 severity" y n
+
+# 16c: 空 assistant 最终文本 → rejected + compact_debug（final_text_bytes=0）
+echo "$GP" | bash "$S/omp-start.sh" --package-json - --task-id cd3 >/dev/null 2>&1
+OMP_BIN="$TD/mock-emptytext.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-cd3.json" >/dev/null 2>&1
+bash "$S/omp-monitor.sh" --state "$TD/omp-state-cd3.json" >/dev/null 2>&1
+chk "空最终文本→rejected" rejected "$(jq -r .status "$TD/omp-state-cd3.json")"
+chk "  compact_debug 已落" object "$(jq -r '.monitor.compact_debug|type' "$TD/omp-state-cd3.json")"
+chk "  final_text_bytes=0" 0 "$(jq -r '.monitor.compact_debug.final_text_bytes' "$TD/omp-state-cd3.json")"
+chk "  failure_stage=no_final_text" no_final_text "$(jq -r '.monitor.compact_debug.failure_stage' "$TD/omp-state-cd3.json")"
+
+# 16d: --json 输出含 debug 信号且整体仍是合法 JSON
+CDJSON=$(bash "$S/omp-monitor.sh" --state "$TD/omp-state-cd1.json" --json 2>/dev/null)
+echo "$CDJSON" | jq -e . >/dev/null 2>&1 && chk "--json 仍合法 JSON" y y || chk "--json 仍合法 JSON" y n
+chk "  --json compact_debug=true" true "$(echo "$CDJSON" | jq -r '.compact_debug')"
+
+# 16e: execute 模式（reported）不落 compact_debug（仅拒绝且非 execute 才落）
+CDEXE=$(bash "$S/omp-monitor.sh" --state "$TD/omp-state-ex1.json" --json 2>/dev/null)
+chk "execute --json compact_debug=false" false "$(echo "$CDEXE" | jq -r '.compact_debug')"
+chk "  execute state compact_debug=null" null "$(jq -r '.monitor.compact_debug' "$TD/omp-state-ex1.json")"
+
+# 16f: 成功 reported（accept 场景 f1）不落 compact_debug
+chk "reported 成功不落 compact_debug" null "$(jq -r '.monitor.compact_debug' "$TD/omp-state-f1.json")"
+
 echo; echo "════════ PASS=$P  FAIL=$F ════════"
 [[ $F -eq 0 ]] && exit 0 || exit 1
 

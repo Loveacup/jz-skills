@@ -15,7 +15,7 @@ description: >-
   与 cc-tmux 互补（cc-tmux 管长会话编码委派，omp 管审计/治理/工具面 + 沙箱逃生通道 + 任意 CLI 任务）。
 tags: []
 related_skills: []
-version: 0.6.5
+version: 0.6.6
 type: autonomous-ai-agents
 author: anyis (Hermes Agent Team)
 license: MIT
@@ -370,6 +370,7 @@ scripts/omp-finish.sh --state <状态文件> --human-review   # 升级人工（�
   5. 重新委派：`omp-start` → `omp-send` → `omp-monitor` → `omp-finish --accept`（若通过）
   关键：**blocker 必须 reject 后 revise 再重新审计**，不能直接 accept。
 - **blocker 强制 reset** → OMP verdict=blocker 时不要 accept，按 evidence 修改后重新委派审计。详见 `references/omp-audit-workflow.md`。
+- **OMP concern → CC follow-up → OMP re-audit 闭合节奏**（v0.7.9 · WRR v6.1 实战）→ 当 OMP R2 返回 `concern` 且 required_fixes 明确（如"缺测试负向断言""git 状态需独立取证"）时，不要从头重审全部 diff：**缩小 scope 为原 concern 项 + Hermes 已取证项**，让 CC 在同一 session 做最小 follow-up（1 个测试断言），然后 OMP R3 只审"原 concern 是否闭合"。R3 brief 应注入 Hermes 已验证的证据（测试通过、git log 无 tag、P0 复现已修），让 OMP 只验收不重探。三轮常见轨迹：R1 非 JSON → reject · R2 concern（actionable）→ CC 小修 · R3 pass → accept。
 - **ACP audit-driven design** → 设计方案阶段先用 ACP 通道让 OMP 做架构审计，避免按错方案投入实现。详见 `references/omp-audit-workflow.md`。
 - **`--allowed-path` 不支持 glob 模式**（如 `test_local_*.py`）→ `omp-start` 将 `*` 当字面量，不展开。用目录级路径（`tests/unit/`）或逐文件列出。shell 展开只发生在调用前，glob 引号内不生效。
 - **raw 体积远超 1.96 MB**（深度代码审计可达 **100 MB+**，实测 WRR v5.2 审计产出 106 MB）→ omp-monitor 只提取关键字段，raw 绝不打进 LLM 上下文。100 MB+ JSONL 落入 `/tmp` 后 `omp-finish --accept` 自动移到归档目录。同步 shell 模式下大文件无静默失败风险。
@@ -383,7 +384,7 @@ scripts/omp-finish.sh --state <状态文件> --human-review   # 升级人工（�
 - **skill 命名冲突** → call-omp 原名 `omp`，与 `jz-skills/omp/`（含 `omp-ops/`、`stdd-omp/`）重名导致覆盖。教训：skill 名称用 **verb-noun** 格式（如 `call-omp`、`deploy-to-x`），不放与工具同名。已迁至 `jz-skills/hermes/call-omp/`。
 - **STDD 审计闭环** ★：方案设计后先用 `omp --skills=stdd-omp` 做 STDD 审计（4 步 + 承重墙）。若 verdict=blocker → 逐项修 → 重新审计通过后方可 accept。不要跳过 STDD 直接 Build。（2026-06-29 实战：--watch 设计跳过 Spec/Accept 直接被 stdd-omp 判 blocker）
 - **OMP message_update 结构** → OMP v16.2.x JSONL 中 assistant 文本在 `message_update` 事件的 `assistantMessageEvent.delta` 字段（非 `messageUpdateEvent`）。提取：python 遍历 JSONL → `ev['assistantMessageEvent']['delta']` where `ev['assistantMessageEvent']['type'] == 'text_delta'`。
-- **omp-monitor 要求结构化 JSON verdict**（`{severity, evidence, summary}`）→ OMP 文本中常不输出此格式，monitor 会将 `status=rejected`。此时手动从 raw JSONL 提取结论：`grep text_delta /tmp/omp-raw.json | jq -r '.assistantMessageEvent.delta'` 拼接最后一个 assistant turn 的全部文本即可。
+- **omp-monitor 要求结构化 JSON verdict**（`{severity, evidence, summary}`）→ OMP 文本中常不输出此格式，monitor 会将 `status=rejected`。**预防（强推）**：在 `omp-start --task` 里**必须**写「必须只输出合法 JSON：`{\"severity\":\"pass|concern|blocker\",\"evidence\":[...],\"summary\":\"...\"}`。不要修改文件。」——不加这句话的首轮 audit 大概率 rejected（本 session 实测：第一轮 `omp-20260703-101623` 输出无合法 JSON → rejected；第二轮 `--task` 显式要求 JSON 后 `omp-20260703-102054` 直接 pass）。**事后补救**（手动提取）：`grep text_delta /tmp/omp-raw.json | jq -r '.assistantMessageEvent.delta'` 拼接最后一个 assistant turn 的全部文本即可。
 - **🆕 OMP v16.2.4 hardline 拦截 `shutdown`/`reboot` 关键字**（v0.6.0 实战）→ OMP 自带 unconditional
   blocklist，传给 OMP 的 prompt 或脚本里只要出现 `shutdown`/`reboot`/`halt`/`poweroff` 等字面量
   关键字，整次调用直接 `BLOCKED (hardline): system shutdown/reboot`，**`--yolo` / `--auto-approve` /
@@ -499,9 +500,22 @@ enforcement。**待验证项不得在输出中写成已实现事实。**
 ## 测试
 
 `bash tests/run-all.sh` —— 自包含套件（mock omp，零 token），覆盖 gate 硬卡 + 四步状态机 +
-async 监控/干预 + ACP delegate_task + 红线 + 稳健 verdict 提取 + 证据包生成器 + execute smoke。当前 **95/95 通过**（含 --watch 3 项）。
+async 监控/干预 + ACP delegate_task + 红线 + 稳健 verdict 提取 + 证据包生成器 + execute smoke +
+紧凑诊断 compact_debug。当前 **116/116 通过**（含 --watch 3 项）。
 
 ## 版本历史
+
+### v0.6.6（2026-07-03）— Package C：紧凑诊断 compact_debug + 独立性硬约束
+
+本版让「拒绝」路径可诊断而不回吐 raw，并把 `independent_readonly` 从标签落成硬约束。不扩状态机、不新增 `needs_evidence`、不自动打补丁/恢复：
+
+| 级别 | 新增/修复 | 描述 |
+|:---:|------|------|
+| P0 | compact_debug 诊断 | `omp-monitor.sh` 在非 execute 且判 `rejected` 时，把紧凑诊断落 `.monitor.compact_debug`（raw_output/raw_err 路径、raw_bytes/lines、raw_err_tail≤800B、stop_reason、gate_reason、final_text_bytes、candidate_count、last_candidate_parseable、last_candidate_keys、failure_stage、final_text_tail≤800B）——尾部一律 capped，**绝不回吐整个 raw**。 |
+| P0 | --json debug 信号 | monitor `--json` 附带布尔 `compact_debug`（true=已落诊断）作为信号，整体仍是合法 JSON；execute 与成功 `reported` 路径不落（`compact_debug=null`）。 |
+| P1 | independent_readonly 加固 | `audit-prompt-template.md` / `delegation-package-template.md` 把默认级别落成三条硬约束：严格只读、不采信委派方叙事（亲自复核现场取证）、证据现场可复现；委派方只给 criterion 不预写结论。 |
+| P1 | regression tests | `tests/run-all.sh` 新增 Group 16：无 JSON verdict、severity 非法、空 assistant 最终文本（含 `failure_stage=no_final_text`）、`--json` debug 信号且仍合法 JSON、execute/成功路径不落诊断；当前 116/116 通过。 |
+| P1 | docs | `references/omp-audit-workflow.md` 补 compact_debug 字段表与独立性硬约束；指向 `omp-shell-smoke-test.md` 手工真实 smoke（烧 token，非套件）。 |
 
 ### v0.6.5（2026-07-02）— Package B：evidence bundle + input contract + execute smoke
 
