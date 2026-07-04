@@ -15,7 +15,7 @@ description: >-
   与 cc-tmux 互补（cc-tmux 管长会话编码委派，omp 管审计/治理/工具面 + 沙箱逃生通道 + 任意 CLI 任务）。
 tags: []
 related_skills: []
-version: 0.6.6
+version: 0.6.7
 type: autonomous-ai-agents
 author: anyis (Hermes Agent Team)
 license: MIT
@@ -501,9 +501,35 @@ enforcement。**待验证项不得在输出中写成已实现事实。**
 
 `bash tests/run-all.sh` —— 自包含套件（mock omp，零 token），覆盖 gate 硬卡 + 四步状态机 +
 async 监控/干预 + ACP delegate_task + 红线 + 稳健 verdict 提取 + 证据包生成器 + execute smoke +
-紧凑诊断 compact_debug。当前 **116/116 通过**（含 --watch 3 项）。
+紧凑诊断 compact_debug + 跨平台 mock-only 冒烟。当前 **全绿通过**（含 --watch 3 项）。
+
+## 跨平台适配 · 两类冒烟（mock-only vs 真 token）
+
+底层脚本基质无关。三种派生视图（Codex / Claude Code / OMP 自调）共用一个只读冒烟入口
+`scripts/call-omp-smoke.sh --platform codex|claude-code|omp-self [--repo <dir>] [--out <dir>]`，
+只跑 `--help` + `gate-verify --mode package` + `omp-bundle-code-audit.sh`，**绝不**调用真实
+`omp` / `omp-send.sh` / `delegate_task`。OMP 自调视图内置递归护栏：`omp-self` 输出
+`recursion_guard=armed`；`CALL_OMP_SELF_CALL_DEPTH>=1` 直接拒绝（退出码 4）。
+
+> **两类冒烟严格区分**：本冒烟是 **mock-only 冷路径**（零 token、不触网、不起 OMP 进程），
+> 只证明「结构关口 + 证据包」骨架可跑；**真 token 冒烟**（真拉起 `omp` 跑 audit）见
+> `references/omp-shell-smoke-test.md`。适配层**非安装器、非全平台支持承诺**，不复制 4 步热路径。
+
+- 单一真相源：`references/platform-adapters.md`（non-goals、护栏、两类冒烟对照）。
+- 平台片段：`.codex/call-omp.md`、`references/claude-code-call-omp.md`、`references/omp-self-call.md`。
 
 ## 版本历史
+
+### v0.6.7（2026-07-04）— Package D slice 1：跨平台 adapter + mock-only smoke
+
+本版启动跨平台自主调用的第一刀：不做 installer、不复制 skill、不烧真实 OMP token，只把 runtime-neutral 脚本能力整理成 Codex / Claude Code / OMP self-call 都能运行的冷路径冒烟。
+
+| 级别 | 新增/修复 | 描述 |
+|:---:|------|------|
+| P0 | mock-only smoke | 新增 `scripts/call-omp-smoke.sh`，只跑 `--help`、`gate-verify --mode package`、`omp-bundle-code-audit.sh`；绝不调用真实 `omp` / `omp-send.sh` / `delegate_task`。 |
+| P0 | OMP self-call guard | `--platform omp-self` 输出 `recursion_guard=armed`；`CALL_OMP_SELF_CALL_DEPTH>=1` 直接拒绝（exit 4），避免未来真实自调链无限嵌套。 |
+| P1 | platform adapters | 新增 `references/platform-adapters.md` 作为单一真相源，以及 `.codex/call-omp.md`、`references/claude-code-call-omp.md`、`references/omp-self-call.md` 三个派生入口。 |
+| P1 | docs + tests | SKILL / delegation template / real-token smoke 文档区分 mock-only 冷路径和真 token 热路径；`tests/run-all.sh` 新增 Group 17，当前 128/128 通过。 |
 
 ### v0.6.6（2026-07-03）— Package C：紧凑诊断 compact_debug + 独立性硬约束
 

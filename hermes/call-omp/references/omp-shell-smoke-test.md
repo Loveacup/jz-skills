@@ -1,5 +1,11 @@
 # OMP Shell 通道冒烟测试记录
 
+> ⚠️ **本文件是「真 token 冒烟」记录**——真的拉起 `omp -p --mode json` 跑 audit，会烧 token
+> （kimi-code cost=0 除外）。与之严格区分的是 **mock-only 冒烟**（`scripts/call-omp-smoke.sh`，
+> 零 token、不触网、不起 OMP 进程，只跑 `--help` + `gate-verify` + 证据包生成）：详见
+> `references/platform-adapters.md`。要「先验骨架不烧 token」跑 mock-only 冒烟；要「验真实 audit
+> 端到端」看本文件。
+
 > 实测环境：omp **v16.2.2**（`/opt/homebrew/bin/omp`，macOS Darwin 25.5.0），默认 provider 路由到 **kimi-code**（cost=0）。jq `/usr/bin/jq`。测试日期 2026-06-28。
 > 本记录是"待验证 → 已验证/已证伪"的真相归档。**草案里若干 prompt 协议在 v16.2.2 中不存在**，实现已按真实接口对齐。
 

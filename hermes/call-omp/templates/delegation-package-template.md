@@ -82,6 +82,20 @@ scripts/omp-bundle-code-audit.sh --repo <被审仓库> --out <证据包目录> \
 # best-effort 剔除 .env / *secret* / *token* / *credential* / *.pem / *.key 等敏感路径
 ```
 
+## 跨平台冒烟（先验骨架，再真委派）
+
+在把委派包交给真实 OMP 前，可先跑一条 **mock-only 冷路径冒烟**确认「结构关口 + 证据包」骨架在
+当前基质上可用（零 token、不触网、不起 OMP 进程）：
+
+```bash
+scripts/call-omp-smoke.sh --platform codex|claude-code|omp-self [--repo <dir>] [--out <dir>]
+# 只跑 --help + gate-verify --mode package + omp-bundle-code-audit.sh；绝不调真实 omp/omp-send/delegate_task
+```
+
+**两类冒烟严格区分**：上面是 mock-only 冒烟（见 `references/platform-adapters.md`）；真拉起 `omp`
+跑 audit 的**真 token 冒烟**见 `references/omp-shell-smoke-test.md`。适配层非安装器、非全平台支持
+承诺——通过只代表骨架可跑，真实 audit/execute 仍走本模板 + 4 步热路径。
+
 ## 两种发起方式
 
 ```bash

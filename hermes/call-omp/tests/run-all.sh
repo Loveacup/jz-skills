@@ -387,6 +387,33 @@ chk "  execute state compact_debug=null" null "$(jq -r '.monitor.compact_debug' 
 # 16f: 成功 reported（accept 场景 f1）不落 compact_debug
 chk "reported 成功不落 compact_debug" null "$(jq -r '.monitor.compact_debug' "$TD/omp-state-f1.json")"
 
+echo "═══ 17. 跨平台 mock-only 冒烟（call-omp-smoke.sh）═══"
+SMOKE="$S/call-omp-smoke.sh"
+# 17a: --help → 0（纯打印头注，无 agent 调用）
+bash "$SMOKE" --help >/dev/null 2>&1; chk "smoke --help→0" 0 $?
+# 17b/c: codex / claude-code 冒烟即便 OMP_BIN=/nonexistent 也过（本就不调 omp）→ 0
+mkdir -p "$TD/smoke-codex" "$TD/smoke-cc"
+OMP_BIN=/nonexistent bash "$SMOKE" --platform codex --out "$TD/smoke-codex" >"$TD/smoke-codex.out" 2>&1; chk "codex smoke(OMP_BIN=/nonexistent)→0" 0 $?
+OMP_BIN=/nonexistent bash "$SMOKE" --platform claude-code --out "$TD/smoke-cc" >/dev/null 2>&1; chk "claude-code smoke(OMP_BIN=/nonexistent)→0" 0 $?
+# 17d: omp-self 冒烟输出 recursion_guard=armed
+OMP_BIN=/nonexistent bash "$SMOKE" --platform omp-self --out "$TD/smoke-self" >"$TD/smoke-self.out" 2>&1; chk "omp-self smoke→0" 0 $?
+grep -q "recursion_guard=armed" "$TD/smoke-self.out" && chk "omp-self 输出 recursion_guard=armed" y y || chk "omp-self 输出 recursion_guard=armed" y n
+# 17e: CALL_OMP_SELF_CALL_DEPTH=1 → 拒绝（退出码 4，非零），不跑嵌套
+CALL_OMP_SELF_CALL_DEPTH=1 bash "$SMOKE" --platform omp-self --out "$TD/smoke-depth" >"$TD/smoke-depth.out" 2>&1; chk "DEPTH>=1 拒绝→4" 4 $?
+grep -q "recursion_guard=tripped" "$TD/smoke-depth.out" && chk "DEPTH>=1 输出 recursion_guard=tripped" y y || chk "DEPTH>=1 输出 recursion_guard=tripped" y n
+# 17f: 冒烟报告提及 gate 结果与 bundle 产物路径（manifest.json）
+grep -qi "gate" "$TD/smoke-codex.out" && chk "冒烟报告含 gate" y y || chk "冒烟报告含 gate" y n
+grep -q "manifest.json" "$TD/smoke-codex.out" && chk "冒烟报告含 bundle manifest 路径" y y || chk "冒烟报告含 bundle manifest 路径" y n
+# 17g: 非法平台 → 参数错误 3
+bash "$SMOKE" --platform bogus >/dev/null 2>&1; chk "非法 --platform→3" 3 $?
+# 17h: 缺省 --out 时自动创建的输出目录应保留，stdout 中 manifest 路径退出后仍可读
+bash "$SMOKE" --platform codex >"$TD/smoke-default-out.out" 2>&1; chk "缺省 --out smoke→0" 0 $?
+DEF_MANIFEST=$(awk -F': ' '/bundle manifest:/ {print $2}' "$TD/smoke-default-out.out" | tail -1)
+[[ -r "$DEF_MANIFEST" ]] && chk "缺省 --out manifest 退出后可读" y y || chk "缺省 --out manifest 退出后可读" y n
+
+# best-effort 清理本测试自动创建的输出目录，产物可读性断言已完成
+[[ -n "${DEF_MANIFEST:-}" ]] && rm -rf "$(dirname "$(dirname "$DEF_MANIFEST")")" 2>/dev/null || true
+
 echo; echo "════════ PASS=$P  FAIL=$F ════════"
 [[ $F -eq 0 ]] && exit 0 || exit 1
 
