@@ -64,6 +64,23 @@ scripts/call-omp-smoke.sh --platform <codex|claude-code|omp-self> \
 > 即便冒烟脚本本身永不起 OMP，护栏仍在脚本级前置——这样将来若把 omp-self 视图接到真实
 > 自调路径，深度守卫已经在最外层就位，`depth>=1` 一律短路。
 
+## 清单发现（manifest discovery）
+
+三个平台各靠一份最小 `plugin.json` 发现 call-omp——**只是发现清单，不是安装器、不是完整 skill 包装**：
+
+| 平台 | 清单 | `platform` | 特殊字段 |
+| --- | --- | --- | --- |
+| Codex CLI | `.codex-plugin/plugin.json` | `codex` | — |
+| Claude Code | `.claude-plugin/plugin.json` | `claude-code` | — |
+| OMP 自调 | `.omp-plugin/plugin.json` | `omp-self` | `recursion_guard`（提示脚本级深度守卫） |
+
+每份清单同形：`name=call-omp`、`version=0.1.0`、`description`（含 mock-only 冒烟入口）、
+`platform`、`skills`（指向父仓库 `../`）、`smoke`（指向 `scripts/call-omp-smoke.sh`）。
+各平台读到自己的清单后，即知从哪跑冷路径冒烟（`smoke` 字段），以及 skill 本体在父仓库何处（`skills` 字段）。
+
+自检：`bash scripts/call-omp-check.sh` 校验三份清单**齐全 + 合法 JSON + 均引用冒烟脚本**，
+全通过退出 `0`，任一缺失/非法/未引用则非零。此脚本纯本地文件校验——不改 PATH、不写全局配置、不烧 token。
+
 ## 与 Hermes 热路径的关系
 
 本适配层与主 4 步工作流是**冷/热两条路**：

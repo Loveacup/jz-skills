@@ -15,7 +15,7 @@ description: >-
   与 cc-tmux 互补（cc-tmux 管长会话编码委派，omp 管审计/治理/工具面 + 沙箱逃生通道 + 任意 CLI 任务）。
 tags: []
 related_skills: []
-version: 0.6.7
+version: 0.6.8
 type: autonomous-ai-agents
 author: anyis (Hermes Agent Team)
 license: MIT
@@ -519,6 +519,16 @@ async 监控/干预 + ACP delegate_task + 红线 + 稳健 verdict 提取 + 证�
 - 平台片段：`.codex/call-omp.md`、`references/claude-code-call-omp.md`、`references/omp-self-call.md`。
 
 ## 版本历史
+
+### v0.6.8（2026-07-05）— Package D slice 2：平台发现 + 安装清单 + check 脚本
+
+本版补上 slice 1 的「发现」一环：三个平台各一份最小 `plugin.json` 让 call-omp 可被发现——**仍非安装器、非全平台承诺**，不写 PATH / 全局配置、不烧 token、不生成脚手架。
+
+| 级别 | 新增/修复 | 描述 |
+|:---:|------|------|
+| P0 | platform manifests | 新增 `.codex-plugin/plugin.json`、`.claude-plugin/plugin.json`、`.omp-plugin/plugin.json` 三份最小清单（`name=call-omp`、`0.1.0`、`skills` 指父仓库、`smoke` 指冒烟脚本）；OMP 清单额外带 `recursion_guard` 提示。 |
+| P0 | discovery check | 新增 `scripts/call-omp-check.sh`：校验三份清单齐全 + 合法 JSON + 均引用 `scripts/call-omp-smoke.sh`，全通过退 0，否则非零；纯本地文件校验，不改 PATH / 全局配置。 |
+| P1 | docs + tests | `references/platform-adapters.md` 补「清单发现」小节；`tests/run-all.sh` 新增 Group 18（清单存在 / JSON 合法 / check exit 0 / OMP 清单含 recursion guard / 三份均引用冒烟脚本）。 |
 
 ### v0.6.7（2026-07-04）— Package D slice 1：跨平台 adapter + mock-only smoke
 

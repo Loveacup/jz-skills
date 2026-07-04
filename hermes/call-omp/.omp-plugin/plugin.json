@@ -1,0 +1,9 @@
+{
+  "name": "call-omp",
+  "version": "0.1.0",
+  "description": "Runtime-neutral OMP audit/execute/govern scripts. Mock-only smoke entry: scripts/call-omp-smoke.sh --platform omp-self.",
+  "platform": "omp-self",
+  "skills": "../",
+  "smoke": "scripts/call-omp-smoke.sh",
+  "recursion_guard": "omp-self entry arms a script-level recursion guard; CALL_OMP_SELF_CALL_DEPTH>=1 rejects (exit 4) so OMP self-call cannot nest infinitely."
+}

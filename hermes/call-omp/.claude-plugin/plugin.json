@@ -1,0 +1,8 @@
+{
+  "name": "call-omp",
+  "version": "0.1.0",
+  "description": "Runtime-neutral OMP audit/execute/govern scripts. Mock-only smoke entry: scripts/call-omp-smoke.sh --platform claude-code.",
+  "platform": "claude-code",
+  "skills": "../",
+  "smoke": "scripts/call-omp-smoke.sh"
+}

@@ -414,6 +414,38 @@ DEF_MANIFEST=$(awk -F': ' '/bundle manifest:/ {print $2}' "$TD/smoke-default-out
 # best-effort 清理本测试自动创建的输出目录，产物可读性断言已完成
 [[ -n "${DEF_MANIFEST:-}" ]] && rm -rf "$(dirname "$(dirname "$DEF_MANIFEST")")" 2>/dev/null || true
 
+echo "═══ 18. 平台发现清单 + check 脚本（call-omp-check.sh）═══"
+ROOT="$SKILL_DIR"
+CODEX_MF="$ROOT/.codex-plugin/plugin.json"
+CLAUDE_MF="$ROOT/.claude-plugin/plugin.json"
+OMP_MF="$ROOT/.omp-plugin/plugin.json"
+CHECK="$S/call-omp-check.sh"
+# 18a: 三份清单存在
+[[ -f "$CODEX_MF" ]] && chk "codex 清单存在" y y || chk "codex 清单存在" y n
+[[ -f "$CLAUDE_MF" ]] && chk "claude-code 清单存在" y y || chk "claude-code 清单存在" y n
+[[ -f "$OMP_MF" ]] && chk "omp-self 清单存在" y y || chk "omp-self 清单存在" y n
+# 18b: 三份均为合法 JSON
+jq -e . "$CODEX_MF" >/dev/null 2>&1 && chk "codex 清单合法 JSON" y y || chk "codex 清单合法 JSON" y n
+jq -e . "$CLAUDE_MF" >/dev/null 2>&1 && chk "claude-code 清单合法 JSON" y y || chk "claude-code 清单合法 JSON" y n
+jq -e . "$OMP_MF" >/dev/null 2>&1 && chk "omp-self 清单合法 JSON" y y || chk "omp-self 清单合法 JSON" y n
+# 18c: platform 值正确
+chk "  codex platform=codex" codex "$(jq -r .platform "$CODEX_MF")"
+chk "  claude platform=claude-code" claude-code "$(jq -r .platform "$CLAUDE_MF")"
+chk "  omp platform=omp-self" omp-self "$(jq -r .platform "$OMP_MF")"
+# 18d: check 脚本退出 0（三份齐全时）
+bash "$CHECK" >/dev/null 2>&1; chk "call-omp-check→0" 0 $?
+# 18e: OMP 清单提及 recursion guard
+grep -qi "recursion" "$OMP_MF" && chk "omp-self 清单含 recursion guard" y y || chk "omp-self 清单含 recursion guard" y n
+# 18f: 三份清单均引用冒烟脚本路径
+grep -q "scripts/call-omp-smoke.sh" "$CODEX_MF" && chk "codex 清单引用冒烟脚本" y y || chk "codex 清单引用冒烟脚本" y n
+grep -q "scripts/call-omp-smoke.sh" "$CLAUDE_MF" && chk "claude-code 清单引用冒烟脚本" y y || chk "claude-code 清单引用冒烟脚本" y n
+grep -q "scripts/call-omp-smoke.sh" "$OMP_MF" && chk "omp-self 清单引用冒烟脚本" y y || chk "omp-self 清单引用冒烟脚本" y n
+# 18g: 缺一份 → check 非零（临时移走 codex 清单再还原）
+mv "$CODEX_MF" "$TD/codex-mf.bak"
+bash "$CHECK" >/dev/null 2>&1; MISS_RC=$?
+mv "$TD/codex-mf.bak" "$CODEX_MF"
+chk "缺清单→check 非零" nonzero "$([[ $MISS_RC -ne 0 ]] && echo nonzero || echo zero)"
+
 echo; echo "════════ PASS=$P  FAIL=$F ════════"
 [[ $F -eq 0 ]] && exit 0 || exit 1
 
