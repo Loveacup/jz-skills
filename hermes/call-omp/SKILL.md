@@ -15,7 +15,7 @@ description: >-
   与 cc-tmux 互补（cc-tmux 管长会话编码委派，omp 管审计/治理/工具面 + 沙箱逃生通道 + 任意 CLI 任务）。
 tags: []
 related_skills: []
-version: 0.6.8
+version: 0.6.9
 type: autonomous-ai-agents
 author: anyis (Hermes Agent Team)
 license: MIT
@@ -519,6 +519,23 @@ async 监控/干预 + ACP delegate_task + 红线 + 稳健 verdict 提取 + 证�
 - 平台片段：`.codex/call-omp.md`、`references/claude-code-call-omp.md`、`references/omp-self-call.md`。
 
 ## 版本历史
+
+### v0.6.9（2026-07-05）— Package D slice 3：OD-OMP-1 ACP 真实探针
+
+本版补上 ACP 通道的真实 smoke probe：可手动验证 `omp acp` 启动 + 协议兼容性，产出结构化证据包（7 文件）。**仍是证据产出工具，不改默认通道**——即使探针通过，ACP 也不自动启用。
+
+| 级别 | 新增/修复 | 描述 |
+|:---:|------|------|
+| P0 | ACP smoke probe | 新增 `scripts/omp-acp-smoke.sh`：真实拉起 `omp acp` over stdio，发最小 prompt，收集完整 stdin/stdout/stderr + timeline + process 元信息。裁决三态：`compatible_smoke_passed`(退出0) / `started_but_protocol_incompatible`(退出2) / `failed_to_start_or_timeout`(退出3)。 |
+| P0 | mock 测试路径 | `--mock-pass` / `--mock-incompatible` / `--mock-timeout` 三档零 token 测试，伪造探针结果（不启 omp），用于单元测试与 CI。 |
+| P0 | 证据目录结构 | 产出 7 文件：`summary.json`（裁决状态 + 字节数 + 耗时）、`result.md`（人类可读报告）、`stdin.ndjson`（ACP prompt）、`stdout.ndjson`（OMP 返回流）、`stderr.log`、`timeline.ndjson`（事件序列）、`process.json`（omp 路径/版本/pid/退出码）。 |
+| P1 | OD-OMP-1 规范 | 新增 `references/OD-OMP-1-acp-smoke.md`：探针目标、裁决三态语义、证据文件用途、与 ACP 通道启用的关系（探针通过 ≠ 自动启用）。 |
+| P1 | tests + docs | `tests/run-all.sh` 新增 Group 19（--help / mock 三路径 / 证据文件齐全 / mock 标记 / summary schema / JSON-RPC initialize 断言），并在 Group 15 增加 untracked 新文件进入 `diff.patch` 的 bundle 回归；当前 166/166 通过。SKILL.md 补版本历史。 |
+| P1 | bundle-only 证据修复 | `omp-bundle-code-audit.sh` 追加 scope 内 untracked 普通文件为 `/dev/null → file` patch，避免 bundle_only 审计者看不到新增脚本/文档正文；敏感 untracked 路径仍按原规则剔除。 |
+
+**真实探针观测（OMP 16.3.2，本机）**：`initialize` 可成功返回 `protocolVersion=1` 与 `agentInfo.name=oh-my-pi`，但一次性 NDJSON 驱动未观测到 `session/new` / `session/prompt` / `session/update`，脚本按 `started_but_protocol_incompatible`（exit 2, reason=`initialize_ok_but_session_prompt_unobserved`）记录证据。后续 OD-OMP-2 应实现交互式 ACP client，而不是把 initialize 成功误判为 full compatibility。
+
+**已知边界**：探针只记录 `omp acp` 真实行为，**不修改 call-omp 默认通道优先级**（仍是 ACP > RPC > Shell，v0.2.0）。真实启用 ACP 需探针通过 + Hermes 支持 delegate_task + 明确配置。
 
 ### v0.6.8（2026-07-05）— Package D slice 2：平台发现 + 安装清单 + check 脚本
 

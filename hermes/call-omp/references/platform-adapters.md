@@ -15,15 +15,16 @@
 
 ## 两类冒烟的严格区分
 
-| | mock-only 冒烟 | 真 token 冒烟 |
-| --- | --- | --- |
-| 入口 | `scripts/call-omp-smoke.sh` | `references/omp-shell-smoke-test.md` 记录的手工流程 |
-| 是否起 OMP 进程 | ❌ 永不 | ✅ 真拉起 `omp -p --mode json` |
-| 是否烧 token | ❌ 零 | ✅ 真实（provider 计费，kimi-code cost=0 除外） |
-| 覆盖 | `--help` + `gate-verify --mode package` + `omp-bundle-code-audit.sh` | 真实 audit 端到端 + 验收红线 |
-| 谁跑 | 任意基质、CI、离线均可 | 需 `omp` 已装且配 model |
+| | mock-only 冒烟 | 真 token 冒烟 | ACP 真实探针（OD-OMP-1） |
+| --- | --- | --- | --- |
+| 入口 | `scripts/call-omp-smoke.sh` | `references/omp-shell-smoke-test.md` | `scripts/omp-acp-smoke.sh` |
+| 是否起 OMP 进程 | ❌ 永不 | ✅ 真拉起 `omp -p --mode json` | ✅ 真拉起 `omp acp` over stdio |
+| 是否烧 token | ❌ 零 | ✅ 真实（provider 计费，kimi-code cost=0 除外） | ⚠️ 可能（最小 prompt，kimi-code cost≈0） |
+| 覆盖 | `--help` + `gate-verify --mode package` + `omp-bundle-code-audit.sh` | 真实 audit 端到端 + 验收红线 | ACP 协议兼容性 + 7 文件证据包 |
+| 谁跑 | 任意基质、CI、离线均可 | 需 `omp` 已装且配 model | 需 `omp` 已装（未配 model 也能探测） |
+| 产物 | gate 校验 + bundle manifest | 完整 state/raw/verdict + 归档 | `summary.json` + 6 个证据文件 |
 
-**本适配层只提供 mock-only 冒烟。** 任何文档都不得宣称它等价于真实平台支持或替代热路径。
+**本适配层只提供 mock-only 冒烟。** ACP 真实探针（OD-OMP-1）是独立手动工具，产出证据但**不改默认通道**。任何文档都不得宣称 mock-only 冒烟等价于真实平台支持或替代热路径。
 
 ## 三种派生视图
 

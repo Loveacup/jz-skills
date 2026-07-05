@@ -286,6 +286,16 @@ chk "  manifest is_git=false" false "$(jq -r '.is_git' "$BND/manifest.json" 2>/d
 BND_ABS="$TD/bundle-out-abs"
 bash "$S/omp-bundle-code-audit.sh" --repo "$SRC" --out "$BND_ABS" --scope "$SRC/lib" >/dev/null 2>&1; chk "bundle 绝对 scope→0" 0 $?
 grep -q '^lib/util.js$' "$BND_ABS/file-list.txt" 2>/dev/null && chk "  绝对 scope 归一为相对路径" y y || chk "  绝对 scope 归一为相对路径" y n
+# 15b-2: git diff 默认不含 untracked；bundle 必须把未跟踪新文件正文追加到 diff.patch，供 bundle_only 审计
+GIT_SRC="$TD/bundle-git-src"; mkdir -p "$GIT_SRC/scripts"
+( cd "$GIT_SRC" && git init -q && git config user.email test@example.com && git config user.name test && printf 'base\n' > README.md && git add README.md && git commit -qm init )
+printf '#!/usr/bin/env bash\necho new-file-body\n' > "$GIT_SRC/scripts/new-tool.sh"
+printf 'SECRET=bad\n' > "$GIT_SRC/scripts/token.key"
+BND_GIT="$TD/bundle-git-out"
+bash "$S/omp-bundle-code-audit.sh" --repo "$GIT_SRC" --out "$BND_GIT" --scope scripts >/dev/null 2>&1; chk "bundle git untracked→0" 0 $?
+grep -q '^scripts/new-tool.sh$' "$BND_GIT/file-list.txt" 2>/dev/null && chk "  untracked 普通文件入 file-list" y y || chk "  untracked 普通文件入 file-list" y n
+grep -q 'new-file-body' "$BND_GIT/diff.patch" 2>/dev/null && chk "  untracked 正文入 diff.patch" y y || chk "  untracked 正文入 diff.patch" y n
+if grep -q 'SECRET=bad' "$BND_GIT/diff.patch" 2>/dev/null; then chk "  untracked 敏感正文不入 diff" y n; else chk "  untracked 敏感正文不入 diff" y y; fi
 
 # 15c: gate-verify package 契约收窄
 mkpkg '.task_id="t"|.channel="ftp"' > "$TD/pkg-badch.json"
@@ -445,6 +455,35 @@ mv "$CODEX_MF" "$TD/codex-mf.bak"
 bash "$CHECK" >/dev/null 2>&1; MISS_RC=$?
 mv "$TD/codex-mf.bak" "$CODEX_MF"
 chk "缺清单→check 非零" nonzero "$([[ $MISS_RC -ne 0 ]] && echo nonzero || echo zero)"
+
+echo "═══ 19. OD-OMP-1 ACP smoke probe ═══"
+ACP_SMOKE="$S/omp-acp-smoke.sh"
+# 19a: --help 契约
+bash "$ACP_SMOKE" --help >/dev/null 2>&1; chk "omp-acp-smoke --help" 0 $?
+# 19b: mock-pass 路径（退出 0 + status=compatible_smoke_passed）
+MOCK_PASS_OUT="$TD/acp-mock-pass"
+bash "$ACP_SMOKE" --mock-pass --out "$MOCK_PASS_OUT" >/dev/null 2>&1; chk "mock-pass→0" 0 $?
+chk "  status=compatible_smoke_passed" compatible_smoke_passed "$(jq -r .status "$MOCK_PASS_OUT/summary.json" 2>/dev/null)"
+# 19c: mock-incompatible 路径（退出 2 + status=started_but_protocol_incompatible）
+MOCK_INC_OUT="$TD/acp-mock-inc"
+bash "$ACP_SMOKE" --mock-incompatible --out "$MOCK_INC_OUT" >/dev/null 2>&1; chk "mock-incompatible→2" 2 $?
+chk "  status=started_but_protocol_incompatible" started_but_protocol_incompatible "$(jq -r .status "$MOCK_INC_OUT/summary.json" 2>/dev/null)"
+# 19d: mock-timeout 路径（退出 3 + status=failed_to_start_or_timeout）
+MOCK_TO_OUT="$TD/acp-mock-to"
+bash "$ACP_SMOKE" --mock-timeout --out "$MOCK_TO_OUT" >/dev/null 2>&1; chk "mock-timeout→3" 3 $?
+chk "  status=failed_to_start_or_timeout" failed_to_start_or_timeout "$(jq -r .status "$MOCK_TO_OUT/summary.json" 2>/dev/null)"
+# 19e: 证据文件齐全（7 个）
+for f in summary.json result.md stdin.ndjson stdout.ndjson stderr.log timeline.ndjson process.json; do
+  [[ -f "$MOCK_PASS_OUT/$f" ]] && chk "  证据 $f 存在" y y || chk "  证据 $f 存在" y n
+done
+# 19f: mock 模式在 summary.json 标记
+grep -q '"mock"' "$MOCK_PASS_OUT/summary.json" && chk "mock 标记" y y || chk "mock 标记" y n
+# 19g: mock summary schema 与真实 schema 对齐
+chk "  mock initialize_ok=true" true "$(jq -r .initialize_ok "$MOCK_PASS_OUT/summary.json" 2>/dev/null)"
+chk "  mock session_observed=true" true "$(jq -r .session_observed "$MOCK_PASS_OUT/summary.json" 2>/dev/null)"
+chk "  mock prompt_or_update_observed=true" true "$(jq -r .prompt_or_update_observed "$MOCK_PASS_OUT/summary.json" 2>/dev/null)"
+# 19h: stdin 必须是 ACP JSON-RPC 形态，禁止退回 task_id/goal 自定义 prompt
+grep -q '"method":"initialize"' "$MOCK_PASS_OUT/stdin.ndjson" && chk "  stdin 含 initialize" y y || chk "  stdin 含 initialize" y n
 
 echo; echo "════════ PASS=$P  FAIL=$F ════════"
 [[ $F -eq 0 ]] && exit 0 || exit 1

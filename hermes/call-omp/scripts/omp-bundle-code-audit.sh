@@ -128,6 +128,20 @@ if $IS_GIT; then
       ':(exclude)*credential*' ':(exclude)*.pem' ':(exclude)*.key' \
       ':(exclude)id_rsa*' ':(exclude)*.p12' ':(exclude)*.pfx' ':(exclude)*.keystore' \
       2>/dev/null > "$OUT/diff.patch" || : > "$OUT/diff.patch"
+
+    # git diff 默认不包含 untracked 新文件。bundle_only 审计若看不到新文件正文，
+    # 会把“新增脚本/文档”误判成不可审。这里把 scope 内未跟踪文件追加为 /dev/null → file patch。
+    while IFS= read -r uf; do
+      [[ -n "$uf" ]] || continue
+      uf="${uf#./}"
+      [[ -n "$uf" ]] || continue
+      is_sensitive "$uf" && continue
+      [[ -f "$REPO/$uf" ]] || continue
+      {
+        printf '\n'
+        git -C "$REPO" diff --no-index -- /dev/null "$uf" 2>/dev/null || true
+      } >> "$OUT/diff.patch"
+    done < <(git -C "$REPO" ls-files --others --exclude-standard -- "${SCOPE_ARGS[@]}" 2>/dev/null || true)
   else
     printf '# base ref "%s" 不存在或无提交，diff 为空。\n' "$DIFF_BASE" > "$OUT/diff.patch"
   fi
