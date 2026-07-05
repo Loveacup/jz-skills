@@ -114,13 +114,13 @@ def test_assemble_draft_report_slice_without_provider_does_not_write_llm_section
 
 def test_draft_report_llm_section_qa_failing_but_non_skeleton_inserted_with_warning(monkeypatch):
     """Phase 2: LLM section 3 with QA-failing but non-skeleton content is inserted with warning."""
-    qa_failing_body = """### 💡 洞察 1：短内容 [E1]
-短
+    qa_failing_body = """### 💡 洞察 1：短内容但真实 [E1]
+这是一个真实但字数太少的洞察。
 """
 
     from video_analysis_engine import WriterResult
 
-    def mock_write_llm_section(ctx, provider, retries):
+    def mock_write_llm_section(ctx, provider, retries=0, depth_profile="standard"):
         return WriterResult(section_id='3', content=qa_failing_body, validation_passed=True, validation_errors=[])
 
     monkeypatch.setattr("video_analysis_engine.write_llm_section", mock_write_llm_section)

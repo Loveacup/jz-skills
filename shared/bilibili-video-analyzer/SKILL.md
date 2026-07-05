@@ -18,7 +18,18 @@ author: "Hermes Agent (v2.6.0: WRR fact-check integration for policy/news videos
 
 Transform Bilibili videos into structured, searchable, actionable knowledge assets for Obsidian.
 
-## 🚨 Red Flags: Don't Cut Corners on Analysis
+## 🚨 Red Flags & Quality Gates: 内容质量底线
+
+从 v2.6 起不再用 KB 体量作为质量目标——改为**结构充实度门槛**（Depth Quality Gates）+ **Section QA 多维度评估**。
+
+### 核心原则
+
+1. **不要凑字数**：报告以 evidence-grounded、insight-density、no-skeleton 为准，不是越长越好。
+2. **不要放过骨架**：LLM writer 产出必须经过 Section QA D1-D5 评估（P0 blocker 不进入 draft），D6-D8（claim-first 模式额外检查 warrant/rebuttal/actionability）。
+3. **证据优先**：claim 必须绑定 evidence_pointer，评论/弹幕仅作 audience signal，不能伪造事实。
+4. **Writer Provider 可插拔**：`--writer-provider none|fixture|cli|deepseek`，默认 `none` 保持 v2.6 确定性输出，`cli` 继承调用方模型配置（OMP/Hermes），`deepseek` 直接读 `DEEPSEEK_API_KEY`。失败时 fallback 到 skeleton 并 warning，不影响其他 section。
+
+### Red Flags 表（经典避坑）
 
 | Excuse | Why it's wrong |
 |--------|---------------|
@@ -155,6 +166,14 @@ See `references/execution-guide.md` for dependencies (yt-dlp, whisper.cpp) and t
 
 ## Phase 2: Deep Analysis
 
+引擎工作流现在支持三档深度模式（见 README 「Depth Profiles」）：
+
+- **standard**: 默认，确定性 extractor + LLM writer（§3/§4/§7）
+- **v24-full**: 恢复 v2.4 七步推理链、Depth Quality Gates
+- **claim-first-full**: 最严格，extract → synthesize → audit → render，Claim/Insight/ClaimBundle 结构
+
+常规步骤：
+
 2. **Type diagnosis**: Tutorial / Interview / Review / Narrative / Speech
 3. **Danmaku analysis**: 6 emotion categories, high-frequency terms, cultural memes → see `references/danmaku-analysis-guide.md`
 4. **Comments analysis**: Hot comment curation, opinion clustering, creator interaction
@@ -186,8 +205,11 @@ Full analysis framework: `references/v3-detailed-prompt.md`
 | **G4** | §4 Deep Dive | ≥3 模块 × 每个 ≥500 字 | 2–3 模块 × ≤300 字 | ≥3 模块（取材双视频） |
 | **G5** | §5 高光时刻 | ≥5 条金句 | 2–3 条 | ≥5 条 |
 | **G7** | §7 批判与行动 | ≥3 价值点 + ≥2 局限 + ≥3 行动项 | 同全量版（教程最高价值区，不削减） | ≥3 + ≥2 + ≥3（统一评估） |
+| **G8** | §3 核心洞察（claim-first） | 每条洞察含 claim/evidence/warrant/boundary | — | 同全量版（`--claim-first` opt-in） |
+| **G9** | §4 Deep Dive（claim-first） | 每模块含显性/隐性/元叙事或等价结构 | — | 同全量版（`--claim-first` opt-in） |
+| **G10** | §7 行动项（claim-first） | 行动项含证据引用或 claim id | — | 同全量版（`--claim-first` opt-in） |
 
-> [!tip] 门槛是**下限**不是上限。访谈/演讲常超出 G3/G4，按内容自然展开；`verify_report.py` 只拦截"不足"。
+> [!tip] 门槛是**下限**不是上限。访谈/演讲常超出 G3/G4，按内容自然展开；`verify_report.py` 只拦截"不足"。G8-G10 需显式 `--claim-first` 启用（对应 `--depth-profile claim-first-full`）。
 
 ### 全量版 (All 8 Sections)
 

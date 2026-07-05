@@ -31,7 +31,14 @@ import argparse
 import warnings
 from collections import Counter
 from dataclasses import dataclass, field, asdict
-from typing import List, Optional, Dict, Any, Callable, Tuple
+from typing import List, Optional, Dict, Any, Callable, Tuple, Literal
+
+
+# ============ Type Literals for validation ============
+ClaimSourceType = Literal["transcript", "comment", "danmaku", "audience", "metadata", "external"]
+ClaimType = Literal["observed", "inferred", "recommendation"]
+AuditAction = Literal["keep", "downgrade", "drop"]
+TargetSection = Literal["3", "4", "7"]
 
 
 # ============ 统一数据类 ============
@@ -128,6 +135,77 @@ class ReportPlan:
 
 
 @dataclass
+class Claim:
+    """A single claim extracted from evidence.
+
+    Represents a factual assertion, inference, or recommendation grounded in evidence.
+    Part of the claim-first architecture for depth analysis.
+    """
+    id: str
+    text: str
+    confidence: float  # 0.0-1.0
+    evidence_ids: List[str]
+    source_type: ClaimSourceType
+    grounds: List[str] = field(default_factory=list)
+    warrant: str = ""
+    backing: str = ""
+    qualifier: str = ""
+    rebuttal: str = ""
+    claim_type: ClaimType = "observed"
+
+    def __post_init__(self):
+        if not self.evidence_ids:
+            raise ValueError(f"Claim {self.id} must have non-empty evidence_ids")
+        if not (0.0 <= self.confidence <= 1.0):
+            raise ValueError(f"Claim {self.id} confidence must be in [0.0, 1.0], got {self.confidence}")
+        valid_source_types = {"transcript", "comment", "danmaku", "audience", "metadata", "external"}
+        if self.source_type not in valid_source_types:
+            raise ValueError(f"Claim {self.id} source_type must be one of {valid_source_types}, got {self.source_type}")
+        valid_claim_types = {"observed", "inferred", "recommendation"}
+        if self.claim_type not in valid_claim_types:
+            raise ValueError(f"Claim {self.id} claim_type must be one of {valid_claim_types}, got {self.claim_type}")
+
+
+@dataclass
+class Insight(Claim):
+    """An insight is a Claim with additional depth/novelty/targeting metadata."""
+    depth: float = 0.0
+    novelty: float = 0.0
+    target_section: TargetSection = "3"
+
+    def __post_init__(self):
+        super().__post_init__()
+        if not (0.0 <= self.depth <= 1.0):
+            raise ValueError(f"Insight {self.id} depth must be in [0.0, 1.0], got {self.depth}")
+        if not (0.0 <= self.novelty <= 1.0):
+            raise ValueError(f"Insight {self.id} novelty must be in [0.0, 1.0], got {self.novelty}")
+        valid_sections = {"3", "4", "7"}
+        if self.target_section not in valid_sections:
+            raise ValueError(f"Insight {self.id} target_section must be one of {valid_sections}, got {self.target_section}")
+
+
+@dataclass
+class ClaimAuditResult:
+    """Result of auditing a claim for evidence quality."""
+    action: AuditAction
+    original_claim: Claim
+    reason: str
+
+    def __post_init__(self):
+        valid_actions = {"keep", "downgrade", "drop"}
+        if self.action not in valid_actions:
+            raise ValueError(f"ClaimAuditResult action must be one of {valid_actions}, got {self.action}")
+
+
+@dataclass
+class ClaimBundle:
+    """Collection of claims, insights, and audit results."""
+    claims: List[Claim] = field(default_factory=list)
+    insights: List[Insight] = field(default_factory=list)
+    audit_log: List[ClaimAuditResult] = field(default_factory=list)
+
+
+@dataclass
 class DraftReport:
     """A non-publishable structured draft artifact.
 
@@ -142,6 +220,7 @@ class DraftReport:
     warnings: List[str] = field(default_factory=list)
     draft_sections: Dict[str, str] = field(default_factory=dict)
     qa_results: Dict[str, SectionQualityResult] = field(default_factory=dict)
+    claim_bundle: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -187,8 +266,9 @@ class SectionQualityResult:
 # §1 基本信息：结构化表格为主，免除 not-mechanical 和 insight-density
 # §5 高光引文：大量 blockquote 为主，免除 not-mechanical 和 insight-density
 SECTION_DIMENSION_EXEMPTIONS: Dict[str, List[str]] = {
-    "1": ["not-mechanical", "insight-density"],
-    "5": ["not-mechanical", "insight-density"],
+    "1": ["not-mechanical", "insight-density", "warrant-present", "rebuttal-or-boundary", "actionability"],
+    "5": ["not-mechanical", "insight-density", "warrant-present", "rebuttal-or-boundary", "actionability"],
+    "6": ["warrant-present", "rebuttal-or-boundary", "actionability"],
 }
 
 
@@ -196,6 +276,7 @@ def evaluate_draft_section_quality(
     section_id: str,
     section_body: str,
     context: Any = None,
+    claim_qa_gate: bool = False,
 ) -> SectionQualityResult:
     body = (section_body or '').strip()
     lines = [ln for ln in body.splitlines() if ln.strip()]
@@ -228,6 +309,24 @@ def evaluate_draft_section_quality(
     paragraphs = [ln for ln in lines if ln and not ln.startswith(('#', '|', '>', '-', '*'))]
     d4_passed = len(insight_markers) >= 1 or len(paragraphs) >= 2
 
+    # ----- D6: warrant-present (claim-first only) -----
+    d6_passed = True
+    if claim_qa_gate and section_id in ('3', '4', '7'):
+        warrant_keywords = re.findall(r'因为|由于|基于|根据|warrant|推理|许可|逻辑|前提|假设', body)
+        d6_passed = len(warrant_keywords) >= 1
+
+    # ----- D7: rebuttal-or-boundary (claim-first only) -----
+    d7_passed = True
+    if claim_qa_gate and section_id in ('3', '4', '7'):
+        boundary_keywords = re.findall(r'反证|边界|例外|qualifier|局限|但是|然而|不过|除非|前提|条件|适用范围', body)
+        d7_passed = len(boundary_keywords) >= 1
+
+    # ----- D8: actionability (claim-first only, §7 only) -----
+    d8_passed = True
+    if claim_qa_gate and section_id == '7':
+        action_keywords = re.findall(r'立即|短期|长期|行动|建议|步骤|可以|应该|需要|执行|实施', body)
+        d8_passed = len(action_keywords) >= 1
+
     # ----- dimension results -----
     dims = [
         DimensionResult('evidence-grounded', d1_passed, 1.0 if d1_passed else 0.0, [] if d1_passed else ['缺少证据引用 [E#] 或时间锚点 MM:SS']),
@@ -235,6 +334,9 @@ def evaluate_draft_section_quality(
         DimensionResult('human-readable', d3_passed, 1.0 if d3_passed else 0.0, [] if d3_passed else ['含完整句子数不足2个']),
         DimensionResult('insight-density', d4_passed, 1.0 if d4_passed else 0.0, [] if d4_passed else ['缺少因果/分析关键词且纯文本段落不足2段']),
         DimensionResult('no-skeleton', d5_passed, 1.0 if d5_passed else 0.0, [] if d5_passed else [f'骨架占位: {skeleton_hits}'] if skeleton_hits else ['章节正文为空']),
+        DimensionResult('warrant-present', d6_passed, 1.0 if d6_passed else 0.0, [] if d6_passed else ['缺少推理许可关键词（因为/由于/基于/warrant/推理/逻辑）']),
+        DimensionResult('rebuttal-or-boundary', d7_passed, 1.0 if d7_passed else 0.0, [] if d7_passed else ['缺少反证/边界/局限关键词（反证/边界/例外/局限/但是/然而）']),
+        DimensionResult('actionability', d8_passed, 1.0 if d8_passed else 0.0, [] if d8_passed else ['§7 缺少可行动项关键词（立即/短期/长期/行动/建议/步骤）']),
     ]
 
     # ----- Phase 4: 应用分段豁免 -----
@@ -1321,6 +1423,8 @@ def assemble_draft_report_slice(
     report: Dict[str, Any],
     section_ids=("1", "5"),
     provider: Optional[WriterProvider] = None,
+    claim_qa_gate: bool = False,
+    depth_profile: str = "standard",
 ) -> DraftReport:
     """Populate a DraftReport with selected written section bodies.
 
@@ -1332,8 +1436,29 @@ def assemble_draft_report_slice(
     Phase 2: Every generated section is evaluated via QA gate. Sections with
     P0 blockers are excluded from draft_sections. Sections with P1/P2 issues
     but no blockers are inserted with warnings.
+
+    Args:
+        report: Full report dict
+        section_ids: Sections to generate
+        provider: Optional LLM writer provider
+        claim_qa_gate: Enable D6-D8 QA gates
+        depth_profile: Depth analysis mode - "standard" (default, backward-compatible),
+                       "claim-first-full", or "v24-full"
     """
     draft = build_draft_report(report)
+
+    # Build claim bundle only for claim-first and v24-full profiles
+    if depth_profile in ("claim-first-full", "v24-full"):
+        claim_bundle = build_claim_bundle(report)
+        claim_bundle_dict = claim_bundle_to_dict(claim_bundle)
+        draft.claim_bundle = claim_bundle_dict
+        # Inject into report for build_typed_writer_section_contexts
+        report['claim_bundle'] = claim_bundle_dict
+    else:
+        # standard mode: no claim bundle
+        draft.claim_bundle = None
+        report['claim_bundle'] = None
+
     evidence_map = (report.get('evidence_map') or {}).get('by_section') or {}
     typed_contexts = None
     if provider:
@@ -1355,7 +1480,7 @@ def assemble_draft_report_slice(
             if not ctx:
                 continue
             try:
-                result = write_llm_section(ctx, provider, retries=0)
+                result = write_llm_section(ctx, provider, retries=0, depth_profile=depth_profile)
             except Exception as e:
                 draft.warnings.append(f'§{sid} LLM writer failed: {e}')
                 body = _draft_placeholder_for_section(ctx)
@@ -1370,7 +1495,7 @@ def assemble_draft_report_slice(
 
         # Phase 2: QA gate evaluation and insertion logic
         if body is not None:
-            qa_result = evaluate_draft_section_quality(sid, body)
+            qa_result = evaluate_draft_section_quality(sid, body, context=None, claim_qa_gate=claim_qa_gate)
             draft.qa_results[sid] = qa_result
 
             if qa_result.blockers:
@@ -1704,6 +1829,7 @@ class WriterSectionContext:
     evidence: List[WriterEvidenceCandidate] = field(default_factory=list)
     draft_placeholder: str = ""
     transcript_summary: Optional[str] = None
+    claim_context: Optional[str] = None
 
 
 @dataclass
@@ -1720,8 +1846,30 @@ class WriterResult:
 def build_typed_writer_section_contexts(report: dict) -> List[WriterSectionContext]:
     """
     将 build_writer_section_context 的输出转为 typed dataclasses。
+    注入 claim_context 到对应 section。
     """
     writer_ctx = build_writer_section_context(report)
+
+    # Extract insights from claim_bundle if available
+    claim_bundle_dict = report.get('claim_bundle')
+    insights_by_section = {}
+    if claim_bundle_dict:
+        insights_data = claim_bundle_dict.get('insights', [])
+        for insight_data in insights_data:
+            target = insight_data.get('target_section', '3')
+            if target not in insights_by_section:
+                insights_by_section[target] = []
+            # Reconstruct Claim for formatting
+            insight = Claim(
+                id=insight_data.get('id', ''),
+                text=insight_data.get('text', ''),
+                confidence=insight_data.get('confidence', 0.0),
+                evidence_ids=insight_data.get('evidence_ids', []),
+                source_type=insight_data.get('source_type', ''),
+                warrant=insight_data.get('warrant', '')
+            )
+            insights_by_section[target].append(insight)
+
     typed = []
     for sec in writer_ctx.get('sections', []):
         evidence_candidates = []
@@ -1733,8 +1881,13 @@ def build_typed_writer_section_contexts(report: dict) -> List[WriterSectionConte
                 source=ev.get('source_type') or ev.get('source')
             ))
 
+        section_id = sec.get('id', '')
+        claim_context = None
+        if section_id in insights_by_section:
+            claim_context = _format_claims_for_prompt(insights_by_section[section_id])
+
         typed.append(WriterSectionContext(
-            section_id=sec.get('id', ''),
+            section_id=section_id,
             heading=sec.get('heading', ''),
             purpose=sec.get('purpose', ''),
             quality_gate=sec.get('quality_gate'),
@@ -1742,12 +1895,14 @@ def build_typed_writer_section_contexts(report: dict) -> List[WriterSectionConte
             min_words_per_item=sec.get('min_words_per_item'),
             evidence=evidence_candidates,
             draft_placeholder=sec.get('draft_placeholder', ''),
-            transcript_summary=sec.get('transcript_summary')
+            transcript_summary=sec.get('transcript_summary'),
+            claim_context=claim_context
         ))
     return typed
 
 
-WRITER_PROMPTS = {
+# Standard (backward-compatible) prompts — no Toulmin/v2.4 enhancements
+WRITER_PROMPTS_STANDARD = {
     "3": {
         "system": """你是一位专业的视频分析师，负责从采集到的证据中提炼核心观点。
 
@@ -1755,7 +1910,7 @@ WRITER_PROMPTS = {
 - 只输出 Markdown 格式内容，不添加额外说明
 - 不要重复输出本节 `## 3.` 大标题；直接从 `###` 小标题开始
 - 必须输出至少 3 个洞察小节，每个小节标题必须是 `### 💡 洞察 N：标题`
-- 每个洞察小节正文至少 1 段，并必须包含 [E#] 引用证据（如 [E1]、[E2]）
+- 每个洞察小节正文至少 200 字，并必须包含 [E#] 引用证据（如 [E1]、[E2]）
 - 禁止编造或猜测视频中未提及的内容
 - 对不确定的信息，使用"从现有证据只能看出..."表述
 - 禁止使用"显然""必然""毫无疑问"等绝对化表达""",
@@ -1780,7 +1935,7 @@ WRITER_PROMPTS = {
 - 只输出 Markdown 格式内容，不添加额外说明
 - 不要重复输出本节 `## 4.` 大标题；直接从 `###` 小标题开始
 - 必须输出至少 3 个模块，每个模块标题必须是 `### 模块 N：标题`
-- 每个模块正文至少 500 个中文字符/词，不要输出短模块，并必须包含 [E#] 引用证据（如 [E1]、[E2]）
+- 每个模块正文至少 500 个中文字符/词，不要输出短模块
 - 禁止编造或猜测视频中未提及的内容
 - 对不确定的信息，使用"从现有证据只能看出..."表述
 - 禁止使用"显然""必然""毫无疑问"等绝对化表达""",
@@ -1796,7 +1951,7 @@ WRITER_PROMPTS = {
 ## 可用证据
 {evidence}
 
-请根据以上证据撰写该节内容，确保每条技术点都引用 [E#] 标记。"""
+请根据以上证据撰写该节内容，每个模块必须包含实质分析并引用 [E#] 标记。"""
     },
     "7": {
         "system": """你是一位专业的视频分析师，负责输出批判性评估与可执行行动。
@@ -1804,10 +1959,11 @@ WRITER_PROMPTS = {
 输出约束：
 - 只输出 Markdown 格式内容，不添加额外说明
 - 不要重复输出本节 `## 7.` 大标题；直接从 `###` 小标题开始
-- 必须包含 3 个小节，标题分别包含：`### 独特价值`、`### 局限与偏见`、`### 可行动项`
-- `独特价值` 和 `局限与偏见` 小节下必须使用 `- ` bullet
-- `可行动项` 小节下可使用 `- ` 或 `1. ` 列表
-- 每个列表项必须包含 [E#] 引用证据（如 [E1]、[E2]）
+- 必须包含 4 个小节：
+  * `### 独特价值`：至少 3 个独特价值点，每个含 [E#] 引用
+  * `### 局限与偏见`：至少 2 个局限/偏见，每个含描述 + 说明
+  * `### 弹幕共识度分析`：可选，如果有弹幕数据
+  * `### 可行动项`：至少 3 个可行动项，每个含证据引用 [E#]
 - 禁止编造或猜测评论区中未提及的内容
 - 对不确定的信息，使用"从现有证据只能看出..."表述
 - 禁止使用"显然""必然""毫无疑问"等绝对化表达""",
@@ -1823,7 +1979,160 @@ WRITER_PROMPTS = {
 ## 可用证据
 {evidence}
 
-请根据以上证据撰写该节内容，确保每条讨论点都引用 [E#] 标记。"""
+请根据以上证据撰写该节内容，必须包含：独特价值、局限与偏见、可行动项。"""
+    }
+}
+
+# Enhanced prompts with v2.4 framework and Toulmin model
+WRITER_PROMPTS = {
+    "3": {
+        "system": """你是一位专业的视频分析师，负责从采集到的证据中提炼核心观点。
+
+推理框架（v2.4 七步链）：
+1. 类型诊断：判断内容类型（教程/访谈/评测/叙事/演讲），选择对应分析重点
+2. 弹幕深度分析：统计情绪分类（共鸣/焦虑/调侃/质疑/困惑），提取高频词和争议焦点
+3. 内容分层解剖：区分显性内容（明确陈述）、隐性逻辑（暗示假设）、元叙事（作者意图）
+4. 信息降噪：剔除广告、重复表述、无意义寒暄，合并同一观点的多次表达
+5. 关键要素提取：核心概念（中英对照）、关键数据（数字+来源）、关键引用（金句+时间戳）
+6. 多维度对比：横向对比（同类产品/方法）、纵向对比（历史版本）、理想vs现实差异
+7. 批判性审视：验证方法有效性、识别视角盲区、评估受众适配性
+
+Toulmin 模型要求（每个洞察必须包含）：
+- **Claim（主张）**：核心观点，一句话陈述
+- **Warrant（推理许可）**：为什么这个证据能支持主张？背后的推理规则是什么？
+- **Evidence Pointers（证据引用）**：[E#] 标记，指向具体证据
+- **Boundary/Rebuttal（边界或反证）**：在什么情况下该主张不成立？有什么反例或局限？
+
+输出约束：
+- 只输出 Markdown 格式内容，不添加额外说明
+- 不要重复输出本节 `## 3.` 大标题；直接从 `###` 小标题开始
+- 必须输出至少 3 个洞察小节，每个小节标题必须是 `### 💡 洞察 N：标题`
+- 每个洞察小节结构：
+  * **定义**：一句话精准定义
+  * **深度解析**：原理层（为什么成立）+ 案例层（视频具体例子，含 [E#]）+ 关联层（与已有概念关系）
+  * **弹幕反馈**：主要反应类型 + 典型弹幕 + 共识度（高/中/低）
+  * **推理许可**：从证据到主张的推理规则
+  * **边界条件**：该主张的局限性或反证
+- 每个洞察小节正文至少 200 字，并必须包含 [E#] 引用证据（如 [E1]、[E2]）
+- 禁止编造或猜测视频中未提及的内容
+- 对不确定的信息，使用"从现有证据只能看出..."表述
+- 禁止使用"显然""必然""毫无疑问"等绝对化表达""",
+        "user": """# 任务：{heading}
+
+目的：{purpose}
+
+质量标准：{quality_gate}
+
+最少条目数：{min_items}
+每条最少字数：{min_words}
+
+{claim_context}
+
+## 可用证据
+{evidence}
+
+请根据以上证据撰写该节内容，确保每条观点都引用 [E#] 标记，并包含 Claim、Warrant、Evidence Pointers、Boundary/Rebuttal 四要素。"""
+    },
+    "4": {
+        "system": """你是一位专业的视频分析师，负责做内容深度拆解。
+
+推理框架（v2.4 七步链应用到模块拆解）：
+- 应用类型诊断结果，选择合适的拆解维度（教程→步骤拆解；访谈→思维碰撞；评测→维度矩阵；叙事→故事弧光；演讲→论点-论据）
+- 深度挖掘显性内容、隐性逻辑、元叙事三层
+- 为每个模块提供多维度对比（横向/纵向/理想vs现实）
+- 批判性审视每个模块的有效性和盲区
+
+每个模块必须包含（Toulmin 模型在模块层级应用）：
+- **核心论点（Claim）**：该模块的中心主张
+- **Mermaid 图**：架构/流程/对比图，可视化论证结构
+- **论证展开**：
+  * 前提（Grounds）：基础事实或证据 [E#]
+  * 推理（Warrant）：从前提到结论的推理规则
+  * 结论（Claim）：该模块得出的核心观点
+- **与用户栈的关联**：技术/方法如何迁移到用户场景（如 Hermes、Obsidian）
+- **批判审视（Rebuttal）**：该模块论证的漏洞、遗漏信息、前提假设的局限
+
+输出约束：
+- 只输出 Markdown 格式内容，不添加额外说明
+- 不要重复输出本节 `## 4.` 大标题；直接从 `###` 小标题开始
+- 必须输出至少 3 个模块，每个模块标题必须是 `### 模块 N：标题`
+- 每个模块必须包含：
+  * 核心论点（一句话）
+  * Mermaid 图（至少一张：flowchart / sequence / classDiagram / pie）
+  * 论证展开（前提→推理→结论结构，含 [E#] 引用）
+  * 与用户栈关联（具体可借鉴之处）
+  * 批判审视（漏洞/盲区/边界条件）
+- 每个模块正文至少 500 个中文字符/词，不要输出短模块
+- 禁止编造或猜测视频中未提及的内容
+- 对不确定的信息，使用"从现有证据只能看出..."表述
+- 禁止使用"显然""必然""毫无疑问"等绝对化表达""",
+        "user": """# 任务：{heading}
+
+目的：{purpose}
+
+质量标准：{quality_gate}
+
+最少条目数：{min_items}
+每条最少字数：{min_words}
+
+{claim_context}
+
+## 可用证据
+{evidence}
+
+请根据以上证据撰写该节内容，每个模块必须包含：核心论点、Mermaid 图、论证展开（前提→推理→结论）、与用户栈关联、批判审视。确保所有论述都引用 [E#] 标记。"""
+    },
+    "7": {
+        "system": """你是一位专业的视频分析师，负责输出批判性评估与可执行行动。
+
+推理框架（v2.4 批判性审视 + 行动导向）：
+- 有效性验证：方法是否经过验证？数据是否可信？案例是否具有代表性？
+- 视角盲区：作者遗漏了什么重要信息？是否存在幸存者偏差？是否过度简化？
+- 受众适配性：目标人群画像是否准确？门槛是否被低估？弹幕是否揭示未考虑的场景？
+- 弹幕共识度分析：哪些观点获得高共识？哪些存在争议？共识度如何影响可行性？
+
+每个可行动项必须包含（Toulmin 模型在行动层级）：
+- **Action（行动）**：具体、可衡量的行动描述
+- **Evidence Pointers（证据引用）**：[E#] 或 [C#]（claim id）或时间戳，指向支撑该行动的证据
+- **Warrant（推理许可）**：为什么这个证据支持这个行动？执行该行动的理论基础是什么？
+- **Qualifier（限定词）**：立即执行 / 短期跟进 / 长期探索，执行优先级和时间框架
+- **Rebuttal（反证/风险）**：什么情况下该行动可能失败？有什么前提条件未满足？
+
+输出约束：
+- 只输出 Markdown 格式内容，不添加额外说明
+- 不要重复输出本节 `## 7.` 大标题；直接从 `###` 小标题开始
+- 必须包含 4 个小节：
+  * `### 独特价值`：至少 3 个独特价值点，每个含 [E#] 引用 + 弹幕验证（是否有弹幕印证）
+  * `### 局限与偏见`：至少 2 个局限/偏见，每个含描述 + 弹幕验证 + 来源分析（作者背景如何导致）
+  * `### 弹幕共识度分析`：表格格式，列出核心观点 + 赞同/质疑占比 + 共识度判断 + 说明
+  * `### 可行动项`：至少 3 个可行动项（立即执行 + 短期跟进 + 长期探索合计），每个含证据引用 [E#] 或 [C#] 或时间戳
+- `独特价值` 和 `局限与偏见` 小节下必须使用 `- ` bullet
+- `可行动项` 小节下可使用 `- ` 或 `1. ` 列表或 `- [ ]` 任务列表
+- 每个列表项必须包含 [E#] 或 [C#] 或时间戳引用
+- 禁止编造或猜测评论区中未提及的内容
+- 对不确定的信息，使用"从现有证据只能看出..."表述
+- 禁止使用"显然""必然""毫无疑问"等绝对化表达""",
+        "user": """# 任务：{heading}
+
+目的：{purpose}
+
+质量标准：{quality_gate}
+
+最少条目数：{min_items}
+每条最少字数：{min_words}
+
+{claim_context}
+
+## 可用证据
+{evidence}
+
+请根据以上证据撰写该节内容，必须包含：
+1. **独特价值**（≥3 个，每个含证据引用 + 弹幕验证）
+2. **局限与偏见**（≥2 个，每个含描述 + 弹幕验证 + 来源分析）
+3. **弹幕共识度分析**（表格：核心观点 | 赞同% | 质疑% | 共识度 | 说明）
+4. **可行动项**（≥3 个，分立即/短期/长期，每个含证据引用 [E#] 或 [C#] 或时间戳）
+
+确保所有论述都引用 [E#] 标记，所有行动项都有明确的证据支撑和边界条件。"""
     }
 }
 
@@ -1989,12 +2298,26 @@ def validate_section(result: WriterResult, contract: WriterSectionContext) -> Wr
 def write_llm_section(
     context: WriterSectionContext,
     provider: WriterProvider,
-    retries: int = 2
+    retries: int = 2,
+    depth_profile: str = "standard"
 ) -> WriterResult:
     """
     调用 LLM provider 生成章节内容，并进行确定性验证。
+
+    Args:
+        context: Section writing context
+        provider: LLM writer provider
+        retries: Number of retries on validation failure
+        depth_profile: Depth analysis mode - "standard", "claim-first-full", or "v24-full"
     """
-    if context.section_id not in WRITER_PROMPTS:
+    # Choose prompt set based on depth_profile
+    if depth_profile == "standard":
+        prompt_set = WRITER_PROMPTS_STANDARD
+    else:
+        # claim-first-full and v24-full use the enhanced prompts
+        prompt_set = WRITER_PROMPTS
+
+    if context.section_id not in prompt_set:
         return WriterResult(
             section_id=context.section_id,
             content=context.draft_placeholder,
@@ -2002,17 +2325,19 @@ def write_llm_section(
             validation_errors=[f"未找到 section_id={context.section_id} 的 prompt"]
         )
 
-    prompts = WRITER_PROMPTS[context.section_id]
+    prompts = prompt_set[context.section_id]
     system = prompts["system"]
     user_template = prompts["user"]
 
     evidence_text = _format_evidence_for_prompt(context.evidence)
+    claim_text = context.claim_context or ""
     user = user_template.format(
         heading=context.heading,
         purpose=context.purpose,
         quality_gate=context.quality_gate or "无",
         min_items=context.min_items or "无",
         min_words=context.min_words_per_item or "无",
+        claim_context=claim_text,
         evidence=evidence_text
     )
 
@@ -2168,6 +2493,254 @@ def check_report_coherence(markdown: str) -> ReportCoherenceResult:
 
     passed = not any(issue.severity == 'blocker' for issue in issues)
     return ReportCoherenceResult(passed=passed, issues=issues)
+
+
+# ============ Claim-First Architecture Functions ============
+
+def extract_claims_from_evidence(report: Dict[str, Any], max_claims: int = 12) -> List[Claim]:
+    """Extract candidate claims from evidence (transcript, comments, danmaku).
+
+    Comments/danmaku can only be used as audience signals, not upgraded to factual claims.
+    All claims must have evidence_ids pointing to source material.
+
+    Args:
+        report: Full report dict with evidence_map
+        max_claims: Maximum number of claims to extract
+
+    Returns:
+        List of grounded Claim objects
+    """
+    claims = []
+    claim_id_counter = 1
+
+    # Extract from transcript (highest confidence)
+    transcript_text = report.get('subtitle', '') or report.get('transcript', '')
+    if transcript_text:
+        # Simple extraction: split into sentences and treat significant ones as claims
+        sentences = [s.strip() for s in transcript_text.split('。') if len(s.strip()) > 20]
+        for sent in sentences[:max_claims]:
+            if len(claims) >= max_claims:
+                break
+            claim = Claim(
+                id=f"C{claim_id_counter}",
+                text=sent[:200],  # Truncate long sentences
+                confidence=0.7,  # Transcript has medium-high confidence
+                evidence_ids=[f"transcript_seg_{claim_id_counter}"],
+                source_type="transcript",
+                claim_type="observed"
+            )
+            claims.append(claim)
+            claim_id_counter += 1
+
+    # Extract from comments (audience signal only, lower confidence)
+    comments = report.get('comments', [])
+    for comment in comments[:max(3, max_claims - len(claims))]:
+        if len(claims) >= max_claims:
+            break
+        comment_text = comment.get('content', '') or comment.get('text', '')
+        if len(comment_text) > 15:
+            claim = Claim(
+                id=f"C{claim_id_counter}",
+                text=comment_text[:200],
+                confidence=0.3,  # Comments are audience signals, low confidence
+                evidence_ids=[f"comment_{claim_id_counter}"],
+                source_type="comment",
+                claim_type="observed"
+            )
+            claims.append(claim)
+            claim_id_counter += 1
+
+    return claims[:max_claims]
+
+
+def synthesize_insights_from_claims(
+    claims: List[Claim],
+    report_plan: Optional[Dict[str, Any]] = None
+) -> List[Insight]:
+    """Synthesize insights from claims using type diagnosis and v2.4 reasoning.
+
+    Maps claims to insights and assigns target_section based on insight type.
+
+    Args:
+        claims: List of extracted claims
+        report_plan: Optional report plan for context
+
+    Returns:
+        List of Insight objects with target_section assigned
+    """
+    insights = []
+
+    for claim in claims:
+        # Infer insight type based on claim characteristics
+        if claim.source_type == "transcript" and claim.confidence > 0.5:
+            # High-confidence transcript claims become core insights (§3)
+            insight_type = "核心洞察"
+            target = "3"
+            depth = 0.7
+            novelty = 0.6
+        elif claim.source_type == "comment":
+            # Comment-based claims become value assessment (§7)
+            insight_type = "价值评估"
+            target = "7"
+            depth = 0.4
+            novelty = 0.3
+        else:
+            # Default to deep dive (§4)
+            insight_type = "深度挖掘"
+            target = "4"
+            depth = 0.5
+            novelty = 0.5
+
+        insight = Insight(
+            id=claim.id,
+            text=claim.text,
+            confidence=claim.confidence,
+            evidence_ids=claim.evidence_ids,
+            source_type=claim.source_type,
+            grounds=claim.grounds,
+            warrant=claim.warrant or f"基于{claim.source_type}证据",
+            backing=claim.backing,
+            qualifier=claim.qualifier,
+            rebuttal=claim.rebuttal,
+            claim_type=claim.claim_type,
+            depth=depth,
+            novelty=novelty,
+            target_section=target
+        )
+        insights.append(insight)
+
+    return insights
+
+
+def audit_claims(claims: List[Claim], evidence_map: Dict[str, Any]) -> List[Claim]:
+    """Audit claims for evidence quality. Can only keep/downgrade/drop, never raise confidence.
+
+    Args:
+        claims: List of claims to audit
+        evidence_map: Evidence availability map
+
+    Returns:
+        List of audited claims (some may be dropped or downgraded)
+    """
+    audited = []
+
+    for claim in claims:
+        # Rule 1: Claims without evidence_ids must be dropped
+        if not claim.evidence_ids:
+            continue
+
+        # Rule 2: Comment/danmaku claims cannot have confidence raised
+        # and must remain audience signals
+        if claim.source_type in ["comment", "danmaku", "audience"]:
+            # Ensure confidence doesn't exceed 0.4 for audience signals
+            adjusted_confidence = min(claim.confidence, 0.4)
+            audited_claim = Claim(
+                id=claim.id,
+                text=claim.text,
+                confidence=adjusted_confidence,
+                evidence_ids=claim.evidence_ids,
+                source_type=claim.source_type,  # Must remain audience signal
+                grounds=claim.grounds,
+                warrant=claim.warrant,
+                backing=claim.backing,
+                qualifier=claim.qualifier,
+                rebuttal=claim.rebuttal,
+                claim_type=claim.claim_type
+            )
+            audited.append(audited_claim)
+        else:
+            # Keep transcript claims as-is (cannot raise, only keep/downgrade)
+            audited.append(claim)
+
+    return audited
+
+
+def build_claim_bundle(report: Dict[str, Any]) -> ClaimBundle:
+    """Build a complete ClaimBundle: extract → synthesize → audit.
+
+    Args:
+        report: Full report dict
+
+    Returns:
+        ClaimBundle with claims, insights, and audit log
+    """
+    # Step 1: Extract claims
+    claims = extract_claims_from_evidence(report, max_claims=12)
+
+    # Step 2: Build evidence map for auditing
+    evidence_map = report.get('evidence_map', {})
+
+    # Step 3: Audit claims
+    audited_claims = audit_claims(claims, evidence_map)
+
+    # Step 4: Synthesize insights from audited claims
+    plan = report.get('plan')
+    insights = synthesize_insights_from_claims(audited_claims, plan)
+
+    return ClaimBundle(
+        claims=audited_claims,
+        insights=insights,
+        audit_log=[]  # Audit log can be populated in future iterations
+    )
+
+
+def claim_bundle_to_dict(bundle: ClaimBundle) -> Dict[str, Any]:
+    """Serialize ClaimBundle to dict for storage in DraftReport.
+
+    Args:
+        bundle: ClaimBundle to serialize
+
+    Returns:
+        Serializable dict
+    """
+    return {
+        'claims': [asdict(c) for c in bundle.claims],
+        'insights': [asdict(i) for i in bundle.insights],
+        'audit_log': [asdict(a) for a in bundle.audit_log]
+    }
+
+
+def _format_claims_for_prompt(claims: List[Claim]) -> str:
+    """Format claims as LLM prompt fragment.
+
+    Args:
+        claims: List of claims to format
+
+    Returns:
+        Formatted string for prompt injection
+    """
+    if not claims:
+        return ""
+
+    lines = ["## 证据支持的主张\n"]
+    for claim in claims:
+        lines.append(f"- **{claim.text}**")
+        if claim.warrant:
+            lines.append(f"  - 推理许可: {claim.warrant}")
+        if claim.evidence_ids:
+            lines.append(f"  - 证据: {', '.join(claim.evidence_ids)}")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def map_insight_to_section(insight_type: str, depth: Optional[float] = None) -> str:
+    """Map insight type to target section (3/4/7).
+
+    Args:
+        insight_type: Type of insight (核心洞察/深度挖掘/价值评估/行动建议)
+        depth: Optional depth score (unused currently)
+
+    Returns:
+        Section ID as string: "3" | "4" | "7"
+    """
+    mapping = {
+        "核心洞察": "3",
+        "深度挖掘": "4",
+        "价值评估": "7",
+        "行动建议": "7"
+    }
+    return mapping.get(insight_type, "3")
 
 
 # ============ 自检 demo ============

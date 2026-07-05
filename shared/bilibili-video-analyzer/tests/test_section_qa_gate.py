@@ -72,7 +72,8 @@ class TestEvaluateDraftSectionQuality:
 
         assert result.section_id == "3"
         assert isinstance(result.overall_passed, bool)
-        assert len(result.dimension_results) == 5
+        # D1-D8: 8 dimensions total (D6-D8 added for claim-first)
+        assert len(result.dimension_results) == 8
         assert isinstance(result.word_count, int)
         assert isinstance(result.evidence_refs_count, int)
         assert isinstance(result.time_anchor_count, int)

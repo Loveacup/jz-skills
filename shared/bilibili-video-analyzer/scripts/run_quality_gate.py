@@ -110,6 +110,8 @@ def run_quality_gate(
     fail_on_fallback_warning: bool = False,
     publishable_gate: bool = False,
     section_qa_gate: bool = False,  # Phase 4: 可选 section QA gate
+    depth_profile: str = "standard",  # Phase 5: depth profile
+    claim_qa_gate: bool = False,  # Phase 5: claim QA gate (D6-D8)
 ) -> Tuple[bool, Dict[str, Any]]:
     """Run the report quality gate and return (passed, summary)."""
     results = _load_results(input_path)
@@ -120,6 +122,8 @@ def run_quality_gate(
             results,
             run_fact_check=run_fact_check,
             provider=provider,
+            depth_profile=depth_profile,
+            claim_qa_gate=claim_qa_gate,
         )
     warning_messages = [str(w.message) for w in caught]
     fallback_warnings = [
@@ -156,12 +160,41 @@ def run_quality_gate(
     section_qa_gate_passed = not section_qa_failed
     failed_due_to_section_qa_gate = bool(section_qa_gate and section_qa_failed)
 
+    # Phase 5: claim QA gate 逻辑 (D6-D8)
+    claim_qa_failed = False
+    claim_qa_gate_passed = True
+    if claim_qa_gate:
+        # 检查 §3/§4/§7 的 D6-D8 dimensions
+        for sid in ("3", "4", "7"):
+            qa = section_qa.get(sid)
+            if not qa:
+                continue
+            for dim in qa.get("dimensions", []):
+                dim_name = dim.get("dimension", "")
+                if dim_name in ("warrant-present", "rebuttal-or-boundary", "actionability"):
+                    if not dim.get("passed"):
+                        claim_qa_failed = True
+                        break
+            if claim_qa_failed:
+                break
+        claim_qa_gate_passed = not claim_qa_failed
+    failed_due_to_claim_qa_gate = bool(claim_qa_gate and claim_qa_failed)
+
+    # Extract claim bundle stats
+    claim_bundle = report.get("claim_bundle") or {}
+    claim_bundle_stats = {
+        "claims_count": len(claim_bundle.get("claims", [])),
+        "insights_count": len(claim_bundle.get("insights", [])),
+        "audit_log_count": len(claim_bundle.get("audit_log", [])),
+    }
+
     passed = bool(
         verify_passed
         and coherence.passed
         and not failed_due_to_fallback_warning
         and not failed_due_to_publishable_gate
         and not failed_due_to_section_qa_gate
+        and not failed_due_to_claim_qa_gate
     )
     summary = {
         "passed": passed,
@@ -184,6 +217,10 @@ def run_quality_gate(
         "section_qa_gate": section_qa_gate,  # Phase 4: section QA gate 开关
         "section_qa_gate_passed": section_qa_gate_passed,  # Phase 4: section QA gate 是否通过
         "failed_due_to_section_qa_gate": failed_due_to_section_qa_gate,  # Phase 4: 是否因 section QA gate 失败
+        "depth_profile": depth_profile,  # Phase 5: depth profile
+        "claim_bundle_stats": claim_bundle_stats,  # Phase 5: claim bundle 统计
+        "claim_qa_gate_passed": claim_qa_gate_passed,  # Phase 5: claim QA gate 是否通过
+        "failed_due_to_claim_qa_gate": failed_due_to_claim_qa_gate,  # Phase 5: 是否因 claim QA gate 失败
         "verify_passed": verify_passed,
         "verify_gates": verify_results,
         "coherence_passed": coherence.passed,
@@ -234,6 +271,17 @@ def main() -> None:
         action="store_true",
         help="Phase 4: Enable section-level content quality gate (P0 blockers fail the report).",
     )
+    parser.add_argument(
+        "--depth-profile",
+        choices=("standard", "v24-full", "claim-first-full"),
+        default="standard",
+        help="Phase 5: Depth profile (standard=default, v24-full=legacy v2.4 depth, claim-first-full=claim-first architecture).",
+    )
+    parser.add_argument(
+        "--claim-qa-gate",
+        action="store_true",
+        help="Phase 5: Enable claim QA gate (D6-D8: warrant/rebuttal/actionability for §3/§4/§7).",
+    )
     parser.add_argument("--json", action="store_true", dest="as_json")
     args = parser.parse_args()
 
@@ -252,6 +300,8 @@ def main() -> None:
             fail_on_fallback_warning=args.fail_on_fallback_warning,
             publishable_gate=args.publishable,
             section_qa_gate=args.section_qa_gate,  # Phase 4
+            depth_profile=args.depth_profile,  # Phase 5
+            claim_qa_gate=args.claim_qa_gate,  # Phase 5
         )
     except Exception as exc:
         print(f"❌ quality gate failed before evaluation: {exc}", file=sys.stderr)

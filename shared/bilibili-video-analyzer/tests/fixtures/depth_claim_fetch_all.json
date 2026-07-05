@@ -1,0 +1,40 @@
+{
+  "bvid": "BVDepthClaim001",
+  "title": "深度分析 Claim-first 架构测试样片",
+  "author": "fixture-depth",
+  "description": "用于验证 Claim/Insight/ClaimBundle 抽取、合成、审计和深度质量闸的确定性回归夹具。",
+  "subtitle": {
+    "method": "fixture-official",
+    "json_path": "tests/fixtures/depth_claim_subtitle.json",
+    "txt_path": "tests/fixtures/depth_claim_subtitle.txt",
+    "language": "zh-Hans",
+    "parts": 1,
+    "total_parts": 1,
+    "failed_parts": []
+  },
+  "comments": {
+    "hot_comments": [
+      {"content": "这个案例的反直觉性很强,值得深挖背后逻辑。", "like": 56, "user": {"name": "观众甲"}},
+      {"content": "希望能补充更多一手资料和专家访谈。", "like": 28, "user": {"name": "观众乙"}},
+      {"content": "感觉结论有点跳跃,中间推理过程需要更细致。", "like": 14, "user": {"name": "观众丙"}}
+    ]
+  },
+  "danmaku": {
+    "data": [
+      {"text": "这个观点很新颖", "time_sec": 15},
+      {"text": "需要更多证据支撑", "time_sec": 42},
+      {"text": "反直觉但有道理", "time_sec": 85},
+      {"text": "显性逻辑和隐性逻辑都要考虑", "time_sec": 120},
+      {"text": "这段的元叙事层次很高", "time_sec": 180}
+    ]
+  },
+  "cross_platform": {
+    "source_url": "https://www.youtube.com/watch?v=depth-claim-fixture",
+    "youtube_comments": {
+      "comments": [
+        {"text": "This analysis needs more warrant for its claims.", "like_count": 22, "author": "yt-user-1"},
+        {"text": "Great insights but missing boundary conditions.", "like_count": 9, "author": "yt-user-2"}
+      ]
+    }
+  }
+}

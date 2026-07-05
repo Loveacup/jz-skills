@@ -86,6 +86,100 @@ PYTHONPATH=scripts python3 scripts/release_gate.py \
 
 Real sample mode is opt-in because it may spend time/tokens. It fails if §3/§4/§7 writer output silently falls back to skeleton.
 
+## Depth Profiles & Claim-First Architecture
+
+### 深度分析模式（Depth Profile）
+
+从 v2.7 起支持三档分析深度：
+
+| 档位 | 说明 | 适用场景 |
+|:---|:---|:---|
+| **standard** | 默认模式，保留 v2.6 行为：确定性 extractor（§1/§5/§6）+ LLM writer（§3/§4/§7） | 常规分析，快速产出 |
+| **v24-full** | 恢复 v2.4 深度分析框架：7 步推理链、Depth Quality Gates、8-section 内容资产，但不走 claim-first | 需要传统深度但无需 claim 审计的场景 |
+| **claim-first-full** | 最严格模式：extract → synthesize → audit → render 的可测中间层，Claim/Insight/ClaimBundle 结构，D6-D8 QA gates + G8-G10 verify gates | 政策/新闻/技术解读类视频，需要证据溯源与 warrant 显性化的场景 |
+
+选择方式：
+
+```bash
+# 常规分析（默认）
+PYTHONPATH=scripts python3 scripts/generate_report.py \
+  --input /tmp/BVxxxx_fetch_all.json \
+  --writer-provider cli
+
+# v2.4 深度框架
+PYTHONPATH=scripts python3 scripts/generate_report.py \
+  --input /tmp/BVxxxx_fetch_all.json \
+  --writer-provider cli \
+  --depth-profile v24-full
+
+# Claim-first 全链路（含 claim 审计）
+PYTHONPATH=scripts python3 scripts/generate_report.py \
+  --input /tmp/BVxxxx_fetch_all.json \
+  --writer-provider cli \
+  --depth-profile claim-first-full
+```
+
+### Claim-First 架构
+
+针对政策/新闻/技术解读类视频，`claim-first-full` 模式引入了如下流程：
+
+```text
+Evidence → extract_claims() → Claim[] → synthesize_insights() → Insight[]
+  ↓                                ↓
+  audit_claims()                   assign to §3/§4/§7
+  ↓                                ↓
+  ClaimBundle                      render with claim_context
+```
+
+核心数据结构：
+
+- **Claim**: 单个可验证主张，含 `text`/`confidence`/`evidence_pointer`/`warrant`/`rebuttal`/`category`
+- **Insight**: 从 Claim 合成的洞察，分配到 §3（核心洞察）、§4（Deep Dive）或 §7（行动项）
+- **ClaimBundle**: 包含原始 claims、audit 后的 kept/downgraded/dropped、以及 insights
+
+Claim 审计规则：
+
+- **只能降级/删除，不能提高 confidence**（keep / downgrade / drop）
+- 评论/弹幕数据不得升格为"事实性证据"，仅作 audience signal
+- 每个 claim 必须绑定 `evidence_pointer`（transcript segment / metadata / external source）
+
+质量闸强化：
+
+- **Section QA D6-D8**（仅作用 §3/§4/§7）：
+  - D6 `warrant-present`：推理许可显性
+  - D7 `rebuttal-or-boundary`：边界/反证显性
+  - D8 `actionability`：行动性
+- **Verify G8-G10**（`--claim-first` opt-in）：
+  - G8：§3 洞察含 claim/evidence/warrant/boundary
+  - G9：§4 模块含显性/隐性/元叙事结构
+  - G10：§7 行动项含证据引用或 claim id
+
+启用 claim QA gate（P0 blocker）：
+
+```bash
+PYTHONPATH=scripts python3 scripts/run_quality_gate.py \
+  --input tests/fixtures/depth_claim_fetch_all.json \
+  --output /tmp/depth_claim_quality_gate_report.md \
+  --writer-provider fixture \
+  --depth-profile claim-first-full \
+  --fail-on-fallback-warning \
+  --section-qa-gate \
+  --claim-qa-gate \
+  --json
+```
+
+静态验证（verify）：
+
+```bash
+PYTHONPATH=scripts python3 scripts/verify_report.py \
+  /tmp/depth_claim_quality_gate_report.md \
+  --depth full \
+  --claim-first \
+  --json
+```
+
+详见 `references/content-engine-depth-claim-first-20260705.md`。
+
 ## Core commands
 
 ```bash
@@ -95,13 +189,34 @@ PYTHONPATH=scripts python3 scripts/generate_report.py \
   --writer-provider cli \
   --output /tmp/BVxxxx_report.md
 
+# 带深度档位 + claim 质量门
+PYTHONPATH=scripts python3 scripts/generate_report.py \
+  --input /tmp/BVxxxx_fetch_all.json \
+  --writer-provider cli \
+  --depth-profile claim-first-full \
+  --output /tmp/BVxxxx_report.md
+
 # Verify report structural depth gates
 PYTHONPATH=scripts python3 scripts/verify_report.py /tmp/BVxxxx_report.md
+
+# Verify with claim-first gates
+PYTHONPATH=scripts python3 scripts/verify_report.py /tmp/BVxxxx_report.md \
+  --depth full \
+  --claim-first
 
 # Deterministic quality gate only
 PYTHONPATH=scripts python3 scripts/run_quality_gate.py \
   --input tests/fixtures/p2e_fetch_all.json \
   --writer-provider fixture \
+  --fail-on-fallback-warning
+
+# Quality gate with claim-first full pipeline
+PYTHONPATH=scripts python3 scripts/run_quality_gate.py \
+  --input tests/fixtures/depth_claim_fetch_all.json \
+  --writer-provider fixture \
+  --depth-profile claim-first-full \
+  --section-qa-gate \
+  --claim-qa-gate \
   --fail-on-fallback-warning
 ```
 

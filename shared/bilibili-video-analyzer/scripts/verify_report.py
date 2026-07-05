@@ -19,8 +19,20 @@ GATES（全量版 full / 默认）:
   G1 ≤100 行; G3 ≥2 洞察 × ≥150 词; G4 ≥2 模块 (不强制每模块上限);
   G5 ≥2 高光; G7 不变。
 
+Claim-First Gates (opt-in with --claim-first):
+  G8  §3 每条洞察含 claim/evidence/warrant/boundary 结构
+  G9  §4 每个模块含显性/隐性/元叙事或等价结构（核心论点/论证展开/批判审视）
+  G10 §7 行动项含证据引用或 claim id ([E#] 或 [C#] 或时间戳)
+
 用法:
   python3 verify_report.py <report.md> [--mode full|condensed] [--json]
+  python3 verify_report.py <report.md> --depth full [--claim-first] [--json]
+
+参数:
+  --mode full|condensed   别名 --depth，控制 G1/G3/G4/G5/G7 阈值
+  --depth full|condensed  同上
+  --claim-first           启用 G8-G10 claim-first 质量门
+  --json                  输出 JSON 格式结果
 
 退出码: 0 全部通过 / 1 有门未通过 / 2 用法错误或文件不存在。
 """
@@ -260,6 +272,77 @@ def measure_g7(lines):
     return (valid, blind, action)
 
 
+def measure_g8(lines):
+    """G8: §3 每个洞察小节必须包含 claim/warrant/证据/边界或反证关键字。
+    返回 (insights_count, insights_with_keywords_count) 或 None。
+    """
+    start, end = find_section(lines, 3)
+    if start is None:
+        return None
+    subs = split_subsections(lines[start:end], heading_filter=_is_insight_heading)
+    if not subs:
+        return (0, 0)
+
+    keywords_pattern = re.compile(r'claim|warrant|主张|证据|推理|许可|边界|反证|局限|但是|然而|不过|例外|\[E\d+\]|\b\d{1,2}:\d{2}\b')
+    insights_with_keywords = 0
+    for _head, body in subs:
+        body_text = '\n'.join(body)
+        if keywords_pattern.search(body_text):
+            insights_with_keywords += 1
+
+    return (len(subs), insights_with_keywords)
+
+
+def measure_g9(lines):
+    """G9: §4 每个模块必须包含显性/隐性/元叙事或等价结构关键字。
+    返回 (modules_count, modules_with_keywords_count) 或 None。
+    """
+    start, end = find_section(lines, 4)
+    if start is None:
+        return None
+    subs = split_subsections(lines[start:end], heading_filter=_is_module_heading)
+    if not subs:
+        return (0, 0)
+
+    keywords_pattern = re.compile(r'显性|隐性|元叙事|表层|深层|底层|系统|结构|机制|动力|explicit|implicit|meta|narrative|surface|underlying')
+    modules_with_keywords = 0
+    for _head, body in subs:
+        body_text = '\n'.join(body)
+        if keywords_pattern.search(body_text):
+            modules_with_keywords += 1
+
+    return (len(subs), modules_with_keywords)
+
+
+def measure_g10(lines):
+    """G10: §7 行动项必须包含证据引用或 claim ID。
+    返回 (action_items_count, action_items_with_refs_count) 或 None。
+    """
+    start, end = find_section(lines, 7)
+    if start is None:
+        return None
+    section = lines[start:end]
+    subs = split_subsections(section)
+
+    bullet_re = re.compile(r'^\s*-\s+')
+    ordered_re = re.compile(r'^\s*\d+\.\s')
+    checkbox_re = re.compile(r'^\s*-\s*\[[ xX]?\]')
+    ref_pattern = re.compile(r'\[E\d+\]|\[C\d+\]|\b\d{1,2}:\d{2}\b')
+
+    action_items = []
+    for head, body in subs:
+        if '可行动' in head or '行动项' in head:
+            for ln in body:
+                if bullet_re.match(ln) or ordered_re.match(ln) or checkbox_re.match(ln):
+                    action_items.append(ln)
+
+    if not action_items:
+        return (0, 0)
+
+    items_with_refs = sum(1 for item in action_items if ref_pattern.search(item))
+    return (len(action_items), items_with_refs)
+
+
 # ---------------------------------------------------------------------------
 # Gate 评估 / Gate evaluation
 # ---------------------------------------------------------------------------
@@ -284,7 +367,7 @@ def build_gates(mode):
     }
 
 
-def evaluate(md, mode):
+def evaluate(md, mode, claim_first=False):
     """运行所有门，返回 (results_dict, overall_pass)。"""
     lines = split_into_lines(md)
     cfg = build_gates(mode)
@@ -368,6 +451,56 @@ def evaluate(md, mode):
             'threshold': f'≥ {cfg["valid"]} 价值 & ≥ {cfg["blind"]} 局限 & ≥ {cfg["action"]} 行动',
         }
 
+    # ---- G8/G9/G10 (claim-first only) ----
+    if claim_first:
+        # G8: §3 insights have claim/warrant/evidence/boundary
+        g8 = measure_g8(lines)
+        if g8 is None:
+            results['G8'] = {
+                'pass': False, 'measured': '§3 缺失 (section missing)',
+                'threshold': '所有洞察含 claim/warrant/证据/边界关键词',
+            }
+        else:
+            cnt, with_kw = g8
+            ok = cnt > 0 and with_kw == cnt
+            results['G8'] = {
+                'pass': ok,
+                'measured': f'§3: {with_kw}/{cnt} insights have claim-first keywords',
+                'threshold': '所有洞察含 claim/warrant/证据/边界关键词',
+            }
+
+        # G9: §4 modules have explicit/implicit/meta-narrative structure
+        g9 = measure_g9(lines)
+        if g9 is None:
+            results['G9'] = {
+                'pass': False, 'measured': '§4 缺失 (section missing)',
+                'threshold': '所有模块含显性/隐性/元叙事结构关键词',
+            }
+        else:
+            cnt, with_kw = g9
+            ok = cnt > 0 and with_kw == cnt
+            results['G9'] = {
+                'pass': ok,
+                'measured': f'§4: {with_kw}/{cnt} modules have narrative structure keywords',
+                'threshold': '所有模块含显性/隐性/元叙事结构关键词',
+            }
+
+        # G10: §7 action items have evidence refs or claim IDs
+        g10 = measure_g10(lines)
+        if g10 is None:
+            results['G10'] = {
+                'pass': False, 'measured': '§7 缺失 (section missing)',
+                'threshold': '所有行动项含证据引用或 claim ID',
+            }
+        else:
+            cnt, with_refs = g10
+            ok = cnt > 0 and with_refs == cnt
+            results['G10'] = {
+                'pass': ok,
+                'measured': f'§7: {with_refs}/{cnt} action items have evidence refs',
+                'threshold': '所有行动项含证据引用或 claim ID',
+            }
+
     overall = all(r['pass'] for r in results.values())
     return results, overall
 
@@ -388,13 +521,23 @@ GATE_NAMES = {
     'G4': '内容深度拆解 (Deep Dive)',
     'G5': '高光时刻 (Highlights)',
     'G7': '批判与行动 (Critical Review & Action)',
+    'G8': 'Claim-First 洞察结构 (Insight Structure)',
+    'G9': 'Claim-First 叙事层次 (Narrative Layers)',
+    'G10': 'Claim-First 行动证据 (Action Evidence)',
 }
 
 
 def print_report(results, overall, mode):
-    print(f"📋 深度质量门校验 (mode={mode})")
+    claim_first_enabled = 'G8' in results
+    mode_label = f"mode={mode}, claim-first={'on' if claim_first_enabled else 'off'}"
+    print(f"📋 深度质量门校验 ({mode_label})")
     print("=" * 70)
-    for gid in ['G1', 'G3', 'G4', 'G5', 'G7']:
+    gate_ids = ['G1', 'G3', 'G4', 'G5', 'G7']
+    if claim_first_enabled:
+        gate_ids.extend(['G8', 'G9', 'G10'])
+    for gid in gate_ids:
+        if gid not in results:
+            continue
         r = results[gid]
         mark = '✅' if r['pass'] else '❌'
         status = 'PASS' if r['pass'] else 'FAIL'
@@ -406,11 +549,12 @@ def print_report(results, overall, mode):
     if overall:
         print("✅ OVERALL: PASS — 所有质量门通过")
     else:
-        failed = [g for g in ['G1', 'G3', 'G4', 'G5', 'G7'] if not results[g]['pass']]
+        failed = [g for g in gate_ids if g in results and not results[g]['pass']]
         print(f"❌ OVERALL: FAIL — 未通过: {', '.join(failed)}")
 
 
-def print_json(results, overall):
+def print_json(results, overall, claim_first=False):
+    claim_first_gates = {k: results[k] for k in ['G8', 'G9', 'G10'] if k in results}
     obj = {
         'gates': {
             gid: {
@@ -420,6 +564,10 @@ def print_json(results, overall):
             } for gid, r in results.items()
         },
         'overall_pass': overall,
+        'claim_first_enabled': claim_first,
+        'g8_passed': claim_first_gates.get('G8', {}).get('pass', None) if claim_first else None,
+        'g9_passed': claim_first_gates.get('G9', {}).get('pass', None) if claim_first else None,
+        'g10_passed': claim_first_gates.get('G10', {}).get('pass', None) if claim_first else None,
     }
     print("RESULT_JSON_START")
     print(json.dumps(obj, ensure_ascii=False, indent=2))
@@ -437,10 +585,17 @@ def main():
     parser.add_argument('report', help='报告 Markdown 文件路径')
     parser.add_argument('--mode', choices=['full', 'condensed'], default='full',
                         help='全量版 full(默认) 或精简版 condensed')
+    parser.add_argument('--depth', choices=['full', 'condensed'], dest='depth',
+                        help='深度模式（--mode 的别名）：full(默认) 或 condensed')
+    parser.add_argument('--claim-first', action='store_true', dest='claim_first',
+                        help='启用 claim-first 质量门 (G8/G9/G10)')
     parser.add_argument('--json', action='store_true', dest='as_json',
                         help='额外输出 RESULT_JSON 机器可读块')
     # argparse 在参数错误时退出码为 2，符合"用法错误"要求
     args = parser.parse_args()
+
+    # --depth is an alias for --mode; --depth takes precedence if both are provided
+    mode = args.depth if args.depth else args.mode
 
     try:
         with open(args.report, 'r', encoding='utf-8') as f:
@@ -452,11 +607,11 @@ def main():
         print(f"❌ 错误：无法读取文件 — {e}", file=sys.stderr)
         sys.exit(2)
 
-    results, overall = evaluate(md, args.mode)
-    print_report(results, overall, args.mode)
+    results, overall = evaluate(md, mode, claim_first=args.claim_first)
+    print_report(results, overall, mode)
     if args.as_json:
         print()
-        print_json(results, overall)
+        print_json(results, overall, claim_first=args.claim_first)
 
     sys.exit(0 if overall else 1)
 

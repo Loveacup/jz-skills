@@ -368,10 +368,11 @@ def _serialize_section_qa(qa_results):
     return section_qa
 
 
-def report_markdown(results, run_fact_check=True, provider=None):
+def report_markdown(results, run_fact_check=True, provider=None, depth_profile="standard", claim_qa_gate=False):
     """results → (markdown 文本, report dict)。供 fetch_all --report 直接复用。
 
     Phase 3: 填充 report["section_qa"] 元数据（机器可读 JSON），不改变 Markdown 输出语义。
+    Phase 5: 支持 depth_profile 和 claim_qa_gate 参数，并注入 claim bundle。
     """
     from video_analysis_engine import assemble_draft_report_slice
 
@@ -379,15 +380,25 @@ def report_markdown(results, run_fact_check=True, provider=None):
     report = analyze_video(inp)
     shared_provider = _CachingWriterProvider(provider) if provider else None
 
+    # Phase 5: 注入 depth_profile 到 report（供后续可能的 prompt 使用）
+    report["depth_profile"] = depth_profile
+
     # Phase 3: 调用 assemble_draft_report_slice() 仅填充 QA 元数据，不改变渲染输出。
     # When provider is real, shared_provider prevents QA + debug rendering from
     # calling the same LLM prompt twice.
+    # Phase 5: 传入 claim_qa_gate 和 depth_profile 参数
     draft_with_qa = assemble_draft_report_slice(
         report,
         section_ids=("1", "3", "4", "5", "6", "7"),
         provider=shared_provider,
+        claim_qa_gate=claim_qa_gate,
+        depth_profile=depth_profile,
     )
     report["section_qa"] = _serialize_section_qa(draft_with_qa.qa_results)
+
+    # Phase 5: claim_bundle 已经在 assemble_draft_report_slice 中构建并注入到 report
+    # 这里确保 report 包含 claim_bundle（用于 summary 输出）
+    report["claim_bundle"] = draft_with_qa.claim_bundle
 
     # 保持旧的 Markdown 渲染路径不变（debug/legacy path）
     draft = build_draft_report(report)
@@ -492,6 +503,12 @@ def main():
                         help='不现场提取 claim（仍会读已落盘的 fact_checks.json）')
     parser.add_argument('--writer-provider', choices=('none', 'cli', 'deepseek'), default='none',
                         help='LLM writer provider：none=旧骨架/确定性输出；cli=沿用 BILI_WRITER_CLI/OMP；deepseek=直接 DeepSeek API')
+    parser.add_argument(
+        '--depth-profile',
+        choices=('standard', 'v24-full', 'claim-first-full'),
+        default='standard',
+        help='Phase 5: Depth profile (standard=default, v24-full=legacy v2.4 depth, claim-first-full=claim-first architecture).',
+    )
     args = parser.parse_args()
 
     try:
@@ -512,6 +529,7 @@ def main():
         results,
         run_fact_check=not args.no_fact_check,
         provider=provider,
+        depth_profile=args.depth_profile,
     )
 
     out_path = args.output or f'/tmp/{bvid}_report.md'
@@ -546,6 +564,8 @@ def main():
           f"搬运: {'是' if fm.get('is_cross_platform') else '否'}")
 
     # RESULT_JSON：精简版（不灌全文 Markdown，避免 stdout 过大）
+    # Phase 5: 包含 depth_profile 和 claim_bundle 统计
+    claim_bundle = report.get('claim_bundle', {})
     out = {
         'status': 'ok',
         'video_id': fm.get('video_id', bvid),
@@ -554,6 +574,11 @@ def main():
         'markdown_chars': len(markdown),
         'frontmatter': fm,
         'sections': list(report.get('sections', {}).keys()),
+        'depth_profile': report.get('depth_profile', 'standard'),
+        'claim_bundle_stats': {
+            'claims_count': len(claim_bundle.get('claims', [])),
+            'insights_count': len(claim_bundle.get('insights', [])),
+        },
     }
     print('\n' + '=' * 60)
     print('RESULT_JSON_START')

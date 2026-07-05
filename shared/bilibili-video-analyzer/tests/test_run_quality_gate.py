@@ -181,9 +181,9 @@ def test_section_qa_gate_disabled_keeps_existing_behavior(tmp_path, monkeypatch)
     original_assemble = video_analysis_engine.assemble_draft_report_slice
 
     # 伪造一个 section_qa 包含 blocker
-    def fake_assemble_with_blocker(report, section_ids=("1", "5"), provider=None):
+    def fake_assemble_with_blocker(report, section_ids=("1", "5"), provider=None, claim_qa_gate=False, depth_profile="standard"):
         # 调用真实函数获取报告
-        draft = original_assemble(report, section_ids, provider)
+        draft = original_assemble(report, section_ids, provider, claim_qa_gate, depth_profile)
         # 注入一个假的 blocker 到 §3
         if draft.qa_results.get("3"):
             draft.qa_results["3"].blockers.append("FAKE_BLOCKER_FOR_TEST")
@@ -223,8 +223,8 @@ def test_section_qa_gate_enabled_fails_on_p0_blockers(tmp_path, monkeypatch):
     original_assemble = video_analysis_engine.assemble_draft_report_slice
 
     # 伪造一个包含 blocker 的 section_qa
-    def fake_assemble_with_blocker(report, section_ids=("1", "5"), provider=None):
-        draft = original_assemble(report, section_ids, provider)
+    def fake_assemble_with_blocker(report, section_ids=("1", "5"), provider=None, claim_qa_gate=False, depth_profile="standard"):
+        draft = original_assemble(report, section_ids, provider, claim_qa_gate, depth_profile)
         # 注入 blocker 到 §3
         if draft.qa_results.get("3"):
             draft.qa_results["3"].blockers.append("D5 no-skeleton: 骨架占位: ['_骨架占位']")
