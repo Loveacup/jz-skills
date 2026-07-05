@@ -109,6 +109,7 @@ def run_quality_gate(
     run_fact_check: bool = False,
     fail_on_fallback_warning: bool = False,
     publishable_gate: bool = False,
+    section_qa_gate: bool = False,  # Phase 4: 可选 section QA gate
 ) -> Tuple[bool, Dict[str, Any]]:
     """Run the report quality gate and return (passed, summary)."""
     results = _load_results(input_path)
@@ -142,11 +143,25 @@ def run_quality_gate(
         ]
     failed_due_to_fallback_warning = bool(fail_on_fallback_warning and fallback_warnings)
     failed_due_to_publishable_gate = bool(publishable_gate and not publishable_passed)
+
+    # Phase 4: section QA gate 逻辑
+    section_qa = report.get("section_qa", {})
+    section_qa_failed = False
+    if section_qa_gate:
+        # 检查所有 section QA 是否有 P0 blockers
+        for sid, qa in section_qa.items():
+            if qa.get("blockers"):
+                section_qa_failed = True
+                break
+    section_qa_gate_passed = not section_qa_failed
+    failed_due_to_section_qa_gate = bool(section_qa_gate and section_qa_failed)
+
     passed = bool(
         verify_passed
         and coherence.passed
         and not failed_due_to_fallback_warning
         and not failed_due_to_publishable_gate
+        and not failed_due_to_section_qa_gate
     )
     summary = {
         "passed": passed,
@@ -166,6 +181,9 @@ def run_quality_gate(
         "publishable_failed_codes": publishable_failed_codes,
         "publishable_gates": publishable_results,
         "failed_due_to_publishable_gate": failed_due_to_publishable_gate,
+        "section_qa_gate": section_qa_gate,  # Phase 4: section QA gate 开关
+        "section_qa_gate_passed": section_qa_gate_passed,  # Phase 4: section QA gate 是否通过
+        "failed_due_to_section_qa_gate": failed_due_to_section_qa_gate,  # Phase 4: 是否因 section QA gate 失败
         "verify_passed": verify_passed,
         "verify_gates": verify_results,
         "coherence_passed": coherence.passed,
@@ -178,6 +196,7 @@ def run_quality_gate(
             }
             for issue in coherence.issues
         ],
+        "section_qa": section_qa,  # Phase 3: QA 元数据暴露
     }
     return passed, summary
 
@@ -210,6 +229,11 @@ def main() -> None:
         action="store_true",
         help="Run the stricter publishable Obsidian note gate. This is opt-in; default gate is engineering-only.",
     )
+    parser.add_argument(
+        "--section-qa-gate",
+        action="store_true",
+        help="Phase 4: Enable section-level content quality gate (P0 blockers fail the report).",
+    )
     parser.add_argument("--json", action="store_true", dest="as_json")
     args = parser.parse_args()
 
@@ -227,6 +251,7 @@ def main() -> None:
             run_fact_check=args.run_fact_check,
             fail_on_fallback_warning=args.fail_on_fallback_warning,
             publishable_gate=args.publishable,
+            section_qa_gate=args.section_qa_gate,  # Phase 4
         )
     except Exception as exc:
         print(f"❌ quality gate failed before evaluation: {exc}", file=sys.stderr)

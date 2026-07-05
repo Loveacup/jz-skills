@@ -323,12 +323,75 @@ def resolve_writer_provider(args):
     raise ValueError(f'未知 writer provider: {name}')
 
 
+class _CachingWriterProvider:
+    """Cache writer-provider responses across QA assembly and debug rendering.
+
+    Phase 3 calls the writer path once to produce section QA metadata and once
+    through the legacy debug renderer. For real providers (`cli` / `deepseek`),
+    those prompts are identical, so caching prevents double token spend while
+    preserving the existing Markdown rendering path.
+    """
+
+    def __init__(self, provider):
+        self.provider = provider
+        self.cache = {}
+
+    def __call__(self, system, user):
+        key = (system, user)
+        if key not in self.cache:
+            self.cache[key] = self.provider(system, user)
+        return self.cache[key]
+
+
+def _serialize_section_qa(qa_results):
+    """Convert SectionQualityResult dataclasses to JSON-able dicts."""
+    section_qa = {}
+    for sid, qa_result in qa_results.items():
+        section_qa[sid] = {
+            "overall_passed": qa_result.overall_passed,
+            "blockers": qa_result.blockers,
+            "critical_issues": qa_result.critical_issues,
+            "improvements": qa_result.improvements,
+            "word_count": qa_result.word_count,
+            "evidence_refs_count": qa_result.evidence_refs_count,
+            "time_anchor_count": qa_result.time_anchor_count,
+            "dimensions": [
+                {
+                    "dimension": dim.dimension,
+                    "passed": dim.passed,
+                    "score": dim.score,
+                    "issues": dim.issues,
+                }
+                for dim in qa_result.dimension_results
+            ],
+        }
+    return section_qa
+
+
 def report_markdown(results, run_fact_check=True, provider=None):
-    """results → (markdown 文本, report dict)。供 fetch_all --report 直接复用。"""
+    """results → (markdown 文本, report dict)。供 fetch_all --report 直接复用。
+
+    Phase 3: 填充 report["section_qa"] 元数据（机器可读 JSON），不改变 Markdown 输出语义。
+    """
+    from video_analysis_engine import assemble_draft_report_slice
+
     inp = build_analysis_input(results, run_fact_check=run_fact_check)
     report = analyze_video(inp)
+    shared_provider = _CachingWriterProvider(provider) if provider else None
+
+    # Phase 3: 调用 assemble_draft_report_slice() 仅填充 QA 元数据，不改变渲染输出。
+    # When provider is real, shared_provider prevents QA + debug rendering from
+    # calling the same LLM prompt twice.
+    draft_with_qa = assemble_draft_report_slice(
+        report,
+        section_ids=("1", "3", "4", "5", "6", "7"),
+        provider=shared_provider,
+    )
+    report["section_qa"] = _serialize_section_qa(draft_with_qa.qa_results)
+
+    # 保持旧的 Markdown 渲染路径不变（debug/legacy path）
     draft = build_draft_report(report)
-    return render_debug_markdown(draft, provider=provider), report
+    return render_debug_markdown(draft, provider=shared_provider), report
 
 
 # ============ 输入加载 ============

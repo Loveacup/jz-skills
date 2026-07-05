@@ -12,9 +12,12 @@ Current quality layers:
 EvidenceBundle → DraftSection writer → Section QA gate → DraftReport preview → PublishableReport
 ```
 
-Next immediate milestone: `evaluate_draft_section_quality()`. Phase 1 delivered — see `references/content-engine-section-qa-gate-phase1-20260703.md`.
+Delivered milestones:
 
-Next phase: wire QA gate into `assemble_draft_report_slice` to auto-attach quality results to `DraftReport.qa_results`.
+- Phase 1: `evaluate_draft_section_quality()` — see `references/content-engine-section-qa-gate-phase1-20260703.md`.
+- Phase 2: `assemble_draft_report_slice()` now auto-attaches `DraftReport.qa_results`; P0 skeleton blockers are kept out of `draft_sections`, while P1/P2 issues stay inspectable with warnings — see `references/content-engine-section-qa-gate-phase2-20260704.md`.
+- Phase 3: `report_markdown()` and `run_quality_gate.py --json` now expose JSON-able `section_qa` metadata without rendering it into Markdown or changing pass/fail logic; provider responses are cached to avoid double LLM calls — see `references/content-engine-section-qa-gate-phase3-20260704.md`.
+- Phase 4: §1 and §5 have dimension exemptions (not-mechanical + insight-density) so structural table/blockquote sections don't false-flag; `--section-qa-gate` flag enables opt-in P0 blocker gating — see `references/content-engine-section-qa-gate-phase4-20260705.md`.
 
 
 ## Quick release check

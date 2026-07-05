@@ -137,3 +137,63 @@ def test_assemble_draft_report_slice_only_writes_1_and_5():
     assert set(draft.draft_sections) == {"1", "5"}
     assert "| 时间 | 阶段 | 逻辑动作 | 证据摘要 | 链接 |" in draft.draft_sections["1"]
     assert "### 高光时刻" in draft.draft_sections["5"]
+
+
+def test_draft_report_qa_gate_non_skeleton_failing_section_inserted_with_warning(monkeypatch):
+    """Phase 2: QA-failing but non-skeleton section 1 is inserted with warning."""
+    failing_body = "| 时间 | 阶段 | 逻辑动作 | 证据摘要 | 链接 |\n|---|---|---|---|---|\n| 0:00 | 开场 | 提出问题 | 虚拟偶像为什么需要治理 | [链接](https://example.com) |"
+
+    def mock_write_logic_chain(ctx):
+        return failing_body
+
+    monkeypatch.setattr("video_analysis_engine.write_logic_chain_section", mock_write_logic_chain)
+
+    inp = AnalysisInput(
+        video_id="BVqa1",
+        title="QA gate test 1",
+        duration=360,
+        platform="bilibili",
+        transcript=Transcript(
+            segments=[TranscriptSegment(0.0, "开场提出问题", end=20.0)],
+            language="zh",
+            source="test",
+        ),
+    )
+    report = analyze_video(inp)
+    draft = assemble_draft_report_slice(report, section_ids=("1",))
+
+    assert "1" in draft.draft_sections
+    assert draft.draft_sections["1"] == failing_body
+    assert "1" in draft.qa_results
+    assert not draft.qa_results["1"].overall_passed
+    assert any("§1" in w and "QA" in w for w in draft.warnings)
+
+
+def test_draft_report_qa_gate_skeleton_section_blocked_from_insertion(monkeypatch):
+    """Phase 2: skeleton section 5 is blocked from insertion with blocker warning."""
+    skeleton_body = "### 高光时刻 Draft Placeholder\n\n_骨架占位：高光时刻 待 writer 基于证据填充。_"
+
+    def mock_write_highlights(ctx):
+        return skeleton_body
+
+    monkeypatch.setattr("video_analysis_engine.write_highlights_section", mock_write_highlights)
+
+    inp = AnalysisInput(
+        video_id="BVqa5",
+        title="QA gate test 5",
+        duration=360,
+        platform="bilibili",
+        transcript=Transcript(
+            segments=[TranscriptSegment(0.0, "测试内容", end=20.0)],
+            language="zh",
+            source="test",
+        ),
+    )
+    report = analyze_video(inp)
+    draft = assemble_draft_report_slice(report, section_ids=("5",))
+
+    assert "5" not in draft.draft_sections
+    assert "5" in draft.qa_results
+    assert draft.qa_results["5"].blockers
+    assert "D5" in draft.qa_results["5"].blockers[0] or "no-skeleton" in draft.qa_results["5"].blockers[0]
+    assert any("§5" in w and "QA" in w and "blocked" in w for w in draft.warnings)

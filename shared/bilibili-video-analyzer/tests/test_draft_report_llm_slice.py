@@ -95,14 +95,40 @@ def test_assemble_draft_report_slice_bad_provider_degrades_to_placeholder_and_wa
 
     draft = assemble_draft_report_slice(_report_for_llm_slice(), section_ids=("3", "4", "7"), provider=provider)
 
-    assert set(draft.draft_sections) == {"3", "4", "7"}
-    assert all("_骨架占位" in draft.draft_sections[sid] for sid in ("3", "4", "7"))
+    assert draft.draft_sections == {}
+    assert set(draft.qa_results) == {"3", "4", "7"}
+    assert all(draft.qa_results[sid].blockers for sid in ("3", "4", "7"))
     assert any("§3 LLM writer validation failed" in warning for warning in draft.warnings)
     assert any("§4 LLM writer validation failed" in warning for warning in draft.warnings)
     assert any("§7 LLM writer validation failed" in warning for warning in draft.warnings)
+    assert any("§3" in warning and "QA" in warning and "blocked" in warning for warning in draft.warnings)
+    assert any("§4" in warning and "QA" in warning and "blocked" in warning for warning in draft.warnings)
+    assert any("§7" in warning and "QA" in warning and "blocked" in warning for warning in draft.warnings)
 
 
 def test_assemble_draft_report_slice_without_provider_does_not_write_llm_sections():
     draft = assemble_draft_report_slice(_report_for_llm_slice(), section_ids=("3", "4", "7"), provider=None)
 
     assert draft.draft_sections == {}
+
+
+def test_draft_report_llm_section_qa_failing_but_non_skeleton_inserted_with_warning(monkeypatch):
+    """Phase 2: LLM section 3 with QA-failing but non-skeleton content is inserted with warning."""
+    qa_failing_body = """### 💡 洞察 1：短内容 [E1]
+短
+"""
+
+    from video_analysis_engine import WriterResult
+
+    def mock_write_llm_section(ctx, provider, retries):
+        return WriterResult(section_id='3', content=qa_failing_body, validation_passed=True, validation_errors=[])
+
+    monkeypatch.setattr("video_analysis_engine.write_llm_section", mock_write_llm_section)
+
+    draft = assemble_draft_report_slice(_report_for_llm_slice(), section_ids=("3",), provider=_Provider([]))
+
+    assert "3" in draft.draft_sections
+    assert draft.draft_sections["3"] == qa_failing_body
+    assert "3" in draft.qa_results
+    assert not draft.qa_results["3"].overall_passed
+    assert any("§3" in w and "QA" in w for w in draft.warnings)

@@ -85,3 +85,59 @@ class TestEvaluateDraftSectionQuality:
         # blockers are P0; critical_issues P1; improvements P2
         for blocker in result.blockers:
             assert blocker not in result.critical_issues and blocker not in result.improvements
+
+
+# ========== Phase 4: Section exemptions ==========
+class TestSectionExemptions:
+
+    def test_section_1_table_exempts_not_mechanical_and_insight_density(self):
+        # §1 是结构章节，大量表格是正常的，免除 not-mechanical 和 insight-density
+        body = (
+            "| 维度 | 值 |\n| --- | --- |\n"
+            "| 时长 | 12:34 |\n"
+            "| UP主 | 测试用户 |\n"
+            "| 发布时间 | 2025-01-01 |\n"
+            "| 简介 | 测试简介 [E1] |\n"
+            "\n这段简介说明了主题。\n"
+            "表格内容已包含时间锚点和证据引用。"
+        )
+        result = evaluate_draft_section_quality("1", body)
+
+        dims = {d.dimension: d for d in result.dimension_results}
+        assert dims["not-mechanical"].passed is True, "§1 not-mechanical should be exempted"
+        assert dims["insight-density"].passed is True, "§1 insight-density should be exempted"
+        assert result.overall_passed is True
+        assert result.blockers == []
+
+    def test_section_5_blockquotes_exempt_not_mechanical_and_insight_density(self):
+        # §5 是引文章节，大量 blockquote 是正常的，免除 not-mechanical 和 insight-density
+        body = (
+            "> 这是第一句引用 [E1]\n"
+            "> 这是第二句引用 [E2]\n"
+            "> 这是第三句引用，时间点在 03:45\n"
+            "> 这是第四句引用内容\n"
+            "\n这段话总结引用的核心论点。\n"
+            "引文体现了视频的关键观点。"
+        )
+        result = evaluate_draft_section_quality("5", body)
+
+        dims = {d.dimension: d for d in result.dimension_results}
+        assert dims["not-mechanical"].passed is True, "§5 not-mechanical should be exempted"
+        assert dims["insight-density"].passed is True, "§5 insight-density should be exempted"
+        assert result.overall_passed is True
+        assert result.blockers == []
+
+    def test_section_3_not_exempted(self):
+        # §3 不在豁免列表中，表格占比过高会失败
+        body = (
+            "| 时间 | 内容 |\n| --- | --- |\n"
+            "| 00:10 | 开始 |\n"
+            "| 01:20 | 中间 |\n"
+            "| 02:30 | 结束 |\n"
+            "| 03:40 | 总结 |\n"
+        )
+        result = evaluate_draft_section_quality("3", body)
+
+        dims = {d.dimension: d for d in result.dimension_results}
+        # §3 没有豁免，表格占比 100% 应该失败
+        assert dims["not-mechanical"].passed is False, "§3 should NOT be exempted from not-mechanical"

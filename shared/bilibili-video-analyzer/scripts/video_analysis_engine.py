@@ -141,6 +141,7 @@ class DraftReport:
     debug_render_allowed: bool = True
     warnings: List[str] = field(default_factory=list)
     draft_sections: Dict[str, str] = field(default_factory=dict)
+    qa_results: Dict[str, SectionQualityResult] = field(default_factory=dict)
 
 
 @dataclass
@@ -180,6 +181,15 @@ class SectionQualityResult:
     word_count: int
     evidence_refs_count: int
     time_anchor_count: int
+
+
+# Phase 4: 分段豁免配置
+# §1 基本信息：结构化表格为主，免除 not-mechanical 和 insight-density
+# §5 高光引文：大量 blockquote 为主，免除 not-mechanical 和 insight-density
+SECTION_DIMENSION_EXEMPTIONS: Dict[str, List[str]] = {
+    "1": ["not-mechanical", "insight-density"],
+    "5": ["not-mechanical", "insight-density"],
+}
 
 
 def evaluate_draft_section_quality(
@@ -226,6 +236,23 @@ def evaluate_draft_section_quality(
         DimensionResult('insight-density', d4_passed, 1.0 if d4_passed else 0.0, [] if d4_passed else ['缺少因果/分析关键词且纯文本段落不足2段']),
         DimensionResult('no-skeleton', d5_passed, 1.0 if d5_passed else 0.0, [] if d5_passed else [f'骨架占位: {skeleton_hits}'] if skeleton_hits else ['章节正文为空']),
     ]
+
+    # ----- Phase 4: 应用分段豁免 -----
+    exemptions = SECTION_DIMENSION_EXEMPTIONS.get(section_id, [])
+    if exemptions:
+        new_dims = []
+        for d in dims:
+            if d.dimension in exemptions and not d.passed:
+                # 豁免：强制通过，score=1.0，在 issues 中注明
+                new_dims.append(DimensionResult(
+                    dimension=d.dimension,
+                    passed=True,
+                    score=1.0,
+                    issues=[f"exempted: structural section §{section_id}"]
+                ))
+            else:
+                new_dims.append(d)
+        dims = new_dims
 
     blockers: List[str] = []
     critical_issues: List[str] = []
@@ -1301,6 +1328,10 @@ def assemble_draft_report_slice(
     sections (§3/§4/§7) are written only when a provider is explicitly supplied.
     This function returns a non-publishable DraftReport and does not alter the
     legacy render_markdown/render_debug_markdown paths.
+
+    Phase 2: Every generated section is evaluated via QA gate. Sections with
+    P0 blockers are excluded from draft_sections. Sections with P1/P2 issues
+    but no blockers are inserted with warnings.
     """
     draft = build_draft_report(report)
     evidence_map = (report.get('evidence_map') or {}).get('by_section') or {}
@@ -1310,13 +1341,15 @@ def assemble_draft_report_slice(
 
     for sid in section_ids:
         cands = evidence_map.get(sid, []) or []
+        body = None
+
         if sid == '1':
-            draft.draft_sections['1'] = write_logic_chain_section({'evidence': cands})
+            body = write_logic_chain_section({'evidence': cands})
         elif sid == '5':
             # Use the top-level G5 contract (target 5 highlights, hard cap)
-            draft.draft_sections['5'] = write_highlights_section({'evidence': cands, 'quality_gate': 'G5'})
+            body = write_highlights_section({'evidence': cands, 'quality_gate': 'G5'})
         elif sid == '6':
-            draft.draft_sections['6'] = write_knowledge_graph_section({'evidence': cands})
+            body = write_knowledge_graph_section({'evidence': cands})
         elif sid in ('3', '4', '7') and provider and typed_contexts:
             ctx = typed_contexts.get(sid)
             if not ctx:
@@ -1325,15 +1358,33 @@ def assemble_draft_report_slice(
                 result = write_llm_section(ctx, provider, retries=0)
             except Exception as e:
                 draft.warnings.append(f'§{sid} LLM writer failed: {e}')
-                draft.draft_sections[sid] = _draft_placeholder_for_section(ctx)
-                continue
-            if result.validation_passed:
-                draft.draft_sections[sid] = result.content
+                body = _draft_placeholder_for_section(ctx)
             else:
-                draft.warnings.append(
-                    f'§{sid} LLM writer validation failed: {result.validation_errors}'
-                )
-                draft.draft_sections[sid] = _draft_placeholder_for_section(ctx)
+                if result.validation_passed:
+                    body = result.content
+                else:
+                    draft.warnings.append(
+                        f'§{sid} LLM writer validation failed: {result.validation_errors}'
+                    )
+                    body = _draft_placeholder_for_section(ctx)
+
+        # Phase 2: QA gate evaluation and insertion logic
+        if body is not None:
+            qa_result = evaluate_draft_section_quality(sid, body)
+            draft.qa_results[sid] = qa_result
+
+            if qa_result.blockers:
+                # P0 blockers: do NOT insert section
+                blocker_text = '; '.join(qa_result.blockers)
+                draft.warnings.append(f'§{sid} QA blocked: {blocker_text}')
+            elif qa_result.critical_issues or qa_result.improvements:
+                # P1/P2 issues but no blockers: insert with warning
+                draft.draft_sections[sid] = body
+                draft.warnings.append(f'§{sid} QA passed with issues')
+            else:
+                # No issues: insert normally
+                draft.draft_sections[sid] = body
+
     return draft
 
 
