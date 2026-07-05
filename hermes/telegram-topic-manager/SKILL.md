@@ -2,7 +2,7 @@
 name: telegram-topic-manager
 description: "Manages Telegram forum topics — create, edit, close, reopen, delete, hide/unhide, unpin, and query via Bot API. Also covers Hermes Agent's native topic features: /topic multi-session DM mode, dm_topics/group_topics config-driven topic management, skill binding, auto-rename, and root DM lobby mechanics. Use when the user says 话题/话题管理/create topic/edit topic/delete topic/改话题名/创建话题/关闭话题/topic mode/多会话模式/dm_topic, or when you need to manage Telegram forum topics programmatically or configure Hermes topic sessions."
 type: routine
-version: 3.1.0
+version: 3.1.1
 author: Hermes Agent
 license: MIT
 platforms: [macos, linux, windows]
@@ -579,3 +579,16 @@ If `send_message list` still shows ghost topics after client-side fix:
 - [ ] **Ghost check**: if user reports topics with stale unread counts or blank opens, did I probe each topic with `sendMessage` to confirm existence before assuming API methods will work?
 
 **Every box must honestly pass before returning results. If unchecked, go back.**
+
+---
+
+## 📁 Changelog
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 3.1.0 | 2026-07-05 | Add §Cross-Profile Topic Discovery & In-Topic Delivery (6-step pipeline); fix SQL bug in discovery query |
+| 3.0.0 | 2026-07-05 | **Breaking**: replace `editForumTopic` probe with `sendMessage`+`deleteMessage`; add §Topic Discovery & ID→Name Alignment; +4 pitfalls, +3 Red Flags; deprecate old ghost-detection pattern |
+| 2.1.0 | — | Initial version (Bot API 10.0 methods, Hermes config topics, ghost troubleshooting) |
+
+**Repository**: `https://github.com/Loveacup/jz-skills`  
+**Path**: `hermes/telegram-topic-manager/SKILL.md`

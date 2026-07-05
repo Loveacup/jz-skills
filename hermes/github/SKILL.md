@@ -3,7 +3,7 @@
 name: github
 description: "GitHub 全操作入口：认证、issues、PR、仓库管理、代码审查、源码探索、代码库统计、README 写作规范。Use when working with any GitHub repository — opening issues, creating PRs, reviewing code, searching source code, cloning repos, managing CI, creating releases, counting LOC, writing or reviewing README files. Do NOT use for: local git-only operations (no GitHub remote), generic code review principles (without GitHub context), or non-GitHub platforms (GitLab/Bitbucket)."
 type: routine
-version: 3.1.0
+version: 3.1.1
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -182,3 +182,15 @@ Tested on 2026-07-05: macOS + Surge proxy → GitHub HTTPS push. 4 attempts time
 - [ ] If committing from detached HEAD, did I explicitly push `HEAD:<target-branch>` only after fetching/rebasing onto the latest remote branch and verifying `origin/<branch>` points at the new commit?
 
 **If any box is unchecked, go back.**
+
+---
+
+## 📁 Changelog
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 3.1.0 | 2026-07-05 | Add §Surge/HTTP Proxy + Git Push Timeout (diagnostic flow + `http.postBuffer=65536` fix) |
+| 3.0.0 | — | Unified all GitHub operations into single skill; 7 absorbed sub-skills |
+
+**Repository**: `https://github.com/Loveacup/jz-skills`  
+**Path**: `hermes/github/SKILL.md`
