@@ -2,7 +2,7 @@
 name: telegram-topic-manager
 description: "Manages Telegram forum topics — create, edit, close, reopen, delete, hide/unhide, unpin, and query via Bot API. Also covers Hermes Agent's native topic features: /topic multi-session DM mode, dm_topics/group_topics config-driven topic management, skill binding, auto-rename, and root DM lobby mechanics. Use when the user says 话题/话题管理/create topic/edit topic/delete topic/改话题名/创建话题/关闭话题/topic mode/多会话模式/dm_topic, or when you need to manage Telegram forum topics programmatically or configure Hermes topic sessions."
 type: routine
-version: 3.0.0
+version: 3.1.0
 author: Hermes Agent
 license: MIT
 platforms: [macos, linux, windows]
@@ -260,7 +260,153 @@ fi
 | **Blindly batching topic operations without scoping** ★★ | 120 topics × 2 API calls = disaster if each call is destructive. Always scope to exactly what's needed. Test on 1 topic first, verify, then expand. Stop immediately on first sign of trouble. |
 | **Not reading enough session content before judging what a topic is about** ★ | One user message is not enough. Read at least 6-8 messages to understand the topic's purpose. On 2026-07-05, topic 65793 was misidentified as "RustDesk部署" when it was actually the "WRR 优化" topic — because only the first user message was checked. |
 
-## 🔀 Multi-Profile / Multi-Agent Support
+## 🔀 Cross-Profile Topic Discovery & In-Topic Delivery
+
+When you need to find a topic across profiles and deliver content into it, follow this workflow. Tested end-to-end on 2026-07-05.
+
+### Full Pipeline (6 steps, ~10s total)
+
+```
+1. state.db lookup        → find thread_id by keyword
+2. sendMessage probe      → confirm alive
+3. deleteMessage          → remove probe (zero trace)
+4. sendMessage            → deliver content
+5. Verify topic name      → check actual name, fix if needed (optional)
+6. Multi-profile routing  → use correct bot token per profile
+```
+
+### Step 1: Discover topic from state.db
+
+```bash
+# Find the most recently bound topic matching a keyword
+# Uses HAVING because column aliases can't be used in WHERE
+sqlite3 ~/.hermes/state.db "
+SELECT b.thread_id, 
+       (SELECT s.title FROM sessions s WHERE s.id = b.session_id) as title,
+       datetime(b.linked_at, 'unixepoch', 'localtime') as bound
+FROM telegram_dm_topic_bindings b
+WHERE b.chat_id = '<chat_id>'
+  AND title LIKE '%keyword%'
+ORDER BY b.linked_at DESC LIMIT 5;
+"
+```
+
+> ⚠️ **session title ≠ topic name.** This query returns the session title for keyword matching only. The actual Telegram topic name may differ. See `### Step 5: Verify topic name (optional)` below.
+
+**If no match in state.db:** The topic was likely created manually in Telegram UI and never received a message. In this case:
+- Use `getUpdates` to catch `forum_topic_created` events (may be consumed by Hermes gateway)
+- Or ask the user to send any message in the topic → Hermes auto-binds it
+- Or iterate through alive topics with `sendMessage` probe (expensive, use sparingly)
+
+### Step 2: Confirm aliveness (zero side effects)
+
+```bash
+TOKEN=$(grep BOT_TOKEN ~/.hermes/.env | grep <token_substr> | cut -d= -f2)
+
+result=$(curl -sS --max-time 8 -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
+  -d "chat_id=<chat_id>" \
+  -d "message_thread_id=<thread_id>" \
+  -d "text=." \
+  -d "disable_notification=true")
+
+ok=$(echo "$result" | python3 -c "import json,sys; print(json.load(sys.stdin).get('ok'))")
+# True → alive, go to step 3
+# False + "message thread not found" → ghost, try another thread_id
+```
+
+### Step 3: Remove probe (leave no trace)
+
+```bash
+msg_id=$(echo "$result" | python3 -c "import json,sys; print(json.load(sys.stdin)['result']['message_id'])")
+curl -sS --max-time 8 -X POST "https://api.telegram.org/bot${TOKEN}/deleteMessage" \
+  -d "chat_id=<chat_id>" \
+  -d "message_id=$msg_id" > /dev/null
+```
+
+### Step 4: Deliver content
+
+```bash
+# For short messages
+curl -sS --max-time 10 -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
+  -d "chat_id=<chat_id>" \
+  -d "message_thread_id=<thread_id>" \
+  -d "text=<content>" \
+  -d "parse_mode=MarkdownV2"
+
+# For long content (markdown file), use --data-urlencode
+curl -sS --max-time 10 -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
+  -d "chat_id=<chat_id>" \
+  -d "message_thread_id=<thread_id>" \
+  --data-urlencode "text=$(cat /path/to/report.md)"
+```
+
+> ⚠️ Telegram has a 4096-character limit per message. For longer reports, split into chunks or use `sendDocument`.
+
+### Step 5: Verify topic name (optional)
+
+If the user says the topic name is wrong, or you discover it's ghost, use `getUpdates` to check if the Hermes gateway emitted a `forum_topic_created` or `forum_topic_edited` event. These events contain the **real** topic name from Telegram servers.
+
+```
+forum_topic_created → name + thread_id
+forum_topic_edited → name + thread_id + old_name
+```
+
+However, Hermes gateway typically consumes these before you can read them. In practice, the fastest way to verify a topic name is:
+
+1. Read the actual session content from `messages` table
+2. Ask the user if the name looks right
+3. If wrong, use `editForumTopic` to fix it (only with explicit user authorization)
+
+### Step 6: Handle multi-profile token routing
+
+Different Hermes profiles may use different bot tokens (e.g., 小黄 vs 太子). Topics are scoped per-bot in DMs. Always use the token that matches the profile that owns the topic.
+
+```bash
+# Default profile (小黄)
+TOKEN=$(grep BOT_TOKEN ~/.hermes/.env | grep <token_substr> | cut -d= -f2)
+
+# Regent profile (太子)
+TOKEN=$(grep TELEGRAM_BOT_TOKEN ~/.hermes/profiles/regent/.env | cut -d= -f2)
+
+# For the current session's profile
+TOKEN=$(grep TELEGRAM_BOT_TOKEN "${HERMES_HOME:-~/.hermes}/.env" | cut -d= -f2)
+```
+
+### Complete end-to-end example (2026-07-05)
+
+Task: find a "test topic" created by the user, confirm it, deliver a message.
+
+```bash
+# 1. Discover
+thread_id=$(sqlite3 ~/.hermes/state.db "
+  SELECT b.thread_id FROM telegram_dm_topic_bindings b
+  WHERE b.chat_id = '7931997806'
+  ORDER BY b.linked_at DESC LIMIT 1;
+")
+echo "found: $thread_id"
+
+# 2. Probe
+TOKEN=$(grep BOT_TOKEN ~/.hermes/.env | grep 8809 | cut -d= -f2)
+result=$(curl -sS --max-time 8 -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
+  -d "chat_id=7931997806" -d "message_thread_id=$thread_id" \
+  -d "text=." -d "disable_notification=true")
+ok=$(echo "$result" | python3 -c "import json,sys; print(json.load(sys.stdin).get('ok'))")
+echo "alive: $ok"  # True
+
+# 3. Clean
+msg_id=$(echo "$result" | python3 -c "import json,sys; print(json.load(sys.stdin)['result']['message_id'])")
+curl -sS --max-time 8 -X POST "https://api.telegram.org/bot${TOKEN}/deleteMessage" \
+  -d "chat_id=7931997806" -d "message_id=$msg_id" > /dev/null
+echo "probe deleted"
+
+# 4. Deliver
+curl -sS --max-time 10 -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
+  -d "chat_id=7931997806" -d "message_thread_id=$thread_id" \
+  -d "text=🧪 Cross-profile topic delivery test successful."
+echo "delivered"
+```
+
+Result: `delivered` → message appeared in the topic. Zero side effects, ~5s total.
 
 Hermes supports multiple profiles (e.g., `default`=小黄 assistant, `regent`=尼太子 supervisor). Each profile may use a **different Telegram bot token** even if they share the same `chat_id`.
 
