@@ -2,7 +2,7 @@
 name: telegram-topic-manager
 description: "Manages Telegram forum topics — create, edit, close, reopen, delete, hide/unhide, unpin, and query via Bot API. Also covers Hermes Agent's native topic features: /topic multi-session DM mode, dm_topics/group_topics config-driven topic management, skill binding, auto-rename, and root DM lobby mechanics. Use when the user says 话题/话题管理/create topic/edit topic/delete topic/改话题名/创建话题/关闭话题/topic mode/多会话模式/dm_topic, or when you need to manage Telegram forum topics programmatically or configure Hermes topic sessions."
 type: routine
-version: 2.1.0
+version: 3.0.0
 author: Hermes Agent
 license: MIT
 platforms: [macos, linux, windows]
@@ -12,7 +12,7 @@ metadata:
     related_skills: [cross-profile-api-bridge, hermes-agent]
 ---
 
-# Telegram Topic Manager v2.0
+# Telegram Topic Manager v3.0
 
 Manage Telegram forum topics via two paths: **raw Bot API** for programmatic CRUD, and **Hermes config** for session-gating and skill binding.
 
@@ -26,6 +26,9 @@ Manage Telegram forum topics via two paths: **raw Bot API** for programmatic CRU
 | "I'll just use the default ~/.hermes/.env token" | Multi-profile Hermes setups have per-profile `.env` files at `~/.hermes/profiles/<name>/.env`. The regent/nitaizi profile may have a different TELEGRAM_BOT_TOKEN than the default profile. Always check `HERMES_PROFILE` or active session context first. |
 | "closeForumTopic works in DMs too" | `closeForumTopic` and `reopenForumTopic` are **supergroup only**. Private chats use a narrower method set (create, edit, delete, unpin). |
 | "Hermes /topic handles everything" | `/topic` is for user-driven multi-session mode. `dm_topics` config is for operator-curated topic lists. They solve different problems. |
+| "I'll use editForumTopic to probe whether a topic is alive" ★ | **editForumTopic is a WRITE operation — it renames the topic.** Using it as an aliveness probe destroys the topic's name. Use `sendMessage` + `deleteMessage` instead (send a silent dot, delete it immediately). This is the #1 lesson from the 2026-07-05 topic name disaster: 12 topics were renamed to wrong names because editForumTopic was used as a substitute for a read-only probe. |
+| "Session title = topic name, I'll use that" ★ | **state.db session titles are NOT Telegram topic names.** Hermes auto-renames topics to session titles in some modes, but the user may have manually renamed them. The only ground truth is the Telegram topic name. If you need to know a topic's real name, read the actual session content to infer it, or ask the user. Never assume a state.db field equals what the user sees in Telegram. |
+| "I'll batch-probe all 120 topics at once to build a map" ★ | **Destructive batch operations on topics are forbidden without explicit user authorization.** Even with a "probe then restore" pattern, the restore may use wrong data (state.db titles ≠ real names). Scope any topic operation to exactly what's needed. One-at-a-time, verify each result, stop on first sign of trouble. |
 
 ## 🔀 Decision Tree
 
@@ -38,6 +41,8 @@ User wants to manage Telegram topics?
 └── Just wants to send a message to a specific topic?
     └── Use send_message with target="telegram:chat_id:thread_id". No topic management needed.
 ```
+
+**Current-topic rename shortcut (common Hermes chat case):** If the user says “this Telegram topic / 当前 topic / 这个 tele topic 改名为 X”, do **not** first spelunk Hermes source or logs. Load this skill, use the active session source (`chat_id` + `thread_id/message_thread_id`) when available, resolve the active profile’s bot token, then call `editForumTopic`. Only fall back to config/log discovery if the current session does not expose the target chat/thread.
 
 ### Quick Scope: Which path for which task?
 
@@ -187,10 +192,57 @@ platforms:
 - Find `thread_id` from topic URL: `t.me/c/<group_id>/<thread_id>`
 - Skill binding + session isolation work same as dm_topics
 
-## ⚠️ Common Pitfalls
+## 🔍 Topic Discovery & ID → Name Alignment
+
+**The core problem**: Bot API has no `getForumTopics` method. There's no official way to list all topics with their names. This section documents what works and what doesn't, based on live testing on 2026-07-05.
+
+### Available Tools (ranked by reliability)
+
+| # | Method | Write? | Scope | Verdict |
+|---|--------|:---:|------|---------|
+| 1 | **`sendMessage` + `deleteMessage`** | ✅ (transient) | Single topic | **Best — zero lingering side effects**. Send silent dot, save `message_id`, delete immediately. `ok:true` = alive. `400 TOPIC_ID_INVALID` = ghost. |
+| 2 | **User sends a message** | No | Single topic | **Best for first-time registration**. When user sends any message in a topic, Hermes gateway captures `message_thread_id` and binds it. The topic then appears in `telegram_dm_topic_bindings`. |
+| 3 | `getUpdates` poll | No | Recent only | Only returns updates since last poll. Hermes gateway consumes these, so agent-side `getUpdates` typically returns empty. Useless for historical discovery. |
+| 4 | `config.yaml` `dm_topics` | Yes | Manual | Operator declares topics with names. Hermes creates/matches them on startup. Good for permanent topics, bad for dynamic discovery. |
+| 5 | TDLib `getForumTopics` | No | Full | Requires user account (MTProto), not bot token. Also requires installing Telethon/Pyrogram + API credentials + user session. High setup cost, API marked "temporary". |
+| ❌ | `editForumTopic` as probe | **DESTRUCTIVE** | — | **NEVER use for discovery.** Renames the topic. The "probe then restore" pattern is unreliable because you don't know the original name to restore to. |
+
+### Correct Aliveness Probe Pattern
+
+```bash
+TOKEN=$(grep BOT_TOKEN ~/.hermes/.env | cut -d= -f2)
+# Send silent dot, capture message_id
+result=$(curl -sS --max-time 6 -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
+  -d "chat_id=7931997806" \
+  -d "message_thread_id=$TID" \
+  -d "text=." \
+  -d "disable_notification=true")
+
+ok=$(echo "$result" | python3 -c "import json,sys; print(json.load(sys.stdin).get('ok'))")
+if [ "$ok" = "True" ]; then
+  msg_id=$(echo "$result" | python3 -c "import json,sys; print(json.load(sys.stdin)['result']['message_id'])")
+  # Immediately delete the probe
+  curl -sS --max-time 6 -X POST "https://api.telegram.org/bot${TOKEN}/deleteMessage" \
+    -d "chat_id=7931997806" \
+    -d "message_id=$msg_id" > /dev/null
+  echo "ALIVE"
+else
+  echo "GHOST"
+fi
+```
+
+### How to Find the Right Topic (When Names are Unknown)
+
+1. **state.db has thread_id → session_title** but session_title ≠ topic name
+2. **Read actual session content** — `SELECT role, content FROM messages WHERE session_id = ... LIMIT 10` — to understand what the topic is really about
+3. **User is the final authority** — if you can't confidently identify a topic from content, ask
+4. **Once you know the right thread_id**, rename with `editForumTopic` (only if user explicitly asked)
+
+
 
 | Trap | Fix |
 |------|-----|
+| User says “this/current tele topic” and you start searching Hermes source/logs first | Load this skill immediately; the intended target is usually the active Telegram session’s `chat_id` + `thread_id`. Use Bot API `editForumTopic` with the active profile token, then verify `ok:true`. |
 | `-100` prefix on DM chat_id → 404 | DMs use plain numbers |
 | Plain number for supergroup → 400 | Supergroups need `-100` prefix |
 | Bot not admin in supergroup → 403 | Grant `can_manage_topics` admin right |
@@ -202,6 +254,11 @@ platforms:
 | `send_message list` shows topics that API says don't exist | Hermes gateway caches topic list. Ghosts persist until gateway restart or topic list refresh. |
 | **Credential scrubber eats `***` in heredocs/write_file/execute_code** — breaks Python strings containing `BOT_TOKEN=<value>` pattern | Use `python3 -c` one-liner with dynamic prefix construction: `if 'BOT_TOKEN' in ln and '8809' in ln` instead of `if line.startswith('TELEGRAM_BOT_TOKEN=')`. Or read token in a separate step then pass via env var. |
 | **Same chat_id, different bot token → TOPIC_ID_INVALID** | Topics are scoped per-bot in DMs. If thread X returns TOPIC_ID_INVALID with token A, try token B (different profile). A topic created by 尼太子's bot won't be visible to 小黄's bot, even though both bots DM the same user. |
+| **OMP `--print` mode returns only `session` line** | User has archived this mode. OMP `--print` outputs just a `session` JSONL line without calling the model. Correct usage: daemon mode (`--mode json` without `--print`) reads JSONL prompts from stdin; or pass prompt as CLI argument for single tasks (`omp --print --mode json "prompt text"`). |
+| **Using editForumTopic to probe topic existence** ★★★ | **THIS IS DESTRUCTIVE.** `editForumTopic` renames the topic. On 2026-07-05, 12 topics were corrupted because a batch script used `editForumTopic(name='_alive_probe_')` to detect aliveness, then "restored" the name to a wrong value (state.db session title ≠ actual Telegram topic name). **Use `sendMessage` + `deleteMessage` instead.** |
+| **Assuming state.db session title = Telegram topic name** ★★ | They are different. Hermes may auto-rename a topic to its session title, but the user may have manually renamed it. When you need to know a topic's real name, read the actual session content — or ask the user. |
+| **Blindly batching topic operations without scoping** ★★ | 120 topics × 2 API calls = disaster if each call is destructive. Always scope to exactly what's needed. Test on 1 topic first, verify, then expand. Stop immediately on first sign of trouble. |
+| **Not reading enough session content before judging what a topic is about** ★ | One user message is not enough. Read at least 6-8 messages to understand the topic's purpose. On 2026-07-05, topic 65793 was misidentified as "RustDesk部署" when it was actually the "WRR 优化" topic — because only the first user message was checked. |
 
 ## 🔀 Multi-Profile / Multi-Agent Support
 
@@ -262,47 +319,52 @@ Ghost topics appear in the client sidebar (often with stale unread counts) but d
 
 ### Detection: Confirm a topic is a ghost
 
-**Preferred: `editForumTopic` probe (zero noise — no message sent, no cleanup needed):**
+**Preferred: `sendMessage` probe (zero side effects).** Send a silent dot and immediately delete it. This is the ONLY safe way to probe topic existence from the Bot API — `editForumTopic` renames the topic and must never be used for probing.
+
 > ⚠️ Multi-profile: use the correct profile's token (see Multi-Profile section above). Ghost with one token may be alive with another.
 ```bash
-PROFILE=${HERMES_PROFILE:-default}
-ENV_FILE=~/.hermes/.env
-[ "$PROFILE" != "default" ] && [ -f ~/.hermes/profiles/$PROFILE/.env ] && ENV_FILE=~/.hermes/profiles/$PROFILE/.env
-TOKEN=*** TELEGRAM_BOT_TOKEN $ENV_FILE | cut -d= -f2)
-# Non-destructive: use editForumTopic to probe existence
-curl -s "https://api.telegram.org/bot${TOKEN}/editForumTopic" \
+TOKEN=$(grep TELEGRAM_BOT_TOKEN ~/.hermes/.env | cut -d= -f2)
+# Send silent probe
+result=$(curl -s "https://api.telegram.org/bot${TOKEN}/sendMessage" \
   -F "chat_id=7931997806" \
   -F "message_thread_id=<TOPIC_ID>" \
-  -F "name=probe"
-# ok:true → topic exists (rename was applied — you just changed the name, be ready to rename back)
-# 400 "TOPIC_ID_INVALID" → ghost
+  -F "text=." \
+  -F "disable_notification=true")
+ok=$(echo "$result" | python3 -c "import json,sys; print(json.load(sys.stdin).get('ok'))")
+if [ "$ok" = "True" ]; then
+  msg_id=$(echo "$result" | python3 -c "import json,sys; print(json.load(sys.stdin)['result']['message_id'])")
+  curl -s "https://api.telegram.org/bot${TOKEN}/deleteMessage" \
+    -F "chat_id=7931997806" \
+    -F "message_id=$msg_id" > /dev/null
+  echo "ALIVE"
+else
+  echo "GHOST"
+fi
+# ok:true → topic exists (probe message auto-deleted)
+# 400 "message thread not found" → ghost
 ```
 
-**Bulk probe pattern** — when you have a list of topic IDs and want to find which are alive (or find the current topic when thread_id is unknown):
+**❌ DO NOT USE `editForumTopic` for ghost detection** — it renames the topic, destroying the original name. This was the root cause of the 2026-07-05 incident where 12 topics were corrupted. The old documentation below showed `editForumTopic` as the "preferred" probe; that guidance is now deprecated.
+
+**Bulk probe pattern** — use `sendMessage` + `deleteMessage` (NOT `editForumTopic`):
 ```bash
-python3 -c "
-import urllib.request, json, os
-with open(os.path.expanduser('~/.hermes/.env')) as fh:
-    for ln in fh:
-        if 'BOT_TOKEN' in ln and '8809' in ln:
-            t = ln.split(chr(61))[1].strip()
-            break
-chat_id = '7931997806'
-topics = [38739, 38796, 38786, 38814, 38911, 38981]  # from send_message list
-for tid in topics:
-    u = f'https://api.telegram.org/bot{t}/editForumTopic'
-    import urllib.parse
-    data = urllib.parse.urlencode({'chat_id': chat_id, 'message_thread_id': str(tid), 'name': 'probe'}).encode()
-    try:
-        req = urllib.request.Request(u, data=data)
-        with urllib.request.urlopen(req, timeout=10) as r:
-            d = json.loads(r.read())
-        print(f'thread={tid} ALIVE')
-    except urllib.error.HTTPError as e:
-        body = e.read().decode()
-        print(f'thread={tid} GHOST: {body[:100]}')
-"
+TOKEN=$(grep TELEGRAM_BOT_TOKEN ~/.hermes/.env | cut -d= -f2)
+for tid in 38739 38796 38786 38814; do
+  result=$(curl -sS --max-time 6 -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
+    -d "chat_id=7931997806" -d "message_thread_id=$tid" \
+    -d "text=." -d "disable_notification=true")
+  ok=$(echo "$result" | python3 -c "import json,sys; print(json.load(sys.stdin).get('ok'))")
+  if [ "$ok" = "True" ]; then
+    msg_id=$(echo "$result" | python3 -c "import json,sys; print(json.load(sys.stdin)['result']['message_id'])")
+    curl -sS --max-time 6 -X POST "https://api.telegram.org/bot${TOKEN}/deleteMessage" \
+      -d "chat_id=7931997806" -d "message_id=$msg_id" > /dev/null
+    echo "thread=$tid ALIVE"
+  else
+    echo "thread=$tid GHOST"
+  fi
+done
 ```
+⚠️ **Rate limit warning**: Each probe is 2 API calls (send + delete). For 100+ topics this is 200+ calls. Batch selectively, not blindly.
 
 **Fallback: `sendMessage` probe** (sends a dot, then deletes — slightly noisy):
 ```bash
