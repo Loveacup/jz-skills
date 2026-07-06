@@ -204,7 +204,15 @@ Use a bare exact flat id only when OMP can match that same id through provider p
 
 `modelProviderOrder` chooses among provider candidates; it no longer feeds a catalog-wide canonical alias resolver.
 
-### Recent provider notes (16.2.9–16.3.0)
+### Recent provider notes (16.2.9–16.3.11)
+
+- 16.3.11 session-title generation now uses marker-based parsing for all
+  models. Treat bare JSON-shaped title output as a defect; the runtime strips
+  wrappers and keeps the title field bare.
+- 16.3.11 llama.cpp discovery now honors per-model
+  `architecture.input_modalities` from `/v1/models`, so a router preset that
+  advertises image input should be treated as vision-capable instead of
+  text-only.
 
 - `providers.anthropic.serverSideFallback` opt-in for Anthropic server-side
   fallback beta.

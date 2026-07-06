@@ -126,6 +126,9 @@ renamed to `sonic` in 16.2.9, built-in `oracle` was removed in 16.2.9, and
 
 `ollama`, `llama.cpp`, `lm-studio` are discovered keyless by default unless
 explicitly configured or listed in `disabledProviders`.
+For OMP 16.3.11+, `llama.cpp` discovery also respects advertised
+`architecture.input_modalities`, so a router preset that reports image input
+should not be treated as text-only.
 
 ### Search provider auth
 
@@ -140,7 +143,14 @@ explicitly configured or listed in `disabledProviders`.
 | Anthropic search | `ANTHROPIC_SEARCH_API_KEY` |
 | Codex search | `OPENAI_API_KEY` or stored Codex OAuth |
 
-### Recent OMP 16.2.9–16.3.0 operator notes
+### Recent OMP 16.2.9–16.3.11 operator notes
+
+- 16.3.11 title generation is more reliable: the runtime now uses
+  marker-based parsing for all models, and JSON-shaped title replies are
+  unwrapped to the bare title instead of being displayed verbatim.
+- 16.3.11 llama.cpp discovery honors per-model `architecture.input_modalities`
+  from `/v1/models`, which prevents image-capable router presets from being
+  misclassified as text-only.
 
 - 16.3.0 config additions: `providers.anthropic.serverSideFallback` opt-in
   Anthropic server-side fallback beta; `task.softRequestBudgetNotice` enables

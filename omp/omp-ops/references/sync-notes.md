@@ -1,5 +1,12 @@
 # Sync Notes
 
+## 2026-07-06
+
+- Official OMP 16.3.11 sync refreshed `references/VERSION` and the official
+  changelog mirror. Authored updates were limited to `SKILL.md` and
+  `references/providers/models.md` for marker-based session-title parsing and
+  `llama.cpp` `input_modalities` handling.
+
 ## 2026-07-05
 
 - Official OMP 16.3.6 sync completed successfully after a networked retry.
