@@ -78,7 +78,7 @@ python scripts/md2pdf_chrome.py report.md output.pdf --theme academic --sm "开�
 | `--fallback pandoc` | Force the pandoc lifeboat (pandoc → HTML+CSS → system Chrome print-to-pdf). Style NOT faithful, no Mermaid, A4 only. Also auto-triggered by `--browser auto` when no Chromium can launch |
 | `--no-metadata` | Skip writing source frontmatter into PDF metadata (including diagram-count keys) |
 
-**Themes** auto-discover from `scripts/themes/*.css` (currently 11: academic, blue, dark, editorial, kami, minimalist, newsletter, social-card, swiss, warm-academic, wechat-article).
+**Themes** auto-discover from `scripts/themes/*.css` (currently 18: academic, blue, dark, dracula, editorial, gruvbox-dark, gruvbox-light, kami, minimalist, newsletter, nord, sepia, social-card, solarized-dark, solarized-light, swiss, warm-academic, wechat-article). Use `--theme auto` to let the content-aware router pick a palette based on keywords, code density, and frontmatter.
 
 **Source frontmatter → PDF metadata**: `title` / `author` / `description` / `tags` / `aliases` / `created` / `modified` map to `/Title /Author /Subject /Keywords /CreationDate /ModDate`. `/Author` is written only when frontmatter explicitly declares `author` (privacy guard); `--no-metadata` disables the whole step.
 
@@ -109,7 +109,7 @@ Step 3 (if needed): Claude Code re-runs with flags → script wraps matching con
 
 | Flag | Effect |
 |------|--------|
-| `--theme NAME` | Set visual theme: `blue` (default), `dark`, `academic` — auto-discovered from `scripts/themes/*.css` |
+| `--theme NAME` | Set visual theme: `blue` (default), `dark`, `academic`, `auto` — auto-discovered from `scripts/themes/*.css`. `auto` uses the content-aware router. |
 | `--sm "heading text"` | Wrap children of matching heading in `text-sm` (12px) |
 | `--xs "heading text"` | Wrap children of matching heading in `text-xs` (11px) |
 | `--sm-after "text"` | Wrap from matching line to end of document in `text-sm` (12px) |

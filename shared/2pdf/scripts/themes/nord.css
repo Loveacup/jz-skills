@@ -1,0 +1,26 @@
+:root.palette-nord,
+.palette-nord {
+  --pdf-bg: #f0f4f8;
+  --pdf-text: #2e3440;
+  --pdf-primary: #5e81ac;
+  --pdf-secondary: #88c0d0;
+  --pdf-accent: #88c0d0;
+  --pdf-strong: #5e81ac;
+  --pdf-em: #2e3440;
+  --pdf-mark: #eceff4;
+  --pdf-link: #88c0d0;
+  --pdf-hr: #eceff4;
+  --pdf-blockquote-bg: #eceff4;
+  --pdf-blockquote-border: #2e3440;
+  --pdf-table-header-bg: #5e81ac;
+  --pdf-table-header-text: #ffffff;
+  --pdf-table-border: #eceff4;
+  --pdf-table-stripe: #eceff4;
+  --pdf-code-bg: #eceff4;
+  --pdf-code-text: #bf616a;
+  --pdf-pre-bg: #5e81ac;
+  --pdf-pre-text: #ffffff;
+  --pdf-meta: #88c0d0;
+  --pdf-mermaid-bg: #f0f4f8;
+  --pdf-mermaid-border: #eceff4;
+}

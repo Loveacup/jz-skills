@@ -1,0 +1,26 @@
+:root.palette-dracula,
+.palette-dracula {
+  --pdf-bg: #282a36;
+  --pdf-text: #f8f8f2;
+  --pdf-primary: #bd93f9;
+  --pdf-secondary: #ff79c6;
+  --pdf-accent: #ff79c6;
+  --pdf-strong: #bd93f9;
+  --pdf-em: #f8f8f2;
+  --pdf-mark: #44475a;
+  --pdf-link: #ff79c6;
+  --pdf-hr: #44475a;
+  --pdf-blockquote-bg: #44475a;
+  --pdf-blockquote-border: #f8f8f2;
+  --pdf-table-header-bg: #bd93f9;
+  --pdf-table-header-text: #282a36;
+  --pdf-table-border: #44475a;
+  --pdf-table-stripe: #44475a;
+  --pdf-code-bg: #44475a;
+  --pdf-code-text: #ff5555;
+  --pdf-pre-bg: #bd93f9;
+  --pdf-pre-text: #282a36;
+  --pdf-meta: #ff79c6;
+  --pdf-mermaid-bg: #282a36;
+  --pdf-mermaid-border: #44475a;
+}

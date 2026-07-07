@@ -1,0 +1,26 @@
+:root.palette-gruvbox-light,
+.palette-gruvbox-light {
+  --pdf-bg: #fbf1c7;
+  --pdf-text: #3c3836;
+  --pdf-primary: #b57614;
+  --pdf-secondary: #79740e;
+  --pdf-accent: #79740e;
+  --pdf-strong: #b57614;
+  --pdf-em: #3c3836;
+  --pdf-mark: #ebdbb2;
+  --pdf-link: #79740e;
+  --pdf-hr: #ebdbb2;
+  --pdf-blockquote-bg: #ebdbb2;
+  --pdf-blockquote-border: #3c3836;
+  --pdf-table-header-bg: #b57614;
+  --pdf-table-header-text: #fbf1c7;
+  --pdf-table-border: #ebdbb2;
+  --pdf-table-stripe: #ebdbb2;
+  --pdf-code-bg: #ebdbb2;
+  --pdf-code-text: #9d0006;
+  --pdf-pre-bg: #b57614;
+  --pdf-pre-text: #fbf1c7;
+  --pdf-meta: #79740e;
+  --pdf-mermaid-bg: #fbf1c7;
+  --pdf-mermaid-border: #ebdbb2;
+}

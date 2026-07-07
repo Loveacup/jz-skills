@@ -1,0 +1,26 @@
+:root.palette-solarized-light,
+.palette-solarized-light {
+  --pdf-bg: #fdf6e3;
+  --pdf-text: #586e75;
+  --pdf-primary: #268bd2;
+  --pdf-secondary: #2aa198;
+  --pdf-accent: #2aa198;
+  --pdf-strong: #268bd2;
+  --pdf-em: #586e75;
+  --pdf-mark: #eee8d5;
+  --pdf-link: #2aa198;
+  --pdf-hr: #eee8d5;
+  --pdf-blockquote-bg: #eee8d5;
+  --pdf-blockquote-border: #586e75;
+  --pdf-table-header-bg: #268bd2;
+  --pdf-table-header-text: #fdf6e3;
+  --pdf-table-border: #eee8d5;
+  --pdf-table-stripe: #eee8d5;
+  --pdf-code-bg: #eee8d5;
+  --pdf-code-text: #dc322f;
+  --pdf-pre-bg: #268bd2;
+  --pdf-pre-text: #fdf6e3;
+  --pdf-meta: #2aa198;
+  --pdf-mermaid-bg: #fdf6e3;
+  --pdf-mermaid-border: #eee8d5;
+}

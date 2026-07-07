@@ -1,0 +1,26 @@
+:root.palette-solarized-dark,
+.palette-solarized-dark {
+  --pdf-bg: #002b36;
+  --pdf-text: #839496;
+  --pdf-primary: #268bd2;
+  --pdf-secondary: #2aa198;
+  --pdf-accent: #2aa198;
+  --pdf-strong: #268bd2;
+  --pdf-em: #839496;
+  --pdf-mark: #073642;
+  --pdf-link: #2aa198;
+  --pdf-hr: #073642;
+  --pdf-blockquote-bg: #073642;
+  --pdf-blockquote-border: #839496;
+  --pdf-table-header-bg: #268bd2;
+  --pdf-table-header-text: #002b36;
+  --pdf-table-border: #073642;
+  --pdf-table-stripe: #073642;
+  --pdf-code-bg: #073642;
+  --pdf-code-text: #dc322f;
+  --pdf-pre-bg: #268bd2;
+  --pdf-pre-text: #002b36;
+  --pdf-meta: #2aa198;
+  --pdf-mermaid-bg: #002b36;
+  --pdf-mermaid-border: #073642;
+}

@@ -20,6 +20,7 @@ except ImportError:  # 允许在缺依赖的解释器上仍能跑 --preflight �
     markdown = None
 
 from themes import load_theme, list_themes
+from themes.theme_router import route as route_theme, is_palette, list_palettes
 
 # 支持的输出格式
 VALID_FORMATS = ("pdf", "png", "html", "wechat")
@@ -425,7 +426,7 @@ def _page_margin(page_size):
     return "12mm 10mm 12mm 10mm"
 
 
-def build_html(md_path, header_text, directives=None, theme="blue", page_size="A4"):
+def build_html(md_path, header_text, directives=None, theme="auto", page_size="A4"):
     md_path = Path(md_path)
     with open(md_path, "r", encoding="utf-8") as f:
         md_text = f.read()
@@ -442,6 +443,17 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
     # Embed local images as base64 data URIs
     md_text = embed_local_images(md_text, md_path.parent)
     md_text = restore_code_spans(md_text, _code_store)
+
+    # Theme routing: auto resolves to a palette/legacy name, otherwise pass through.
+    from datetime import datetime
+    if theme == "auto":
+        effective_theme = route_theme(md_text, page_size=page_size, hour=datetime.now().hour)
+        if effective_theme not in list_themes() and effective_theme not in list_palettes():
+            effective_theme = "blue"
+        print(f"🎨 Auto-routed theme: {effective_theme}")
+    else:
+        effective_theme = theme if theme in list_themes() or theme in list_palettes() else "blue"
+
     body = markdown.markdown(
         md_text,
         extensions=[
@@ -571,12 +583,41 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
 </script>""".replace("__MERMAID_SRC__", mermaid_src)
 
     # Convert page_size to CSS @page size value
+    palette_css = load_theme(effective_theme).css if is_palette(effective_theme) else ""
+    palette_class = f"palette-{effective_theme}" if is_palette(effective_theme) else ""
     if page_size == "A4":
         size_val = "A4"
+        mobile_adjust_css = ""
+        body_class = palette_class
     else:
         # e.g. "430x932" → "430px 932px"
         w, h = page_size.split("x")
         size_val = f"{w}px {h}px"
+        body_class = f"{palette_class} mobile-layout".strip()
+        # 手机版默认 13px 正文在 430px 窄屏上偏小，整体放大一档（13.5px 折中页数与可读性）
+        mobile_adjust_css = """
+        body { font-size: 13.5px; line-height: 1.65; }
+        p { font-size: 13.5px; }
+        h1 { font-size: 25px; }
+        h2 { font-size: 20px; }
+        h3 { font-size: 16.5px; }
+        h4 { font-size: 13.5px; }
+        li { font-size: 13.5px; }
+        li li { font-size: 12.5px; }
+        code { font-size: 11.5px; }
+        pre { font-size: 11px; }
+        table { font-size: 10.5px; }
+        th, td { font-size: 10px; }
+        /* 超宽表格（>5列）在手机版转置为字段/值卡片 */
+        .wide-table-mobile { margin: 6px 0; }
+        .wide-table-card { margin: 5px 0; border: 1px solid #d5dbdb; border-radius: 4px; overflow: hidden; page-break-inside: avoid; }
+        .wide-table-card-title { background: #f2f4f6; color: #1a3c5e; font-weight: 600; padding: 4px 8px; font-size: 12px; border-bottom: 1px solid #d5dbdb; }
+        .wide-table-card-body { padding: 4px 8px; font-size: 10px; line-height: 1.4; }
+        .wide-table-kv { margin: 2px 0; }
+        .wide-table-kv-key { color: #1a3c5e; font-weight: 600; margin-right: 4px; }
+        .wide-table-kv-val { word-break: break-all; overflow-wrap: break-word; }
+        .wide-table-kv-val code { white-space: normal; word-break: break-all; }
+        """
 
     return f"""<!DOCTYPE html>
 <html lang="zh-CN">
@@ -584,6 +625,32 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
 <meta charset="utf-8">
 <title>{header_text}</title>
 <style>
+  :root {{
+    --pdf-bg: #ffffff;
+    --pdf-text: #2c3e50;
+    --pdf-primary: #1a3c5e;
+    --pdf-secondary: #24618a;
+    --pdf-accent: #2874a6;
+    --pdf-strong: #1a3c5e;
+    --pdf-em: #555555;
+    --pdf-mark: #fff3b0;
+    --pdf-link: #2874a6;
+    --pdf-hr: #dce1e4;
+    --pdf-blockquote-bg: #f8f9fa;
+    --pdf-blockquote-border: #7f8c8d;
+    --pdf-table-header-bg: #1a3c5e;
+    --pdf-table-header-text: #ffffff;
+    --pdf-table-border: #d5dbdb;
+    --pdf-table-stripe: #f2f4f6;
+    --pdf-code-bg: #f0f3f5;
+    --pdf-code-text: #c0392b;
+    --pdf-pre-bg: #2c3e50;
+    --pdf-pre-text: #ecf0f1;
+    --pdf-meta: #7f8c8d;
+    --pdf-mermaid-bg: #fafbfc;
+    --pdf-mermaid-border: #e1e4e8;
+  }}
+
   * {{ box-sizing: border-box; break-inside: auto; }}
 
   @page {{
@@ -598,7 +665,8 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
                  "Noto Color Emoji", sans-serif;
     font-size: 13px;
     line-height: 1.6;
-    color: #2c3e50;
+    color: var(--pdf-text);
+    background: var(--pdf-bg);
     margin: 0;
     padding: 0;
   }}
@@ -606,8 +674,8 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
   /* ===== Headings ===== */
   h1 {{
     font-size: 26px;
-    color: #1a3c5e;
-    border-bottom: 3px solid #1a3c5e;
+    color: var(--pdf-primary);
+    border-bottom: 3px solid var(--pdf-primary);
     padding-bottom: 10px;
     margin: 0 0 16px 0;
     font-weight: 700;
@@ -615,21 +683,21 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
   }}
   h2 {{
     font-size: 20px;
-    color: #1a3c5e;
-    border-bottom: 2px solid #b0cfe0;
+    color: var(--pdf-primary);
+    border-bottom: 2px solid var(--pdf-secondary);
     padding-bottom: 4px;
     margin: 22px 0 10px 0;
     font-weight: 600;
   }}
   h3 {{
     font-size: 16px;
-    color: #24618a;
+    color: var(--pdf-secondary);
     margin: 16px 0 8px 0;
     font-weight: 600;
   }}
   h4 {{
     font-size: 14px;
-    color: #2980b9;
+    color: var(--pdf-accent);
     margin: 12px 0 6px 0;
     font-weight: 600;
   }}
@@ -645,30 +713,30 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
     orphans: 2;
     widows: 2;
   }}
-  strong {{ color: #1a3c5e; }}
-  em {{ color: #555; }}
-  mark {{ background: #fff3b0; padding: 1px 4px; border-radius: 3px; font-weight: 500; }}
-  a {{ color: #2874a6; text-decoration: none; }}
+  strong {{ color: var(--pdf-primary); }}
+  em {{ color: var(--pdf-em); }}
+  mark {{ background: var(--pdf-mark); padding: 1px 4px; border-radius: 3px; font-weight: 500; }}
+  a {{ color: var(--pdf-link); text-decoration: none; }}
 
   hr {{
     border: none;
-    border-top: 2px solid #dce1e4;
+    border-top: 2px solid var(--pdf-hr);
     margin: 16px 0;
   }}
 
   /* ===== Blockquotes ===== */
   blockquote {{
-    border-left: 3px solid #7f8c8d;
+    border-left: 3px solid var(--pdf-blockquote-border);
     padding: 8px 14px;
     margin: 10px 0;
-    background: #f8f9fa;
-    color: #555;
+    background: var(--pdf-blockquote-bg);
+    color: var(--pdf-em);
     font-style: italic;
     font-size: 12.5px;
     border-radius: 0 5px 5px 0;
   }}
   blockquote p {{ margin: 4px 0; }}
-  blockquote blockquote {{ border-left-color: #bdc3c7; font-size: 12px; }}
+  blockquote blockquote {{ border-left-color: var(--pdf-blockquote-border); font-size: 12px; }}
 
   /* ===== Tables ===== */
   table {{
@@ -680,20 +748,27 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
     page-break-inside: auto;
   }}
   th {{
-    background: linear-gradient(180deg, #1a3c5e 0%, #24506e 100%);
+    background: linear-gradient(180deg, var(--pdf-primary) 0%, var(--pdf-secondary) 100%);
     color: white;
     font-weight: 600;
     padding: 8px 10px;
     text-align: left;
-    border: 1px solid #1a3c5e;
+    border: 1px solid var(--pdf-primary);
     font-size: 11px;
   }}
   td {{
     padding: 6px 10px;
-    border: 1px solid #d5dbdb;
+    border: 1px solid var(--pdf-table-border);
     vertical-align: top;
+    word-break: break-all;
+    overflow-wrap: break-word;
   }}
-  tr:nth-child(even) td {{ background: #f2f4f6; }}
+  td code, th code {{
+    white-space: normal !important;
+    word-break: break-all !important;
+    overflow-wrap: break-word !important;
+  }}
+  tr:nth-child(even) td {{ background: var(--pdf-table-stripe); }}
   tr {{ page-break-inside: avoid; }}
 
   /* ===== Lists ===== */
@@ -706,17 +781,17 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
   /* ===== Code ===== */
   code {{
     font-family: "SF Mono", "Fira Code", "Menlo", "Cascadia Code", "Consolas", monospace;
-    background: #f0f3f5;
+    background: var(--pdf-code-bg);
     padding: 1px 4px;
     border-radius: 3px;
     font-size: 11px;
-    color: #c0392b;
+    color: var(--pdf-code-text);
   }}
   /* M1.5 行内代码禁断行：`T1 --> T2` 曾被从箭头中间折断（pre 内不受影响） */
   :not(pre) > code {{ white-space: nowrap; }}
   pre {{
-    background: #2c3e50;
-    color: #ecf0f1;
+    background: var(--pdf-pre-bg);
+    color: var(--pdf-pre-text);
     padding: 12px 16px;
     border-radius: 6px;
     font-size: 10.5px;
@@ -727,7 +802,7 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
   }}
   pre code {{
     background: transparent;
-    color: #ecf0f1;
+    color: var(--pdf-pre-text);
     padding: 0;
   }}
 
@@ -745,16 +820,16 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
   /* ===== Document metadata (auto-detected) ===== */
   .doc-meta {{
     font-size: 11px;
-    color: #7f8c8d;
+    color: var(--pdf-blockquote-border);
     margin: -8px 0 20px 0;
     padding: 6px 0;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--pdf-hr);
     line-height: 1.5;
   }}
 
   /* ===== Changelog (auto-detected) ===== */
-  .changelog-header {{ font-size: 11px; color: #7f8c8d; }}
-  .changelog {{ font-size: 10px; color: #666; line-height: 1.5; }}
+  .changelog-header {{ font-size: 11px; color: var(--pdf-blockquote-border); }}
+  .changelog {{ font-size: 10px; color: var(--pdf-meta); line-height: 1.5; }}
   .changelog li {{ font-size: 10px; margin: 2px 0; }}
 
   /* ===== Claude Code relay classes ===== */
@@ -783,10 +858,10 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
   .mermaid {{
     text-align: center;
     margin: 10px auto;
-    background: #fafbfc;
+    background: var(--pdf-mermaid-bg);
     padding: 12px;
     border-radius: 6px;
-    border: 1px solid #e1e4e8;
+    border: 1px solid var(--pdf-mermaid-border);
   }}
   .mermaid svg {{
     display: block;
@@ -801,11 +876,11 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
   /* ===== Footnotes (markdown footnotes extension) ===== */
   .footnote {{
     font-size: 10px;
-    color: #666;
+    color: var(--pdf-meta);
     line-height: 1.5;
   }}
   .footnote hr {{
-    border-top: 1px solid #ccc;
+    border-top: 1px solid var(--pdf-hr);
     margin: 24px 0 8px 0;
   }}
   .footnote ol {{
@@ -817,25 +892,28 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
     margin: 2px 0;
   }}
   sup {{ font-size: 0.75em; }}
-  a.footnote-ref {{ color: #2874a6; text-decoration: none; font-weight: 600; }}
+  a.footnote-ref {{ color: var(--pdf-link); text-decoration: none; font-weight: 600; }}
 
   /* ===== Syntax highlighting (highlight.js override) ===== */
   pre code.hljs {{
     background: transparent !important;
-    color: #ecf0f1 !important;
+    color: var(--pdf-pre-text) !important;
     padding: 0 !important;
     font-size: inherit;
   }}
 
   /* ===== Theme overrides ===== */
-  {load_theme(theme).css}
+  {load_theme(effective_theme).css}
+
+  /* ===== Mobile font-size adjustment (430×932) ===== */
+  {mobile_adjust_css}
 </style>
-<link rel="stylesheet" href="{_hljs_css_src(theme)}">
+<link rel="stylesheet" href="{_hljs_css_src(effective_theme)}">
 <script src="{_hljs_js_src()}"></script>
 <script>hljs.highlightAll();</script>
 {mermaid_script}
 </head>
-<body>
+<body class="{body_class}">
 {body}
 <script>
   // Content-adaptive sizing: tables + section density analysis
@@ -854,10 +932,50 @@ def build_html(md_path, header_text, directives=None, theme="blue", page_size="A
       }}
     }});
 
-    // 2. Section density analysis — auto-shrink dense sections
-    // Dense = 5+ sub-headings with avg content < 500 chars per subsection
+    // 2. Mobile: transpose wide tables (>5 cols) into field/value cards
+    if (document.body.classList.contains('mobile-layout')) {{
+      document.querySelectorAll('table').forEach(function(table) {{
+        var firstRow = table.querySelector('tr');
+        if (!firstRow) return;
+        var cellsInFirst = firstRow.querySelectorAll('th, td');
+        if (cellsInFirst.length <= 5) return;
+        var headers = Array.from(cellsInFirst).map(function(th) {{ return th.textContent.trim(); }});
+        var rows = table.querySelectorAll('tr');
+        var wrapper = document.createElement('div');
+        wrapper.className = 'wide-table-mobile';
+        for (var i = 1; i < rows.length; i++) {{
+          var cells = rows[i].children;
+          var card = document.createElement('div');
+          card.className = 'wide-table-card';
+          var title = headers[0] + ': ' + (cells[0] ? cells[0].textContent.trim() : '');
+          var titleEl = document.createElement('div');
+          titleEl.className = 'wide-table-card-title';
+          titleEl.textContent = title;
+          card.appendChild(titleEl);
+          var bodyEl = document.createElement('div');
+          bodyEl.className = 'wide-table-card-body';
+          for (var j = 1; j < headers.length; j++) {{
+            var kv = document.createElement('div');
+            kv.className = 'wide-table-kv';
+            var key = document.createElement('span');
+            key.className = 'wide-table-kv-key';
+            key.textContent = headers[j] + ':';
+            var val = document.createElement('span');
+            val.className = 'wide-table-kv-val';
+            if (cells[j]) val.innerHTML = cells[j].innerHTML;
+            kv.appendChild(key);
+            kv.appendChild(val);
+            bodyEl.appendChild(kv);
+          }}
+          card.appendChild(bodyEl);
+          wrapper.appendChild(card);
+        }}
+        table.parentNode.replaceChild(wrapper, table);
+      }});
+    }}
+
+    // 3. Section density analysis — auto-shrink dense sections
     document.querySelectorAll('.doc-section').forEach(function(section) {{
-      // Skip sections already styled by CLI directives
       if (section.classList.contains('text-sm') || section.classList.contains('text-xs')) return;
       if (section.closest('.text-sm') || section.closest('.text-xs')) return;
 
@@ -1400,7 +1518,7 @@ def add_pdf_metadata(pdf_path, md_path, extra=None):
 # ===== pandoc 救生艇（第三路 fallback） =====
 
 
-def _render_pandoc_fallback(md_path, pdf_path, theme="blue", page_size="A4"):
+def _render_pandoc_fallback(md_path, pdf_path, theme="auto", page_size="A4"):
     """pandoc → standalone HTML（注入主题 CSS）→ 系统 chrome --print-to-pdf。
 
     丢弃自研管线（callout/section/自适应字号/Mermaid），仅 A4，绝不静默（调用处已告警）。
@@ -1420,6 +1538,8 @@ def _render_pandoc_fallback(md_path, pdf_path, theme="blue", page_size="A4"):
     try:
         css = tmp / "theme.css"
         try:
+            if theme == "auto":
+                theme = "blue"
             css.write_text(load_theme(theme).css, encoding="utf-8")
         except Exception:
             css.write_text("", encoding="utf-8")
@@ -1512,7 +1632,7 @@ def _ensure_vendor(force=False):
     try:
         from themes import list_themes as _lts, load_theme as _lt
         HLJS_STYLES_DIR.mkdir(exist_ok=True)
-        for t in _lts():
+        for t in list(set(_lts()) | set(list_palettes())):
             name = _lt(t).hljs_theme
             jobs.append((
                 HLJS_STYLES_DIR / f"{name}.min.css",
@@ -1700,7 +1820,7 @@ def parse_cli_args(argv):
     """
     directives = []
     positional = []
-    theme = "blue"
+    theme = "auto"
     page_size = "A4"
     fmt = "pdf"
     browser = "playwright"
@@ -1722,9 +1842,10 @@ def parse_cli_args(argv):
             i += 2
         elif arg == "--theme" and i + 1 < len(argv):
             theme = argv[i + 1]
-            if theme not in list_themes():
-                print(f"Unknown theme '{theme}'. Available: {', '.join(list_themes())}")
-                sys.exit(1)
+            if theme != "auto" and theme not in set(list_themes()):
+                available = ", ".join(sorted(list_themes()))
+                print(f"⚠️  Unknown theme '{theme}'; falling back to 'blue'. Available: {available}")
+                theme = "blue"
             i += 2
         elif arg == "--page-size" and i + 1 < len(argv):
             page_size = argv[i + 1]
