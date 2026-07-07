@@ -224,19 +224,45 @@ def _build_transcript(subtitle_step, bvid):
 
 
 def _build_comments(comments_step):
-    """从 comments 子步骤（fetch_comments 结构）重建 B站 Comment 列表。"""
+    """从 comments 子步骤（fetch_comments 结构）重建 B站 Comment 列表。
+
+    优先使用 merged_comments（去重后的全量评论），并追加高赞回复组中的单条回复，
+    确保扩量采样后的评论数据能被分析引擎充分消费。
+    """
     c = _safe(comments_step)
     if not c:
         return []
+
+    seen = set()
     out = []
-    for it in c.get('hot_comments', []) or []:
-        user = it.get('user') or {}
+
+    def _add(comment_obj):
+        text = comment_obj.get('content', '') or ''
+        if not text or text in seen:
+            return
+        seen.add(text)
+        user = comment_obj.get('user') or {}
         out.append(Comment(
-            text=it.get('content', '') or '',
-            likes=int(it.get('like', 0) or 0),
+            text=text,
+            likes=int(comment_obj.get('like', 0) or 0),
             author=user.get('name', '') or '',
             platform='bilibili',
         ))
+
+    # 1) 优先使用 merged_comments（去重后的热门+最新评论）
+    for it in c.get('merged_comments', []) or []:
+        _add(it)
+
+    # 2) 如果没有 merged_comments，则合并 hot_comments + recent_comments（去重兜底）
+    if not out:
+        for it in (c.get('hot_comments', []) or []) + (c.get('recent_comments', []) or []):
+            _add(it)
+
+    # 3) 追加高赞回复组中的回复（作为独立 comment，但可能已在上游 merged，这里去重）
+    for group in c.get('replies', []) or []:
+        for r in group.get('replies', []) or []:
+            _add(r)
+
     return out
 
 

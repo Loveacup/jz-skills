@@ -696,6 +696,47 @@ def build_evidence_map(inp: AnalysisInput, report_plan: ReportPlan) -> EvidenceM
             for c in inp.comments if c.text
         ]
 
+    # 跨平台证据：YouTube 评论（搬运视频的跨平台口碑）
+    # 作为 §3/§4/§7 的补充证据来源，特别是无 B站评论或字幕不足时
+    if inp.cross_platform:
+        yt_comments_data = inp.cross_platform.get('youtube_comments')
+        # 检查 youtube_comments 是否成功抓取（status='ok' 且有 comments 数组）
+        if (yt_comments_data
+            and isinstance(yt_comments_data, dict)
+            and yt_comments_data.get('status') == 'ok'
+            and yt_comments_data.get('comments')):
+
+            yt_comments = yt_comments_data.get('comments', [])
+            yt_url = inp.cross_platform.get('youtube_url', '')
+
+            # YouTube 评论可作为 §3（初步印象）、§4（深度探索）、§7（价值评估）的跨平台证据
+            for sid in ['3', '4', '7']:
+                if sid not in section_ids or not section_allowed.get(sid, True):
+                    continue
+
+                # 为每个相关章节生成 YouTube 评论候选
+                youtube_candidates = [
+                    EvidenceCandidate(
+                        source_type='youtube',
+                        section_id=sid,
+                        start=None,
+                        end=None,
+                        timestamp='',
+                        url=yt_url,  # 指向 YouTube 视频
+                        text=comment.get('text', ''),
+                        context=f"[YouTube评论 by {comment.get('author', 'Anonymous')}] {comment.get('text', '')}",
+                        score=_seg_score(comment.get('text', '')) + (comment.get('likes', 0) * 0.01),  # 点赞数轻微加权
+                        reason='cross_platform_sentiment',
+                    )
+                    for comment in yt_comments if comment.get('text')
+                ]
+
+                # 合并到对应章节（如果已有其他候选，追加；否则新建）
+                if sid in by_section:
+                    by_section[sid].extend(youtube_candidates)
+                else:
+                    by_section[sid] = youtube_candidates
+
     return EvidenceMap(
         video_id=inp.video_id,
         baseline=report_plan.baseline,

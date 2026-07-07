@@ -216,18 +216,25 @@ def main():
         'cross_platform': None,   # 搬运检测结果（YouTube 链接 + 评论）
     }
 
-    # 1. 获取弹幕
+    # 1. 获取弹幕（提升采样上限至 1000，启用分层采样）
     print("\n📊 [1/3] 获取弹幕...")
-    results['danmaku'] = process_step('弹幕', 'fetch_danmaku_v2.py', bvid)
+    danmaku_args = [bvid] + ([sessdata] if sessdata else []) + ['1000', '--stratify']
+    results['danmaku'] = process_step('弹幕', 'fetch_danmaku_v2.py', *danmaku_args)
     if not is_failed(results['danmaku']):
-        print(f"   ✅ 弹幕: {results['danmaku'].get('total', 0)} 条")
+        dm = results['danmaku']
+        print(f"   ✅ 弹幕: {dm.get('total', 0)} 条 (采样 {dm.get('sampled', 0)} 条)")
 
-    # 2. 获取评论
+    # 2. 获取评论（扩量：150条，mixed策略）
     print("\n💬 [2/3] 获取评论...")
-    comment_args = [bvid] + ([sessdata] if sessdata else [])
+    comment_args = [bvid] + ([sessdata] if sessdata else []) + ['150', '--strategy', 'mixed']
     results['comments'] = process_step('评论', 'fetch_comments.py', *comment_args)
     if not is_failed(results['comments']):
-        print(f"   ✅ 评论: {results['comments'].get('total_count', 0)} 条")
+        cmt = results['comments']
+        hot_cnt = len(cmt.get('hot_comments', []))
+        recent_cnt = len(cmt.get('recent_comments', []))
+        replies_cnt = len(cmt.get('replies', []))
+        merged_cnt = len(cmt.get('merged_comments', []))
+        print(f"   ✅ 评论: 热门{hot_cnt} + 最新{recent_cnt} = 去重{merged_cnt} + 回复组{replies_cnt}")
 
     # 3. 获取字幕
     print("\n📖 [3/3] 获取字幕...")
@@ -243,7 +250,7 @@ def main():
     if yt_url:
         print(f"   🎯 检测到搬运源: {yt_url}")
         yt_step = process_step('YouTube评论', 'fetch_youtube_comments.py',
-                               yt_url, '--limit', '50')
+                               yt_url, '--limit', '100')
         results['cross_platform'] = {
             'youtube_url': yt_url,
             'youtube_comments': yt_step,
@@ -270,7 +277,7 @@ def main():
     if is_failed(d):
         print(f"   弹幕: ❌ 失败 (returncode={d.get('returncode')})")
     else:
-        print(f"   弹幕: {d.get('total', 0)} 条 → {d.get('path', 'N/A')}")
+        print(f"   弹幕: {d.get('total', 0)} 条 (采样 {d.get('sampled', 0)} 条) → {d.get('path', 'N/A')}")
 
     c = results['comments']
     if is_failed(c):

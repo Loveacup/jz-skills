@@ -36,37 +36,136 @@ def get_cid_from_bvid(bvid):
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
         'Referer': 'https://www.bilibili.com'
     }
-    
+
     url = f'https://api.bilibili.com/x/web-interface/view?bvid={bvid}'
-    
+
     try:
         resp = requests.get(url, headers=headers, timeout=30)
         data = resp.json()
-        
+
         if data.get('code') == 0:
             return data['data']['cid'], data['data']
         else:
             print(f"   ❌ API 错误: {data.get('message', '未知错误')}")
             return None, None
-            
+
     except Exception as e:
         print(f"   ❌ 请求失败: {e}")
         return None, None
 
 
-def fetch_danmaku(cid, sessdata=None, max_danmaku=200, bvid=None):
-    """获取弹幕。bvid 提供时，落盘文件名使用 BV 前缀，便于与其它产物（评论/字幕）对齐。"""
-    
+def stratified_sample(danmakus, max_danmaku, stratify=True):
+    """分层时间段采样弹幕。
+
+    策略:
+    - 当 total <= max_danmaku: 全取
+    - 当 total > max_danmaku:
+      - stratify=True: 按前/中/后三段时间比例(30%/40%/30%)分配配额,段内按序取
+      - stratify=False: 简单取前 max_danmaku 条(兼容旧逻辑)
+
+    返回: 采样后的弹幕列表(保留原始顺序)
+    """
+    total = len(danmakus)
+    if total <= max_danmaku:
+        return danmakus
+
+    if not stratify:
+        return danmakus[:max_danmaku]
+
+    # 分层采样: 前30% / 中40% / 后30%
+    # 段内按原始顺序取前配额条
+    front_quota = int(max_danmaku * 0.3)
+    mid_quota = int(max_danmaku * 0.4)
+    back_quota = max_danmaku - front_quota - mid_quota
+
+    front_end = total // 3
+    mid_end = total * 2 // 3
+
+    front_seg = danmakus[:front_end]
+    mid_seg = danmakus[front_end:mid_end]
+    back_seg = danmakus[mid_end:]
+
+    sampled = (
+        front_seg[:front_quota]
+        + mid_seg[:mid_quota]
+        + back_seg[:back_quota]
+    )
+
+    return sampled
+
+
+def keyword_boost(data, max_danmaku):
+    """关键词密度加权: 统计高频词,优先保留含高频词的弹幕。
+
+    简单策略:
+    - 统计所有弹幕中长度>=2的词频
+    - 取 top-10 高频词作为关键词
+    - 优先保留含关键词的弹幕,剩余位置填充未含关键词的
+    - 保留总数不超过 max_danmaku
+
+    返回: 重排后的弹幕列表
+    """
+    if len(data) <= max_danmaku:
+        return data
+
+    # 简单分词: 按长度>=2的子串统计(不引入新依赖)
+    word_freq = {}
+    for dm in data:
+        text = dm.get('text', '')
+        # 简单切词: 2-4字词
+        for length in (4, 3, 2):
+            for i in range(len(text) - length + 1):
+                word = text[i:i+length]
+                if word.strip():
+                    word_freq[word] = word_freq.get(word, 0) + 1
+
+    # 取 top-10 高频词
+    if not word_freq:
+        return data[:max_danmaku]
+
+    top_keywords = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)[:10]
+    keywords = set(w for w, _ in top_keywords)
+
+    # 分组: 含关键词 vs 不含
+    with_kw = []
+    without_kw = []
+    for dm in data:
+        text = dm.get('text', '')
+        if any(kw in text for kw in keywords):
+            with_kw.append(dm)
+        else:
+            without_kw.append(dm)
+
+    # 优先保留含关键词的,剩余位置填充
+    result = with_kw[:max_danmaku]
+    remain = max_danmaku - len(result)
+    if remain > 0:
+        result.extend(without_kw[:remain])
+
+    return result
+
+
+def fetch_danmaku(cid, sessdata=None, max_danmaku=1000, bvid=None, stratify=True):
+    """获取弹幕。bvid 提供时，落盘文件名使用 BV 前缀，便于与其它产物（评论/字幕）对齐。
+
+    Args:
+        cid: 视频 CID
+        sessdata: B站会话令牌
+        max_danmaku: 最大采样数(默认1000)
+        bvid: BV号(可选,用于文件命名)
+        stratify: 是否启用分层采样(默认True)
+    """
+
     headers = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Referer": "https://www.bilibili.com",
     }
-    
+
     cookies = {}
     if sessdata:
         cookies["SESSDATA"] = sessdata
-    
-    print(f"📥 正在获取弹幕 (CID: {cid})...")
+
+    print(f"📥 正在获取弹幕 (CID: {cid}, max={max_danmaku}, 分层={'是' if stratify else '否'})...")
     
     # B站弹幕 API
     url = f"https://api.bilibili.com/x/v1/dm/list.so?oid={cid}"
@@ -94,13 +193,16 @@ def fetch_danmaku(cid, sessdata=None, max_danmaku=200, bvid=None):
                 'danmaku': [],
                 'path': None
             }
-        
-        # 提取数据（限制数量）
+
+        # 分层采样
+        sampled_elements = stratified_sample(danmakus, max_danmaku, stratify)
+
+        # 提取数据
         data = []
-        for dm in danmakus[:max_danmaku]:
+        for dm in sampled_elements:
             text = dm.text if dm.text else ""
             attrs = dm.get('p', '').split(',')
-            
+
             if len(attrs) >= 8:
                 time_sec = float(attrs[0])
                 mode = int(attrs[1])
@@ -110,10 +212,10 @@ def fetch_danmaku(cid, sessdata=None, max_danmaku=200, bvid=None):
                 pool = int(attrs[5])
                 user_id = attrs[6]
                 row_id = int(attrs[7])
-                
+
                 minutes = int(time_sec // 60)
                 seconds = int(time_sec % 60)
-                
+
                 data.append({
                     "text": text,
                     "time": f"{minutes}:{seconds:02d}",
@@ -122,6 +224,10 @@ def fetch_danmaku(cid, sessdata=None, max_danmaku=200, bvid=None):
                     "size": size,
                     "color": color
                 })
+
+        # 关键词加权(可选,仅在采样数 > 100 时启用)
+        if len(data) > 100:
+            data = keyword_boost(data, max_danmaku)
         
         # 保存 JSON（优先 BV 前缀，纯 CID 输入时回退旧命名）
         output_path = f"/tmp/{bvid}_danmaku.json" if bvid else f"/tmp/cid_{cid}_danmaku.json"
@@ -156,15 +262,26 @@ def fetch_danmaku(cid, sessdata=None, max_danmaku=200, bvid=None):
 
 def main():
     if len(sys.argv) < 2:
-        print("用法: python3 fetch_danmaku_v2.py <BV号或CID> [SESSDATA] [MAX_COUNT]")
+        print("用法: python3 fetch_danmaku_v2.py <BV号或CID> [SESSDATA] [MAX_COUNT] [--stratify | --no-stratify]")
         print("示例:")
         print("  python3 fetch_danmaku_v2.py BV1ut6YByEZq")
-        print("  python3 fetch_danmaku_v2.py 35701197640")
+        print("  python3 fetch_danmaku_v2.py BV1ut6YByEZq <SESSDATA> 1000")
+        print("  python3 fetch_danmaku_v2.py BV1ut6YByEZq <SESSDATA> 1000 --no-stratify")
         sys.exit(1)
-    
-    input_id = sys.argv[1]
-    sessdata = sys.argv[2] if len(sys.argv) > 2 else None
-    max_count = int(sys.argv[3]) if len(sys.argv) > 3 else 200
+
+    # 解析参数
+    args = sys.argv[1:]
+    stratify = True
+    if '--no-stratify' in args:
+        stratify = False
+        args.remove('--no-stratify')
+    if '--stratify' in args:
+        stratify = True
+        args.remove('--stratify')
+
+    input_id = args[0]
+    sessdata = args[1] if len(args) > 1 else None
+    max_count = int(args[2]) if len(args) > 2 else 1000
 
     video_info = None
     bvid = input_id if is_bvid(input_id) else None
@@ -192,7 +309,7 @@ def main():
             sys.exit(1)
     
     # 获取弹幕
-    result = fetch_danmaku(cid, sessdata, max_count, bvid=bvid)
+    result = fetch_danmaku(cid, sessdata, max_count, bvid=bvid, stratify=stratify)
     
     if result:
         print(f"\n✅ 弹幕获取完成!")
