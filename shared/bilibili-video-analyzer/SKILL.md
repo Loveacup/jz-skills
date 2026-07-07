@@ -69,7 +69,7 @@ Transform Bilibili videos into structured, searchable, actionable knowledge asse
 
 ```
 🆕 Received a YouTube URL (非搬运，直接分析原片)?
-└── → scripts/fetch_youtube.py <url> [--limit N] → /tmp/{video_id}_youtube_report.md (引擎报告，独立流程)
+└── → [待实现] scripts/fetch_youtube.py <url> [--limit N] → /tmp/{video_id}_youtube_report.md (引擎报告，独立流程)。当前可先用 `scripts/fetch_youtube_comments.py` 抓评论 + `generate_report.py` 分析。
 
 Received Bilibili URL(s)?
 ├── Multiple URLs (same creator/series)? → 🆕 Offer merged report. Collect all metadata first.
@@ -90,9 +90,9 @@ Received Bilibili URL(s)?
 │           <20min → 精简版, ≥30min → 全量版, unknown → 精简版 (safe default)
 ├── Phase 1: Fetch data (metadata → subtitles → danmaku → comments)
 │   ├── Subtitles: official/AI subtitles → PlayURL direct audio → H200 ASR → whisper.cpp → mlx-whisper
-│   ├── Danmaku: ≥30-60 samples
-│   ├── Comments: top 50 hot comments
-│   └── 🆕 YouTube cross-platform (搬运视频): detect YouTube URL in description → fetch original subtitles + comments
+│   ├── Danmaku: up to 1000 stratified samples (time-weighted + keyword boost)
+│   ├── Comments: ~150 mixed (hot + recent, deduped) + top 20 replies under high-engagement comments
+│   └── 🆕 YouTube cross-platform (搬运视频): detect YouTube URL in description → fetch original comments via `fetch_youtube_comments.py` (limit=100)
 ├── Phase 2: Analysis engine (type diagnosis → evidence map → depth selection → report plan)
 │   ├── ⚠️ Core asset: preserve Alex's old report framework as baseline; GitHub/BiliNote ideas are additive only
 │   ├── Type diagnosis: Tutorial / Interview / Review / Narrative / Speech
@@ -278,16 +278,16 @@ python3 scripts/verify_report.py /tmp/报告草稿.md --mode condensed   # 精�
 **搬运视频评论同步**：
 ```bash
 # 独立使用 YouTube 评论抓取
-python3 scripts/fetch_youtube_comments.py <youtube_url或video_id> --limit 50
+python3 scripts/fetch_youtube_comments.py <youtube_url或video_id> [--limit 100]
 # 输出：/tmp/{video_id}_youtube_comments.json
 ```
 
-**🆕 YouTube 视频独立分析入口**（对标 fetch_all，非搬运场景直接分析 YouTube 原片）：
+**🆕 YouTube 视频独立分析入口**（对标 fetch_all，非搬运场景直接分析 YouTube 原片）：`scripts/fetch_youtube.py` — 当前状态 `[待实现]`。
+
+当前替代路径：
 ```bash
-python3 scripts/fetch_youtube.py <youtube_url或video_id> [--limit 50]
-# 采集：yt-dlp --dump-json 元数据 + 字幕(youtube-transcript-api 优先, yt-dlp --write-auto-subs 兜底) + 评论
-# 调 video_analysis_engine(platform='youtube') → 输出 /tmp/{video_id}_youtube_report.md
-# 走 RESULT_JSON 协议；全程 best-effort 降级（字幕/评论任一失败不阻塞其余）
+python3 scripts/fetch_youtube_comments.py <youtube_url或video_id> --limit 100
+# 再与 subtitle / metadata 组合后喂给 generate_report.py
 ```
 
 **WRR 事实核查链**：
@@ -306,9 +306,9 @@ python3 scripts/fact_check_wrr.py --transcript /tmp/BVxxx_subtitle_official.txt 
 |:---|:---|:---|
 | `fetch_all.py` ⭐ | One-shot: danmaku + comments + subtitles (dispatches sub-scripts via `/usr/bin/python3`; failures reported, not masked). 🆕 `--report` 追加 Obsidian 报告 | yt-dlp, mlx-whisper/whisper-cli |
 | `generate_report.py` 🆕 | 胶水层：fetch_all 结果 → AnalysisInput → 引擎 → Obsidian Markdown（`--bvid`/`--input`/stdin 三入口） | stdlib only |
-| `fetch_youtube.py` 🆕 | YouTube 视频独立分析入口（metadata + 字幕 + 评论 → 引擎报告，对标 fetch_all） | yt-dlp, youtube-transcript-api |
+| `fetch_youtube.py` 🆕 | [待实现] YouTube 视频独立分析入口（metadata + 字幕 + 评论 → 引擎报告，对标 fetch_all） | yt-dlp, youtube-transcript-api |
 | `fetch_danmaku_v2.py` | Danmaku (BV号 direct, BV-prefixed output) | requests |
-| `fetch_comments.py` | Comments (top 50 hot) | requests |
+| `fetch_comments.py` | Comments (~150 mixed + hot replies, BV号 direct) | requests |
 | `fetch_subtitle_auto.py` | Subtitles (auto-fallback: official→yt-dlp→whisper.cpp→mlx) | yt-dlp, whisper.cpp, mlx-whisper |
 | `fetch_youtube_comments.py` 🆕 | YouTube 评论双路径抓取（yt-dlp → yt-comment-dl fallback） | yt-dlp, yt-comment-dl |\n| `fact_check_wrr.py` 🆕 | WRR 事实核查路由：从字幕提取可验证 claim | stdlib only |\n| `video_analysis_engine.py` 🆕 | 平台无关视频分析引擎骨架（数据类 + 报告渲染） | stdlib only |\n| `bilibili_dm_patch.py` 🆕 | yt-dlp dm_img monkey-patch 412 绕过（移植自 BiliNote） | yt-dlp (optional) |\n| `mlx_transcribe.py` | mlx-whisper Python-API transcription (local snapshot, offline) | mlx-whisper (`/usr/bin/python3`) |
 | `release_gate.py` 🆕 | 发布前统一质量入口：fixture quality gate + pytest；真实样片 smoke 需显式 `--real-sample` | stdlib only |
@@ -336,7 +336,7 @@ python3 scripts/fact_check_wrr.py --transcript /tmp/BVxxx_subtitle_official.txt 
 - ⚠️ 🆕 **mlx-whisper 不一定预装**：skill 假设 `mlx-whisper` 已安装在 `/usr/bin/python3`，但实际可能缺失。若 `import mlx_whisper` 失败，执行 `pip3 install mlx-whisper`（安装到 `~/Library/Python/3.9/`，~60s）。whisper.cpp 模型文件也可能缺失（需 `ggml-large-v3-turbo.bin`），优先用 mlx-whisper。
 - ⚠️ 🆕 **fetch_all 字幕失败不是终点**：即使 `fetch_all.py` 的字幕步骤返回 `status=failed`，先读 trace。当前自动链路会在 PlayURL API 下载音频后优先调用 **H200 ASR**；只有 H200 不通/失败才继续本机 `whisper.cpp` / `/usr/bin/python3 scripts/mlx_transcribe.py ... zh`。不要因为 `python3 -c 'import mlx_whisper'` 失败就误判无法转录。
 - ⚠️ 🆕 **转载/搬运视频优先检查原始来源字幕**：如果 B站简介给出 YouTube/原站链接（如 `来源：https://www.youtube.com/watch?...`），且 B站无官方字幕或 yt-dlp 412，先尝试原始来源字幕：`yt-dlp --write-auto-subs --sub-lang 'en.*,zh.*' --skip-download --convert-subs srt -o '/tmp/<topic>' '<原始URL>'`。原始英文字幕通常比中文音频转录更完整；可作为主分析文本，B站 PlayURL+H200/local ASR 转录作为辅助核对。报告 §0/§8 必须明确数据来源差异，避免把 YouTube 字幕误称为 B站字幕。
-- 🆕 **YouTube 原视频评论同步（搬运视频）**：当 B站视频标题/简介含 `youtube.com/watch?v=` / `youtu.be/` / 「来源」「搬运」「中配」等关键词时，自动触发 YouTube 原视频评论抓取 → `yt-dlp --write-comments --skip-download -o '/tmp/yt_%(id)s' '<youtube_url>'`。抓取后在 §2.5 Comments Analysis 下增加「YouTube 原视频评论对比」子节。详见 `references/bilinote-cross-reference.md` §3。
+- 🆕 **YouTube 原视频评论同步（搬运视频）**：当 B站视频标题/简介含 `youtube.com/watch?v=` / `youtu.be/` / 「来源」「搬运」「中配」等关键词时，`fetch_all.py` 自动调用 `scripts/fetch_youtube_comments.py <url> --limit 100` 抓取原视频评论。该脚本优先使用 `youtube-comment-downloader`（无需 API key），失败时回退到 `yt-dlp --print %(comments)j`。抓取后在 §2.5/§3/§4/§7 作为跨平台 `source_type='youtube'` 证据候选。详见 `references/bilinote-cross-reference.md` §3。
 - 🆕 **BiliNote / jz-skills 交叉参考**：2026-06-29/30 深度分析了 [JefferyHcool/BiliNote](https://github.com/JefferyHcool/BiliNote) 与旧版 `jz-skills/shared/bilibili-video-analyzer`。结论：BiliNote 提供 Downloader/Transcriber/GPT/NoteGenerator 分层与 RequestChunker/checkpoint 蓝图；旧 skill 提供 Hermes-native RESULT_JSON、真实 home/user-site 兜底、PlayURL direct audio 稳定路径。详见 `references/bilinote-cross-reference.md` 与 `references/bilinote-and-jz-source-absorption-20260630.md`。
 - 🆕 **P0 防回归锁定参考**：修改 `fetch_subtitle_auto.py` / `bilibili_dm_patch.py` / `fetch_all.py` 前先读 `references/p0-regression-lock-20260630.md`。其中记录了 PlayURL 逐 P 音频主 fallback、4 个 P0 回归测试、Hermes 复跑命令和 OMP 审核证据。
 - 🆕 **内容引擎升级原则**：下一阶段优化重点是分析与内容产出引擎，不是继续堆 fetcher。旧版报告框架是 Alex 蒸馏资产，必须作为基线保留；BiliNote/GitHub 只提供增量增强。见 `references/content-engine-upgrade-principles-20260630.md`。
