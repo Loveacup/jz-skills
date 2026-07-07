@@ -510,7 +510,7 @@ def _old_full_sections(gate: Dict[str, Any], mode: str) -> List[SectionSpec]:
         SectionSpec('1', '逻辑链 (Logic Chain)', '用表格和 Mermaid 压缩叙事弧线，禁止流水账', ['transcript'], quality_gate='G1'),
         SectionSpec('2', '弹幕深度分析 (Danmaku Intelligence)', '提炼即时受众情绪、梗、争议焦点', ['danmaku'], required=has_social, allowed=has_social, notes='数据稀疏时 ≤50 字，不注水'),
         SectionSpec('2.5', '评论深度分析 (Comments Analysis)', '提炼热评信息增量、观点聚合、弹幕/评论差异', ['comments'], required=has_social, allowed=has_social, notes='数据稀疏时降级为一句说明'),
-        SectionSpec('3', '核心洞察 (Key Insights)', '提炼 3–5 个高价值认知点并绑定证据', ['transcript', 'comments', 'danmaku'], quality_gate='G3', min_items=2 if condensed else 3, min_words_per_item=150 if condensed else 200),
+        SectionSpec('3', '核心洞察 (Key Insights)', '提炼 3–5 个高价值认知点并绑定证据', ['transcript', 'comments', 'danmaku'], quality_gate='G3', min_items=2 if condensed else 3, min_words_per_item=100),
         SectionSpec('4', '内容深度拆解 (Deep Dive)', '按主题模块做非线性深拆，吸收 BiliNote chunk/checkpoint 用于长上下文', ['transcript', 'external_research'], quality_gate='G4', min_items=2 if condensed else 3, min_words_per_item=0 if condensed else 500, needs_external_research=needs_external),
         SectionSpec('5', '高光时刻 (Highlights & Quotes)', '保留原文金句、上下文、时间戳', ['transcript', 'danmaku'], quality_gate='G5', min_items=2 if condensed else 5),
         SectionSpec('6', '知识图谱 (Knowledge Graph)', '抽取概念、工具、人物、文化梗并链接 OB 知识体系', ['transcript', 'external_research'], needs_external_research=needs_external),
@@ -1175,12 +1175,16 @@ def _emit_section_skeleton(
     sid: str,
     cands: List[Dict[str, Any]],
     report: Optional[Dict[str, Any]] = None,
-    provider: Optional[WriterProvider] = None
+    provider: Optional[WriterProvider] = None,
+    depth_profile: str = "standard"
 ) -> None:
     """给 verify_report 关注的 §3/§4/§5/§7 最小子结构；其余节注入证据或占位。
 
     如果 provider 非 None 且 sid 为 '3'/'4'/'7'，尝试调用 LLM 生成内容；验证通过
     则用 LLM 内容替换标题和正文，否则 fallback 到骨架占位。
+
+    Args:
+        depth_profile: Depth analysis mode - "standard", "claim-first-full", or "v24-full"
     """
     if sid == '3':
         # 默认骨架标题
@@ -1192,7 +1196,7 @@ def _emit_section_skeleton(
                 contexts = build_typed_writer_section_contexts(report)
                 ctx = next((c for c in contexts if c.section_id == '3'), None)
                 if ctx:
-                    result = write_llm_section(ctx, provider, retries=2)
+                    result = write_llm_section(ctx, provider, retries=2, depth_profile=depth_profile)
                     if result.validation_passed:
                         # 用 LLM 内容替换；result.content 自带 verify_report 可识别的 ### 子标题
                         lines.append(result.content)
@@ -1222,7 +1226,7 @@ def _emit_section_skeleton(
                 contexts = build_typed_writer_section_contexts(report)
                 ctx = next((c for c in contexts if c.section_id == '4'), None)
                 if ctx:
-                    result = write_llm_section(ctx, provider, retries=2)
+                    result = write_llm_section(ctx, provider, retries=2, depth_profile=depth_profile)
                     if result.validation_passed:
                         # 用 LLM 内容替换；result.content 自带 verify_report 可识别的 ### 子标题
                         lines.append(result.content)
@@ -1256,7 +1260,7 @@ def _emit_section_skeleton(
                 contexts = build_typed_writer_section_contexts(report)
                 ctx = next((c for c in contexts if c.section_id == '7'), None)
                 if ctx:
-                    result = write_llm_section(ctx, provider, retries=2)
+                    result = write_llm_section(ctx, provider, retries=2, depth_profile=depth_profile)
                     if result.validation_passed:
                         # 用 LLM 内容替换；result.content 自带 verify_report 可识别的 ### 子标题
                         lines.append(result.content)
@@ -1386,11 +1390,15 @@ def _render_plan_skeleton(
     report: Dict[str, Any],
     lines: List[str],
     plan_sections: List[Dict[str, Any]],
-    provider: Optional[WriterProvider] = None
+    provider: Optional[WriterProvider] = None,
+    depth_profile: str = "standard"
 ) -> str:
     """按 SectionSpec 顺序渲染老版 §0–§8 骨架，注入 evidence_map 候选。
 
     如果 provider 非 None，则传给 _emit_section_skeleton 用于 LLM 生成。
+
+    Args:
+        depth_profile: Depth analysis mode - "standard", "claim-first-full", or "v24-full"
     """
     by_section = (report.get('evidence_map') or {}).get('by_section') or {}
     for spec in plan_sections:
@@ -1402,7 +1410,7 @@ def _render_plan_skeleton(
         if purpose:
             lines.append(f'_目的：{purpose}_')
             lines.append('')
-        _emit_section_skeleton(lines, sid, by_section.get(sid, []), report, provider)
+        _emit_section_skeleton(lines, sid, by_section.get(sid, []), report, provider, depth_profile)
         if sid in ('0', '8'):
             _emit_source_appendix(lines, report, sid)
     return '\n'.join(lines)
@@ -1561,13 +1569,17 @@ def render_draft_markdown(draft: DraftReport) -> str:
 
 def render_debug_markdown(
     draft_or_report: Any,
-    provider: Optional[WriterProvider] = None
+    provider: Optional[WriterProvider] = None,
+    depth_profile: str = "standard"
 ) -> str:
     """Render a debug/legacy Markdown view of a DraftReport or raw report dict.
 
     This function is allowed to call `_render_plan_skeleton()`. Its output is
     useful for inspection and engineering gates, but is not publishable unless a
     later explicit `publish_markdown()` call succeeds.
+
+    Args:
+        depth_profile: Depth analysis mode - "standard", "claim-first-full", or "v24-full"
     """
     report = draft_or_report.report if isinstance(draft_or_report, DraftReport) else draft_or_report
     fm = report.get('frontmatter', {})
@@ -1575,7 +1587,7 @@ def render_debug_markdown(
 
     plan_sections = (report.get('report_plan') or {}).get('sections') or []
     if plan_sections:
-        return _render_plan_skeleton(report, lines, plan_sections, provider)
+        return _render_plan_skeleton(report, lines, plan_sections, provider, depth_profile)
 
     for title, body in report.get('sections', {}).items():
         lines.append(f'## {title}')
@@ -1596,15 +1608,22 @@ def publish_markdown(markdown: str) -> PublishedMarkdown:
     return PublishedMarkdown(markdown=markdown, gates=gates)
 
 
-def render_markdown(report: Dict[str, Any], provider: Optional[WriterProvider] = None) -> str:
+def render_markdown(
+    report: Dict[str, Any],
+    provider: Optional[WriterProvider] = None,
+    depth_profile: str = "standard"
+) -> str:
     """Legacy/debug Markdown renderer for analyze_video() output.
 
     `render_markdown()` intentionally returns a plain string for backwards
     compatibility. When `report_plan.sections` exists it renders the plan-aware
     skeleton via `render_debug_markdown()`. Call `publish_markdown()` to promote
     Markdown into `PublishedMarkdown`; do not treat this string as publishable.
+
+    Args:
+        depth_profile: Depth analysis mode - "standard", "claim-first-full", or "v24-full"
     """
-    return render_debug_markdown(report, provider)
+    return render_debug_markdown(report, provider, depth_profile)
 
 
 # ============ Writer 适配层（P2-C1）============
@@ -2006,17 +2025,38 @@ Toulmin 模型要求（每个洞察必须包含）：
 输出约束：
 - 只输出 Markdown 格式内容，不添加额外说明
 - 不要重复输出本节 `## 3.` 大标题；直接从 `###` 小标题开始
-- 必须输出至少 3 个洞察小节，每个小节标题必须是 `### 💡 洞察 N：标题`
-- 每个洞察小节结构：
-  * **定义**：一句话精准定义
-  * **深度解析**：原理层（为什么成立）+ 案例层（视频具体例子，含 [E#]）+ 关联层（与已有概念关系）
-  * **弹幕反馈**：主要反应类型 + 典型弹幕 + 共识度（高/中/低）
-  * **推理许可**：从证据到主张的推理规则
-  * **边界条件**：该主张的局限性或反证
-- 每个洞察小节正文至少 200 字，并必须包含 [E#] 引用证据（如 [E1]、[E2]）
+- **必须输出 3-5 个洞察小节，每个小节标题格式严格为 `### 💡 洞察 N：标题`（N 从 1 开始递增）**
+- 每个洞察小节必须包含完整的五要素结构：
+  * **定义**：一句话精准定义（≥20 字）
+  * **深度解析**：原理层（为什么成立）+ 案例层（视频具体例子，含 [E#]）+ 关联层（与已有概念关系），**必须至少 150 个中文词/字符**
+  * **弹幕反馈**：主要反应类型 + 典型弹幕 + 共识度（高/中/低）（≥30 字）
+  * **推理许可**：从证据到主张的推理规则（≥40 字）
+  * **边界条件**：该主张的局限性或反证（≥30 字）
+- **每个洞察小节正文总计至少 300 个中文字符/词**（不包括标题和 [E#] 标记本身）
+- 每个洞察必须包含至少 1 个 [E#] 引用证据（如 [E1]、[E2]）
+- 每个洞察小节结尾必须有一行 `证据：@[E1] @[E2]` 格式的证据引用汇总
+- **禁止只输出 Mermaid 图、列表或短段落：必须包含充足的自然语言论述**
 - 禁止编造或猜测视频中未提及的内容
 - 对不确定的信息，使用"从现有证据只能看出..."表述
-- 禁止使用"显然""必然""毫无疑问"等绝对化表达""",
+- 禁止使用"显然""必然""毫无疑问"等绝对化表达
+
+输出格式示例：
+### 💡 洞察 1：标题
+**定义**：一句话精准定义...
+
+**深度解析**：
+原理层：为什么成立...（引用 [E1]）
+案例层：视频中具体例子...（引用 [E2]）
+关联层：与已有概念的关系...
+（本段至少 150 字）
+
+**弹幕反馈**：主要反应类型...典型弹幕...共识度...
+
+**推理许可**：从证据到主张的推理规则...
+
+**边界条件**：该主张的局限性或反证...
+
+证据：@[E1] @[E2]""",
         "user": """# 任务：{heading}
 
 目的：{purpose}
@@ -2031,7 +2071,14 @@ Toulmin 模型要求（每个洞察必须包含）：
 ## 可用证据
 {evidence}
 
-请根据以上证据撰写该节内容，确保每条观点都引用 [E#] 标记，并包含 Claim、Warrant、Evidence Pointers、Boundary/Rebuttal 四要素。"""
+请根据以上证据撰写该节内容，严格遵守以下要求：
+1. 输出 3-5 个洞察，每个洞察标题必须是 `### 💡 洞察 N：标题`（N 从 1 开始）
+2. 每个洞察必须包含：定义（≥20 字）、深度解析（≥150 字）、弹幕反馈（≥30 字）、推理许可（≥40 字）、边界条件（≥30 字）
+3. **每个洞察正文总计至少 300 个中文字符/词**
+4. 每个洞察必须至少引用 1 个 [E#] 证据编号
+5. 每个洞察结尾必须有一行 `证据：@[E1] @[E2]` 格式的证据引用汇总
+6. 禁止只输出 Mermaid 图或列表：必须包含充足的自然语言论述
+7. 不要输出 `## 3.` 大标题，直接从 `### 💡 洞察 1：` 开始"""
     },
     "4": {
         "system": """你是一位专业的视频分析师，负责做内容深度拆解。
@@ -2055,17 +2102,48 @@ Toulmin 模型要求（每个洞察必须包含）：
 输出约束：
 - 只输出 Markdown 格式内容，不添加额外说明
 - 不要重复输出本节 `## 4.` 大标题；直接从 `###` 小标题开始
-- 必须输出至少 3 个模块，每个模块标题必须是 `### 模块 N：标题`
+- **必须输出 3-5 个模块，每个模块标题格式严格为 `### 模块 N：标题`（N 从 1 开始递增）**
+- 每个模块的递进逻辑（建议）：
+  * 模块 1：现象拆解 / 定义核心概念
+  * 模块 2：机制分析 / 因果链条
+  * 模块 3：结构性原因 / 模式总结
+  * 模块 4（可选）：延展讨论
+  * 模块 5（可选）：反常识发现
 - 每个模块必须包含：
   * 核心论点（一句话）
   * Mermaid 图（至少一张：flowchart / sequence / classDiagram / pie）
-  * 论证展开（前提→推理→结论结构，含 [E#] 引用）
+  * 论证展开（前提→推理→结论结构，**必须至少引用 1 个 [E#] 证据编号**）
   * 与用户栈关联（具体可借鉴之处）
   * 批判审视（漏洞/盲区/边界条件）
+- **每个模块结尾必须包含一行 `证据：@[E1] @[E2]` 格式的证据引用汇总**
 - 每个模块正文至少 500 个中文字符/词，不要输出短模块
 - 禁止编造或猜测视频中未提及的内容
 - 对不确定的信息，使用"从现有证据只能看出..."表述
-- 禁止使用"显然""必然""毫无疑问"等绝对化表达""",
+- 禁止使用"显然""必然""毫无疑问"等绝对化表达
+
+输出格式示例：
+### 模块 1：现象拆解
+**核心论点**：...
+
+```mermaid
+flowchart LR
+...
+```
+
+**论证展开**：
+- 前提：从证据 [E1] 可见...
+- 推理：...
+- 结论：...
+
+**与用户栈关联**：...
+
+**批判审视**：...
+
+证据：@[E1] @[E2]
+
+### 模块 2：机制分析
+...
+证据：@[E2] @[E3]""",
         "user": """# 任务：{heading}
 
 目的：{purpose}
@@ -2080,7 +2158,12 @@ Toulmin 模型要求（每个洞察必须包含）：
 ## 可用证据
 {evidence}
 
-请根据以上证据撰写该节内容，每个模块必须包含：核心论点、Mermaid 图、论证展开（前提→推理→结论）、与用户栈关联、批判审视。确保所有论述都引用 [E#] 标记。"""
+请根据以上证据撰写该节内容，严格遵守以下要求：
+1. 输出 3-5 个模块，每个模块标题必须是 `### 模块 N：标题`（N 从 1 开始）
+2. 每个模块必须包含：核心论点、Mermaid 图、论证展开（前提→推理→结论）、与用户栈关联、批判审视
+3. 每个模块的论证展开必须至少引用 1 个 [E#] 证据编号
+4. 每个模块结尾必须有一行 `证据：@[E1] @[E2]` 格式的证据引用汇总
+5. 不要输出 `## 4.` 大标题，直接从 `### 模块 1：` 开始"""
     },
     "7": {
         "system": """你是一位专业的视频分析师，负责输出批判性评估与可执行行动。
@@ -2276,19 +2359,22 @@ def validate_section(result: WriterResult, contract: WriterSectionContext) -> Wr
     if not re.search(r'\[E\d+\]', result.content):
         errors.append("未找到任何 [E#] 证据引用")
 
-    if contract.min_items:
-        items = _extract_markdown_items(result.content)
-        if len(items) < contract.min_items:
-            errors.append(f"条目数不足：需要 {contract.min_items}，实际 {len(items)}")
+    # §3、§4、§7 已经在 _validate_writer_format 中按专门格式验证过了，
+    # 跳过通用的条目验证（避免误把子要素当作独立条目检查）
+    if contract.section_id not in ('3', '4', '7'):
+        if contract.min_items:
+            items = _extract_markdown_items(result.content)
+            if len(items) < contract.min_items:
+                errors.append(f"条目数不足：需要 {contract.min_items}，实际 {len(items)}")
 
-    if contract.min_words_per_item:
-        items = _extract_markdown_items(result.content)
-        for i, item in enumerate(items, 1):
-            word_count = _count_writer_words(item)
-            if word_count < contract.min_words_per_item:
-                errors.append(
-                    f"第 {i} 条词数不足：需要 {contract.min_words_per_item}，实际 {word_count}"
-                )
+        if contract.min_words_per_item:
+            items = _extract_markdown_items(result.content)
+            for i, item in enumerate(items, 1):
+                word_count = _count_writer_words(item)
+                if word_count < contract.min_words_per_item:
+                    errors.append(
+                        f"第 {i} 条词数不足：需要 {contract.min_words_per_item}，实际 {word_count}"
+                    )
 
     result.validation_passed = len(errors) == 0
     result.validation_errors = errors
@@ -2304,10 +2390,12 @@ def write_llm_section(
     """
     调用 LLM provider 生成章节内容，并进行确定性验证。
 
+    如果第一次验证失败，将错误信息反馈给 LLM 要求重写，最多尝试 retries+1 次。
+
     Args:
         context: Section writing context
         provider: LLM writer provider
-        retries: Number of retries on validation failure
+        retries: Number of retries on validation failure (default: 2, total 3 attempts)
         depth_profile: Depth analysis mode - "standard", "claim-first-full", or "v24-full"
     """
     # Choose prompt set based on depth_profile
@@ -2341,8 +2429,17 @@ def write_llm_section(
         evidence=evidence_text
     )
 
+    last_result = None
     for attempt in range(retries + 1):
-        raw = provider(system, user)
+        # If this is a retry, append correction hint to user prompt
+        current_user = user
+        if attempt > 0 and last_result and last_result.validation_errors:
+            correction_hint = "\n\n---\n**上次输出格式不符合要求，请修正：**\n"
+            correction_hint += "\n".join(f"- {err}" for err in last_result.validation_errors)
+            correction_hint += "\n\n请重新生成该节内容，确保严格遵守格式要求。"
+            current_user = user + correction_hint
+
+        raw = provider(system, current_user)
         result = WriterResult(
             section_id=context.section_id,
             content=raw.strip(),
@@ -2356,7 +2453,9 @@ def write_llm_section(
         if result.validation_passed:
             return result
 
-    return result
+        last_result = result
+
+    return last_result
 
 
 # ============ Report Coherence Checker ============
@@ -2513,42 +2612,103 @@ def extract_claims_from_evidence(report: Dict[str, Any], max_claims: int = 12) -
     claims = []
     claim_id_counter = 1
 
-    # Extract from transcript (highest confidence)
-    transcript_text = report.get('subtitle', '') or report.get('transcript', '')
-    if transcript_text:
-        # Simple extraction: split into sentences and treat significant ones as claims
-        sentences = [s.strip() for s in transcript_text.split('。') if len(s.strip()) > 20]
-        for sent in sentences[:max_claims]:
+    # Priority 1: Extract from evidence_map.by_section (structured candidates)
+    evidence_map = report.get('evidence_map', {})
+    by_section = evidence_map.get('by_section', {}) if isinstance(evidence_map, dict) else {}
+
+    if by_section:
+        # Process sections in priority order: §3 (core insights), §4 (deep dive), §7 (critical)
+        for section_id in ['3', '4', '7', '1', '5']:
+            candidates = by_section.get(section_id, [])
+            for idx, candidate in enumerate(candidates, start=1):
+                if len(claims) >= max_claims:
+                    break
+
+                # Extract candidate data (handle both dict and EvidenceCandidate objects)
+                if isinstance(candidate, dict):
+                    source_type = candidate.get('source_type', 'transcript')
+                    text = candidate.get('text', '') or candidate.get('content', '') or candidate.get('snippet', '')
+                    score = candidate.get('score', 0.5)
+                else:
+                    source_type = getattr(candidate, 'source_type', 'transcript')
+                    text = getattr(candidate, 'text', '') or getattr(candidate, 'content', '') or getattr(candidate, 'snippet', '')
+                    score = getattr(candidate, 'score', 0.5)
+
+                # Skip empty or too-short text
+                if not text or len(text.strip()) < 15:
+                    continue
+
+                # Map source_type and confidence
+                if source_type == 'transcript':
+                    # Map score to confidence: high score → high confidence
+                    confidence = max(0.6, min(0.9, 0.6 + score * 0.3))
+                    claim_source_type = "transcript"
+                elif source_type in ['comment', 'comments']:
+                    confidence = 0.3  # Audience signals have low confidence
+                    claim_source_type = "comment"
+                elif source_type == 'danmaku':
+                    confidence = 0.25  # Even lower for danmaku
+                    claim_source_type = "danmaku"
+                else:
+                    confidence = 0.5
+                    claim_source_type = "transcript"
+
+                # Create claim with evidence_id matching section + index
+                claim = Claim(
+                    id=f"C{claim_id_counter}",
+                    text=text[:300].strip(),
+                    confidence=confidence,
+                    evidence_ids=[f"E{idx}"],  # E1, E2, E3... per section
+                    source_type=claim_source_type,
+                    claim_type="observed",
+                    warrant="视频原话" if claim_source_type == "transcript" else "观众反馈",
+                    backing="仅基于本视频内容，未交叉验证外部信息"
+                )
+                claims.append(claim)
+                claim_id_counter += 1
+
             if len(claims) >= max_claims:
                 break
-            claim = Claim(
-                id=f"C{claim_id_counter}",
-                text=sent[:200],  # Truncate long sentences
-                confidence=0.7,  # Transcript has medium-high confidence
-                evidence_ids=[f"transcript_seg_{claim_id_counter}"],
-                source_type="transcript",
-                claim_type="observed"
-            )
-            claims.append(claim)
-            claim_id_counter += 1
 
-    # Extract from comments (audience signal only, lower confidence)
-    comments = report.get('comments', [])
-    for comment in comments[:max(3, max_claims - len(claims))]:
-        if len(claims) >= max_claims:
-            break
-        comment_text = comment.get('content', '') or comment.get('text', '')
-        if len(comment_text) > 15:
-            claim = Claim(
-                id=f"C{claim_id_counter}",
-                text=comment_text[:200],
-                confidence=0.3,  # Comments are audience signals, low confidence
-                evidence_ids=[f"comment_{claim_id_counter}"],
-                source_type="comment",
-                claim_type="observed"
-            )
-            claims.append(claim)
-            claim_id_counter += 1
+    # Fallback: Extract from top-level subtitle/transcript fields if evidence_map is empty
+    if not claims:
+        transcript_text = report.get('subtitle', '') or report.get('transcript', '')
+        if transcript_text:
+            # Split into sentences (Chinese period)
+            sentences = [s.strip() for s in transcript_text.split('。') if len(s.strip()) > 20]
+            for idx, sent in enumerate(sentences[:max_claims], start=1):
+                claim = Claim(
+                    id=f"C{claim_id_counter}",
+                    text=sent[:300],
+                    confidence=0.7,
+                    evidence_ids=[f"E{idx}"],
+                    source_type="transcript",
+                    claim_type="observed",
+                    warrant="视频原话",
+                    backing="仅基于本视频内容"
+                )
+                claims.append(claim)
+                claim_id_counter += 1
+
+    # Add limited audience signal claims from comments
+    if len(claims) < max_claims:
+        comments = report.get('comments', [])
+        audience_limit = min(3, max_claims - len(claims))
+        for idx, comment in enumerate(comments[:audience_limit], start=1):
+            comment_text = comment.get('content', '') or comment.get('text', '')
+            if len(comment_text) > 15:
+                claim = Claim(
+                    id=f"C{claim_id_counter}",
+                    text=comment_text[:200],
+                    confidence=0.3,
+                    evidence_ids=[f"E{len(claims) + idx}"],
+                    source_type="comment",
+                    claim_type="observed",
+                    warrant="观众反馈",
+                    backing="受限于评论者视角"
+                )
+                claims.append(claim)
+                claim_id_counter += 1
 
     return claims[:max_claims]
 
@@ -2560,6 +2720,7 @@ def synthesize_insights_from_claims(
     """Synthesize insights from claims using type diagnosis and v2.4 reasoning.
 
     Maps claims to insights and assigns target_section based on insight type.
+    Ensures balanced distribution: at least 3×§3, 3×§4, 1×§7 if claims permit.
 
     Args:
         claims: List of extracted claims
@@ -2569,30 +2730,45 @@ def synthesize_insights_from_claims(
         List of Insight objects with target_section assigned
     """
     insights = []
+    insight_id_counter = 1
+
+    # Keywords that suggest §4 (mechanism/causality) content
+    mechanism_keywords = [
+        "为什么", "因为", "机制", "结构", "方式", "导致", "使得",
+        "逻辑", "链条", "原因", "促使", "推动", "影响", "决定"
+    ]
 
     for claim in claims:
-        # Infer insight type based on claim characteristics
-        if claim.source_type == "transcript" and claim.confidence > 0.5:
-            # High-confidence transcript claims become core insights (§3)
-            insight_type = "核心洞察"
-            target = "3"
-            depth = 0.7
-            novelty = 0.6
-        elif claim.source_type == "comment":
-            # Comment-based claims become value assessment (§7)
+        # Determine target section based on source_type and content
+        if claim.source_type in ["comment", "danmaku", "audience"]:
+            # Audience signals → §7 (value assessment / critical reflection)
             insight_type = "价值评估"
             target = "7"
             depth = 0.4
             novelty = 0.3
+        elif claim.source_type == "transcript":
+            # Check if content suggests mechanism/causality → §4
+            is_mechanism = any(kw in claim.text for kw in mechanism_keywords)
+            if is_mechanism:
+                insight_type = "深度挖掘"
+                target = "4"
+                depth = 0.75
+                novelty = 0.7
+            else:
+                # Default transcript claims → §3 (core insights)
+                insight_type = "核心洞察"
+                target = "3"
+                depth = 0.7
+                novelty = 0.6
         else:
-            # Default to deep dive (§4)
-            insight_type = "深度挖掘"
-            target = "4"
-            depth = 0.5
+            # Fallback to §3
+            insight_type = "核心洞察"
+            target = "3"
+            depth = 0.6
             novelty = 0.5
 
         insight = Insight(
-            id=claim.id,
+            id=f"I{insight_id_counter}",
             text=claim.text,
             confidence=claim.confidence,
             evidence_ids=claim.evidence_ids,
@@ -2608,6 +2784,44 @@ def synthesize_insights_from_claims(
             target_section=target
         )
         insights.append(insight)
+        insight_id_counter += 1
+
+    # Ensure minimum distribution: 3×§3, 3×§4, 1×§7
+    section_counts = {"3": 0, "4": 0, "7": 0}
+    for insight in insights:
+        section_counts[insight.target_section] = section_counts.get(insight.target_section, 0) + 1
+
+    # If §4 is under-represented, promote mechanism-like §3 insights to §4
+    if section_counts.get("4", 0) < 3 and section_counts.get("3", 0) > 3:
+        needed = 3 - section_counts.get("4", 0)
+        promoted = 0
+        for insight in insights:
+            if insight.target_section == "3" and promoted < needed:
+                # Check if this insight has mechanism keywords
+                if any(kw in insight.text for kw in mechanism_keywords):
+                    insight.target_section = "4"
+                    insight.depth = 0.75
+                    promoted += 1
+
+    # If §7 is empty, create a placeholder audience insight
+    if section_counts.get("7", 0) == 0 and len(insights) > 0:
+        placeholder = Insight(
+            id=f"I{insight_id_counter}",
+            text="观众反馈：视频内容引发关注和讨论",
+            confidence=0.3,
+            evidence_ids=["E_placeholder"],
+            source_type="audience",
+            grounds="",
+            warrant="基于观众互动推断",
+            backing="受限于样本评论数量",
+            qualifier="",
+            rebuttal="",
+            claim_type="inferred",
+            depth=0.3,
+            novelty=0.2,
+            target_section="7"
+        )
+        insights.append(placeholder)
 
     return insights
 
@@ -2700,11 +2914,12 @@ def claim_bundle_to_dict(bundle: ClaimBundle) -> Dict[str, Any]:
     }
 
 
-def _format_claims_for_prompt(claims: List[Claim]) -> str:
-    """Format claims as LLM prompt fragment.
+def _format_claims_for_prompt(claims: List[Claim], target_section: Optional[str] = None) -> str:
+    """Format claims as LLM prompt fragment in [C1] text (E1) format.
 
     Args:
         claims: List of claims to format
+        target_section: Optional section filter (only include claims relevant to this section)
 
     Returns:
         Formatted string for prompt injection
@@ -2712,14 +2927,18 @@ def _format_claims_for_prompt(claims: List[Claim]) -> str:
     if not claims:
         return ""
 
-    lines = ["## 证据支持的主张\n"]
+    lines = []
     for claim in claims:
-        lines.append(f"- **{claim.text}**")
+        # Format: [C1] 文本内容（E1）
+        evidence_ref = ', '.join(claim.evidence_ids) if claim.evidence_ids else 'E0'
+        lines.append(f"[{claim.id}] {claim.text}（{evidence_ref}）")
+
+        # Add metadata
         if claim.warrant:
-            lines.append(f"  - 推理许可: {claim.warrant}")
-        if claim.evidence_ids:
-            lines.append(f"  - 证据: {', '.join(claim.evidence_ids)}")
-        lines.append("")
+            lines.append(f"- 依据：{claim.warrant}")
+        if claim.backing:
+            lines.append(f"- 边界：{claim.backing}")
+        lines.append("")  # Blank line between claims
 
     return "\n".join(lines)
 

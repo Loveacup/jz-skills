@@ -116,8 +116,9 @@ def test_validate_section_fail_min_items():
 - 观点一 [E1]：包含足够的中文字符以满足最低词数要求确保通过验证
 - 观点二 [E2]：包含足够的中文字符以满足最低词数要求确保通过验证
 """
-    result = WriterResult(section_id="3", content=content)
-    context = make_section_context(min_items=3, min_words_per_item=20)
+    # 使用 section_id="5" 来测试通用条目验证（§3/§4/§7 有专门格式验证）
+    result = WriterResult(section_id="5", content=content)
+    context = make_section_context(section_id="5", min_items=3, min_words_per_item=20)
 
     validated = validate_section(result, context)
 
@@ -132,8 +133,9 @@ def test_validate_section_fail_min_words():
 - 也短 [E2]
 - 还是短 [E3]
 """
-    result = WriterResult(section_id="3", content=content)
-    context = make_section_context(min_items=3, min_words_per_item=20)
+    # 使用 section_id="5" 来测试通用条目验证（§3/§4/§7 有专门格式验证）
+    result = WriterResult(section_id="5", content=content)
+    context = make_section_context(section_id="5", min_items=3, min_words_per_item=20)
 
     validated = validate_section(result, context)
 
@@ -153,7 +155,9 @@ def test_validate_section_rejects_heading_only_output():
     validated = validate_section(result, context)
 
     assert validated.validation_passed is False
-    assert any("有效正文不足" in e or "条目数不足" in e for e in validated.validation_errors)
+    # §4 有专门格式验证，会报"§4 格式不符合 verify_report"而不是通用的"条目数不足"
+    assert any("§4 格式不符合 verify_report" in e or "有效正文不足" in e or "条目数不足" in e
+               for e in validated.validation_errors)
 
 
 def test_validate_section_enforces_verify_report_format_for_llm_sections():

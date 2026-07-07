@@ -41,8 +41,8 @@ def test_resolve_writer_provider_deepseek():
 def test_report_markdown_passes_provider_to_debug_renderer(monkeypatch, tmp_path):
     calls = []
 
-    def fake_render(draft, provider=None):
-        calls.append({"draft": draft, "provider": provider})
+    def fake_render(draft, provider=None, depth_profile="standard"):
+        calls.append({"draft": draft, "provider": provider, "depth_profile": depth_profile})
         return "# rendered"
 
     def fake_provider(system, user):

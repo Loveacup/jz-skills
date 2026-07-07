@@ -10,6 +10,11 @@ They should FAIL initially and PASS after implementing claim pipeline logic.
 """
 
 import pytest
+import sys
+import os
+
+# Ensure scripts/ is in sys.path for import
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
 
 class TestAuditClaimsContract:
@@ -178,3 +183,84 @@ class TestClaimEvidencePointer:
 
         except (ImportError, AttributeError, TypeError) as e:
             pytest.fail(f"extract_claims evidence grounding test failed: {e}")
+
+
+class TestExtractClaimsFromEvidenceMap:
+    """Test that extract_claims_from_evidence correctly reads from evidence_map.by_section."""
+
+    def test_extract_claims_from_evidence_map_transcript(self):
+        """extract_claims should read transcript candidates from evidence_map.by_section['3'].
+
+        Verifies:
+        - Claims are extracted from evidence_map structure
+        - Evidence IDs use E1, E2, E3 format
+        - source_type is 'transcript'
+        """
+        from video_analysis_engine import extract_claims_from_evidence
+
+        # Construct report with evidence_map.by_section['3']
+        report = {
+            "bvid": "BV_test",
+            "evidence_map": {
+                "by_section": {
+                    "3": [
+                        {"source_type": "transcript", "text": "这是第一段字幕内容，包含核心信息点", "score": 0.8},
+                        {"source_type": "transcript", "text": "这是第二段字幕内容，提供了详细说明", "score": 0.7},
+                        {"source_type": "transcript", "text": "这是第三段字幕内容，总结了关键观点", "score": 0.75}
+                    ]
+                }
+            }
+        }
+
+        claims = extract_claims_from_evidence(report, max_claims=5)
+
+        # Should extract 3 claims
+        assert len(claims) >= 3, f"Expected at least 3 claims, got {len(claims)}"
+
+        # Check first 3 claims
+        for i in range(3):
+            claim = claims[i]
+            assert claim.source_type == "transcript", f"Claim {i+1} source_type should be transcript"
+            assert claim.evidence_ids == [f"E{i+1}"], f"Claim {i+1} evidence_ids should be ['E{i+1}'], got {claim.evidence_ids}"
+            assert len(claim.text) > 0, f"Claim {i+1} has empty text"
+
+    def test_build_claim_bundle_distributes_insights_to_sections(self):
+        """build_claim_bundle should distribute insights to §3, §4, §7.
+
+        Verifies:
+        - Insights are created for multiple target sections
+        - At least one insight per section (3, 4, 7)
+        - Claims count >= 3, insights count >= 3
+        """
+        from video_analysis_engine import build_claim_bundle
+
+        # Construct report with mixed evidence
+        report = {
+            "bvid": "BV_test",
+            "evidence_map": {
+                "by_section": {
+                    "3": [
+                        {"source_type": "transcript", "text": "这是核心观点内容，非常重要且有价值", "score": 0.8},
+                        {"source_type": "transcript", "text": "为什么会出现这种现象？这是因为底层机制决定的", "score": 0.85}
+                    ],
+                    "4": [
+                        {"source_type": "transcript", "text": "深层机制分析：导致这种结果的逻辑链条", "score": 0.9}
+                    ],
+                    "7": [
+                        {"source_type": "comment", "text": "观众反馈：这个视频很有启发性", "score": 0.6}
+                    ]
+                }
+            }
+        }
+
+        bundle = build_claim_bundle(report)
+
+        # Check basic counts
+        assert len(bundle.claims) >= 3, f"Expected at least 3 claims, got {len(bundle.claims)}"
+        assert len(bundle.insights) >= 3, f"Expected at least 3 insights, got {len(bundle.insights)}"
+
+        # Check target_section distribution
+        targets = {insight.target_section for insight in bundle.insights}
+        assert "3" in targets, "No insights for section 3"
+        assert "4" in targets, "No insights for section 4"
+        assert "7" in targets, "No insights for section 7"

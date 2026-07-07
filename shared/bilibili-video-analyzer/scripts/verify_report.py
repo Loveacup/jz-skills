@@ -283,7 +283,8 @@ def measure_g8(lines):
     if not subs:
         return (0, 0)
 
-    keywords_pattern = re.compile(r'claim|warrant|主张|证据|推理|许可|边界|反证|局限|但是|然而|不过|例外|\[E\d+\]|\b\d{1,2}:\d{2}\b')
+    # 扩展证据引用格式：[E1], @[E1], @E1, （E1）, (E1), 时间戳
+    keywords_pattern = re.compile(r'claim|warrant|主张|证据|推理|许可|边界|反证|局限|但是|然而|不过|例外|\[E\d+\]|@\[E\d+\]|@E\d+|[（(]E\d+[）)]|\b\d{1,2}:\d{2}\b')
     insights_with_keywords = 0
     for _head, body in subs:
         body_text = '\n'.join(body)
@@ -327,7 +328,8 @@ def measure_g10(lines):
     bullet_re = re.compile(r'^\s*-\s+')
     ordered_re = re.compile(r'^\s*\d+\.\s')
     checkbox_re = re.compile(r'^\s*-\s*\[[ xX]?\]')
-    ref_pattern = re.compile(r'\[E\d+\]|\[C\d+\]|\b\d{1,2}:\d{2}\b')
+    # 扩展证据引用格式：[E1], [C1], @[E1], @E1, （E1）, (E1), 时间戳
+    ref_pattern = re.compile(r'\[E\d+\]|\[C\d+\]|@\[E\d+\]|@E\d+|[（(]E\d+[）)]|\b\d{1,2}:\d{2}\b')
 
     action_items = []
     for head, body in subs:

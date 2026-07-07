@@ -142,8 +142,30 @@ def generate_report(results, bvid):
     报告落盘到 /tmp/{bvid}_report.md。
     """
     try:
-        from generate_report import report_markdown
-        markdown, report = report_markdown(results, run_fact_check=True)
+        from generate_report import report_markdown, cli_writer_provider
+        import os
+
+        # 检测 writer 是否可用：BILI_WRITER_CLI 环境变量或 /opt/homebrew/bin/omp 存在
+        writer_available = (
+            os.environ.get('BILI_WRITER_CLI')
+            or os.path.exists('/opt/homebrew/bin/omp')
+        )
+
+        if not writer_available:
+            print(
+                "   ⚠️  LLM writer 不可用：未设置 BILI_WRITER_CLI 且 /opt/homebrew/bin/omp 不存在。"
+                "报告将使用 skeleton 模式。若要启用 LLM 生成，请设置环境变量或安装 omp。"
+            )
+            # 不生成骨架报告，提前返回
+            return None
+
+        markdown, report = report_markdown(
+            results,
+            run_fact_check=True,
+            provider=cli_writer_provider,
+            depth_profile="claim-first-full",
+            claim_qa_gate=True,
+        )
         fm = report.get('frontmatter', {})
         evidence_gate = report.get('evidence_gate') or {}
         can_generate = evidence_gate.get('can_generate_formal_report')

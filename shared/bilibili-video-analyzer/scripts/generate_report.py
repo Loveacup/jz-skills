@@ -402,7 +402,7 @@ def report_markdown(results, run_fact_check=True, provider=None, depth_profile="
 
     # 保持旧的 Markdown 渲染路径不变（debug/legacy path）
     draft = build_draft_report(report)
-    return render_debug_markdown(draft, provider=shared_provider), report
+    return render_debug_markdown(draft, provider=shared_provider, depth_profile=depth_profile), report
 
 
 # ============ 输入加载 ============
@@ -525,11 +525,14 @@ def main():
     print('=' * 60)
 
     provider = resolve_writer_provider(args)
+    # 当 depth_profile 为 claim-first-full 或 v24-full 时，自动启用 claim_qa_gate
+    claim_qa_gate = args.depth_profile in ("claim-first-full", "v24-full")
     markdown, report = report_markdown(
         results,
         run_fact_check=not args.no_fact_check,
         provider=provider,
         depth_profile=args.depth_profile,
+        claim_qa_gate=claim_qa_gate,
     )
 
     out_path = args.output or f'/tmp/{bvid}_report.md'
