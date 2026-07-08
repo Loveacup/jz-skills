@@ -226,7 +226,7 @@ def main():
 
     # 2. 获取评论（扩量：150条，mixed策略）
     print("\n💬 [2/3] 获取评论...")
-    comment_args = [bvid] + ([sessdata] if sessdata else []) + ['150', '--strategy', 'mixed']
+    comment_args = [bvid] + ([sessdata] if sessdata else []) + ['--count', '150', '--strategy', 'mixed']
     results['comments'] = process_step('评论', 'fetch_comments.py', *comment_args)
     if not is_failed(results['comments']):
         cmt = results['comments']

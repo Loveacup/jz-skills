@@ -245,7 +245,20 @@ def main():
     )
     parser.add_argument("bvid", help="BV号或URL")
     parser.add_argument("sessdata", nargs="?", default=None, help="SESSDATA 登录凭证")
-    parser.add_argument("count", nargs="?", type=int, default=50, help="获取评论数量（默认50）")
+    parser.add_argument(
+        "count",
+        nargs="?",
+        type=int,
+        default=None,
+        help="获取评论数量（位置参数，已弃用；请用 --count，默认50）",
+    )
+    parser.add_argument(
+        "--count",
+        dest="count_opt",
+        type=int,
+        default=None,
+        help="获取评论数量（默认50，覆盖位置参数 count）",
+    )
     parser.add_argument(
         "--strategy",
         choices=["hot", "recent", "mixed"],
@@ -253,10 +266,10 @@ def main():
         help="采样策略: hot=仅热门, recent=仅时间序, mixed=热门+时间序合并去重（默认hot）"
     )
     args = parser.parse_args()
-
     input_str = args.bvid
     sessdata = args.sessdata
-    top_n = args.count
+    # 优先 --count，其次位置参数 count，最后默认 50
+    top_n = args.count_opt if args.count_opt is not None else (args.count if args.count is not None else 50)
     strategy = args.strategy
 
     # 提取BV号
