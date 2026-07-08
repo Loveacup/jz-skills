@@ -193,8 +193,25 @@ def generate_report(results, bvid):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if a != '--report']
-    want_report = '--report' in sys.argv[1:]
+    # 仅解析 fetch_all.py 自己认识的参数，其余不传给子脚本
+    own_known = {'--report', '--writer-provider', '--depth-profile'}
+    filtered = []
+    skip_next = False
+    for a in sys.argv[1:]:
+        if skip_next:
+            skip_next = False
+            continue
+        if a in own_known:
+            continue
+        if a.startswith('--writer-provider=') or a.startswith('--depth-profile='):
+            continue
+        if a in ('--writer-provider', '--depth-profile'):
+            skip_next = True
+            continue
+        filtered.append(a)
+
+    args = [a for a in filtered if a != '--report']
+    want_report = '--report' in filtered
 
     if not args:
         print("用法: python3 fetch_all.py <BV号> [SESSDATA] [--report]")

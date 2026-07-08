@@ -267,12 +267,14 @@ def _build_comments(comments_step):
 
 
 def _build_danmaku(danmaku_step):
-    """从 danmaku 子步骤重建 Danmaku 列表。"""
+    """从 danmaku 子步骤重建 Danmaku 列表。兼容 data 键和 danmaku 键。"""
     d = _safe(danmaku_step)
     if not d:
         return []
     out = []
-    for it in d.get('data', []) or []:
+    # fetch_danmaku_v2 返回 stdout 用 'data'，但落盘 JSON 用 'danmaku'；两者都支持
+    raw_list = d.get('data') or d.get('danmaku') or []
+    for it in raw_list:
         try:
             t = float(it.get('time_sec', 0) or 0)
         except (TypeError, ValueError):
