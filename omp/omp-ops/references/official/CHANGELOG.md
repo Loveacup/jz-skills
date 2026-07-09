@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+
 ### Added
 
 - Added native Warp CLI-agent events for rich session status, tool approvals, and completion notifications ([#5592](https://github.com/can1357/oh-my-pi/pull/5592) by [@metaphorics](https://github.com/metaphorics)).

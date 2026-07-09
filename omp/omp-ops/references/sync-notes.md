@@ -107,6 +107,14 @@
   the changelog and did not need authored updates in
   `references/providers/models.md`, `references/providers/search.md`,
   `references/architecture.md`, or `references/security.md` for this run.
+## 2026-07-09
+
+- Official OMP 16.3.12 sync refreshed `references/VERSION`, the official
+  changelog mirror, and `sync-state.json`. No authored updates required:
+  16.3.12 is a bugfix release (PR/Issue autocomplete, memoized token counting,
+  advisor credential rotation, JS eval unhandled rejection handling, and other
+  internal fixes) with no provider, modelRole, config, search, or credential
+  changes.
 
 ## 2026-07-06
 
