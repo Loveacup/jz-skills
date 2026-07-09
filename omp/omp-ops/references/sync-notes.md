@@ -1,5 +1,13 @@
 # Sync Notes
 
+## 2026-07-10
+
+- Official OMP 16.3.14 sync refreshed `references/VERSION`,
+  `references/sync-state.json`, and the official changelog mirror. I reviewed
+  the changelog and did not need authored updates in
+  `references/providers/models.md`, `references/providers/search.md`,
+  `references/architecture.md`, or `references/security.md` for this run.
+
 ## 2026-07-06
 
 - Official OMP 16.3.11 sync refreshed `references/VERSION` and the official

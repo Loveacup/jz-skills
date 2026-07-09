@@ -143,8 +143,10 @@ should not be treated as text-only.
 | Anthropic search | `ANTHROPIC_SEARCH_API_KEY` |
 | Codex search | `OPENAI_API_KEY` or stored Codex OAuth |
 
-### Recent OMP 16.2.9–16.3.11 operator notes
+### Recent OMP 16.2.9–16.3.14 operator notes
 
+- 16.3.14 tightened TUI rendering: raw thinking blocks now strip HTML comment
+  noise, and unfinalized tool blocks no longer pin the live-region scroll seam.
 - 16.3.11 title generation is more reliable: the runtime now uses
   marker-based parsing for all models, and JSON-shaped title replies are
   unwrapped to the bare title instead of being displayed verbatim.
