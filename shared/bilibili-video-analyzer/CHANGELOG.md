@@ -1,5 +1,30 @@
 # bilibili-video-analyzer Changelog
 
+## v2.3.2 - 2026-07-10
+
+### 内容质量提升：P5 确定性 Writer（无 LLM）
+
+- **P5-1**: §1 默认走 `write_logic_chain_section()`，输出时间线表格 + 阶段/Mermaid 逻辑链，替代原先的空骨架。
+- **P5-2**: §5 高光金句筛选升级：去噪（过滤非语录/引用/反讽、长度 8-210）、时间分桶避免扎堆、按评分排序保留 top 5，带引用时间戳。
+- **P5-3**: §2/§2.5 确定性 writer：
+  - §2 弹幕深度分析：情绪分布表（正面/质疑/梗/中立）、代表性弹幕、争议与梗聚类。
+  - §2.5 评论深度分析：热评观点（高赞 top 3）、信息增量评论（补充/资料/链接关键词）、与弹幕的差异。
+- **P5-4**: §6 知识图谱增强：预定义概念从 10 个扩展到 35+ 个（含 AI、虚拟人、二次元、音声合成、语言学习、治理、技术栈等），增加 2-8 字中文名词短语实体提取，基于同句共现构建关系链，放宽行动项触发词。
+- **P5-5**: §8 附录 writer：输出数据来源与可用性、方法限制（transcript/comments/danmaku/fact-checks/external-research）、事实核查与外部研究状态，再追加原 Source Appendix 表。
+
+### 验证
+
+- `pytest tests/`: 248 passed（含 ASR/KG 等全部测试）
+- `pytest tests/ -q --ignore=tests/test_asr_config.py --ignore=tests/test_draft_report_knowledge_graph.py`: 228 passed
+- `python3 scripts/run_quality_gate.py --input tests/fixtures/p2e_fetch_all.json --writer-provider fixture`: PASS
+- fixture 真实样片报告 7,251 字符，G1/G3/G4/G5/G7 全 PASS
+- 提交：`ef53a9c`
+
+### 已知限制
+
+- 真实 LLM writer（`--writer-provider cli`）端到端验证因本地 `omp` 子进程无输出仍不可行，需待环境恢复后补跑。
+- P5 的确定性 writer 仅基于规则，不替代 LLM writer 的深度洞察；§3/§4/§7 仍依赖 LLM 或保持骨架占位。
+
 ## v2.3.1 - 2026-07-09
 
 ### 质量衰退修复（P0-P4）
