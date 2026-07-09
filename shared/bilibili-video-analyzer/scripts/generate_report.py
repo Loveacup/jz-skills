@@ -396,7 +396,7 @@ def _serialize_section_qa(qa_results):
     return section_qa
 
 
-def report_markdown(results, run_fact_check=True, provider=None, depth_profile="standard", claim_qa_gate=False):
+def report_markdown(results, run_fact_check=True, provider=None, depth_profile="v24-full", claim_qa_gate=False):
     """results → (markdown 文本, report dict)。供 fetch_all --report 直接复用。
 
     Phase 3: 填充 report["section_qa"] 元数据（机器可读 JSON），不改变 Markdown 输出语义。
@@ -534,8 +534,8 @@ def main():
     parser.add_argument(
         '--depth-profile',
         choices=('standard', 'v24-full', 'claim-first-full'),
-        default='standard',
-        help='Phase 5: Depth profile (standard=default, v24-full=legacy v2.4 depth, claim-first-full=claim-first architecture).',
+        default='v24-full',
+        help='Phase 5: Depth profile (v24-full=default v2.4 depth, standard=simplified backward-compatible, claim-first-full=claim-first architecture).',
     )
     args = parser.parse_args()
 

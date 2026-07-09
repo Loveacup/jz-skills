@@ -508,8 +508,8 @@ def _old_full_sections(gate: Dict[str, Any], mode: str) -> List[SectionSpec]:
     return [
         SectionSpec('0', '元信息 (Meta)', '建立视频身份、价值判断和数据来源边界', ['metadata']),
         SectionSpec('1', '逻辑链 (Logic Chain)', '用表格和 Mermaid 压缩叙事弧线，禁止流水账', ['transcript'], quality_gate='G1'),
-        SectionSpec('2', '弹幕深度分析 (Danmaku Intelligence)', '提炼即时受众情绪、梗、争议焦点', ['danmaku'], required=has_social, allowed=has_social, notes='数据稀疏时 ≤50 字，不注水'),
-        SectionSpec('2.5', '评论深度分析 (Comments Analysis)', '提炼热评信息增量、观点聚合、弹幕/评论差异', ['comments'], required=has_social, allowed=has_social, notes='数据稀疏时降级为一句说明'),
+        SectionSpec('2', '弹幕深度分析 (Danmaku Intelligence)', '提炼即时受众情绪、梗、争议焦点', ['danmaku'], required=False, allowed=True, notes='数据稀疏时输出框架并标注"数据不足"，不注水'),
+        SectionSpec('2.5', '评论深度分析 (Comments Analysis)', '提炼热评信息增量、观点聚合、弹幕/评论差异', ['comments'], required=False, allowed=True, notes='数据稀疏时输出框架并标注"数据不足"，不注水'),
         SectionSpec('3', '核心洞察 (Key Insights)', '提炼 3–5 个高价值认知点并绑定证据', ['transcript', 'comments', 'danmaku'], quality_gate='G3', min_items=2 if condensed else 3, min_words_per_item=100),
         SectionSpec('4', '内容深度拆解 (Deep Dive)', '按主题模块做非线性深拆，吸收 BiliNote chunk/checkpoint 用于长上下文', ['transcript', 'external_research'], quality_gate='G4', min_items=2 if condensed else 3, min_words_per_item=0 if condensed else 500, needs_external_research=needs_external),
         SectionSpec('5', '高光时刻 (Highlights & Quotes)', '保留原文金句、上下文、时间戳', ['transcript', 'danmaku'], quality_gate='G5', min_items=2 if condensed else 5),
@@ -1028,9 +1028,63 @@ _KG_CONCEPT_PATTERNS = [
     '连续互动', '稳定人设', '治理', '知识卡片', '行动清单', 'Obsidian',
 ]
 
+# P3: 个人知识库双链增强的 fallback 术语列表
+_OBSIDIAN_MOC_FALLBACK = [
+    "Hermes", "Obsidian", "Claude", "Codex", "MCP", "Agent", "Skill", "Workflow",
+    "WRR", "FleetView", "Supermemory", "双链", "知识卡片", "行动清单", "Mermaid",
+    "三省六部", "治理", "元规范", "Depth Profile", "Claim", "Evidence", "Toulmin",
+]
+
+
+def _load_obsidian_moc() -> List[str]:
+    """从 Obsidian vault 加载个人知识库 MOC 概念列表。
+
+    尝试读取 ~/Documents/Obsidian/AlexCai/知识库MOC.md，提取 [[...]] 形式的概念。
+    如果文件不存在或为空，fallback 到硬编码高频术语列表。
+    """
+    moc_path = os.path.expanduser('~/Documents/Obsidian/AlexCai/知识库MOC.md')
+    concepts = []
+
+    try:
+        with open(moc_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        # 提取 [[概念]] 形式的 wikilinks，同时匹配原名和别名
+        wikilink_pattern = re.compile(r'\[\[([^\]]+)\]\]')
+        for match in wikilink_pattern.finditer(content):
+            link = match.group(1).strip()
+            if '|' in link:
+                # [[文件名|显示别名]] 同时保留两者作为匹配候选
+                file_part, alias_part = link.split('|', 1)
+                candidates = [file_part.strip(), alias_part.strip()]
+            else:
+                candidates = [link]
+            for concept in candidates:
+                if concept and concept not in concepts:
+                    concepts.append(concept)
+    except (OSError, IOError):
+        pass
+
+    # 如果没读到任何概念，使用 fallback
+    if not concepts:
+        concepts = list(_OBSIDIAN_MOC_FALLBACK)
+
+    return concepts
+
+
+_OBSIDIAN_MOC_CACHE = None  # P3: 缓存 MOC 概念列表避免频繁读文件
+
 
 def _concept_link(concept: str) -> str:
-    return f'[[{concept}]]'
+    """生成概念链接，优先使用个人知识库 wikilink 格式。
+
+    P3: 如果概念在 Obsidian MOC 中，输出 [[概念]]；否则保持原文。
+    """
+    global _OBSIDIAN_MOC_CACHE
+    if _OBSIDIAN_MOC_CACHE is None:
+        _OBSIDIAN_MOC_CACHE = _load_obsidian_moc()
+    if concept in _OBSIDIAN_MOC_CACHE:
+        return f'[[{concept}]]'
+    return concept
 
 
 def _extract_kg_candidates(section_context: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -1217,7 +1271,7 @@ def _emit_section_skeleton(
     cands: List[Dict[str, Any]],
     report: Optional[Dict[str, Any]] = None,
     provider: Optional[WriterProvider] = None,
-    depth_profile: str = "standard"
+    depth_profile: str = "v24-full"
 ) -> None:
     """给 verify_report 关注的 §3/§4/§5/§7 最小子结构；其余节注入证据或占位。
 
@@ -1432,7 +1486,7 @@ def _render_plan_skeleton(
     lines: List[str],
     plan_sections: List[Dict[str, Any]],
     provider: Optional[WriterProvider] = None,
-    depth_profile: str = "standard"
+    depth_profile: str = "v24-full"
 ) -> str:
     """按 SectionSpec 顺序渲染老版 §0–§8 骨架，注入 evidence_map 候选。
 
@@ -1473,7 +1527,7 @@ def assemble_draft_report_slice(
     section_ids=("1", "5"),
     provider: Optional[WriterProvider] = None,
     claim_qa_gate: bool = False,
-    depth_profile: str = "standard",
+    depth_profile: str = "v24-full",
 ) -> DraftReport:
     """Populate a DraftReport with selected written section bodies.
 
@@ -1611,7 +1665,7 @@ def render_draft_markdown(draft: DraftReport) -> str:
 def render_debug_markdown(
     draft_or_report: Any,
     provider: Optional[WriterProvider] = None,
-    depth_profile: str = "standard"
+    depth_profile: str = "v24-full"
 ) -> str:
     """Render a debug/legacy Markdown view of a DraftReport or raw report dict.
 
@@ -1652,7 +1706,7 @@ def publish_markdown(markdown: str) -> PublishedMarkdown:
 def render_markdown(
     report: Dict[str, Any],
     provider: Optional[WriterProvider] = None,
-    depth_profile: str = "standard"
+    depth_profile: str = "v24-full"
 ) -> str:
     """Legacy/debug Markdown renderer for analyze_video() output.
 
@@ -1971,6 +2025,8 @@ WRITER_PROMPTS_STANDARD = {
 - 不要重复输出本节 `## 3.` 大标题；直接从 `###` 小标题开始
 - 必须输出至少 3 个洞察小节，每个小节标题必须是 `### 💡 洞察 N：标题`
 - 每个洞察小节正文至少 200 字，并必须包含 [E#] 引用证据（如 [E1]、[E2]）
+- 每个洞察至少包含：核心观点（≥20字）+ 证据展开（≥150字）+ 边界说明（≥30字）
+- 每个洞察结尾必须有 `证据：@[E1] @[E2]` 汇总行
 - 禁止编造或猜测视频中未提及的内容
 - 对不确定的信息，使用"从现有证据只能看出..."表述
 - 禁止使用"显然""必然""毫无疑问"等绝对化表达""",
@@ -1996,6 +2052,8 @@ WRITER_PROMPTS_STANDARD = {
 - 不要重复输出本节 `## 4.` 大标题；直接从 `###` 小标题开始
 - 必须输出至少 3 个模块，每个模块标题必须是 `### 模块 N：标题`
 - 每个模块正文至少 500 个中文字符/词，不要输出短模块
+- 每个模块必须包含：核心论点 + 论证展开（含[E#]引用）+ 批判审视（局限/盲区）
+- 每个模块结尾必须有 `证据：@[E1] @[E2]` 汇总行
 - 禁止编造或猜测视频中未提及的内容
 - 对不确定的信息，使用"从现有证据只能看出..."表述
 - 禁止使用"显然""必然""毫无疑问"等绝对化表达""",
@@ -2019,10 +2077,10 @@ WRITER_PROMPTS_STANDARD = {
 输出约束：
 - 只输出 Markdown 格式内容，不添加额外说明
 - 不要重复输出本节 `## 7.` 大标题；直接从 `###` 小标题开始
-- 必须包含 4 个小节：
+- 必须包含 4 个小节（即使数据稀疏也要输出框架）：
   * `### 独特价值`：至少 3 个独特价值点，每个含 [E#] 引用
   * `### 局限与偏见`：至少 2 个局限/偏见，每个含描述 + 说明
-  * `### 弹幕共识度分析`：可选，如果有弹幕数据
+  * `### 弹幕共识度分析`：**必须输出此小节**，即使弹幕数据为 0 或极少，也要输出表格框架并标注"弹幕数据不足，无法进行共识度分析"
   * `### 可行动项`：至少 3 个可行动项，每个含证据引用 [E#]
 - 禁止编造或猜测评论区中未提及的内容
 - 对不确定的信息，使用"从现有证据只能看出..."表述
@@ -2225,10 +2283,10 @@ flowchart LR
 输出约束：
 - 只输出 Markdown 格式内容，不添加额外说明
 - 不要重复输出本节 `## 7.` 大标题；直接从 `###` 小标题开始
-- 必须包含 4 个小节：
+- 必须包含 4 个小节（即使数据稀疏也要输出框架）：
   * `### 独特价值`：至少 3 个独特价值点，每个含 [E#] 引用 + 弹幕验证（是否有弹幕印证）
   * `### 局限与偏见`：至少 2 个局限/偏见，每个含描述 + 弹幕验证 + 来源分析（作者背景如何导致）
-  * `### 弹幕共识度分析`：表格格式，列出核心观点 + 赞同/质疑占比 + 共识度判断 + 说明
+  * `### 弹幕共识度分析`：**必须输出此小节**，表格格式列出核心观点 + 赞同/质疑占比 + 共识度判断 + 说明；即使弹幕数据为 0 或极少，也要输出表格框架并标注"弹幕数据不足，无法进行共识度分析"
   * `### 可行动项`：至少 3 个可行动项（立即执行 + 短期跟进 + 长期探索合计），每个含证据引用 [E#] 或 [C#] 或时间戳
 - `独特价值` 和 `局限与偏见` 小节下必须使用 `- ` bullet
 - `可行动项` 小节下可使用 `- ` 或 `1. ` 列表或 `- [ ]` 任务列表
@@ -2426,7 +2484,7 @@ def write_llm_section(
     context: WriterSectionContext,
     provider: WriterProvider,
     retries: int = 2,
-    depth_profile: str = "standard"
+    depth_profile: str = "v24-full"
 ) -> WriterResult:
     """
     调用 LLM provider 生成章节内容，并进行确定性验证。
