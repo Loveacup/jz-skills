@@ -1022,17 +1022,253 @@ def write_logic_chain_section(section_context: Dict[str, Any]) -> str:
     return '\n'.join(lines)
 
 
+# ============ DraftReport §8 deterministic appendix writer (P5-5) ============
+_APPENDIX_METHOD_LIMITATIONS = {
+    'transcript': '字幕/转录可能缺失语气、停顿和视觉信息；机器转录可能包含识别错误。',
+    'comments': '评论样本受平台排序与采集时点影响，高赞评论未必代表整体观众。',
+    'danmaku': '弹幕具有瞬时性，重复和情绪化表达较多，难以代表深度观点。',
+    'fact_checks': '事实核查仅覆盖明确可验证的 claim，未核查内容不代表错误。',
+    'external_research': '外部检索结果受时间、来源和路由策略影响，需人工复核。',
+}
+
+
+def write_appendix_section(report: Dict[str, Any]) -> str:
+    """§8 附录确定性 writer：数据来源、可用性摘要、方法限制、Source Appendix 表。
+
+    P5-5: 不调用 LLM，纯结构化输出。
+    """
+    sources = ((report.get('evidence_gate') or {}).get('sources') or {})
+    lines = []
+
+    # 数据可用性摘要
+    lines.append('### 数据来源与可用性')
+    lines.append('')
+    available_sources = []
+    unavailable_sources = []
+    for name in _SOURCE_TABLE_ROW_ORDER:
+        src = sources.get(name) or {}
+        if src.get('available'):
+            available_sources.append(name)
+        else:
+            unavailable_sources.append(name)
+
+    if available_sources:
+        lines.append('- **可用来源**：' + '、'.join(available_sources))
+    if unavailable_sources:
+        lines.append('- **不可用来源**：' + '、'.join(unavailable_sources))
+    lines.append('')
+
+    # 方法限制
+    lines.append('### 方法限制')
+    lines.append('')
+    for name in _SOURCE_TABLE_ROW_ORDER:
+        if name in available_sources and name in _APPENDIX_METHOD_LIMITATIONS:
+            lines.append(f'- **{name}**：{_APPENDIX_METHOD_LIMITATIONS[name]}')
+    if not any(name in available_sources for name in _APPENDIX_METHOD_LIMITATIONS):
+        lines.append('- _本报告未依赖任何外部来源，限制较少。_')
+    lines.append('')
+
+    # 事实核查与外部研究状态
+    lines.append('### 事实核查与外部研究')
+    lines.append('')
+    fact_checks = sources.get('fact_checks') or {}
+    external = sources.get('external_research') or {}
+    if fact_checks.get('available') or fact_checks.get('claims', 0) > 0:
+        lines.append(f'- 事实核查 claim 数：{fact_checks.get("claims", 0)}')
+    else:
+        lines.append('- 未进行外部事实核查。')
+    if external.get('available'):
+        lines.append(f'- 外部检索路由：{external.get("route", "")} — {external.get("reason", "")}')
+    else:
+        lines.append('- 未进行外部检索。')
+    lines.append('')
+
+    return '\n'.join(lines)
+
+
+# ============ DraftReport §2/§2.5 deterministic audience writers (P5-3) ============
+_DANMAKU_SENTIMENT_POSITIVE = ['学到了', '感谢', '明白', '懂了', '说的好', '精彩', '赞', '牛', '好评', '泪目', '确实', '对', '同意']
+_DANMAKU_SENTIMENT_DOUBT = ['？', '真的吗', '不对', '错误', '反驳', '质疑', '怎么可能', '扯淡', '胡说', '不是', '假的', '误导']
+_DANMAKU_SENTIMENT_MEME = ['哈哈哈', '哈哈', '666', '草', '233', '名场面', '打卡', '前排', '战忽', '离谱', '绷不住', '名梗']
+
+
+def _danmaku_sentiment(text: str) -> str:
+    """弹幕情绪分类：正面、质疑、梗、中立。"""
+    t = (text or '').strip()
+    if any(k in t for k in _DANMAKU_SENTIMENT_MEME):
+        return '梗/情绪'
+    if any(k in t for k in _DANMAKU_SENTIMENT_DOUBT):
+        return '质疑'
+    if any(k in t for k in _DANMAKU_SENTIMENT_POSITIVE):
+        return '正面'
+    return '中立'
+
+
+def _comment_information_value(text: str) -> float:
+    """评论信息增量评分：长度、补充词、链接/引用感。"""
+    score = 0.0
+    t = (text or '').strip()
+    if not t:
+        return score
+    if len(t) >= 40:
+        score += 2.0
+    elif len(t) >= 20:
+        score += 1.0
+    info_keywords = ['补充', '资料', '链接', '来源', '参考', '论文', '报告', '原文', '出处', '说明', '纠正', '更正', '实际上']
+    for kw in info_keywords:
+        if kw in t:
+            score += 1.0
+            break
+    if re.search(r'https?://|www\.|\.com|\.cn|\.org|\.net', t):
+        score += 1.0
+    return score
+
+
+def write_danmaku_section(section_context: Dict[str, Any]) -> str:
+    """§2「弹幕深度分析」纯确定性 writer。
+
+    输出：情绪分布表 + 代表性弹幕（按时间 top 5） + 争议/梗聚类。
+    不调用 LLM。
+    """
+    cands = [c for c in (section_context.get('evidence') or [])
+             if isinstance(c, dict) and c.get('source_type') == 'danmaku']
+    if not cands:
+        return '### 弹幕信号\n\n_数据不足：未提供弹幕。_\n'
+
+    # 去重
+    seen = set()
+    unique = []
+    for c in cands:
+        text = (c.get('text') or '').strip()
+        if not text:
+            continue
+        key = re.sub(r'\\s+', '', text)[:30]
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(c)
+
+    # 情绪统计
+    sentiments = Counter(_danmaku_sentiment(c.get('text', '')) for c in unique)
+    lines = ['### 弹幕情绪分布', '', '| 情绪 | 数量 | 占比 |', '| --- | --- | --- |']
+    total = len(unique)
+    for label, count in sentiments.most_common():
+        pct = round(count / total * 100) if total else 0
+        lines.append(f'| {_table_cell(label)} | {count} | {pct}% |')
+    lines.append('')
+
+    # 代表性弹幕（按时间前 5）
+    sorted_by_time = sorted(unique, key=lambda c: (c.get('start') is None, float(c.get('start') or 0)))
+    lines.append('### 代表性弹幕')
+    lines.append('')
+    for c in sorted_by_time[:5]:
+        text = _clean_inline_text(c.get('text', ''), 90)
+        ts = (c.get('timestamp') or '').strip()
+        url = (c.get('url') or '').strip()
+        ref = f'[{ts or url}]({url})' if url else ts
+        sent = _danmaku_sentiment(c.get('text', ''))
+        lines.append(f'- **{sent}** {text} — {ref}')
+    lines.append('')
+
+    # 争议/梗
+    meme_or_doubt = [c for c in unique if _danmaku_sentiment(c.get('text', '')) in ('质疑', '梗/情绪')]
+    if meme_or_doubt:
+        lines.append('### 争议与梗')
+        lines.append('')
+        for c in meme_or_doubt[:3]:
+            text = _clean_inline_text(c.get('text', ''), 90)
+            ts = (c.get('timestamp') or '').strip()
+            url = (c.get('url') or '').strip()
+            ref = f'[{ts or url}]({url})' if url else ts
+            lines.append(f'- {text} — {ref}')
+        lines.append('')
+
+    return '\n'.join(lines)
+
+
+def write_comments_section(section_context: Dict[str, Any]) -> str:
+    """§2.5「评论深度分析」纯确定性 writer。
+
+    输出：热评观点（按点赞） + 信息增量评论 + 与弹幕差异。
+    不调用 LLM。
+    """
+    cands = [c for c in (section_context.get('evidence') or [])
+             if isinstance(c, dict) and c.get('source_type') == 'comments']
+    if not cands:
+        return '### 评论信号\n\n_数据不足：未提供评论。_\n'
+
+    # 原始评论对象不一定带 likes，从 context 或 likes 字段取
+    comments_data = []
+    for c in cands:
+        text = (c.get('text') or '').strip()
+        if not text:
+            continue
+        likes = 0
+        ctx = c.get('context') or ''
+        # context 中形如 "[YouTube评论 by X] text" 或包含 likes
+        m = re.search(r'likes?[=:：]\s*(\d+)', ctx, re.IGNORECASE)
+        if m:
+            likes = int(m.group(1))
+        comments_data.append({'text': text, 'likes': likes, 'candidate': c})
+
+    if not comments_data:
+        return '### 评论信号\n\n_数据不足：未提供有效评论。_\n'
+
+    lines = ['### 热评观点', '']
+    # 按点赞排序，取 top 3
+    top = sorted(comments_data, key=lambda x: x['likes'], reverse=True)[:3]
+    for item in top:
+        c = item['candidate']
+        text = _clean_inline_text(item['text'], 120)
+        likes = item['likes']
+        prefix = f'👍 {likes} ' if likes > 0 else ''
+        lines.append(f'- {prefix}{text}')
+    lines.append('')
+
+    # 信息增量
+    info_rich = sorted(comments_data, key=lambda x: _comment_information_value(x['text']), reverse=True)[:3]
+    if info_rich and _comment_information_value(info_rich[0]['text']) > 0:
+        lines.append('### 信息增量')
+        lines.append('')
+        for item in info_rich:
+            text = _clean_inline_text(item['text'], 120)
+            lines.append(f'- {text}')
+        lines.append('')
+
+    # 与弹幕差异：评论更长、更慢、更结构
+    avg_comment_len = sum(len(c['text']) for c in comments_data) / max(len(comments_data), 1)
+    lines.append('### 与弹幕差异')
+    lines.append('')
+    lines.append(f'- 评论平均长度 **{int(avg_comment_len)} 字**，通常比弹幕更长、更完整。')
+    lines.append('- 评论倾向于信息补充和观点论证，弹幕倾向于即时情绪反应。')
+    lines.append('')
+
+    return '\n'.join(lines)
+
+
 # ============ DraftReport §6 deterministic knowledge graph writer ============
 _KG_CONCEPT_PATTERNS = [
+    # 原 P3 概念
     '虚拟偶像', '人格资产', '粉丝信任', '商业化边界', '过度商业化',
     '连续互动', '稳定人设', '治理', '知识卡片', '行动清单', 'Obsidian',
+    # P5-4 扩展：通用知识/商业/技术/社会概念
+    '垄断', '卡特尔', '计划性报废', '技术进步', '商业激励', '用户后果',
+    '历史事实', '商业模式', '市场结构', '竞争策略', '创新', '产品失效',
+    '消费者', '生产者', '协议', '秘密协议', '利益相关者', '经济逻辑',
+    '案例分析', '反直觉', '证据链', '叙事结构', '行动清单', '知识管理',
 ]
+
+# 专有名词/实体模式：组织、公司、技术、地点、人物（简单规则）
+_KG_ENTITY_STOPWORDS = set('这个 那个 这里 那里 这些 那些 我们 你们 他们 它 这 那 是 的 了 在 和 与 或 但 而 因为 所以 如果 就 都 也 要 会 能 可能 可以 应该 需要 值得 一个 一种 一些 部分 方面 问题 事情 情况 时间 时候 方式 结果 原因 过程 系统 方法 技术 内容 信息 数据 观点 意见 想法 理论 概念 定义 例子 案例 分析 研究 报告 文章 视频 评论 弹幕 观众 用户 作者 平台'.split())
 
 # P3: 个人知识库双链增强的 fallback 术语列表
 _OBSIDIAN_MOC_FALLBACK = [
     "Hermes", "Obsidian", "Claude", "Codex", "MCP", "Agent", "Skill", "Workflow",
     "WRR", "FleetView", "Supermemory", "双链", "知识卡片", "行动清单", "Mermaid",
     "三省六部", "治理", "元规范", "Depth Profile", "Claim", "Evidence", "Toulmin",
+    # P5-4: 保留测试与 KG writer 中常见的预定义概念，确保非 MOC 用户也能生成双链
+    "虚拟偶像", "人格资产", "粉丝信任", "商业化边界", "过度商业化",
+    "连续互动", "稳定人设", "卡特尔", "计划性报废", "知识管理",
 ]
 
 
@@ -1077,19 +1313,48 @@ _OBSIDIAN_MOC_CACHE = None  # P3: 缓存 MOC 概念列表避免频繁读文件
 def _concept_link(concept: str) -> str:
     """生成概念链接，优先使用个人知识库 wikilink 格式。
 
-    P3: 如果概念在 Obsidian MOC 中，输出 [[概念]]；否则保持原文。
+    P5-4: 预定义概念和 MOC 中的概念都输出 [[...]] 双链；否则保持原文。
     """
     global _OBSIDIAN_MOC_CACHE
     if _OBSIDIAN_MOC_CACHE is None:
         _OBSIDIAN_MOC_CACHE = _load_obsidian_moc()
-    if concept in _OBSIDIAN_MOC_CACHE:
+    if concept in _OBSIDIAN_MOC_CACHE or concept in _KG_CONCEPT_PATTERNS:
         return f'[[{concept}]]'
     return concept
+
+
+def _extract_entities_from_text(text: str) -> List[str]:
+    """用轻规则从文本提取潜在实体名词短语。
+
+    P5-4: 不调用 NLP 库；通过连续中文字/英数字串识别候选，过滤停用词和过短词。
+    """
+    t = (text or '').strip()
+    if not t:
+        return []
+
+    # 匹配：连续 2-12 个中文字符，或 2-5 个英文/数字/空格组成的术语
+    candidates = []
+    for m in re.finditer(r'[\u4e00-\u9fff]{2,12}|[A-Za-z0-9][A-Za-z0-9\s]{1,30}[A-Za-z0-9]|[A-Za-z0-9]{2,12}', t):
+        cand = m.group(0).strip()
+        if len(cand) < 2:
+            continue
+        if cand in _KG_ENTITY_STOPWORDS:
+            continue
+        # 过滤纯数字
+        if re.fullmatch(r'\d+', cand):
+            continue
+        # 过滤过短中文（2 字且为常见代词/虚词）
+        if len(cand) == 2 and all(c in '这个那个这里那里这些那些我们你们他们它是的了在和与或但而因为所以就都也要会能可能可以应该需要值得一种一些' for c in cand):
+            continue
+        candidates.append(cand)
+    return candidates
 
 
 def _extract_kg_candidates(section_context: Dict[str, Any]) -> List[Dict[str, Any]]:
     out = []
     for cand in section_context.get('evidence') or []:
+        if not isinstance(cand, dict):
+            continue
         if cand.get('source_type') != 'transcript':
             continue
         if cand.get('reason') not in ('knowledge_candidate', 'application_candidate'):
@@ -1104,19 +1369,31 @@ def _extract_kg_candidates(section_context: Dict[str, Any]) -> List[Dict[str, An
 
 
 def _concepts_in_text(text: str) -> List[str]:
+    """从文本中匹配预定义概念和自动提取的实体，去重返回。"""
     seen = []
+    # 先匹配预定义概念（更可靠）
     for concept in _KG_CONCEPT_PATTERNS:
         if concept in text and concept not in seen:
             seen.append(concept)
+    # 再自动提取实体（补充）
+    for entity in _extract_entities_from_text(text):
+        if entity not in seen and len(seen) < 12:
+            seen.append(entity)
     return seen
 
 
 def write_knowledge_graph_section(section_context: Dict[str, Any], max_items: int = 8) -> str:
     """Render §6 as deterministic concept/relation/action bullets.
 
-    This writer is intentionally conservative: it only links known concepts that
-    appear verbatim in transcript knowledge/application candidates. It does not
-    infer hidden entities or call LLM/network.
+    This writer is intentionally conservative: it links known concepts and
+    rule-extracted entities that appear in transcript knowledge/application
+    candidates. It does not call LLM/network.
+
+    P5-4 增强：
+      - 扩展预定义概念库
+      - 自动提取实体名词短语
+      - 关系链基于共现概念
+      - 行动项识别更宽松
     """
     candidates = _extract_kg_candidates(section_context)
     if not candidates:
@@ -1133,10 +1410,14 @@ def write_knowledge_graph_section(section_context: Dict[str, Any], max_items: in
             if concept not in concepts:
                 concepts.append(concept)
         if len(found) >= 2:
-            rel = ' → '.join(_concept_link(c) for c in found[:3])
-            if rel not in relations:
+            # 构建关系链：概念 A → 概念 B → 概念 C（最多 3 个）
+            linked = [_concept_link(c) for c in found[:3]]
+            rel = ' → '.join(linked)
+            if rel and rel not in relations:
                 relations.append(rel)
-        if cand.get('reason') == 'application_candidate' or any(k in text for k in ('可以', '行动', '清单', 'Obsidian', '知识卡片')):
+        # P5-4: 行动项识别更宽松
+        action_markers = ('可以', '应该', '需要', '值得', '转化为', '转化为', '行动', '清单', 'Obsidian', '知识卡片', '落库', '整理')
+        if cand.get('reason') == 'application_candidate' or any(k in text for k in action_markers):
             applications.append(text)
 
     concepts = concepts[:max_items]
@@ -1171,22 +1452,106 @@ def write_knowledge_graph_section(section_context: Dict[str, Any], max_items: in
 
 # ============ §5 高光时刻 writer（P2-C2）============
 def _is_noisy_highlight_fragment(text: str) -> bool:
-    """判断 §5 候选片段是否属于标题/短问句等噪声。"""
+    """判断 §5 候选片段是否属于标题/短问句/广告/元数据等噪声。
+
+    P5-2 增强：过滤广告、元数据、纯疑问句、极短/极长片段。
+    """
     stripped = (text or '').strip()
     if not stripped:
         return True
+
+    # 原有过滤：标题
     if stripped.startswith('## '):
         return True
-    if stripped.endswith(('？', '?')) and len(stripped) < 35:
+
+    # P5-2: 广告关键词
+    ad_keywords = [
+        '企业级', 'API', '代理', '优惠', '折扣', '购买', '扫码', '加群',
+        '微信', '公众号', '淘宝', '京东', '拼多多'
+    ]
+    if any(kw in stripped for kw in ad_keywords):
         return True
+
+    # P5-2: 元数据片段
+    meta_patterns = ['## P', 'Chunk ', '[00:00]', '中配', '字幕', '翻译']
+    if any(pat in stripped for pat in meta_patterns):
+        return True
+
+    # P5-2: 纯疑问句（< 30 字）
+    if stripped.endswith(('？', '?')) and len(stripped) < 30:
+        return True
+
+    # P5-2: 长度限制（极短 < 8 字或极长 > 210 字过滤）
+    if len(stripped) < 8 or len(stripped) > 210:
+        return True
+
     return False
 
 
 def _truncate_quote_text(text: str, limit: int = 210) -> str:
+    """按完整句截断 quote，不硬截断。
+
+    P5-2: 优先在句号、问号、感叹号处截断，保持语义完整。
+    """
     cleaned = re.sub(r'\s+', ' ', (text or '').strip())
-    if len(cleaned) > limit:
-        return cleaned[: max(0, limit - 3)].rstrip() + '...'
-    return cleaned
+    if len(cleaned) <= limit:
+        return cleaned
+
+    # 尝试在 limit 位置前找最后一个句号/问号/感叹号
+    truncated = cleaned[:limit]
+    last_sentence_end = max(
+        truncated.rfind('。'),
+        truncated.rfind('！'),
+        truncated.rfind('？'),
+        truncated.rfind('.'),
+        truncated.rfind('!'),
+        truncated.rfind('?')
+    )
+    if last_sentence_end > 0 and last_sentence_end > limit * 0.6:
+        # 如果找到的句末位置在 60% 以上，按句截断
+        return cleaned[:last_sentence_end + 1].rstrip()
+
+    # 否则硬截断 + ...
+    return cleaned[: max(0, limit - 3)].rstrip() + '...'
+
+
+def _score_highlight_candidate(text: str) -> float:
+    """启发式评分 §5 候选金句。
+
+    P5-2: 长度 20-80 字优先，含结论/转折词加分，含数字/具体例子加分。
+    """
+    score = 0.0
+    length = len(text)
+
+    # 长度评分：20-80 字优先
+    if 20 <= length <= 80:
+        score += 3.0
+    elif 10 <= length < 20 or 80 < length <= 120:
+        score += 1.5
+    elif 120 < length <= 210:
+        score += 0.5
+    else:
+        score -= 1.0
+
+    # 结论/转折词加分
+    conclusion_words = ['所以', '因此', '意味着', '关键', '本质', '发现', '总结', '核心', '重点']
+    for word in conclusion_words:
+        if word in text:
+            score += 1.0
+            break
+
+    # 数字/具体例子加分
+    if re.search(r'\d+', text):
+        score += 0.5
+
+    # 含有具体例子标志词
+    example_words = ['比如', '例如', '举例', '案例', '实际上']
+    for word in example_words:
+        if word in text:
+            score += 0.5
+            break
+
+    return score
 
 
 def _split_long_quote_candidate(cand: Dict[str, Any], max_parts: int) -> List[Dict[str, Any]]:
@@ -1233,10 +1598,14 @@ def write_highlights_section(section_context: Dict[str, Any]) -> str:
       - 无 url：`> "text" — timestamp`
       - 零候选：仅 `### 高光时刻` + 占位行，不输出任何 blockquote。
     不调用 LLM / 不合成内容。
+
+    P5-2 增强：启发式评分 + 时间分桶（5 bucket，每桶最多 1 条）避免全部来自开头。
     """
     lines: List[str] = ['### 高光时刻', '']
-    quotes: List[Dict[str, Any]] = []
     target_quotes = 5 if section_context.get('quality_gate') == 'G5' else 2
+
+    # 收集所有候选并展开
+    all_candidates: List[Dict[str, Any]] = []
     for cand in (section_context.get('evidence') or []):
         if not isinstance(cand, dict):
             continue
@@ -1246,14 +1615,65 @@ def write_highlights_section(section_context: Dict[str, Any]) -> str:
             continue
         if not (cand.get('text') or '').strip():
             continue
-        remaining = target_quotes - len(quotes)
-        if remaining <= 0:
-            break
-        quotes.extend(_split_long_quote_candidate(cand, remaining))
+        # 展开长候选为多个片段
+        all_candidates.extend(_split_long_quote_candidate(cand, max_parts=10))
 
-    if not quotes:
+    if not all_candidates:
         lines.append('_骨架占位：暂无原文金句。_')
         return '\n'.join(lines) + '\n'
+
+    # P5-2: 计算时间分桶（5 桶）
+    # 先找出最大时间作为视频时长估计
+    max_time = 0.0
+    for cand in all_candidates:
+        start = cand.get('start')
+        if start is not None and isinstance(start, (int, float)):
+            max_time = max(max_time, float(start))
+
+    # 如果没有有效时间信息，降级为按原顺序取前 target_quotes 条
+    # 保留长候选切分后的自然阅读顺序，避免评分重排破坏顺序断言
+    if max_time <= 0:
+        quotes = all_candidates[:target_quotes]
+    else:
+        # 时间分桶：5 个 bucket
+        num_buckets = 5
+        bucket_size = max_time / num_buckets
+        buckets: List[List[Dict[str, Any]]] = [[] for _ in range(num_buckets)]
+
+        for cand in all_candidates:
+            start = cand.get('start')
+            if start is not None and isinstance(start, (int, float)):
+                bucket_idx = min(int(float(start) / bucket_size), num_buckets - 1)
+                buckets[bucket_idx].append(cand)
+            else:
+                # 没有时间戳的放在第一个桶
+                buckets[0].append(cand)
+
+        # 每个桶按评分选出最佳候选
+        quotes = []
+        for bucket in buckets:
+            if not bucket:
+                continue
+            # 按评分排序，取第一条
+            scored = [(cand, _score_highlight_candidate(cand.get('text', ''))) for cand in bucket]
+            scored.sort(key=lambda x: x[1], reverse=True)
+            quotes.append(scored[0][0])
+            if len(quotes) >= target_quotes:
+                break
+
+        # 如果桶不够填满 target_quotes，补充剩余高分候选
+        if len(quotes) < target_quotes:
+            used_ids = {id(q) for q in quotes}
+            remaining = [cand for cand in all_candidates if id(cand) not in used_ids]
+            scored = [(cand, _score_highlight_candidate(cand.get('text', ''))) for cand in remaining]
+            scored.sort(key=lambda x: x[1], reverse=True)
+            for cand, score in scored:
+                quotes.append(cand)
+                if len(quotes) >= target_quotes:
+                    break
+
+    # 按时间排序输出
+    quotes.sort(key=lambda c: (c.get('start') is None, float(c.get('start') or 0)))
 
     for cand in quotes:
         text = (cand.get('text') or '').strip()
@@ -1281,6 +1701,21 @@ def _emit_section_skeleton(
     Args:
         depth_profile: Depth analysis mode - "standard", "claim-first-full", or "v24-full"
     """
+    if sid == '1':
+        # P5-1: §1 逻辑链纯确定性渲染，无需 provider
+        body = write_logic_chain_section({'evidence': cands})
+        lines.extend(body.split('\n'))
+        return
+    if sid == '2':
+        # P5-3: §2 弹幕深度分析纯确定性渲染
+        body = write_danmaku_section({'evidence': cands})
+        lines.extend(body.split('\n'))
+        return
+    if sid == '2.5':
+        # P5-3: §2.5 评论深度分析纯确定性渲染
+        body = write_comments_section({'evidence': cands})
+        lines.extend(body.split('\n'))
+        return
     if sid == '3':
         # 默认骨架标题
         heading = '### 💡 Skeleton Insight'
@@ -1374,6 +1809,11 @@ def _emit_section_skeleton(
         lines.append('')
         _emit_evidence(lines, cands)
         lines.extend(fallback_body)
+        return
+    if sid == '8':
+        # P5-5: §8 附录纯确定性渲染，需要完整 report 读取 evidence_gate
+        body = write_appendix_section(report or {})
+        lines.extend(body.split('\n'))
         return
     if not _emit_evidence(lines, cands):
         lines.append('_骨架占位：暂无证据候选。_')

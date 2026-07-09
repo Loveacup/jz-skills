@@ -71,16 +71,18 @@ def test_headings_follow_section_spec_order():
 
 def test_transcript_evidence_injected_with_timestamp_url():
     md = _render()
-    # §1 注入带时间戳 URL 的 blockquote
-    assert "> [2:30](https://www.bilibili.com/video/BV1xx411c7mD?t=150)" in md
-    # 保留 source_type / reason 标记
+    # P5-1: §1 现在走 write_logic_chain_section，输出结构化表格
+    assert "### 逻辑链总览" in md
+    assert "| 时间 | 阶段 | 逻辑动作 | 证据摘要 | 链接 |" in md
+    assert "[2:30](https://www.bilibili.com/video/BV1xx411c7mD?t=150)" in md
     assert "transcript" in md
-    assert "logic_candidate" in md
 
 
 def test_comment_evidence_injected_without_url():
     md = _render()
-    assert "> comments证据：热评补充观点，信息增量很大" in md
+    # P5-3: §2.5 现在走 write_comments_section，输出热评观点列表
+    assert '### 热评观点' in md
+    assert '热评补充观点，信息增量很大' in md
 
 
 def test_section_substructure_present():
