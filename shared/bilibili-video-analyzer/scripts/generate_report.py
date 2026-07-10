@@ -510,6 +510,17 @@ def is_formal_report_output(path) -> bool:
     )
 
 
+def validate_output_preflight(path, writer_provider):
+    """Reject a formal note that cannot generate writer-backed core sections."""
+    if is_formal_report_output(path) and writer_provider == "none":
+        return {
+            "status": "failed",
+            "error_code": "FORMAL_OUTPUT_REQUIRES_WRITER",
+            "writer_provider": writer_provider,
+        }
+    return None
+
+
 def check_formal_output_publishable(path, markdown, report=None):
     """Check combined gates for formal outputs; debug paths are skipped."""
     if not is_formal_report_output(path):
@@ -553,6 +564,18 @@ def main():
         sys.exit(1)
 
     bvid = results.get('bvid') or 'unknown'
+    out_path = args.output or f'/tmp/{bvid}_report.md'
+    preflight_error = validate_output_preflight(out_path, args.writer_provider)
+    if preflight_error:
+        print('❌ 正式报告需要 model-backed writer：请使用 --writer-provider cli 或 deepseek')
+        print('\nRESULT_JSON_START')
+        print(json.dumps({
+            **preflight_error,
+            'report_path': out_path,
+        }, ensure_ascii=False, indent=2))
+        print('RESULT_JSON_END')
+        sys.exit(1)
+
     print(f'📝 生成分析报告: {bvid}')
     print('=' * 60)
 
@@ -567,7 +590,6 @@ def main():
         claim_qa_gate=claim_qa_gate,
     )
 
-    out_path = args.output or f'/tmp/{bvid}_report.md'
     publishable_ok, publishable_summary = check_formal_output_publishable(out_path, markdown, report)
     if not publishable_ok:
         print('❌ 正式报告发布闸未通过：拒绝写入 B站笔记/正式视频库路径')

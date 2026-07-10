@@ -10,11 +10,11 @@ description: >
   Use when: user provides Bilibili video link (BV号 or full URL), or says 解析B站视频 / analyze bilibili video / bilibili summary / 视频总结 / 弹幕分析 / 分析这个视频.
 
   DO NOT use for: non-Bilibili videos, general video editing, one-off transcript requests without analysis.
-version: 2.3.2
-author: "Hermes Agent (v2.3.2: P5 deterministic baseline for §1/§2/§2.5/§5/§6/§8)"
+version: 2.3.3
+author: "Hermes Agent (v2.3.3: P6-R formal preflight + auditable real-sample corpus frame)"
 ---
 
-# Bilibili 视频深度解析器 v2.3.2
+# Bilibili 视频深度解析器 v2.3.3
 
 Transform Bilibili videos into structured, searchable, actionable knowledge assets for Obsidian.
 
@@ -492,6 +492,9 @@ Changelog: `references/changelog.md` — timeout optimization, multi-P video sup
 - [ ] Final Obsidian output is **exactly one user-facing note** for one video link: `B站笔记_...md`. Do NOT leave `完整记录稿_...`, `预分析_...`, raw transcript, or accident/intermediate drafts in the vault unless the user explicitly asks for source transcript/audit artifacts.
 - [ ] Formal report has a transcript evidence source? 官方字幕 or H200/local ASR path recorded in §0/§8. If not, filename/title/YAML must be `预分析_未通过ASR_...`, not normal `B站笔记_...`.
 - [ ] EvidenceSourceGate checked? `report.evidence_gate.can_generate_formal_report` must pass before formal save; `external_research.route` should be `wrr_local` when local WRR exists, otherwise `fallback_search` for configured web/search tools. See `references/video-link-single-artifact-evidence-gate.md` for the single-artifact + evidence-gate workflow.
+- [ ] **Formal preflight passed?** A `B站笔记_*.md` target requires `--writer-provider cli|deepseek`; `none` must fail before `report_markdown()` rather than create a skeleton draft.
+- [ ] **P6 publishable gate is report-aware?** Use `run_quality_gate.py --publishable` on `claim-first-full` output so `P0_CLAIM_EVIDENCE_SCORE` and `P0_VIDEO_EVIDENCE_USAGE` run alongside Markdown checks.
+- [ ] **Real-sample corpus claims are honest?** `references/p6r-corpus-manifest.json` candidates are not gold. No `--execute` means no input read/model run; `accepted_gold` requires reproducible input + run summary + reviewer identity/time/verdict source. See `references/p6r-real-sample-corpus-20260710.md`.
 - [ ] Danmaku file read from RESULT_JSON `path` (v2.4: `/tmp/{BV号}_danmaku.json`, BV-prefixed)?
 - [ ] Subtitles extracted via `yt-dlp --cookies-from-browser chrome` first (not whisper unless cookie method failed)?
 - [ ] Subtitle step: if status `failed`, checked the `error` field (e.g. 412 → cookies) before manual fallback?

@@ -1,0 +1,334 @@
+{
+  "schema_version": 1,
+  "name": "p6r-bilibili-real-corpus-candidates",
+  "created_at": "2026-07-10",
+  "description": "P6-R 发布前真实样本候选清单。这些只是候选 BVID，本机尚无对应 fetch_all cache，未采集、未生成、未人工验收。禁止把候选、旧笔记或 fixture 输出伪称为 gold baseline。",
+  "execution_policy": {
+    "default_execute": false,
+    "requires_execute_flag": true,
+    "auto_download_allowed": false,
+    "auto_llm_allowed": false
+  },
+  "samples": [
+    {
+      "id": "p6r-tech-BV14fTc6TEi5",
+      "bvid": "BV14fTc6TEi5",
+      "category": "技术教程",
+      "source_note": {
+        "type": "obsidian_formal_note",
+        "path": "30-Resources/60_视频笔记/B站笔记_如何将Pi打造成终极编程智能体_20260709.md",
+        "title": "如何将Pi打造成终极编程智能体",
+        "evidence_status": "candidate_extracted_from_existing_notes"
+      },
+      "input": {
+        "fetch_all_json_path": "/tmp/p6r-corpus/BV14fTc6TEi5_fetch_all.json",
+        "cache_status": "missing",
+        "collected_at": null,
+        "collector_command": null
+      },
+      "run": {
+        "last_run_at": null,
+        "writer_provider": null,
+        "output_path": null,
+        "summary_json_path": null,
+        "publishable_passed": null,
+        "failed_codes": []
+      },
+      "rubric": {
+        "status": "candidate",
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "verdict_source": null,
+        "notes": "候选样本，尚未采集/生成/人工验收"
+      }
+    },
+    {
+      "id": "p6r-tech-BV1xpT26bEgG",
+      "bvid": "BV1xpT26bEgG",
+      "category": "技术教程",
+      "source_note": {
+        "type": "obsidian_formal_note",
+        "path": "30-Resources/60_视频笔记/B站笔记_[中配]ComfyUI MCP教程_20260709.md",
+        "title": "[中配]ComfyUI MCP教程",
+        "evidence_status": "candidate_extracted_from_existing_notes"
+      },
+      "input": {
+        "fetch_all_json_path": "/tmp/p6r-corpus/BV1xpT26bEgG_fetch_all.json",
+        "cache_status": "missing",
+        "collected_at": null,
+        "collector_command": null
+      },
+      "run": {
+        "last_run_at": null,
+        "writer_provider": null,
+        "output_path": null,
+        "summary_json_path": null,
+        "publishable_passed": null,
+        "failed_codes": []
+      },
+      "rubric": {
+        "status": "candidate",
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "verdict_source": null,
+        "notes": "候选样本，尚未采集/生成/人工验收"
+      }
+    },
+    {
+      "id": "p6r-tech-BV17cTW6LEcE",
+      "bvid": "BV17cTW6LEcE",
+      "category": "技术教程",
+      "source_note": {
+        "type": "obsidian_formal_note",
+        "path": "30-Resources/60_视频笔记/B站笔记_Claude Code 6 Skills 工作流_20260704.md",
+        "title": "Claude Code 6 Skills 工作流",
+        "evidence_status": "candidate_extracted_from_existing_notes"
+      },
+      "input": {
+        "fetch_all_json_path": "/tmp/p6r-corpus/BV17cTW6LEcE_fetch_all.json",
+        "cache_status": "missing",
+        "collected_at": null,
+        "collector_command": null
+      },
+      "run": {
+        "last_run_at": null,
+        "writer_provider": null,
+        "output_path": null,
+        "summary_json_path": null,
+        "publishable_passed": null,
+        "failed_codes": []
+      },
+      "rubric": {
+        "status": "candidate",
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "verdict_source": null,
+        "notes": "候选样本，尚未采集/生成/人工验收"
+      }
+    },
+    {
+      "id": "p6r-agent-BV1hyTk6ZEfn",
+      "bvid": "BV1hyTk6ZEfn",
+      "category": "agent/架构",
+      "source_note": {
+        "type": "obsidian_formal_note",
+        "path": "30-Resources/60_视频笔记/B站笔记_Hermes MOA混合模式_20260705.md",
+        "title": "Hermes MOA混合模式",
+        "evidence_status": "candidate_extracted_from_existing_notes"
+      },
+      "input": {
+        "fetch_all_json_path": "/tmp/p6r-corpus/BV1hyTk6ZEfn_fetch_all.json",
+        "cache_status": "missing",
+        "collected_at": null,
+        "collector_command": null
+      },
+      "run": {
+        "last_run_at": null,
+        "writer_provider": null,
+        "output_path": null,
+        "summary_json_path": null,
+        "publishable_passed": null,
+        "failed_codes": []
+      },
+      "rubric": {
+        "status": "candidate",
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "verdict_source": null,
+        "notes": "候选样本，尚未采集/生成/人工验收"
+      }
+    },
+    {
+      "id": "p6r-agent-BV1p2DyB4Ee3",
+      "bvid": "BV1p2DyB4Ee3",
+      "category": "agent/架构",
+      "source_note": {
+        "type": "obsidian_formal_note",
+        "path": "00-Inbox/B站笔记_Agent记忆框架5大项目工程级横向对比_20260615.md",
+        "title": "Agent记忆框架5大项目工程级横向对比",
+        "evidence_status": "candidate_extracted_from_existing_notes"
+      },
+      "input": {
+        "fetch_all_json_path": "/tmp/p6r-corpus/BV1p2DyB4Ee3_fetch_all.json",
+        "cache_status": "missing",
+        "collected_at": null,
+        "collector_command": null
+      },
+      "run": {
+        "last_run_at": null,
+        "writer_provider": null,
+        "output_path": null,
+        "summary_json_path": null,
+        "publishable_passed": null,
+        "failed_codes": []
+      },
+      "rubric": {
+        "status": "candidate",
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "verdict_source": null,
+        "notes": "候选样本，尚未采集/生成/人工验收"
+      }
+    },
+    {
+      "id": "p6r-agent-BV1XAjs6NExC",
+      "bvid": "BV1XAjs6NExC",
+      "category": "agent/架构",
+      "source_note": {
+        "type": "obsidian_formal_note",
+        "path": "00-Inbox/B站笔记_MattPocock代理工程工作流_20260626.md",
+        "title": "MattPocock代理工程工作流",
+        "evidence_status": "candidate_extracted_from_existing_notes"
+      },
+      "input": {
+        "fetch_all_json_path": "/tmp/p6r-corpus/BV1XAjs6NExC_fetch_all.json",
+        "cache_status": "missing",
+        "collected_at": null,
+        "collector_command": null
+      },
+      "run": {
+        "last_run_at": null,
+        "writer_provider": null,
+        "output_path": null,
+        "summary_json_path": null,
+        "publishable_passed": null,
+        "failed_codes": []
+      },
+      "rubric": {
+        "status": "candidate",
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "verdict_source": null,
+        "notes": "候选样本，尚未采集/生成/人工验收"
+      }
+    },
+    {
+      "id": "p6r-interview-BV1sxT56TE39",
+      "bvid": "BV1sxT56TE39",
+      "category": "商业长访谈",
+      "source_note": {
+        "type": "obsidian_formal_note",
+        "path": "00-Inbox/B站笔记_AI应用融资赛道全景分析_对话马克汤_20260630.md",
+        "title": "AI应用融资赛道全景分析：对话马克汤",
+        "evidence_status": "candidate_extracted_from_existing_notes"
+      },
+      "input": {
+        "fetch_all_json_path": "/tmp/p6r-corpus/BV1sxT56TE39_fetch_all.json",
+        "cache_status": "missing",
+        "collected_at": null,
+        "collector_command": null
+      },
+      "run": {
+        "last_run_at": null,
+        "writer_provider": null,
+        "output_path": null,
+        "summary_json_path": null,
+        "publishable_passed": null,
+        "failed_codes": []
+      },
+      "rubric": {
+        "status": "candidate",
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "verdict_source": null,
+        "notes": "候选样本，尚未采集/生成/人工验收"
+      }
+    },
+    {
+      "id": "p6r-factcheck-BV12W7Z69EXX",
+      "bvid": "BV12W7Z69EXX",
+      "category": "事实核查",
+      "source_note": {
+        "type": "obsidian_formal_note",
+        "path": "00-Inbox/B站笔记_中考取消视频事实核查_20260629.md",
+        "title": "中考取消视频事实核查",
+        "evidence_status": "candidate_extracted_from_existing_notes"
+      },
+      "input": {
+        "fetch_all_json_path": "/tmp/p6r-corpus/BV12W7Z69EXX_fetch_all.json",
+        "cache_status": "missing",
+        "collected_at": null,
+        "collector_command": null
+      },
+      "run": {
+        "last_run_at": null,
+        "writer_provider": null,
+        "output_path": null,
+        "summary_json_path": null,
+        "publishable_passed": null,
+        "failed_codes": []
+      },
+      "rubric": {
+        "status": "candidate",
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "verdict_source": null,
+        "notes": "候选样本，尚未采集/生成/人工验收"
+      }
+    },
+    {
+      "id": "p6r-culture-BV1anMP69ED5",
+      "bvid": "BV1anMP69ED5",
+      "category": "文化评论",
+      "source_note": {
+        "type": "obsidian_formal_note",
+        "path": "30-Resources/60_视频笔记/B站笔记_韩红走面儿京圈黄昏_20260706.md",
+        "title": "韩红一句“走面儿”，走出了京圈的黄昏",
+        "evidence_status": "candidate_extracted_from_existing_notes"
+      },
+      "input": {
+        "fetch_all_json_path": "/tmp/p6r-corpus/BV1anMP69ED5_fetch_all.json",
+        "cache_status": "missing",
+        "collected_at": null,
+        "collector_command": null
+      },
+      "run": {
+        "last_run_at": null,
+        "writer_provider": null,
+        "output_path": null,
+        "summary_json_path": null,
+        "publishable_passed": null,
+        "failed_codes": []
+      },
+      "rubric": {
+        "status": "candidate",
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "verdict_source": null,
+        "notes": "候选样本，尚未采集/生成/人工验收"
+      }
+    },
+    {
+      "id": "p6r-gaming-BV1SnLf6oEZq",
+      "bvid": "BV1SnLf6oEZq",
+      "category": "游戏攻略",
+      "source_note": {
+        "type": "obsidian_formal_note",
+        "path": "00-Inbox/B站笔记_太吾绘卷天幕心帷攻略合集_20260620.md",
+        "title": "太吾绘卷天幕心帷攻略合集",
+        "evidence_status": "candidate_extracted_from_existing_notes"
+      },
+      "input": {
+        "fetch_all_json_path": "/tmp/p6r-corpus/BV1SnLf6oEZq_fetch_all.json",
+        "cache_status": "missing",
+        "collected_at": null,
+        "collector_command": null
+      },
+      "run": {
+        "last_run_at": null,
+        "writer_provider": null,
+        "output_path": null,
+        "summary_json_path": null,
+        "publishable_passed": null,
+        "failed_codes": []
+      },
+      "rubric": {
+        "status": "candidate",
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "verdict_source": null,
+        "notes": "候选样本，尚未采集/生成/人工验收"
+      }
+    }
+  ]
+}

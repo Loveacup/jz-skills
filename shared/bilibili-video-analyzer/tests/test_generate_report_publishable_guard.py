@@ -83,3 +83,21 @@ def test_formal_output_guard_blocks_unresolved_final_markdown_citation(tmp_path,
     assert ok is False
     assert "P0_VIDEO_EVIDENCE_USAGE" in summary["failed_codes"]
     assert summary["gates"]["P0_VIDEO_EVIDENCE_USAGE"]["measured"]["sections"]["3"]["unresolved_refs"] == ["E99"]
+
+
+def test_formal_output_preflight_requires_model_backed_writer(tmp_path):
+    formal = tmp_path / "B站笔记_预检_20260710.md"
+
+    result = generate_report.validate_output_preflight(formal, "none")
+
+    assert result == {
+        "status": "failed",
+        "error_code": "FORMAL_OUTPUT_REQUIRES_WRITER",
+        "writer_provider": "none",
+    }
+
+
+def test_output_preflight_keeps_debug_paths_compatible_with_none(tmp_path):
+    debug = tmp_path / "debug_report.md"
+
+    assert generate_report.validate_output_preflight(debug, "none") is None

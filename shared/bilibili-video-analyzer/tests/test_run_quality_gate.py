@@ -134,6 +134,40 @@ def test_quality_gate_can_run_publishable_gate_as_stricter_layer(tmp_path):
     assert "P0_NO_SKELETON" in summary["publishable_failed_codes"]
 
 
+def test_publishable_quality_gate_passes_report_to_p6_report_level_gates(tmp_path, monkeypatch):
+    out = tmp_path / "report_aware_publishable.md"
+    markdown = "# test markdown"
+    report = {
+        "claim_bundle": {"evidence_contract_version": 1, "claims": []},
+        "evidence_map": {"by_section": {}},
+    }
+    captured = {}
+
+    monkeypatch.setattr(run_quality_gate.generate_report, "report_markdown", lambda *_args, **_kwargs: (markdown, report))
+    monkeypatch.setattr(run_quality_gate.verify_report, "evaluate", lambda *_args: ({"G1": {"pass": True}}, True))
+    monkeypatch.setattr(
+        run_quality_gate,
+        "check_report_coherence",
+        lambda _markdown: type("Coherence", (), {"passed": True, "issues": []})(),
+    )
+    monkeypatch.setattr(run_quality_gate.verify_publishable_report, "evaluate", lambda _markdown: ({"P0_MARKDOWN": {"pass": True}}, True))
+
+    def fake_report_aware(markdown_arg, report_arg):
+        captured["markdown"] = markdown_arg
+        captured["report"] = report_arg
+        return {"P0_CLAIM_EVIDENCE_SCORE": {"pass": False, "reason": "missing"}}, False
+
+    monkeypatch.setattr(run_quality_gate.verify_publishable_report, "evaluate_publishable_report", fake_report_aware)
+
+    passed, summary = run_quality_gate.run_quality_gate(
+        str(FIXTURE), str(out), writer_provider="fixture", publishable_gate=True,
+    )
+
+    assert passed is False
+    assert captured == {"markdown": markdown, "report": report}
+    assert summary["publishable_failed_codes"] == ["P0_CLAIM_EVIDENCE_SCORE"]
+
+
 def test_quality_gate_summary_includes_section_qa_metadata(tmp_path):
     """Phase 3: run_quality_gate() summary 包含 section_qa JSON-able 元数据。"""
     import json

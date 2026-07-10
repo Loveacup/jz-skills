@@ -140,7 +140,7 @@ def run_quality_gate(
     publishable_passed = None
     publishable_failed_codes = []
     if publishable_gate:
-        publishable_results, publishable_passed = verify_publishable_report.evaluate(markdown)
+        publishable_results, publishable_passed = verify_publishable_report.evaluate_publishable_report(markdown, report)
         publishable_failed_codes = [
             code for code, gate in publishable_results.items()
             if not gate.get("pass")
@@ -238,11 +238,296 @@ def run_quality_gate(
     return passed, summary
 
 
+# ---------------------------------------------------------------------------
+# P6-R: explicit, side-effect-free corpus manifest runner.
+#
+# The corpus runner is a *frame* for a pre-release real-sample corpus, not a
+# generator. Without --execute it only loads/validates/selects samples and
+# emits a JSON summary: it never calls report_markdown, reads an input file,
+# downloads, or invokes an LLM. Only --execute runs the existing single-sample
+# run_quality_gate on samples whose declared local input actually exists; it
+# must never auto-download to backfill a missing cache.
+# ---------------------------------------------------------------------------
+
+CORPUS_SCHEMA_VERSION = 1
+
+# candidate is the only entry state; the rest form the manual/machine lifecycle.
+CORPUS_STATUSES = (
+    "candidate",
+    "input_ready",
+    "generated",
+    "qa_passed",
+    "qa_failed",
+    "review_pending",
+    "accepted_gold",
+    "rejected",
+    "retired",
+)
+
+# accepted_gold is the only status permitted into the blocking release lane, and
+# only when these manual/explicit acceptance fields are all present.
+GOLD_REVIEW_FIELDS = ("reviewed_by", "reviewed_at", "verdict_source")
+
+LANE_STATUS = {
+    "candidates": "candidate",
+    "ready": "input_ready",
+    "blocking": "accepted_gold",
+}
+
+
+def load_corpus_manifest(path: str) -> Dict[str, Any]:
+    """Load and JSON-parse a corpus manifest (no validation, no side effects)."""
+    text = Path(path).read_text(encoding="utf-8")
+    return json.loads(text)
+
+
+def _nonempty(value: Any) -> bool:
+    return value is not None and str(value).strip() != ""
+
+
+def validate_corpus_manifest(manifest: Dict[str, Any]) -> list:
+    """Return a list of human-readable schema/state-machine violations.
+
+    An empty list means the manifest is valid. The key invariant this enforces:
+    a sample may only claim ``accepted_gold`` when it carries complete manual
+    acceptance evidence (reviewed_by/reviewed_at/verdict_source). No fake gold.
+    """
+    errors: list = []
+    if not isinstance(manifest, dict):
+        return ["manifest is not a JSON object"]
+    if manifest.get("schema_version") != CORPUS_SCHEMA_VERSION:
+        errors.append(
+            f"schema_version must be {CORPUS_SCHEMA_VERSION}, "
+            f"got {manifest.get('schema_version')!r}"
+        )
+    samples = manifest.get("samples")
+    if not isinstance(samples, list) or not samples:
+        errors.append("manifest.samples must be a non-empty list")
+        return errors
+
+    seen_ids = set()
+    for idx, sample in enumerate(samples):
+        sid = sample.get("id") or f"<index {idx}>"
+        if not _nonempty(sample.get("id")):
+            errors.append(f"sample[{idx}] is missing an id")
+        elif sid in seen_ids:
+            errors.append(f"sample {sid}: duplicate id")
+        else:
+            seen_ids.add(sid)
+        if not _nonempty(sample.get("bvid")):
+            errors.append(f"sample {sid}: missing bvid")
+
+        rubric = sample.get("rubric") or {}
+        status = rubric.get("status")
+        if status not in CORPUS_STATUSES:
+            errors.append(f"sample {sid}: unknown rubric.status {status!r}")
+        if status == "accepted_gold":
+            missing = [f for f in GOLD_REVIEW_FIELDS if not _nonempty(rubric.get(f))]
+            if missing:
+                errors.append(
+                    f"sample {sid}: accepted_gold requires {', '.join(GOLD_REVIEW_FIELDS)}; "
+                    f"missing {', '.join(missing)}"
+                )
+        if "input" not in sample or not isinstance(sample["input"], dict):
+            errors.append(f"sample {sid}: missing input block")
+    return errors
+
+
+def _sample_input_path(sample: Dict[str, Any]) -> str:
+    return (sample.get("input") or {}).get("fetch_all_json_path") or ""
+
+
+def _is_blocking_complete(sample: Dict[str, Any]) -> bool:
+    """A blocking-lane sample must be reproducible and auditable, not just gold."""
+    rubric = sample.get("rubric") or {}
+    if rubric.get("status") != "accepted_gold":
+        return False
+    if any(not _nonempty(rubric.get(f)) for f in GOLD_REVIEW_FIELDS):
+        return False
+    input_path = _sample_input_path(sample)
+    if not input_path or not Path(input_path).exists():
+        return False
+    summary_path = (sample.get("run") or {}).get("summary_json_path")
+    if not _nonempty(summary_path) or not Path(str(summary_path)).exists():
+        return False
+    return True
+
+
+def select_lane_samples(manifest: Dict[str, Any], lane: str) -> list:
+    """Filter samples for a lane. Blocking only ever yields complete accepted_gold."""
+    if lane not in LANE_STATUS:
+        raise ValueError(f"unknown lane {lane!r}; expected one of {sorted(LANE_STATUS)}")
+    samples = manifest.get("samples") or []
+    if lane == "blocking":
+        return [s for s in samples if _is_blocking_complete(s)]
+    wanted = LANE_STATUS[lane]
+    return [s for s in samples if (s.get("rubric") or {}).get("status") == wanted]
+
+
+def _selected_view(sample: Dict[str, Any]) -> Dict[str, Any]:
+    rubric = sample.get("rubric") or {}
+    inp = sample.get("input") or {}
+    return {
+        "id": sample.get("id"),
+        "bvid": sample.get("bvid"),
+        "category": sample.get("category"),
+        "status": rubric.get("status"),
+        "input_path": inp.get("fetch_all_json_path") or "",
+        "cache_status": inp.get("cache_status"),
+    }
+
+
+def run_corpus_manifest(
+    manifest_path: str,
+    *,
+    lane: str = "candidates",
+    execute: bool = False,
+    writer_provider: str = "fixture",
+    mode: str = "full",
+    publishable_gate: bool = False,
+    fail_on_fallback_warning: bool = False,
+    run_fact_check: bool = False,
+    section_qa_gate: bool = False,
+    depth_profile: str = "claim-first-full",
+    claim_qa_gate: bool = False,
+    output_dir: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Validate/select the manifest and, only when execute=True, run the gate.
+
+    Returns a JSON-serialisable summary. Without execute this touches no input
+    files and never calls report_markdown.
+    """
+    manifest = load_corpus_manifest(manifest_path)
+    errors = validate_corpus_manifest(manifest)
+    valid = not errors
+
+    samples = manifest.get("samples") or []
+    status_distribution: Dict[str, int] = {}
+    for s in samples:
+        status = (s.get("rubric") or {}).get("status", "<none>")
+        status_distribution[status] = status_distribution.get(status, 0) + 1
+
+    selected = select_lane_samples(manifest, lane) if valid else []
+
+    summary: Dict[str, Any] = {
+        "mode": "corpus-manifest",
+        "manifest_path": manifest_path,
+        "schema_version": manifest.get("schema_version"),
+        "name": manifest.get("name"),
+        "lane": lane,
+        "execute": execute,
+        "writer_provider": writer_provider,
+        "depth_profile": depth_profile,
+        "valid": valid,
+        "validation_errors": errors,
+        "total_samples": len(samples),
+        "status_distribution": status_distribution,
+        "selected_count": len(selected),
+        "selected": [_selected_view(s) for s in selected],
+        "executed": False,
+        "results": [],
+    }
+
+    if not valid or not execute:
+        return summary
+
+    out_root = Path(output_dir) if output_dir else Path("/tmp/p6r-corpus-out")
+    results = []
+    all_passed = True
+    for sample in selected:
+        sid = sample.get("id")
+        bvid = sample.get("bvid")
+        input_path = _sample_input_path(sample)
+        record: Dict[str, Any] = {
+            "id": sid,
+            "bvid": bvid,
+            "executed": False,
+            "passed": False,
+            "error": None,
+            "output_path": None,
+            "summary": None,
+        }
+        # No input path or a missing file fails clean — never auto-download.
+        if not input_path:
+            record["error"] = "sample has no input.fetch_all_json_path; refusing to download"
+        elif not Path(input_path).exists():
+            record["error"] = f"input file does not exist: {input_path}; refusing to auto-download"
+        else:
+            output_path = str(out_root / f"{sid}_report.md")
+            try:
+                passed, sample_summary = run_quality_gate(
+                    input_path,
+                    output_path,
+                    writer_provider=writer_provider,
+                    mode=mode,
+                    run_fact_check=run_fact_check,
+                    publishable_gate=publishable_gate,
+                    fail_on_fallback_warning=fail_on_fallback_warning,
+                    section_qa_gate=section_qa_gate,
+                    depth_profile=depth_profile,
+                    claim_qa_gate=claim_qa_gate,
+                )
+                record["executed"] = True
+                record["passed"] = bool(passed)
+                record["output_path"] = output_path
+                record["summary"] = sample_summary
+            except Exception as exc:  # surface per-sample failures without aborting the batch
+                record["error"] = f"run_quality_gate failed: {exc}"
+        if not record["passed"]:
+            all_passed = False
+        results.append(record)
+
+    summary["executed"] = True
+    summary["results"] = results
+    summary["all_passed"] = all_passed
+    return summary
+
+
+def _print_corpus_summary(summary: Dict[str, Any]) -> None:
+    mark = "✅" if summary["valid"] else "❌"
+    print(f"{mark} corpus manifest {'VALID' if summary['valid'] else 'INVALID'}")
+    print(f"   manifest: {summary['manifest_path']}")
+    print(f"   lane    : {summary['lane']} (execute={summary['execute']})")
+    print(f"   samples : {summary['total_samples']} total, {summary['selected_count']} selected")
+    print(f"   status  : {summary['status_distribution']}")
+    for err in summary["validation_errors"]:
+        print(f"   invalid: {err}")
+    if summary["executed"]:
+        for res in summary["results"]:
+            status = "PASS" if res["passed"] else ("ERROR" if res["error"] else "FAIL")
+            detail = res["error"] or res.get("output_path") or ""
+            print(f"   run {res['id']}: {status} — {detail}")
+
+
+def _corpus_exit_code(summary: Dict[str, Any]) -> int:
+    if not summary["valid"]:
+        return 2
+    if summary["executed"]:
+        return 0 if summary.get("all_passed") else 1
+    return 0
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run Bilibili report quality gates end-to-end."
     )
-    parser.add_argument("--input", required=True, help="fetch_all JSON path")
+    parser.add_argument("--input", help="fetch_all JSON path (single-sample mode)")
+    parser.add_argument(
+        "--corpus-manifest",
+        dest="corpus_manifest",
+        help="P6-R corpus manifest JSON path; validates/selects samples without side effects unless --execute",
+    )
+    parser.add_argument(
+        "--lane",
+        choices=("candidates", "ready", "blocking"),
+        default="candidates",
+        help="corpus lane: candidates=all candidate, ready=input_ready, blocking=complete accepted_gold",
+    )
+    parser.add_argument(
+        "--execute",
+        action="store_true",
+        help="corpus mode: actually run the gate on selected samples whose local input exists (no auto-download)",
+    )
     parser.add_argument("--output", help="report output path")
     parser.add_argument(
         "--writer-provider",
@@ -274,8 +559,8 @@ def main() -> None:
     parser.add_argument(
         "--depth-profile",
         choices=("standard", "v24-full", "claim-first-full"),
-        default="standard",
-        help="Phase 5: Depth profile (standard=default, v24-full=legacy v2.4 depth, claim-first-full=claim-first architecture).",
+        default=None,
+        help="Depth profile. Single-sample default=standard; corpus default=claim-first-full.",
     )
     parser.add_argument(
         "--claim-qa-gate",
@@ -284,6 +569,39 @@ def main() -> None:
     )
     parser.add_argument("--json", action="store_true", dest="as_json")
     args = parser.parse_args()
+
+    # P6-R corpus manifest mode: does not touch --input single-sample behaviour.
+    if args.corpus_manifest:
+        try:
+            summary = run_corpus_manifest(
+                args.corpus_manifest,
+                lane=args.lane,
+                execute=args.execute,
+                writer_provider=args.writer_provider,
+                mode=args.mode,
+                publishable_gate=args.publishable,
+                fail_on_fallback_warning=args.fail_on_fallback_warning,
+                run_fact_check=args.run_fact_check,
+                section_qa_gate=args.section_qa_gate,
+                depth_profile=args.depth_profile or "claim-first-full",
+                claim_qa_gate=args.claim_qa_gate,
+            )
+        except Exception as exc:
+            print(f"❌ corpus manifest failed to load: {exc}", file=sys.stderr)
+            if args.as_json:
+                print("RESULT_JSON_START")
+                print(json.dumps({"valid": False, "error": str(exc)}, ensure_ascii=False, indent=2))
+                print("RESULT_JSON_END")
+            sys.exit(2)
+        _print_corpus_summary(summary)
+        if args.as_json:
+            print("RESULT_JSON_START")
+            print(json.dumps(summary, ensure_ascii=False, indent=2))
+            print("RESULT_JSON_END")
+        sys.exit(_corpus_exit_code(summary))
+
+    if not args.input:
+        parser.error("either --input (single-sample) or --corpus-manifest is required")
 
     output = args.output
     if not output:
@@ -300,7 +618,7 @@ def main() -> None:
             fail_on_fallback_warning=args.fail_on_fallback_warning,
             publishable_gate=args.publishable,
             section_qa_gate=args.section_qa_gate,  # Phase 4
-            depth_profile=args.depth_profile,  # Phase 5
+            depth_profile=args.depth_profile or "standard",  # preserve legacy single-sample default
             claim_qa_gate=args.claim_qa_gate,  # Phase 5
         )
     except Exception as exc:
