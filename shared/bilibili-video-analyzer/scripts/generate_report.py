@@ -506,11 +506,11 @@ def is_formal_report_output(path) -> bool:
     )
 
 
-def check_formal_output_publishable(path, markdown):
-    """Check publish gate for formal outputs; debug paths are skipped."""
+def check_formal_output_publishable(path, markdown, report=None):
+    """Check combined gates for formal outputs; debug paths are skipped."""
     if not is_formal_report_output(path):
         return True, {'skipped': True, 'passed': True, 'failed_codes': []}
-    gates, passed = verify_publishable_report.evaluate(markdown)
+    gates, passed = verify_publishable_report.evaluate_publishable_report(markdown, report)
     failed_codes = [code for code, gate in gates.items() if not gate.get('pass')]
     return passed, {
         'skipped': False,
@@ -564,7 +564,7 @@ def main():
     )
 
     out_path = args.output or f'/tmp/{bvid}_report.md'
-    publishable_ok, publishable_summary = check_formal_output_publishable(out_path, markdown)
+    publishable_ok, publishable_summary = check_formal_output_publishable(out_path, markdown, report)
     if not publishable_ok:
         print('❌ 正式报告发布闸未通过：拒绝写入 B站笔记/正式视频库路径')
         for code in publishable_summary.get('failed_codes', []):

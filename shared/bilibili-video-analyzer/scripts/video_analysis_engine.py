@@ -146,6 +146,9 @@ class Claim:
     confidence: float  # 0.0-1.0
     evidence_ids: List[str]
     source_type: ClaimSourceType
+    # Internal canonical pointers (e.g. "3:E1"). Keep evidence_ids as the
+    # public writer-facing [E#] notation, which is section-local by design.
+    evidence_locations: List[str] = field(default_factory=list)
     grounds: List[str] = field(default_factory=list)
     warrant: str = ""
     backing: str = ""
@@ -3198,6 +3201,7 @@ def extract_claims_from_evidence(report: Dict[str, Any], max_claims: int = 12) -
                     text=text[:300].strip(),
                     confidence=confidence,
                     evidence_ids=[f"E{idx}"],  # E1, E2, E3... per section
+                    evidence_locations=[f"{section_id}:E{idx}"],
                     source_type=claim_source_type,
                     claim_type="observed",
                     warrant="视频原话" if claim_source_type == "transcript" else "观众反馈",
@@ -3311,6 +3315,7 @@ def synthesize_insights_from_claims(
             text=claim.text,
             confidence=claim.confidence,
             evidence_ids=claim.evidence_ids,
+            evidence_locations=claim.evidence_locations,
             source_type=claim.source_type,
             grounds=claim.grounds,
             warrant=claim.warrant or f"基于{claim.source_type}证据",
@@ -3392,6 +3397,7 @@ def audit_claims(claims: List[Claim], evidence_map: Dict[str, Any]) -> List[Clai
                 text=claim.text,
                 confidence=adjusted_confidence,
                 evidence_ids=claim.evidence_ids,
+                evidence_locations=claim.evidence_locations,
                 source_type=claim.source_type,  # Must remain audience signal
                 grounds=claim.grounds,
                 warrant=claim.warrant,
@@ -3437,6 +3443,105 @@ def build_claim_bundle(report: Dict[str, Any]) -> ClaimBundle:
     )
 
 
+_CLAIM_EVIDENCE_CONTRACT_VERSION = 1
+_CLAIM_EVIDENCE_TARGET_SECTIONS = ("1", "3", "4")
+_AUDIENCE_SIGNAL_SOURCES = {"comment", "comments", "danmaku", "audience"}
+
+
+def build_report_evidence_index(
+    report: Dict[str, Any],
+    target_sections: Tuple[str, ...] = _CLAIM_EVIDENCE_TARGET_SECTIONS,
+) -> Dict[str, Any]:
+    """Index section-local evidence IDs with canonical ``section:E#`` keys."""
+    by_section = ((report.get("evidence_map") or {}).get("by_section") or {})
+    index: Dict[str, Any] = {}
+    for section_id in target_sections:
+        for idx, candidate in enumerate(by_section.get(section_id, []) or [], start=1):
+            index[f"{section_id}:E{idx}"] = candidate
+    return index
+
+
+def _claim_field(claim: Any, name: str, default: Any = None) -> Any:
+    return claim.get(name, default) if isinstance(claim, dict) else getattr(claim, name, default)
+
+
+def evaluate_claim_evidence_gate(
+    report: Dict[str, Any],
+    target_sections: Tuple[str, ...] = _CLAIM_EVIDENCE_TARGET_SECTIONS,
+    threshold: float = 0.75,
+    min_claims: int = 1,
+) -> Dict[str, Any]:
+    """Score canonical claim pointers without changing public ``[E#]`` syntax.
+
+    This is a pointer-integrity gate, not semantic entailment: a claim is
+    supported only when its canonical location resolves to the declared source.
+    Legacy bundles pre-dating the canonical-location contract are skipped.
+    """
+    bundle = report.get("claim_bundle") or {}
+    if not isinstance(bundle, dict) or bundle.get("evidence_contract_version") != _CLAIM_EVIDENCE_CONTRACT_VERSION:
+        return {
+            "passed": True, "skipped": True, "reason": "legacy_claim_bundle",
+            "score": None, "threshold": threshold, "total_claims": 0,
+            "supported_count": 0, "partial_count": 0, "unsupported_count": 0,
+            "unsupported_claim_ids": [], "claim_scores": [],
+        }
+
+    evidence_index = build_report_evidence_index(report, target_sections)
+    claim_scores = []
+    for claim in bundle.get("claims") or []:
+        locations = list(_claim_field(claim, "evidence_locations", []) or [])
+        scoped_locations = [
+            location for location in locations
+            if isinstance(location, str) and location.split(":", 1)[0] in target_sections
+        ]
+        # Explicitly non-target locations (for example §7) do not participate.
+        if locations and not scoped_locations:
+            continue
+
+        claim_id = str(_claim_field(claim, "id", ""))
+        source_type = str(_claim_field(claim, "source_type", ""))
+        resolved = [location for location in scoped_locations if location in evidence_index]
+        if not scoped_locations:
+            status, score, reason = "unsupported", 0.0, "missing_canonical_location"
+        elif not resolved:
+            status, score, reason = "unsupported", 0.0, "unresolvable_location"
+        elif source_type in _AUDIENCE_SIGNAL_SOURCES:
+            status, score, reason = "partial", 0.5, "audience_signal_not_factual_support"
+        else:
+            status, score, reason = "supported", 1.0, "canonical_location_resolved"
+        claim_scores.append({
+            "claim_id": claim_id,
+            "status": status,
+            "score": score,
+            "reason": reason,
+            "evidence_locations": locations,
+        })
+
+    supported = [item for item in claim_scores if item["status"] == "supported"]
+    partial = [item for item in claim_scores if item["status"] == "partial"]
+    unsupported = [item for item in claim_scores if item["status"] == "unsupported"]
+    score = sum(item["score"] for item in claim_scores) / len(claim_scores) if claim_scores else 0.0
+    passed = bool(
+        len(claim_scores) >= min_claims
+        and score >= threshold
+        and not unsupported
+        and supported
+    )
+    return {
+        "passed": passed,
+        "skipped": False,
+        "reason": "",
+        "score": score,
+        "threshold": threshold,
+        "total_claims": len(claim_scores),
+        "supported_count": len(supported),
+        "partial_count": len(partial),
+        "unsupported_count": len(unsupported),
+        "unsupported_claim_ids": [item["claim_id"] for item in unsupported],
+        "claim_scores": claim_scores,
+    }
+
+
 def claim_bundle_to_dict(bundle: ClaimBundle) -> Dict[str, Any]:
     """Serialize ClaimBundle to dict for storage in DraftReport.
 
@@ -3447,6 +3552,7 @@ def claim_bundle_to_dict(bundle: ClaimBundle) -> Dict[str, Any]:
         Serializable dict
     """
     return {
+        'evidence_contract_version': _CLAIM_EVIDENCE_CONTRACT_VERSION,
         'claims': [asdict(c) for c in bundle.claims],
         'insights': [asdict(i) for i in bundle.insights],
         'audit_log': [asdict(a) for a in bundle.audit_log]

@@ -14,7 +14,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Optional, Any
 
 
 _SECTION_RE = re.compile(r"^##\s+(2\.5|\d+)(?:\.)?(?=\s)", re.M)
@@ -140,6 +140,33 @@ def evaluate(md: str) -> Tuple[Dict[str, dict], bool]:
     )
 
     passed = all(item["pass"] for item in results.values())
+    return results, passed
+
+
+def evaluate_publishable_report(
+    markdown: str,
+    report: Optional[Dict[str, Any]] = None,
+) -> Tuple[Dict[str, dict], bool]:
+    """Combine the stable Markdown gates with P6-A claim-pointer integrity.
+
+    ``evaluate(markdown)`` remains Markdown-only for CLI and backward
+    compatibility. The report-level gate participates only when the caller
+    supplies a versioned claim bundle.
+    """
+    results, markdown_passed = evaluate(markdown)
+    if report is None:
+        return results, markdown_passed
+
+    from video_analysis_engine import evaluate_claim_evidence_gate
+
+    claim_result = evaluate_claim_evidence_gate(report)
+    if not claim_result["skipped"]:
+        results["P0_CLAIM_EVIDENCE_SCORE"] = _result(
+            claim_result["passed"],
+            claim_result,
+            "claim evidence locations must resolve to source evidence",
+        )
+    passed = markdown_passed and claim_result["passed"]
     return results, passed
 
 

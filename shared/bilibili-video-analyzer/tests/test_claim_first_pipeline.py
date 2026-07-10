@@ -264,3 +264,102 @@ class TestExtractClaimsFromEvidenceMap:
         assert "3" in targets, "No insights for section 3"
         assert "4" in targets, "No insights for section 4"
         assert "7" in targets, "No insights for section 7"
+
+
+class TestAtomicClaimEvidenceGate:
+    """P6-A: claim evidence locations are internal, unique, and publishable-gate ready."""
+
+    def _report_with_sections(self):
+        return {
+            "evidence_map": {
+                "by_section": {
+                    "3": [
+                        {"source_type": "transcript", "text": "§3 的第一条转录证据足够长，能够支撑核心判断。", "score": 0.8},
+                        {"source_type": "transcript", "text": "§3 的第二条转录证据足够长，能够支撑后续判断。", "score": 0.8},
+                    ],
+                    "4": [
+                        {"source_type": "transcript", "text": "§4 的第一条转录证据同样足够长，但它不是 §3 的 E1。", "score": 0.9},
+                    ],
+                }
+            }
+        }
+
+    def test_extracted_claims_keep_display_id_but_add_unique_internal_location(self):
+        from video_analysis_engine import build_claim_bundle, claim_bundle_to_dict
+
+        bundle = build_claim_bundle(self._report_with_sections())
+        serialized = claim_bundle_to_dict(bundle)
+        locations = {claim["evidence_locations"][0] for claim in serialized["claims"]}
+
+        assert serialized["evidence_contract_version"] == 1
+        assert "3:E1" in locations
+        assert "4:E1" in locations
+        assert all(claim["evidence_ids"][0].startswith("E") for claim in serialized["claims"])
+
+    def test_versioned_bundle_with_missing_location_fails_closed(self):
+        from video_analysis_engine import evaluate_claim_evidence_gate
+
+        report = self._report_with_sections()
+        report["claim_bundle"] = {
+            "evidence_contract_version": 1,
+            "claims": [
+                {"id": "C1", "source_type": "transcript", "evidence_ids": ["E1"], "evidence_locations": []},
+            ],
+        }
+
+        result = evaluate_claim_evidence_gate(report)
+        assert result["passed"] is False
+        assert result["unsupported_claim_ids"] == ["C1"]
+
+    def test_versioned_bundle_with_unresolvable_location_fails_closed(self):
+        from video_analysis_engine import evaluate_claim_evidence_gate
+
+        report = self._report_with_sections()
+        report["claim_bundle"] = {
+            "evidence_contract_version": 1,
+            "claims": [
+                {
+                    "id": "C-missing-index",
+                    "source_type": "transcript",
+                    "evidence_ids": ["E99"],
+                    "evidence_locations": ["3:E99"],
+                },
+            ],
+        }
+
+        result = evaluate_claim_evidence_gate(report)
+        assert result["passed"] is False
+        assert result["unsupported_claim_ids"] == ["C-missing-index"]
+        assert result["claim_scores"][0]["reason"] == "unresolvable_location"
+
+    def test_legacy_bundle_without_contract_version_skips_for_compatibility(self):
+        from video_analysis_engine import evaluate_claim_evidence_gate
+
+        report = self._report_with_sections()
+        report["claim_bundle"] = {"claims": [{"id": "legacy", "evidence_ids": ["E1"]}]}
+
+        result = evaluate_claim_evidence_gate(report)
+        assert result["passed"] is True
+        assert result["skipped"] is True
+        assert result["reason"] == "legacy_claim_bundle"
+
+    def test_audience_signal_is_partial_not_supported_fact(self):
+        from video_analysis_engine import evaluate_claim_evidence_gate
+
+        report = self._report_with_sections()
+        report["claim_bundle"] = {
+            "evidence_contract_version": 1,
+            "claims": [
+                {
+                    "id": "C-audience",
+                    "source_type": "comment",
+                    "evidence_ids": ["E1"],
+                    "evidence_locations": ["3:E1"],
+                },
+            ],
+        }
+
+        result = evaluate_claim_evidence_gate(report)
+        assert result["passed"] is False
+        assert result["partial_count"] == 1
+        assert result["supported_count"] == 0

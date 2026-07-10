@@ -30,3 +30,26 @@ def test_formal_output_guard_skips_nonformal_debug_paths(tmp_path):
 
     assert ok is True
     assert summary["skipped"] is True
+
+
+def test_formal_output_guard_combines_versioned_claim_evidence_gate(tmp_path, monkeypatch):
+    formal = tmp_path / "B站笔记_证据缺失_20260710.md"
+    good_markdown = "## 0. 元信息\n\n## 1. 逻辑链\n\n| a | b |\n| --- | --- |\n\n## 2. 弹幕\n\n正文\n\n## 2.5 评论\n\n正文\n\n## 3. 洞察\n\n正文\n\n## 4. 深拆\n\n正文\n\n## 5. 高光\n\n> 短引文\n\n## 6. 图谱\n\n正文\n\n## 7. 行动\n\n正文\n\n## 8. 附录\n\n正文\n"
+    report = {
+        "claim_bundle": {
+            "evidence_contract_version": 1,
+            "claims": [{"id": "C1", "source_type": "transcript", "evidence_locations": []}],
+        },
+        "evidence_map": {"by_section": {"3": []}},
+    }
+
+    monkeypatch.setattr(
+        generate_report.verify_publishable_report,
+        "evaluate",
+        lambda _markdown: ({"P0_MARKDOWN": {"pass": True, "measured": "ok", "reason": "ok"}}, True),
+    )
+    ok, summary = generate_report.check_formal_output_publishable(formal, good_markdown, report)
+
+    assert ok is False
+    assert "P0_CLAIM_EVIDENCE_SCORE" in summary["failed_codes"]
+    assert summary["gates"]["P0_CLAIM_EVIDENCE_SCORE"]["measured"]["unsupported_claim_ids"] == ["C1"]
