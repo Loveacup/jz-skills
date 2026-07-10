@@ -53,3 +53,33 @@ def test_formal_output_guard_combines_versioned_claim_evidence_gate(tmp_path, mo
     assert ok is False
     assert "P0_CLAIM_EVIDENCE_SCORE" in summary["failed_codes"]
     assert summary["gates"]["P0_CLAIM_EVIDENCE_SCORE"]["measured"]["unsupported_claim_ids"] == ["C1"]
+
+
+def test_formal_output_guard_blocks_unresolved_final_markdown_citation(tmp_path, monkeypatch):
+    formal = tmp_path / "B站笔记_正文错误引用_20260710.md"
+    markdown = "## 3. 核心洞察\n正文 [E99]\n\n## 4. 深拆\n正文 [E1]"
+    report = {
+        "claim_bundle": {
+            "evidence_contract_version": 1,
+            "claims": [
+                {"id": "C1", "source_type": "transcript", "evidence_locations": ["3:E1"]},
+            ],
+        },
+        "evidence_map": {
+            "by_section": {
+                "3": [{"source_type": "transcript", "text": "§3 evidence", "start": 10}],
+                "4": [{"source_type": "transcript", "text": "§4 evidence", "start": 20}],
+            }
+        },
+    }
+
+    monkeypatch.setattr(
+        generate_report.verify_publishable_report,
+        "evaluate",
+        lambda _markdown: ({"P0_MARKDOWN": {"pass": True, "measured": "ok", "reason": "ok"}}, True),
+    )
+    ok, summary = generate_report.check_formal_output_publishable(formal, markdown, report)
+
+    assert ok is False
+    assert "P0_VIDEO_EVIDENCE_USAGE" in summary["failed_codes"]
+    assert summary["gates"]["P0_VIDEO_EVIDENCE_USAGE"]["measured"]["sections"]["3"]["unresolved_refs"] == ["E99"]

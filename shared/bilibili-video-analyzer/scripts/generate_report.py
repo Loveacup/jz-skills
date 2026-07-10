@@ -430,7 +430,11 @@ def report_markdown(results, run_fact_check=True, provider=None, depth_profile="
 
     # 保持旧的 Markdown 渲染路径不变（debug/legacy path）
     draft = build_draft_report(report)
-    return render_debug_markdown(draft, provider=shared_provider, depth_profile=depth_profile), report
+    markdown = render_debug_markdown(draft, provider=shared_provider, depth_profile=depth_profile)
+    # P6-B1 is diagnostic metadata for all generated reports; only the formal
+    # output guard turns a non-skipped failure into a publish blocker.
+    report["video_evidence_usage"] = verify_publishable_report.evaluate_video_evidence_usage(markdown, report)
+    return markdown, report
 
 
 # ============ 输入加载 ============

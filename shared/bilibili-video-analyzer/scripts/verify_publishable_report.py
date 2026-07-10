@@ -143,6 +143,87 @@ def evaluate(md: str) -> Tuple[Dict[str, dict], bool]:
     return results, passed
 
 
+_CITATION_RE = re.compile(r"\[E(\d+)\]")
+_FENCED_CODE_RE = re.compile(r"```.*?```", re.S)
+
+
+def _without_fenced_code(markdown: str) -> str:
+    """Exclude fenced examples so `[E#]` samples do not count as evidence use."""
+    return _FENCED_CODE_RE.sub("", markdown or "")
+
+
+def evaluate_video_evidence_usage(
+    markdown: str,
+    report: Dict[str, Any],
+    *,
+    target_sections: Tuple[str, ...] = ("3", "4"),
+) -> Dict[str, Any]:
+    """Check deterministic citation coverage for final video-report sections.
+
+    This validates only that final Markdown uses resolvable, local transcript
+    evidence. It is deliberately not an entailment or factuality evaluator.
+    """
+    bundle = (report or {}).get("claim_bundle") or {}
+    if not isinstance(bundle, dict) or bundle.get("evidence_contract_version") != 1:
+        return {
+            "passed": True,
+            "skipped": True,
+            "reason": "legacy_claim_bundle",
+            "sections": {},
+        }
+
+    by_section = ((report.get("evidence_map") or {}).get("by_section") or {})
+    markdown_sections = split_sections(markdown)
+    section_results: Dict[str, Dict[str, Any]] = {}
+
+    for section_id in target_sections:
+        candidates = list(by_section.get(section_id, []) or [])
+        candidate_by_ref = {f"E{idx}": candidate for idx, candidate in enumerate(candidates, start=1)}
+        transcript_refs = {
+            ref for ref, candidate in candidate_by_ref.items()
+            if isinstance(candidate, dict) and candidate.get("source_type") == "transcript"
+        }
+        body = _without_fenced_code(markdown_sections.get(section_id, ""))
+        citation_refs = [f"E{number}" for number in _CITATION_RE.findall(body)]
+        unresolved_refs = []
+        for ref in citation_refs:
+            if ref not in candidate_by_ref and ref not in unresolved_refs:
+                unresolved_refs.append(ref)
+        resolved_refs = [ref for ref in citation_refs if ref in candidate_by_ref]
+        resolved_locations = [f"{section_id}:{ref}" for ref in resolved_refs]
+        resolved_transcript_refs = [ref for ref in resolved_refs if ref in transcript_refs]
+        coverage_required = bool(transcript_refs)
+        coverage_passed = not coverage_required or bool(resolved_transcript_refs)
+
+        starts = []
+        for ref in resolved_refs:
+            candidate = candidate_by_ref[ref]
+            start = candidate.get("start") if isinstance(candidate, dict) else None
+            if isinstance(start, (int, float)):
+                starts.append(float(start))
+        temporal_order_warning = any(
+            later < earlier for earlier, later in zip(starts, starts[1:])
+        )
+        section_passed = coverage_passed and not unresolved_refs
+        section_results[section_id] = {
+            "evidence_available": bool(candidates),
+            "transcript_evidence_available": coverage_required,
+            "citation_refs": citation_refs,
+            "resolved_locations": resolved_locations,
+            "unresolved_refs": unresolved_refs,
+            "coverage_passed": coverage_passed,
+            "temporal_order_warning": temporal_order_warning,
+            "passed": section_passed,
+        }
+
+    return {
+        "passed": all(section["passed"] for section in section_results.values()),
+        "skipped": False,
+        "reason": "",
+        "sections": section_results,
+    }
+
+
 def evaluate_publishable_report(
     markdown: str,
     report: Optional[Dict[str, Any]] = None,
@@ -166,7 +247,16 @@ def evaluate_publishable_report(
             claim_result,
             "claim evidence locations must resolve to source evidence",
         )
-    passed = markdown_passed and claim_result["passed"]
+
+    video_result = evaluate_video_evidence_usage(markdown, report)
+    if not video_result["skipped"]:
+        results["P0_VIDEO_EVIDENCE_USAGE"] = _result(
+            video_result["passed"],
+            video_result,
+            "final §3/§4 citations must resolve to local transcript evidence",
+        )
+
+    passed = markdown_passed and claim_result["passed"] and video_result["passed"]
     return results, passed
 
 

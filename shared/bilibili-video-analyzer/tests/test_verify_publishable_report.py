@@ -148,3 +148,74 @@ def test_publishable_gate_rejects_logic_chain_that_is_only_blockquotes():
 
     assert passed is False
     assert results["P1_LOGIC_CHAIN_STRUCTURED"]["pass"] is False
+
+
+def _versioned_video_report():
+    return {
+        "claim_bundle": {"evidence_contract_version": 1},
+        "evidence_map": {
+            "by_section": {
+                "3": [
+                    {"source_type": "transcript", "text": "§3 transcript one", "start": 30.0},
+                    {"source_type": "comment", "text": "§3 audience signal", "start": None},
+                    {"source_type": "transcript", "text": "§3 transcript two", "start": 10.0},
+                ],
+                "4": [
+                    {"source_type": "transcript", "text": "§4 transcript one", "start": 20.0},
+                ],
+            }
+        },
+    }
+
+
+def test_video_evidence_usage_disambiguates_section_local_e1_and_requires_transcript():
+    markdown = "## 3. 核心洞察\n正文 [E1]\n\n## 4. 深度拆解\n正文 [E1]"
+
+    result = verify_publishable_report.evaluate_video_evidence_usage(markdown, _versioned_video_report())
+
+    assert result["passed"] is True
+    assert result["sections"]["3"]["resolved_locations"] == ["3:E1"]
+    assert result["sections"]["4"]["resolved_locations"] == ["4:E1"]
+    assert result["sections"]["3"]["coverage_passed"] is True
+
+
+def test_video_evidence_usage_rejects_unresolved_citation_even_with_valid_one():
+    markdown = "## 3. 核心洞察\n正文 [E1] 和错误引用 [E99]\n\n## 4. 深度拆解\n正文 [E1]"
+
+    result = verify_publishable_report.evaluate_video_evidence_usage(markdown, _versioned_video_report())
+
+    assert result["passed"] is False
+    assert result["sections"]["3"]["unresolved_refs"] == ["E99"]
+
+
+def test_video_evidence_usage_rejects_audience_only_citation_and_ignores_code_fences():
+    markdown = (
+        "## 3. 核心洞察\n正文只引用观众信号 [E2]\n\n"
+        "## 4. 深度拆解\n```text\n示例 [E1] 不是正文证据\n```\n正文没有证据"
+    )
+
+    result = verify_publishable_report.evaluate_video_evidence_usage(markdown, _versioned_video_report())
+
+    assert result["passed"] is False
+    assert result["sections"]["3"]["coverage_passed"] is False
+    assert result["sections"]["4"]["citation_refs"] == []
+
+
+def test_video_evidence_usage_reports_temporal_order_only_as_warning():
+    markdown = "## 3. 核心洞察\n先引用较晚的 [E1]，再引用较早的 [E3]\n\n## 4. 深度拆解\n正文 [E1]"
+
+    result = verify_publishable_report.evaluate_video_evidence_usage(markdown, _versioned_video_report())
+
+    assert result["passed"] is True
+    assert result["sections"]["3"]["temporal_order_warning"] is True
+
+
+def test_video_evidence_usage_skips_legacy_bundle():
+    report = _versioned_video_report()
+    report["claim_bundle"] = {"claims": []}
+
+    result = verify_publishable_report.evaluate_video_evidence_usage("## 3. 核心洞察\n正文", report)
+
+    assert result["passed"] is True
+    assert result["skipped"] is True
+    assert result["reason"] == "legacy_claim_bundle"

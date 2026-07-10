@@ -127,3 +127,17 @@ def test_report_markdown_reuses_provider_responses_for_qa_and_debug_render(tmp_p
     assert set((report.get("section_qa") or {}).keys()) >= {"1", "3", "4", "5", "6", "7"}
     assert len(calls) == len(set(calls))
     assert len(calls) == 3  # §3/§4/§7 prompts; render_debug_markdown hits cache
+
+
+def test_report_markdown_exposes_video_evidence_usage_as_metadata(tmp_path):
+    markdown, report = generate_report.report_markdown(
+        _minimal_results(tmp_path),
+        run_fact_check=False,
+        provider=None,
+    )
+
+    assert "video_evidence_usage" not in markdown
+    usage = report.get("video_evidence_usage")
+    assert usage is not None
+    assert usage["skipped"] is False
+    assert set(usage["sections"]) == {"3", "4"}
