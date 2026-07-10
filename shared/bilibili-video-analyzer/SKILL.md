@@ -10,11 +10,11 @@ description: >
   Use when: user provides Bilibili video link (BV号 or full URL), or says 解析B站视频 / analyze bilibili video / bilibili summary / 视频总结 / 弹幕分析 / 分析这个视频.
 
   DO NOT use for: non-Bilibili videos, general video editing, one-off transcript requests without analysis.
-version: 2.6.0
-author: "Hermes Agent (v2.6.0: WRR fact-check integration for policy/news videos → references/wrr-fact-check-policy-videos.md)"
+version: 2.3.2
+author: "Hermes Agent (v2.3.2: P5 deterministic baseline for §1/§2/§2.5/§5/§6/§8)"
 ---
 
-# Bilibili 视频深度解析器 v2.4
+# Bilibili 视频深度解析器 v2.3.2
 
 Transform Bilibili videos into structured, searchable, actionable knowledge assets for Obsidian.
 
@@ -27,7 +27,7 @@ Transform Bilibili videos into structured, searchable, actionable knowledge asse
 1. **不要凑字数**：报告以 evidence-grounded、insight-density、no-skeleton 为准，不是越长越好。
 2. **不要放过骨架**：LLM writer 产出必须经过 Section QA D1-D5 评估（P0 blocker 不进入 draft），D6-D8（claim-first 模式额外检查 warrant/rebuttal/actionability）。
 3. **证据优先**：claim 必须绑定 evidence_pointer，评论/弹幕仅作 audience signal，不能伪造事实。
-4. **Writer Provider 可插拔**：`--writer-provider none|fixture|cli|deepseek`，默认 `none` 保持 v2.6 确定性输出，`cli` 继承调用方模型配置（OMP/Hermes），`deepseek` 直接读 `DEEPSEEK_API_KEY`。失败时 fallback 到 skeleton 并 warning，不影响其他 section。
+4. **Writer Provider 可插拔**：`--writer-provider none|fixture|cli|deepseek`。默认 `none` 已提供 P5 确定性 baseline（§1/§2/§2.5/§5/§6/§8）；`cli` 继承调用方模型配置（OMP/Hermes），`deepseek` 直接读 `DEEPSEEK_API_KEY` 以增强 §3/§4/§7。LLM writer 失败时只会让对应 LLM section 回退并 warning；不影响 P5 确定性 sections。
 
 ### Red Flags 表（经典避坑）
 
@@ -51,7 +51,7 @@ Transform Bilibili videos into structured, searchable, actionable knowledge asse
 | "I'll guess the danmaku file path" ★ | As of **v2.4** `fetch_danmaku_v2.py`/`fetch_all.py` save danmaku to **`/tmp/{BV号}_danmaku.json`** (BV-prefixed, aligned with comments/subtitle artifacts). Pure-CID input falls back to `/tmp/cid_{数字}_danmaku.json`. The RESULT_JSON `path` field is authoritative — read it, don't guess. |
 | "I'll pass the b23.tv short link directly to the scripts" ★ 🆕 | `fetch_all.py` / `fetch_danmaku_v2.py` / `fetch_comments.py` / `fetch_subtitle_auto.py` all require **BV号 format** (e.g. `BV1p2DyB4Ee3`). b23.tv short links, bare video IDs, or full bilibili.com URLs will fail with parse errors. **Always resolve short links first**: `curl -sI -o /dev/null -w '%{redirect_url}' '<b23.tv URL>'` → extract `BV...` from the redirected full URL. Then pass the BV号 to scripts. |
 | "fetch_all 字幕失败不是终点，所以我可以直接写完整版" ★ | Wrong. `fetch_all` 字幕失败后必须继续手动排查 PlayURL/H200 ASR，直到拿到 transcript 或明确证明所有 ASR 路径不可用。**无字幕/无 ASR 不得保存正式 full 报告**；只能生成 `预分析_未通过ASR_...`，并在 YAML/标题/正文显式降级。简介/时间轴/金句只能做预分析素材，不能替代 transcript 证据链。详见 `references/asr-evidence-gates-and-single-note-output-20260630.md`。 |
-| "LLM writer 失败了，所以报告失败" ★ 🆕 | Wrong. P2-D writer pipeline 是可插拔增强层：`render_markdown(report, provider=None)` 默认保持旧骨架/确定性输出；`--writer-provider cli|deepseek` 失败或 validation fail 时 fallback 到 skeleton 并 `warnings.warn`。CLI 路径优先用 `BILI_WRITER_CLI` / OMP 继承调用方模型配置。见 `references/content-engine-p2d-llm-writer-pipeline-triad-20260701.md`。 |
+| "LLM writer 失败了，所以报告失败" ★ 🆕 | Wrong. LLM writer 是 §3/§4/§7 的可插拔增强层；P5 已让 `provider=None` 产出 §1/§2/§2.5/§5/§6/§8 的确定性 baseline。`--writer-provider cli|deepseek` 失败或 validation fail 时只让对应 LLM section fallback 并 `warnings.warn`。CLI 路径优先用 `BILI_WRITER_CLI` / OMP 继承调用方模型配置。 |
 | "B站 412 = 需要 cookie" ★ | Wrong default diagnosis. Cookie is only login-state assistance. For no-subtitle B站 videos, Hermes runtime should prefer **PlayURL API direct DASH audio per `page.cid` → H200 ASR → local whisper/mlx fallback** before any yt-dlp audio fallback. BiliNote `dm_img` patch helps only **in-process yt-dlp**; it does not protect CLI yt-dlp. See `references/playurl-multip-asr-lock-20260630.md`. |
 | "ASR model is fixed" ★ | Wrong. ASR provider/model/path/language are configurable: `BILI_ASR_PROVIDER=auto|h200_asr|whisper_cpp|mlx_whisper`, `BILI_ASR_ENDPOINT`, `BILI_ASR_MODEL`, `BILI_ASR_MODEL_PATH`, `BILI_ASR_LANGUAGE`. Default `auto` is now H200 HTTP ASR → VoiceInk/whisper.cpp → mlx-whisper; explicit provider must not silently fall through. See `references/playurl-multip-asr-lock-20260630.md`. |
 | "H200 ASR is available, so set `BILI_ASR_MODEL_PATH=http://...`" ★ | Wrong variable. SURGExZR H200 is an HTTP ASR gateway (`POST /ASR/transcribe`) and is now exposed as `BILI_ASR_PROVIDER=h200_asr` / default `auto` first step. Use `BILI_ASR_ENDPOINT` to override its URL. `BILI_ASR_MODEL_PATH` remains for local whisper.cpp/mlx model paths. Verify short + minutes-long audio before documenting. See `references/h200-asr-vs-bili-asr-20260630.md`. |
@@ -156,7 +156,7 @@ python3 scripts/fetch_subtitle_auto.py BV1ut6YByEZq  # Subtitles (auto-fallback)
 > python3 scripts/generate_report.py --input /tmp/BV1xx_fetch_all.json  # 读 fetch_all 输出文件
 > python3 scripts/fetch_all.py BV1xx | python3 scripts/generate_report.py  # 管道
 > ```
-> P2-D 起可选 LLM writer：`--writer-provider cli` 通过 `BILI_WRITER_CLI` / 默认 OMP CLI 继承调用方模型配置；`--writer-provider deepseek` 直接读 `DEEPSEEK_API_KEY`；默认 `none` 保持旧骨架/确定性输出。
+> 可选 LLM writer：`--writer-provider cli` 通过 `BILI_WRITER_CLI` / 默认 OMP CLI 继承调用方模型配置；`--writer-provider deepseek` 直接读 `DEEPSEEK_API_KEY`。默认 `none` 走 P5 确定性 baseline，不调用 LLM；它不是正式发布稿的豁免，仍须通过 publish gate。
 > 自动从 `/tmp/{BV}_fact_checks.json` 读 claim（无则从字幕现场提取）。`fetch_all --report` 内部即复用此模块。
 
 See `references/execution-guide.md` for dependencies (yt-dlp, whisper.cpp) and troubleshooting.
@@ -168,8 +168,8 @@ See `references/execution-guide.md` for dependencies (yt-dlp, whisper.cpp) and t
 
 引擎工作流现在支持三档深度模式（见 README 「Depth Profiles」）：
 
-- **standard**: 默认，确定性 extractor + LLM writer（§3/§4/§7）
-- **v24-full**: 恢复 v2.4 七步推理链、Depth Quality Gates
+- **standard**: 简化、向后兼容模式；确定性 extractor + 可选 LLM writer（§3/§4/§7）
+- **v24-full**: **默认**；恢复 v2.4 七步推理链、Depth Quality Gates，并启用 P5 确定性 baseline
 - **claim-first-full**: 最严格，extract → synthesize → audit → render，Claim/Insight/ClaimBundle 结构
 
 常规步骤：
@@ -512,4 +512,4 @@ Changelog: `references/changelog.md` — timeout optimization, multi-P video sup
 
 ## Deployment & Sync
 
-After ANY update: `cd ~/code/jz-skills && ./deploy/sync-back.sh && git commit -am "sync: bilibili-video-analyzer" && git push`
+After any runtime-originated update, preview the scoped reverse sync first: `cd ~/code/jz-skills && ./deploy/sync-back.sh --dry-run --only shared/bilibili-video-analyzer`. Review its diff before an explicit scoped apply, then run focused tests and commit only this skill's files.

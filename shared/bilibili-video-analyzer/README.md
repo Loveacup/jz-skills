@@ -2,6 +2,22 @@
 
 Bilibili / YouTube video analysis engine for producing Obsidian-ready deep reports with transcript evidence, comments/danmaku context, writer validation, and release quality gates.
 
+## Current release: v2.3.2 (P5 deterministic writers)
+
+`v2.3.2` closes the report-quality regression work tracked in the companion CQI plan. The default `v24-full` path now renders the following sections without a live LLM:
+
+| Section | Deterministic output |
+| --- | --- |
+| §1 | Timeline/logic-chain table from transcript evidence |
+| §2 / §2.5 | Danmaku sentiment + comment signal analysis; sparse inputs keep an explicit, short data-insufficiency frame |
+| §5 | De-noised, time-distributed highlights with timestamp links |
+| §6 | Concept/entity extraction, relation chains, and Obsidian wikilinks |
+| §8 | Source availability, method limits, fact-check/research state, and Source Appendix |
+
+LLM writers remain an **optional** enhancement for §3/§4/§7. `--writer-provider none` therefore produces a structured deterministic baseline, not a formal publishable report by itself. Any section with no usable evidence can still carry an explicit placeholder, and any formal `B站笔记_*.md` remains blocked unless it passes the publish gate.
+
+Validation recorded for this release: 248 tests passed; deterministic fixture quality gate passed; the fixture report passed G1/G3/G4/G5/G7. See `CHANGELOG.md` for scope and known limits.
+
 ## Quality-first pipeline (active roadmap)
 
 After the P0/P1 skeleton guard and DraftReport boundary landed, the strategy pivoted from "fill every section with deterministic extractors" to **"build a section-level content quality gate first, then make every writer pass it."**
@@ -47,7 +63,7 @@ AnalysisInput → analyze_video() → DraftReport → debug Markdown → publish
 
 `render_markdown()` / `render_debug_markdown()` return debug/legacy Markdown strings. They are useful for engineering gates and inspection, but not publishable by themselves.
 
-`DraftReport.draft_sections` is the current seam for written-but-not-yet-publishable section bodies. Today it has deterministic slices for §1 logic-chain tables, §5 short highlights, and §6 knowledge graph extraction via `assemble_draft_report_slice()`. When an explicit provider is passed, the same assembler can also route validated existing §3/§4/§7 LLM writer output into `draft_sections`; it still returns a non-publishable `DraftReport`, not `PublishedMarkdown`.
+`DraftReport.draft_sections` is the current seam for written-but-not-yet-publishable section bodies. Its assembler owns deterministic preview slices for §1 logic-chain tables, §5 short highlights, and §6 knowledge graph extraction. The production/debug Markdown renderer additionally uses the P5 deterministic writers for §2, §2.5, and §8. When an explicit provider is passed, the assembler can also route validated §3/§4/§7 LLM writer output into `draft_sections`; it still returns a non-publishable `DraftReport`, not `PublishedMarkdown`.
 
 Use `render_draft_markdown(draft)` for human/CI preview only. It overlays `draft_sections` onto the plan while keeping unfinished sections as skeleton, and emits `publishable: false`; it is not a formal note writer.
 
@@ -94,17 +110,16 @@ Real sample mode is opt-in because it may spend time/tokens. It fails if §3/§4
 
 | 档位 | 说明 | 适用场景 |
 |:---|:---|:---|
-| **standard** | 默认模式，保留 v2.6 行为：确定性 extractor（§1/§5/§6）+ LLM writer（§3/§4/§7） | 常规分析，快速产出 |
-| **v24-full** | 恢复 v2.4 深度分析框架：7 步推理链、Depth Quality Gates、8-section 内容资产，但不走 claim-first | 需要传统深度但无需 claim 审计的场景 |
+| **standard** | 简化、向后兼容模式：确定性 extractor + 可选 §3/§4/§7 LLM writer | 对结构深度要求较低的快速分析 |
+| **v24-full** | **默认模式**：v2.4 深度框架、7 步推理链、Depth Quality Gates、8-section 内容资产；P5 为 §1/§2/§2.5/§5/§6/§8 提供确定性 baseline | 常规深度分析 |
 | **claim-first-full** | 最严格模式：extract → synthesize → audit → render 的可测中间层，Claim/Insight/ClaimBundle 结构，D6-D8 QA gates + G8-G10 verify gates | 政策/新闻/技术解读类视频，需要证据溯源与 warrant 显性化的场景 |
 
 选择方式：
 
 ```bash
-# 常规分析（默认）
+# 常规分析（默认 v24-full；无需 LLM）
 PYTHONPATH=scripts python3 scripts/generate_report.py \
-  --input /tmp/BVxxxx_fetch_all.json \
-  --writer-provider cli
+  --input /tmp/BVxxxx_fetch_all.json
 
 # v2.4 深度框架
 PYTHONPATH=scripts python3 scripts/generate_report.py \

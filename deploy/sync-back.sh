@@ -128,7 +128,7 @@ PAIRS=(
   "hermes/tradingagents|research/tradingagents"
   "hermes/arxiv|research/arxiv"
   "hermes/auto-diary|auto-diary"
-  "hermes/bilibili-video-analyzer|bilibili-video-analyzer"
+  "shared/bilibili-video-analyzer|bilibili-video-analyzer"
   "hermes/xhs-crawler|xhs-crawler"
   "hermes/calendar-manager|calendar-manager"
   "hermes/de-slop|de-slop"

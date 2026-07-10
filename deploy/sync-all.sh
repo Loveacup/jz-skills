@@ -128,7 +128,7 @@ sync_hermes() {
   copy_shared_skill "$REPO_ROOT/hermes/arxiv"                       "$base/research"
 
   copy_skill_dir "$REPO_ROOT/hermes/auto-diary"                      "$base"
-  copy_skill_dir "$REPO_ROOT/hermes/bilibili-video-analyzer"         "$base"
+  copy_skill_dir "$REPO_ROOT/shared/bilibili-video-analyzer"         "$base"
   copy_skill_dir "$REPO_ROOT/hermes/xhs-crawler"                     "$base"
   copy_skill_dir "$REPO_ROOT/hermes/calendar-manager"               "$base"
   copy_skill_dir "$REPO_ROOT/hermes/cron-worker"                    "$base"
