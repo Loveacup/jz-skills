@@ -1,31 +1,18 @@
 #!/usr/bin/env python3
-"""
-使用 mlx-whisper Python API 转录音频（不走 CLI，不联网）。
+"""Use the mlx-whisper Python API for local/offline audio transcription."""
 
-设计要点:
-- 直接调用 mlx_whisper.transcribe()，通过 path_or_hf_repo 指向本地 HF snapshot，
-  避免每次转录都去 HuggingFace Hub 解析仓库（离线可用、更快、更稳）。
-- 必须用带 mlx_whisper 的解释器运行（本机为 /usr/bin/python3，即 CommandLineTools 3.9
-  + ~/Library/Python/3.9 site-packages）。默认的 python3.12 没有 mlx_whisper。
-
-用法:
-    /usr/bin/python3 mlx_transcribe.py <audio_path> <output_txt_path> [language]
-
-退出码: 0 成功，非 0 失败。
-"""
-
+import argparse
 import glob
 import os
 import sys
+from dataclasses import dataclass
+from typing import Mapping, Optional
 
-# 依赖兜底：mlx_whisper 装在真实属主的 ~/Library/Python/3.9 user-site。
-# Python 默认按 $HOME 推断 user-site，Hermes profile 改写 $HOME 后会指向
-# profile home（无 mlx_whisper），故必须显式 append 真实属主的 site-packages。
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bili_env import ensure_user_site, real_home
+
 ensure_user_site()
 
-# 本地 mlx-whisper 模型 snapshot 根目录（基于真实家目录，非 $HOME）
 MODEL_REPO = "mlx-community/whisper-large-v3-turbo"
 SNAPSHOTS_DIR = os.path.join(
     real_home(),
@@ -36,66 +23,93 @@ SNAPSHOTS_DIR = os.path.join(
 
 
 def resolve_local_model():
-    """返回本地 snapshot 目录；找不到则返回 None（调用方可回退到 repo 名联网）。"""
+    """Return the newest valid local model snapshot, if one exists."""
     if not os.path.isdir(SNAPSHOTS_DIR):
         return None
     candidates = [
-        d for d in sorted(glob.glob(os.path.join(SNAPSHOTS_DIR, "*")))
-        if os.path.exists(os.path.join(d, "config.json"))
+        path
+        for path in sorted(glob.glob(os.path.join(SNAPSHOTS_DIR, "*")))
+        if os.path.exists(os.path.join(path, "config.json"))
     ]
     return candidates[-1] if candidates else None
 
 
-def transcribe(audio_path, output_txt_path, language="zh"):
-    import mlx_whisper  # 延迟导入，便于在缺失时给出清晰报错
+@dataclass(frozen=True)
+class MlxAsrConfig:
+    model: Optional[str]
+    model_path: Optional[str]
+    language: str
 
-    model_path = resolve_local_model()
-    if model_path is None:
-        # 回退到联网 repo 名（保持可用性，但优先本地路径）
-        model_path = MODEL_REPO
-        print(f"   ⚠️  未找到本地 snapshot，回退到 HF repo: {model_path}", file=sys.stderr)
-    else:
-        print(f"   📦 使用本地模型: {model_path}", file=sys.stderr)
 
+def resolve_mlx_asr_config(args, env: Optional[Mapping[str, str]] = None) -> MlxAsrConfig:
+    """Resolve CLI > environment > default configuration for the mlx helper."""
+    env = os.environ if env is None else env
+    model = args.model or (env.get("BILI_ASR_MODEL") or "").strip() or None
+    model_path = args.model_path or (env.get("BILI_ASR_MODEL_PATH") or "").strip() or None
+    language = (
+        args.language
+        or args.language_pos
+        or (env.get("BILI_ASR_LANGUAGE") or "").strip()
+        or "zh"
+    )
+    return MlxAsrConfig(model=model, model_path=model_path, language=language)
+
+
+def resolve_model_ref(config: MlxAsrConfig):
+    """Prefer explicit local path, then model ref, then local/default model."""
+    if config.model_path:
+        return config.model_path
+    if config.model:
+        return config.model
+    return resolve_local_model() or MODEL_REPO
+
+
+def transcribe(audio_path, output_txt_path, config: MlxAsrConfig):
+    import mlx_whisper
+
+    model_ref = resolve_model_ref(config)
+    print(f"   📦 使用模型: {model_ref}", file=sys.stderr)
     result = mlx_whisper.transcribe(
         audio_path,
-        path_or_hf_repo=model_path,
-        language=language,
+        path_or_hf_repo=model_ref,
+        language=config.language,
         verbose=False,
     )
-
     text = result.get("text", "").strip()
     if not text:
         return False
 
     os.makedirs(os.path.dirname(os.path.abspath(output_txt_path)) or ".", exist_ok=True)
-    with open(output_txt_path, "w", encoding="utf-8") as f:
-        f.write(text)
+    with open(output_txt_path, "w", encoding="utf-8") as handle:
+        handle.write(text)
     return True
 
 
+def build_parser():
+    parser = argparse.ArgumentParser(description="mlx-whisper 离线转录")
+    parser.add_argument("audio_path")
+    parser.add_argument("output_txt_path")
+    parser.add_argument("language_pos", nargs="?", default=None, help="兼容位置参数形式的语言")
+    parser.add_argument("--model", default=None, help="模型名或 HF repo id")
+    parser.add_argument("--model-path", dest="model_path", default=None, help="本地模型目录")
+    parser.add_argument("--language", default=None, choices=["zh", "en", "auto"])
+    return parser
+
+
 def main():
-    if len(sys.argv) < 3:
-        print("用法: mlx_transcribe.py <audio_path> <output_txt_path> [language]", file=sys.stderr)
-        sys.exit(2)
-
-    audio_path = sys.argv[1]
-    output_txt_path = sys.argv[2]
-    language = sys.argv[3] if len(sys.argv) > 3 else "zh"
-
-    if not os.path.exists(audio_path):
-        print(f"   ❌ 音频文件不存在: {audio_path}", file=sys.stderr)
+    args = build_parser().parse_args()
+    config = resolve_mlx_asr_config(args)
+    if not os.path.exists(args.audio_path):
+        print(f"   ❌ 音频文件不存在: {args.audio_path}", file=sys.stderr)
         sys.exit(1)
-
     try:
-        ok = transcribe(audio_path, output_txt_path, language)
-    except ImportError as e:
-        print(f"   ❌ 无法导入 mlx_whisper（请用 /usr/bin/python3 运行）: {e}", file=sys.stderr)
+        ok = transcribe(args.audio_path, args.output_txt_path, config)
+    except ImportError as exc:
+        print(f"   ❌ 无法导入 mlx_whisper（请用 /usr/bin/python3 运行）: {exc}", file=sys.stderr)
         sys.exit(1)
-    except Exception as e:
-        print(f"   ❌ mlx-whisper 转录失败: {e}", file=sys.stderr)
+    except Exception as exc:
+        print(f"   ❌ mlx-whisper 转录失败: {exc}", file=sys.stderr)
         sys.exit(1)
-
     sys.exit(0 if ok else 1)
 
 
