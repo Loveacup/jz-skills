@@ -10,11 +10,11 @@ description: >
   Use when: user provides Bilibili video link (BV号 or full URL), or says 解析B站视频 / analyze bilibili video / bilibili summary / 视频总结 / 弹幕分析 / 分析这个视频.
 
   DO NOT use for: non-Bilibili videos, general video editing, one-off transcript requests without analysis.
-version: 2.3.3
-author: "Hermes Agent (v2.3.3: P6-R formal preflight + auditable real-sample corpus frame)"
+version: 2.3.4
+author: "Hermes Agent (v2.3.4: P6-R real-payload gates + H200 chunk timestamp recovery)"
 ---
 
-# Bilibili 视频深度解析器 v2.3.3
+# Bilibili 视频深度解析器 v2.3.4
 
 Transform Bilibili videos into structured, searchable, actionable knowledge assets for Obsidian.
 
@@ -367,6 +367,7 @@ python3 scripts/fact_check_wrr.py --transcript /tmp/BVxxx_subtitle_official.txt 
 - 🆕 **Section QA Gate Phase 4 记录**：Codex 规划 + CC 执行 + 小黄验收 + OMP 审计。新增 `SECTION_DIMENSION_EXEMPTIONS`（§1/§5 豁免 not-mechanical + insight-density）；`--section-qa-gate` opt-in flag 在 P0 blocker 存在时导致 `passed=False`，默认关闭完全向后兼容。targeted 21 passed，release gate 158 passed，OMP `omp-20260705-001936` pass / accepted。见 `references/content-engine-section-qa-gate-phase4-20260705.md`。
 - 🆕 **P6-A Atomic Claim Evidence Gate**：Claim 新增内部 `evidence_locations`（如 `3:E1`），保留 writer-facing `E1` 协议；正式输出新增 `P0_CLAIM_EVIDENCE_SCORE`，versioned bundle 的空/不可解析指针 fail-closed，legacy bundle 跳过。它只验证指针完整性，不替代语义蕴含核验。见 `references/p6-atomic-claim-evidence-gate-20260710.md`。
 - 🆕 **P6-B1 Video Evidence Usage Gate**：正式输出新增 `P0_VIDEO_EVIDENCE_USAGE`，检查最终 §3/§4 的 `[E#]` 能否解析为本节 transcript evidence；`E99` 未解析引用 fail，fenced 示例不计入，时间顺序仅 warning。debug 只写 metadata，legacy bundle 跳过。它验证 citation coverage，不验证文本 factuality/entailment。见 `references/p6b-video-evidence-usage-gate-20260710.md`。
+- 🆕 **P6-R Real-Payload Closure**：H200 chunk headings（`## Chunk N [MM:SS]`）现在恢复为 transcript start，忽略标题元数据；正式 report-level gate 增加 `P0_SPARSE_SOCIAL_EVIDENCE`（零弹幕只能写数据不足）和 `P0_TRANSCRIPT_TIME_RESOLUTION`（多条 transcript evidence 不能塌缩到同一时间）。§6 KG 过滤中文句子碎片，只保留已知概念/MOC 与英文技术实体。见 `references/p6r-real-sample-corpus-20260710.md`。
 - 🆕 **H200 ASR 与 B站本机 ASR 配置边界**：SURGExZR H200 `/ASR/transcribe` 已实测短音频和约 5 分钟长音频可用，现已作为 `BILI_ASR_PROVIDER=auto` 的默认首选；本机 whisper.cpp / mlx-whisper 保留 fallback。覆盖 H200 地址用 `BILI_ASR_ENDPOINT`，不要用 `BILI_ASR_MODEL_PATH`。参考 `references/h200-asr-vs-bili-asr-20260630.md`。
 
 ### 🆕 Audio Download via Bilibili PlayURL API (yt-dlp 412 Bypass)
@@ -493,7 +494,7 @@ Changelog: `references/changelog.md` — timeout optimization, multi-P video sup
 - [ ] Formal report has a transcript evidence source? 官方字幕 or H200/local ASR path recorded in §0/§8. If not, filename/title/YAML must be `预分析_未通过ASR_...`, not normal `B站笔记_...`.
 - [ ] EvidenceSourceGate checked? `report.evidence_gate.can_generate_formal_report` must pass before formal save; `external_research.route` should be `wrr_local` when local WRR exists, otherwise `fallback_search` for configured web/search tools. See `references/video-link-single-artifact-evidence-gate.md` for the single-artifact + evidence-gate workflow.
 - [ ] **Formal preflight passed?** A `B站笔记_*.md` target requires `--writer-provider cli|deepseek`; `none` must fail before `report_markdown()` rather than create a skeleton draft.
-- [ ] **P6 publishable gate is report-aware?** Use `run_quality_gate.py --publishable` on `claim-first-full` output so `P0_CLAIM_EVIDENCE_SCORE` and `P0_VIDEO_EVIDENCE_USAGE` run alongside Markdown checks.
+- [ ] **P6 report-aware gates passed?** Use `run_quality_gate.py --publishable` on `claim-first-full` output so `P0_CLAIM_EVIDENCE_SCORE`, `P0_VIDEO_EVIDENCE_USAGE`, `P0_SPARSE_SOCIAL_EVIDENCE`, and `P0_TRANSCRIPT_TIME_RESOLUTION` run alongside Markdown checks.
 - [ ] **Real-sample corpus claims are honest?** `references/p6r-corpus-manifest.json` candidates are not gold. No `--execute` means no input read/model run; `accepted_gold` requires reproducible input + run summary + reviewer identity/time/verdict source. See `references/p6r-real-sample-corpus-20260710.md`.
 - [ ] Danmaku file read from RESULT_JSON `path` (v2.4: `/tmp/{BV号}_danmaku.json`, BV-prefixed)?
 - [ ] Subtitles extracted via `yt-dlp --cookies-from-browser chrome` first (not whisper unless cookie method failed)?

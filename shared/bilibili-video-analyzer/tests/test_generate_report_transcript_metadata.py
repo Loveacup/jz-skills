@@ -163,6 +163,27 @@ def test_build_analysis_input_uses_end_for_duration(tmp_path):
     assert inp.transcript.segments[1].end == 95.0
 
 
+def test_txt_chunk_headings_provide_timestamps_and_are_not_transcript_segments(tmp_path):
+    txt = tmp_path / "BVchunk_h200.txt"
+    txt.write_text(
+        "## P1 标题元数据\n\n"
+        "## Chunk 1 [00:00]\n\n"
+        "第一段正文。\n\n"
+        "## Chunk 2 [05:00]\n\n"
+        "第二段正文。\n",
+        encoding="utf-8",
+    )
+
+    transcript, duration = generate_report._build_transcript(
+        {"method": "h200-asr-chunked", "txt_path": str(txt)}, "BVchunk")
+
+    assert [(segment.start, segment.text) for segment in transcript.segments] == [
+        (0.0, "第一段正文。"),
+        (300.0, "第二段正文。"),
+    ]
+    assert duration == 300
+
+
 def test_txt_only_still_builds_transcript(tmp_path):
     txt = tmp_path / "BVtxt_whisper.txt"
     txt.write_text("[0:00] 仅txt\n[1:00] 第二行\n", encoding="utf-8")

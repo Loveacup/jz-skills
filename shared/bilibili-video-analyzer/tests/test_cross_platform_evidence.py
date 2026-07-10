@@ -231,6 +231,33 @@ def test_youtube_comments_score_with_likes():
     assert high_likes_cand.score > low_likes_cand.score, "高点赞评论应有更高 score"
 
 
+def test_youtube_comments_score_accepts_string_likes_from_fetcher():
+    """youtube-comment-downloader returns vote counts as strings in real payloads."""
+    inp = AnalysisInput(
+        video_id='BV1test',
+        title='测试视频',
+        platform='bilibili',
+        transcript=Transcript(segments=[TranscriptSegment(start=0.0, text='test')], source='official'),
+        cross_platform={
+            'youtube_url': 'https://www.youtube.com/watch?v=test',
+            'youtube_comments': {
+                'status': 'ok',
+                'comments': [
+                    {'text': 'String high likes', 'author': 'User1', 'likes': '53', 'platform': 'youtube'},
+                    {'text': 'Missing likes', 'author': 'User2', 'likes': 'not-a-number', 'platform': 'youtube'},
+                ],
+            },
+        },
+    )
+
+    evidence_map = build_evidence_map(inp, build_report_plan(inp))
+    youtube_candidates = [c for c in evidence_map.by_section['3'] if c.source_type == 'youtube']
+    high = next(c for c in youtube_candidates if c.text == 'String high likes')
+    missing = next(c for c in youtube_candidates if c.text == 'Missing likes')
+
+    assert high.score > missing.score
+
+
 def test_youtube_comments_only_in_section_3_4_7():
     """YouTube 评论应只分配给 §3/§4/§7，不出现在 §1/§2 等"""
     inp = AnalysisInput(

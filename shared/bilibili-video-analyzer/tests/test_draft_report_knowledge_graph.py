@@ -66,6 +66,20 @@ def test_knowledge_graph_writer_filters_noise_and_deduplicates_concepts():
     assert "高光不是知识图谱输入" not in body
 
 
+def test_knowledge_graph_writer_filters_sentence_fragments_but_keeps_technical_entities():
+    body = write_knowledge_graph_section({
+        "evidence": [
+            _kg_candidate("几周前我发了一期关于 Pi 的视频，SDK 用于构建扩展。"),
+        ]
+    })
+
+    assert "- Pi" in body
+    assert "- SDK" in body
+    assert "几周前我发了一期关于" not in body
+    assert "可落库/可行动项" in body
+    assert "几周前我发了一期关于 Pi 的视频" not in body
+
+
 def test_knowledge_graph_empty_evidence_is_non_publishable_placeholder():
     body = write_knowledge_graph_section({"evidence": []})
 

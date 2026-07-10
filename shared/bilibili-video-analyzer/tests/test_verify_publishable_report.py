@@ -219,3 +219,51 @@ def test_video_evidence_usage_skips_legacy_bundle():
     assert result["passed"] is True
     assert result["skipped"] is True
     assert result["reason"] == "legacy_claim_bundle"
+
+
+def test_report_gate_rejects_social_consensus_claim_when_danmaku_is_absent():
+    markdown = (
+        "## 3. 核心洞察\n"
+        "**弹幕反馈**：观众高度惊叹，共识度高。\n\n"
+        "## 4. 深度拆解\n正文"
+    )
+    report = {
+        "frontmatter": {"danmaku_count": 0},
+        "claim_bundle": {"evidence_contract_version": 1},
+        "evidence_map": {"by_section": {"3": [], "4": []}},
+    }
+
+    result = verify_publishable_report.evaluate_sparse_social_evidence(markdown, report)
+
+    assert result["passed"] is False
+    assert result["skipped"] is False
+
+
+def test_report_gate_accepts_explicit_sparse_danmaku_disclaimer():
+    markdown = (
+        "## 3. 核心洞察\n"
+        "**弹幕反馈**：弹幕数据不足，无法判断共识度或典型反应。\n\n"
+        "## 4. 深度拆解\n正文"
+    )
+    report = {
+        "frontmatter": {"danmaku_count": 0},
+        "claim_bundle": {"evidence_contract_version": 1},
+        "evidence_map": {"by_section": {"3": [], "4": []}},
+    }
+
+    result = verify_publishable_report.evaluate_sparse_social_evidence(markdown, report)
+
+    assert result["passed"] is True
+
+
+def test_report_gate_rejects_collapsed_transcript_timestamps():
+    report = _versioned_video_report()
+    for section in report["evidence_map"]["by_section"].values():
+        for candidate in section:
+            if candidate["source_type"] == "transcript":
+                candidate["start"] = 0.0
+
+    result = verify_publishable_report.evaluate_transcript_time_resolution(report)
+
+    assert result["passed"] is False
+    assert result["distinct_starts"] == [0.0]

@@ -600,6 +600,7 @@ _TRANSCRIPT_SECTION_REASON = {
     '3': 'insight_candidate',
     '4': 'deep_dive_candidate',
     '5': 'quote_candidate',
+    '6': 'knowledge_candidate',
     '7': 'critical_candidate',
 }
 _TRANSCRIPT_EVIDENCE_SECTIONS = tuple(_TRANSCRIPT_SECTION_REASON.keys())
@@ -608,6 +609,17 @@ _TRANSCRIPT_EVIDENCE_SECTIONS = tuple(_TRANSCRIPT_SECTION_REASON.keys())
 def _seg_score(text: str) -> float:
     """简单启发式显著度（恒 >0）：按片段文本长度归一，避免引入依赖/LLM。"""
     return round(max(0.01, len((text or '').strip()) / 100.0), 4)
+
+
+def _safe_like_weight(value: Any) -> float:
+    """Normalize heterogeneous social vote counts without mutating source payloads."""
+    try:
+        likes = float(str(value).replace(',', '').strip())
+    except (TypeError, ValueError):
+        return 0.0
+    if likes != likes or likes <= 0 or likes == float('inf'):
+        return 0.0
+    return likes * 0.01
 
 
 def _bili_timestamp_url(video_id: str, start: Optional[float]) -> str:
@@ -728,7 +740,7 @@ def build_evidence_map(inp: AnalysisInput, report_plan: ReportPlan) -> EvidenceM
                         url=yt_url,  # 指向 YouTube 视频
                         text=comment.get('text', ''),
                         context=f"[YouTube评论 by {comment.get('author', 'Anonymous')}] {comment.get('text', '')}",
-                        score=_seg_score(comment.get('text', '')) + (comment.get('likes', 0) * 0.01),  # 点赞数轻微加权
+                        score=_seg_score(comment.get('text', '')) + _safe_like_weight(comment.get('likes')),  # 点赞数轻微加权
                         reason='cross_platform_sentiment',
                     )
                     for comment in yt_comments if comment.get('text')
@@ -1378,8 +1390,10 @@ def _concepts_in_text(text: str) -> List[str]:
     for concept in _KG_CONCEPT_PATTERNS:
         if concept in text and concept not in seen:
             seen.append(concept)
-    # 再自动提取实体（补充）
+    # 自动实体仅接纳英文/数字技术术语；中文分词的连续字串会把句子碎片误判为概念。
     for entity in _extract_entities_from_text(text):
+        if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9 ]*', entity):
+            continue
         if entity not in seen and len(seen) < 12:
             seen.append(entity)
     return seen
@@ -1418,9 +1432,7 @@ def write_knowledge_graph_section(section_context: Dict[str, Any], max_items: in
             rel = ' → '.join(linked)
             if rel and rel not in relations:
                 relations.append(rel)
-        # P5-4: 行动项识别更宽松
-        action_markers = ('可以', '应该', '需要', '值得', '转化为', '转化为', '行动', '清单', 'Obsidian', '知识卡片', '落库', '整理')
-        if cand.get('reason') == 'application_candidate' or any(k in text for k in action_markers):
+        if cand.get('reason') == 'application_candidate':
             applications.append(text)
 
     concepts = concepts[:max_items]
@@ -1560,12 +1572,14 @@ def _score_highlight_candidate(text: str) -> float:
 def _split_long_quote_candidate(cand: Dict[str, Any], max_parts: int) -> List[Dict[str, Any]]:
     """把 H200/ASR 产生的超长 quote_candidate 切成多个可独立计数的 blockquote。"""
     text = (cand.get('text') or '').strip()
-    if _is_noisy_highlight_fragment(text):
+    if not text:
         return []
     if max_parts <= 0:
         return []
-    # 短文本不切；如果是直接候选，仍保留。
+    # 短文本直接判断；长 H200/ASR chunk 必须先拆句，再逐句去噪。
     if len(text) < 80:
+        if _is_noisy_highlight_fragment(text):
+            return []
         new_cand = dict(cand)
         new_cand['text'] = _truncate_quote_text(text)
         return [new_cand]
@@ -1704,6 +1718,19 @@ def _emit_section_skeleton(
     Args:
         depth_profile: Depth analysis mode - "standard", "claim-first-full", or "v24-full"
     """
+    if sid == '0':
+        # §0 是报告元信息，不依赖 evidence candidates；正式稿不得因空候选退回 skeleton。
+        fm = (report or {}).get('frontmatter') or {}
+        lines.extend([
+            '### 视频元信息',
+            '',
+            f'- **标题**：{fm.get("title", "")}',
+            f'- **作者**：{fm.get("author", "")}',
+            f'- **平台**：{fm.get("platform", "")}',
+            f'- **视频 ID**：{fm.get("video_id", "")}',
+            '',
+        ])
+        return
     if sid == '1':
         # P5-1: §1 逻辑链纯确定性渲染，无需 provider
         body = write_logic_chain_section({'evidence': cands})
@@ -1781,6 +1808,10 @@ def _emit_section_skeleton(
         return
     if sid == '5':
         body = write_highlights_section({'evidence': cands, 'quality_gate': 'G5'})
+        lines.extend(body.split('\n'))
+        return
+    if sid == '6':
+        body = write_knowledge_graph_section({'evidence': cands})
         lines.extend(body.split('\n'))
         return
     if sid == '7':
@@ -2442,6 +2473,14 @@ def build_typed_writer_section_contexts(report: dict) -> List[WriterSectionConte
         claim_context = None
         if section_id in insights_by_section:
             claim_context = _format_claims_for_prompt(insights_by_section[section_id])
+        if section_id == "3" and int(((report.get("frontmatter") or {}).get("danmaku_count") or 0)) == 0:
+            sparse_social_contract = (
+                "## DATA AVAILABILITY — HARD CONSTRAINT\n"
+                "danmaku_count=0。没有任何可用弹幕证据。每个 `**弹幕反馈**：` 字段必须原样包含："
+                "“弹幕数据不足，无法判断共识度或典型反应”。不得写观众惊叹、认同、反应类型、"
+                "共识度高/中/低或典型弹幕；这些结论没有证据。"
+            )
+            claim_context = "\n\n".join(part for part in (claim_context, sparse_social_contract) if part)
 
         typed.append(WriterSectionContext(
             section_id=section_id,
@@ -2571,7 +2610,7 @@ Toulmin 模型要求（每个洞察必须包含）：
 - 每个洞察小节必须包含完整的五要素结构：
   * **定义**：一句话精准定义（≥20 字）
   * **深度解析**：原理层（为什么成立）+ 案例层（视频具体例子，含 [E#]）+ 关联层（与已有概念关系），**必须至少 150 个中文词/字符**
-  * **弹幕反馈**：主要反应类型 + 典型弹幕 + 共识度（高/中/低）（≥30 字）
+  * **弹幕反馈**：仅能基于可用的弹幕/评论 [E#] 证据写反应和共识度；若没有弹幕证据，必须原样写“弹幕数据不足，无法判断共识度或典型反应”，不得猜测观众态度（≥30 字）
   * **推理许可**：从证据到主张的推理规则（≥40 字）
   * **边界条件**：该主张的局限性或反证（≥30 字）
 - **每个洞察小节正文总计至少 300 个中文字符/词**（不包括标题和 [E#] 标记本身）
@@ -2615,7 +2654,7 @@ Toulmin 模型要求（每个洞察必须包含）：
 
 请根据以上证据撰写该节内容，严格遵守以下要求：
 1. 输出 3-5 个洞察，每个洞察标题必须是 `### 💡 洞察 N：标题`（N 从 1 开始）
-2. 每个洞察必须包含：定义（≥20 字）、深度解析（≥150 字）、弹幕反馈（≥30 字）、推理许可（≥40 字）、边界条件（≥30 字）
+2. 每个洞察必须包含：定义（≥20 字）、深度解析（≥150 字）、弹幕反馈（无弹幕时必须写“弹幕数据不足，无法判断共识度或典型反应”）、推理许可（≥40 字）、边界条件（≥30 字）
 3. **每个洞察正文总计至少 300 个中文字符/词**
 4. 每个洞察必须至少引用 1 个 [E#] 证据编号
 5. 每个洞察结尾必须有一行 `证据：@[E1] @[E2]` 格式的证据引用汇总

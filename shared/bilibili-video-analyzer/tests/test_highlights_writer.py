@@ -94,7 +94,22 @@ def test_filters_non_transcript_and_non_quote():
     assert body.count('\n> ') == 1
 
 
-# ---- 3. 无候选 → 占位，无 blockquote 行 ----
+# ---- 3. H200 长 chunk 先切句再去噪，不因整段超长/API 而全部丢弃 ----
+def test_long_chunk_is_split_before_noise_filtering():
+    long_chunk = (
+        "这一段包含 API 一词，但它只是上下文说明。"
+        "真正的结论是：代码智能体的扩展边界取决于稳定的核心与明确的接口。"
+        "因此，先用最小工作流验证再逐步增加能力，比一次性堆叠工具更可靠。"
+    )
+    body = write_highlights_section({
+        'evidence': [_quote_cand(long_chunk, "1:20", "https://x?t=80")],
+    })
+
+    assert '_骨架占位' not in body
+    assert '> "真正的结论是：代码智能体的扩展边界取决于稳定的核心与明确的接口。"' in body
+
+
+# ---- 4. 无候选 → 占位，无 blockquote 行 ----
 def test_empty_evidence_yields_placeholder():
     assert write_highlights_section({'evidence': []}) == (
         '### 高光时刻\n\n_骨架占位：暂无原文金句。_\n'

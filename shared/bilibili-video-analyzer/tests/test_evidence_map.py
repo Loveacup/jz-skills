@@ -4,7 +4,7 @@
 约束（来自 P2-B mandate / Codex 执行包 schema）：
   - 候选必须直接来自 transcript 片段，禁止 LLM 合成 / embedding / 外部检索。
   - B站时间戳 URL 用秒数公式 https://www.bilibili.com/video/{BV}?t={int(start)}。
-  - 按 SectionSpec.id 分组，覆盖 transcript 支撑的 §1/§3/§4/§5/§7。
+  - 按 SectionSpec.id 分组，覆盖 transcript 支撑的 §1/§3/§4/§5/§6/§7。
   - 无 comments/danmaku 时，不为 §2/§2.5 伪造候选。
   - EvidenceCandidate 字段：source_type, section_id, start, end, timestamp,
     url, text, context, score, reason。
@@ -28,7 +28,7 @@ from video_analysis_engine import (
 )
 
 
-TRANSCRIPT_SECTIONS = ["1", "3", "4", "5", "7"]
+TRANSCRIPT_SECTIONS = ["1", "3", "4", "5", "6", "7"]
 CANDIDATE_FIELDS = {
     "source_type", "section_id", "start", "end", "timestamp",
     "url", "text", "context", "score", "reason",
@@ -119,6 +119,7 @@ def test_transcript_end_and_reason_markers():
     assert {c.reason for c in emap.by_section["1"]} == {"logic_candidate"}
     assert {c.reason for c in emap.by_section["4"]} == {"deep_dive_candidate"}
     assert {c.reason for c in emap.by_section["5"]} == {"quote_candidate"}
+    assert {c.reason for c in emap.by_section["6"]} == {"knowledge_candidate"}
 
 
 def test_url_uses_seconds_formula_not_mmss():

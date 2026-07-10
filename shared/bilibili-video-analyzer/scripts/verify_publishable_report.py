@@ -224,6 +224,58 @@ def evaluate_video_evidence_usage(
     }
 
 
+def evaluate_sparse_social_evidence(markdown: str, report: Dict[str, Any]) -> Dict[str, Any]:
+    """Reject invented danmaku consensus when the source has no danmaku."""
+    frontmatter = (report or {}).get("frontmatter") or {}
+    if "danmaku_count" not in frontmatter:
+        return {"passed": True, "skipped": True, "reason": "legacy_danmaku_metadata"}
+    try:
+        danmaku_count = int(frontmatter.get("danmaku_count") or 0)
+    except (TypeError, ValueError):
+        danmaku_count = 0
+    if danmaku_count > 0:
+        return {"passed": True, "skipped": True, "reason": "danmaku_available"}
+
+    section = split_sections(markdown).get("3", "")
+    match = re.search(
+        r"\*\*弹幕反馈\*\*：(?P<body>.*?)(?=\n\s*\*\*|\n\s*证据：|\Z)",
+        section,
+        re.S,
+    )
+    feedback = match.group("body").strip() if match else ""
+    passed = "弹幕数据不足" in feedback and ("无法判断" in feedback or "不能判断" in feedback)
+    return {
+        "passed": passed,
+        "skipped": False,
+        "reason": "zero_danmaku_requires_explicit_disclaimer" if not passed else "ok",
+        "danmaku_count": danmaku_count,
+        "feedback": feedback,
+    }
+
+
+def evaluate_transcript_time_resolution(report: Dict[str, Any]) -> Dict[str, Any]:
+    """Require multiple transcript candidates to retain more than one time anchor."""
+    by_section = ((report or {}).get("evidence_map") or {}).get("by_section") or {}
+    anchors = []
+    for section_id in ("3", "4"):
+        for candidate in by_section.get(section_id, []) or []:
+            if not isinstance(candidate, dict) or candidate.get("source_type") != "transcript":
+                continue
+            start = candidate.get("start")
+            if isinstance(start, (int, float)):
+                anchors.append(float(start))
+    if len(anchors) < 2:
+        return {"passed": True, "skipped": True, "reason": "insufficient_transcript_anchors"}
+    distinct_starts = sorted(set(anchors))
+    return {
+        "passed": len(distinct_starts) > 1,
+        "skipped": False,
+        "reason": "collapsed_transcript_timestamps" if len(distinct_starts) <= 1 else "ok",
+        "distinct_starts": distinct_starts,
+        "anchor_count": len(anchors),
+    }
+
+
 def evaluate_publishable_report(
     markdown: str,
     report: Optional[Dict[str, Any]] = None,
@@ -256,7 +308,29 @@ def evaluate_publishable_report(
             "final §3/§4 citations must resolve to local transcript evidence",
         )
 
-    passed = markdown_passed and claim_result["passed"] and video_result["passed"]
+    social_result = evaluate_sparse_social_evidence(markdown, report)
+    if not social_result["skipped"]:
+        results["P0_SPARSE_SOCIAL_EVIDENCE"] = _result(
+            social_result["passed"],
+            social_result,
+            "zero danmaku requires an explicit data-insufficiency disclaimer in §3",
+        )
+
+    time_result = evaluate_transcript_time_resolution(report)
+    if not time_result["skipped"]:
+        results["P0_TRANSCRIPT_TIME_RESOLUTION"] = _result(
+            time_result["passed"],
+            time_result,
+            "multiple transcript candidates cannot collapse to one timestamp",
+        )
+
+    passed = (
+        markdown_passed
+        and claim_result["passed"]
+        and video_result["passed"]
+        and social_result["passed"]
+        and time_result["passed"]
+    )
     return results, passed
 
 

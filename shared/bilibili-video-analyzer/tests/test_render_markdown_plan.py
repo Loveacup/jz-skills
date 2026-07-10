@@ -69,6 +69,15 @@ def test_headings_follow_section_spec_order():
     assert nums == OLD_SECTION_NUMS
 
 
+def test_section_zero_renders_frontmatter_instead_of_skeleton():
+    md = _render()
+    section_zero = md.split("## 1.", 1)[0]
+
+    assert "_骨架占位" not in section_zero
+    assert "AI 应用能融下一轮吗？" in section_zero
+    assert "BV1xx411c7mD" in section_zero
+
+
 def test_transcript_evidence_injected_with_timestamp_url():
     md = _render()
     # P5-1: §1 现在走 write_logic_chain_section，输出结构化表格
@@ -83,6 +92,14 @@ def test_comment_evidence_injected_without_url():
     # P5-3: §2.5 现在走 write_comments_section，输出热评观点列表
     assert '### 热评观点' in md
     assert '热评补充观点，信息增量很大' in md
+
+
+def test_section_six_uses_structured_knowledge_graph_writer():
+    md = _render()
+    section_six = md.split("## 6.", 1)[1].split("## 7.", 1)[0]
+
+    assert "### 核心概念" in section_six
+    assert "> [" not in section_six
 
 
 def test_section_substructure_present():

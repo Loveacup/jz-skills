@@ -127,11 +127,11 @@ def test_quality_gate_can_run_publishable_gate_as_stricter_layer(tmp_path):
         publishable_gate=True,
     )
 
-    assert passed is False
+    assert passed is True
     assert summary["verify_passed"] is True
     assert summary["coherence_passed"] is True
-    assert summary["publishable_passed"] is False
-    assert "P0_NO_SKELETON" in summary["publishable_failed_codes"]
+    assert summary["publishable_passed"] is True
+    assert summary["publishable_failed_codes"] == []
 
 
 def test_publishable_quality_gate_passes_report_to_p6_report_level_gates(tmp_path, monkeypatch):
@@ -285,11 +285,7 @@ def test_section_qa_gate_enabled_fails_on_p0_blockers(tmp_path, monkeypatch):
 
 
 def test_section_qa_gate_enabled_passes_without_blockers(tmp_path):
-    """section_qa_gate=True 时，当存在 blockers → section_qa_gate_passed=False（§6 骨架占位导致）。
-
-    NOTE: 当前 fixture provider 的 §6 是骨架占位，有 P0 blocker，这是 P2-E 回归套件的
-    已知状态。本测试验证 section_qa_gate 逻辑正确检测到 blocker 并失败。
-    """
+    """section_qa_gate=True 时，正常 fixture 无 P0 blocker，应通过。"""
     out = tmp_path / "qa_gate_enabled_pass.md"
     passed, summary = run_quality_gate.run_quality_gate(
         str(FIXTURE),
@@ -301,11 +297,7 @@ def test_section_qa_gate_enabled_passes_without_blockers(tmp_path):
     )
 
     assert summary["section_qa_gate"] is True
-    # fixture provider 的 §6 包含骨架占位（P0 blocker），section_qa_gate 应失败
-    assert summary["section_qa_gate_passed"] is False
-    assert summary["failed_due_to_section_qa_gate"] is True
-    # verify/coherence 可能通过，但 section_qa_gate 失败导致整体 passed=False
-    assert summary["passed"] is False
-    # 验证 section_qa 中确实有 blockers（§6）
-    section_qa = summary["section_qa"]
-    assert any(qa.get("blockers") for qa in section_qa.values())
+    assert summary["section_qa_gate_passed"] is True
+    assert summary["failed_due_to_section_qa_gate"] is False
+    assert summary["passed"] is True
+    assert all(not qa.get("blockers") for qa in summary["section_qa"].values())

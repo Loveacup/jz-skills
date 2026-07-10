@@ -7,7 +7,7 @@ P6-R 把“真实视频样本验证”从单条、一次性的 `--real-sample` s
 它解决三件事：
 
 1. 正式 `B站笔记_*.md` 使用 `--writer-provider none` 时，在渲染前 fail fast；不再花完生成成本才因 skeleton 被拒绝。
-2. `run_quality_gate.py --publishable` 使用 `evaluate_publishable_report(markdown, report)`，因此 P6-A `P0_CLAIM_EVIDENCE_SCORE` 与 P6-B1 `P0_VIDEO_EVIDENCE_USAGE` 进入真实 release 路径。
+2. `run_quality_gate.py --publishable` 使用 `evaluate_publishable_report(markdown, report)`，因此 P6-A `P0_CLAIM_EVIDENCE_SCORE`、P6-B1 `P0_VIDEO_EVIDENCE_USAGE`、零弹幕声明 gate `P0_SPARSE_SOCIAL_EVIDENCE` 与时间分辨率 gate `P0_TRANSCRIPT_TIME_RESOLUTION` 进入真实 release 路径。
 3. `references/p6r-corpus-manifest.json` 管理 10 条跨题材真实 BVID 候选，但不把旧笔记、fixture 或未复跑结果冒充为 gold。
 
 ## 非目标
@@ -79,5 +79,6 @@ P6-R framework 的验证不等于 10 条样本已成为 gold。当前只能证�
 - dry-run 不会触发 renderer；
 - `--execute` 对缺 cache 样本明确失败并拒绝 auto-download；
 - fixture claim-first publishable run 中 P6-A/B1 均 PASS，而既有 skeleton 仍正确阻断正式发布。
+- 真实 Pi 候选 `BV14fTc6TEi5` 已完成 H200 ASR → `cli` writer → formal gate → 人眼 QA 的验证闭环；发现并修复字符串 likes、§0/§6 renderer skeleton、H200 chunk timestamp 丢失、零弹幕 hallucination 与 KG 句子碎片。该样本仍是 `candidate`，待独立 reviewer rubric 后才可晋升 gold。
 
 后续要填充 gold corpus，必须按：重新采集 → 使用真实 writer 生成 → machine gates → 人眼 rubric → 明确 reviewer/provenance → 才改为 `accepted_gold`。

@@ -76,24 +76,34 @@ def _safe(step):
 
 # 字幕 TXT 行格式：[m:ss] 正文  /  [h:mm:ss] 正文
 _TXT_LINE = re.compile(r'^\s*\[(?:(\d+):)?(\d{1,2}):(\d{2})\]\s*(.*)$')
+# H200 chunked ASR 格式：## Chunk 2 [05:00]；后续正文继承该 chunk 的时间。
+_CHUNK_HEADING = re.compile(r'^\s*##\s+Chunk\s+\d+\s+\[(?:(\d+):)?(\d{1,2}):(\d{2})\]\s*$', re.I)
 
 
 def _parse_txt_subtitle(path):
-    """解析 [m:ss] 正文 形式的字幕 TXT，返回 [(start_sec, text), ...]。"""
+    """解析带行级或 H200 chunk 级时间戳的字幕 TXT。"""
     out = []
+    current_chunk_start = 0.0
     try:
         with open(path, 'r', encoding='utf-8') as f:
             for line in f:
+                stripped = line.strip()
+                chunk = _CHUNK_HEADING.match(stripped)
+                if chunk:
+                    current_chunk_start = float(
+                        int(chunk.group(1) or 0) * 3600
+                        + int(chunk.group(2)) * 60
+                        + int(chunk.group(3))
+                    )
+                    continue
                 m = _TXT_LINE.match(line.rstrip('\n'))
                 if m:
                     h = int(m.group(1) or 0)
                     start = h * 3600 + int(m.group(2)) * 60 + int(m.group(3))
                     out.append((float(start), m.group(4).strip()))
-                else:
-                    # 无时间戳的纯文本行（如 whisper 某些输出）也收进来
-                    s = line.strip()
-                    if s:
-                        out.append((0.0, s))
+                elif stripped and not stripped.startswith('#'):
+                    # 无行级时间戳的 H200/whisper 正文继承当前 chunk；Markdown 标题不是正文。
+                    out.append((current_chunk_start, stripped))
     except OSError:
         pass
     return out
