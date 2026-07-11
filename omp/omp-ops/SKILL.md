@@ -47,8 +47,8 @@ This skill teaches agents how to operate, configure, and troubleshoot
 Use this skill when the user asks about any of the following:
 
 - Model provider setup and API behavior: Anthropic, OpenAI, Google, Groq,
-  OpenRouter, local engines (Ollama, llama.cpp, LM Studio), custom providers in
-  `models.yml`, and `providers.anthropic.serverSideFallback`.
+  OpenRouter, Novita, local engines (Ollama, llama.cpp, LM Studio), custom
+  providers in `models.yml`, and `providers.anthropic.serverSideFallback`.
 - API key handling: env vars, `.env`, `agent.db`, `/login`, auth broker.
 - Search providers and caveats: Exa, Brave, Tavily, DuckDuckGo
   datacenter/shared-egress limitations, SearXNG, Perplexity, z.ai, Kagi, Jina,
@@ -116,7 +116,7 @@ runtime override (e.g. --api-key)
 
 `default`, `smol`, `slow`, `vision`, `plan`, `designer`, `commit`, `tiny`,
 `title`, `task`, `advisor`. Values may append `:minimal`, `:low`, `:medium`,
-`:high`, `:xhigh`.
+`:high`, `:xhigh`, `:max`.
 
 Built-in subagent names changed separately from model roles: `quick_task` was
 renamed to `sonic` in 16.2.9, built-in `oracle` was removed in 16.2.9, and
@@ -143,7 +143,7 @@ should not be treated as text-only.
 | Anthropic search | `ANTHROPIC_SEARCH_API_KEY` |
 | Codex search | `OPENAI_API_KEY` or stored Codex OAuth |
 
-### Recent OMP 16.2.9–16.3.14 operator notes
+### Recent OMP 16.2.9–16.4.2 operator notes
 
 - 16.3.14 tightened TUI rendering: raw thinking blocks now strip HTML comment
   noise, and unfinalized tool blocks no longer pin the live-region scroll seam.
@@ -170,6 +170,8 @@ should not be treated as text-only.
   optional `path` string instead of a `paths` array; semicolon-delimited
   multi-path input is supported, and omitted `path` searches the workspace
   root.
+- 16.4.2 adds `novita` provider auth via `NOVITA_API_KEY` and extends
+  thinking suffix support with `:max`.
 - 16.2.12 breaking model behavior: canonical-alias grouping removed;
   `equivalence` in `models.yml`/`models.json` is inert; `omp models canonical`
   and the interactive `CANONICAL` tab were removed; model selectors now resolve

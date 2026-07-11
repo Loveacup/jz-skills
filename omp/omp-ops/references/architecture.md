@@ -136,7 +136,7 @@ secrets:
 
 Supported roles: `default`, `smol`, `slow`, `vision`, `plan`, `designer`, `commit`, `tiny`, `title`, `task`, `advisor`.
 Subagent names and model roles are separate; do not add `sonic` or `Tester` as `modelRoles`.
-Role values may append a thinking suffix: `:minimal`, `:low`, `:medium`, `:high`, `:xhigh`.
+Role values may append a thinking suffix: `:minimal`, `:low`, `:medium`, `:high`, `:xhigh`, `:max`.
 
 ## Multi-Advisor (`WATCHDOG.yml`)
 

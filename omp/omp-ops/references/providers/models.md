@@ -26,6 +26,7 @@ The table below lists the environment variable used by each core model provider 
 | `fireworks` | `FIREWORKS_API_KEY` | — |
 | `together` | `TOGETHER_API_KEY` | — |
 | `nvidia` | `NVIDIA_API_KEY` | — |
+| `novita` | `NOVITA_API_KEY` | — |
 | `huggingface` | `HUGGINGFACE_HUB_TOKEN` | `HF_TOKEN` |
 | `cerebras` | `CEREBRAS_API_KEY` | — |
 | `moonshot` | `MOONSHOT_API_KEY` | — |
@@ -183,7 +184,7 @@ modelProviderOrder:
 
 ### Thinking suffixes
 
-Append `:minimal`, `:low`, `:medium`, `:high`, or `:xhigh` to a role value to set its thinking level:
+Append `:minimal`, `:low`, `:medium`, `:high`, `:xhigh`, or `:max` to a role value to set its thinking level:
 
 ```yaml
 modelRoles:
@@ -225,6 +226,12 @@ Use a bare exact flat id only when OMP can match that same id through provider p
 - Xiaomi MiMo default/validation uses supported `mimo-v2.5`.
 - ZenMux Anthropic route classification was fixed for Claude Sonnet 5 signature
   enforcement.
+
+### Recent provider notes (16.4.2)
+
+- 16.4.2 adds `novita` provider auth via `NOVITA_API_KEY`.
+- 16.4.2 extends thinking suffix support with `:max` in addition to the
+  existing `:minimal`, `:low`, `:medium`, `:high`, and `:xhigh` values.
 
 ---
 

@@ -1,5 +1,13 @@
 # Sync Notes
 
+## 2026-07-11
+
+- Official OMP 16.4.2 sync refreshed `references/VERSION`,
+  `references/sync-state.json`, and the official changelog mirror. I reviewed
+  the changelog and updated authored references to add `novita` provider auth
+  plus the `:max` thinking suffix in `references/providers/models.md`,
+  `references/architecture.md`, and `SKILL.md`.
+
 ## 2026-07-10
 
 - Official OMP 16.3.14 sync refreshed `references/VERSION`,
