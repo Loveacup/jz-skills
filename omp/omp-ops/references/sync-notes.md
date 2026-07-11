@@ -1,5 +1,10 @@
 # Sync Notes
 
+## 2026-07-12
+
+- Official OMP 16.4.5 was already mirrored in the local official docs. This
+  maintenance run refreshed `references/sync-state.json` and bumped the skill
+  revision to `16.4.5-1` without any authored reference changes.
 ## 2026-07-11
 
 - Official OMP 16.4.2 sync refreshed `references/VERSION`,
