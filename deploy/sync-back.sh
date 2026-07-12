@@ -5,7 +5,7 @@
 # one or more `--only <repo-path>` scopes, or an explicit `--force-all`.
 set -eu
 set +H
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="${JZ_SKILLS_REPO_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 DRY_RUN=true
 SANITIZE=true
 FORCE_ALL=false
@@ -93,7 +93,7 @@ sanitize_dir() {
   done
 }
 
-HERMES_BASE="$HOME/.hermes/skills"
+HERMES_BASE="${JZ_SKILLS_HERMES_BASE:-$HOME/.hermes/skills}"
 CHANGED=0
 DRIFT_COUNT=0
 SCOPE_DRIFT_COUNT=0
@@ -114,7 +114,7 @@ PAIRS=(
   # === shared ===
   "shared/grill-with-docs|governance/grill-with-docs"
   "shared/skill-authoring|governance/skill-authoring"
-  "shared/2pdf|productivity/pdf"
+  "shared/2pdf|2pdf"
   "shared/strategic-insight-longform|productivity/strategic-insight-longform"
   "shared/voice-to-markdown-workflow|productivity/voice-to-markdown-workflow"
   "shared/bookmark-organizer|bookmark-organizer"
@@ -128,6 +128,7 @@ PAIRS=(
   "hermes/tradingagents|research/tradingagents"
   "hermes/arxiv|research/arxiv"
   "hermes/auto-diary|auto-diary"
+  "shared/video-analysis-engine|video-analysis-engine"
   "shared/bilibili-video-analyzer|bilibili-video-analyzer"
   "hermes/xhs-crawler|xhs-crawler"
   "hermes/calendar-manager|calendar-manager"
@@ -162,6 +163,43 @@ for pair in "${PAIRS[@]}"; do
     src="$HERMES_BASE/$herm_path"
   fi
   dst="$REPO_ROOT/$repo_path"
+
+  # Canonical video-analysis source is repository-owned. Runtime may contain
+  # credentials, private evidence, or drift and must never replace the repo.
+  if [[ "$repo_path" == "shared/video-analysis-engine" ]]; then
+    if in_scope "$repo_path" && [ "$DRY_RUN" = false ]; then
+      echo "ERROR: reverse sync is forbidden for repo-owned $repo_path" >&2
+      echo "Deploy repo → runtime with sync-all.sh instead." >&2
+      exit 3
+    fi
+    echo "  🔒 $repo_path (repo-owned; reverse sync disabled)"
+    continue
+  fi
+
+  # The deprecated Bilibili entry is a forwarding shim. Runtime retains old
+  # scripts/cookies for rollback, so reverse sync must never resurrect that
+  # payload into the repository.
+  if [[ "$repo_path" == "shared/bilibili-video-analyzer" ]]; then
+    [ ! -f "$src/SKILL.md" ] && { echo "  ⚠️  $repo_path → runtime shim missing — skipped"; continue; }
+    [ ! -f "$dst/SKILL.md" ] && { echo "  ⚠️  $repo_path → repo shim missing — skipped"; continue; }
+    cmp -s "$src/SKILL.md" "$dst/SKILL.md" && continue
+    diff_output=$(diff -u "$dst/SKILL.md" "$src/SKILL.md" 2>/dev/null || true)
+    DRIFT_COUNT=$((DRIFT_COUNT + 1))
+    if ! in_scope "$repo_path"; then
+      SCOPE_DRIFT_COUNT=$((SCOPE_DRIFT_COUNT + 1))
+      echo "  ↪️  $repo_path (out of scope; SKILL.md only)"
+      echo "$diff_output" | sed 's/^/     /'
+      continue
+    fi
+    echo "  📝 $repo_path (SKILL.md only)"
+    echo "$diff_output" | sed 's/^/     /'
+    if [ "$DRY_RUN" = false ]; then
+      cp "$src/SKILL.md" "$dst/SKILL.md"
+      [ "$SANITIZE" = true ] && sanitize_dir "$dst"
+      CHANGED=$((CHANGED + 1))
+    fi
+    continue
+  fi
 
   [ ! -d "$src" ] && { echo "  ⚠️  $repo_path → source not found — skipped"; continue; }
   [ ! -d "$dst" ] && { echo "  ⚠️  $repo_path → dest not found — skipped"; continue; }

@@ -29,6 +29,34 @@ copy_skill_dir() {
   fi
 }
 
+# Deploy the video-analysis family without leaking private evidence or deleting
+# legacy runtime assets (cookies/history remain until separately retired).
+deploy_video_analysis_family() {
+  local base="$1"
+  local engine_src="$REPO_ROOT/shared/video-analysis-engine"
+  local engine_target="$base/video-analysis-engine"
+  local legacy_src="$REPO_ROOT/shared/bilibili-video-analyzer"
+  local legacy_target="$base/bilibili-video-analyzer"
+
+  if [ ! -d "$engine_src" ] || [ ! -f "$legacy_src/SKILL.md" ]; then
+    echo "  ⚠️  skip incomplete video-analysis family"
+    return
+  fi
+
+  mkdir -p "$engine_target" "$legacy_target"
+  rsync -a --delete \
+    --exclude '.p6r-cache/' \
+    --exclude '.cookies/' \
+    --exclude '.cache/' \
+    --exclude 'cache/' \
+    --exclude '__pycache__/' \
+    --exclude '.pytest_cache/' \
+    --exclude '*.pyc' \
+    "$engine_src/" "$engine_target/"
+  cp "$legacy_src/SKILL.md" "$legacy_target/SKILL.md"
+  echo "  📺 video-analysis-engine deployed; legacy entry updated in place"
+}
+
 # Deploy a Hermes-ops skill through the centralized canonical pool, then
 # repoint the Hermes runtime entry to that pool. This preserves the
 # Agent Skills centralization invariant: runtime loads symlinks to
@@ -112,7 +140,7 @@ sync_hermes() {
   copy_skill_dir "$REPO_ROOT/shared/grill-with-docs"        "$base/governance"
   copy_skill_dir "$REPO_ROOT/shared/skill-authoring"        "$base/governance"
   copy_skill_dir "$REPO_ROOT/shared/goalgen"               "$base/governance"
-  deploy_shared_multi "$REPO_ROOT/shared/2pdf"   # blocker#2: canonical + 4-runtime symlinks（不再造 productivity/pdf 影子）
+  deploy_shared_multi "$REPO_ROOT/shared/2pdf"   # blocker#2: canonical + 4-runtime symlinks（不再造 legacy pdf shadow）
   deploy_shared_multi "$REPO_ROOT/shared/vault-keeper"   # Obsidian 知识库生命周期治理引擎（多 CLI：cc/codex/cursor/hermes）
   copy_skill_dir "$REPO_ROOT/shared/strategic-insight-longform"  "$base/productivity"
   copy_skill_dir "$REPO_ROOT/shared/voice-to-markdown-workflow"  "$base/productivity"
@@ -128,7 +156,7 @@ sync_hermes() {
   copy_shared_skill "$REPO_ROOT/hermes/arxiv"                       "$base/research"
 
   copy_skill_dir "$REPO_ROOT/hermes/auto-diary"                      "$base"
-  copy_skill_dir "$REPO_ROOT/shared/bilibili-video-analyzer"         "$base"
+  deploy_video_analysis_family "$base"
   copy_skill_dir "$REPO_ROOT/hermes/xhs-crawler"                     "$base"
   copy_skill_dir "$REPO_ROOT/hermes/calendar-manager"               "$base"
   copy_skill_dir "$REPO_ROOT/hermes/cron-worker"                    "$base"
@@ -240,19 +268,21 @@ sync_pi() {
 }
 
 # === Main ===
-case "${1:-all}" in
-  hermes)
-    sync_hermes
-    ;;
-  cc)     sync_cc ;;
-  pi)     sync_pi ;;
-  all)
-    sync_hermes
-    sync_cc
-    sync_pi
-    ;;
-  *)
-    echo "Usage: $0 {hermes|cc|pi|all}"
-    exit 1
-    ;;
-esac
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  case "${1:-all}" in
+    hermes)
+      sync_hermes
+      ;;
+    cc)     sync_cc ;;
+    pi)     sync_pi ;;
+    all)
+      sync_hermes
+      sync_cc
+      sync_pi
+      ;;
+    *)
+      echo "Usage: $0 {hermes|cc|pi|all}"
+      exit 1
+      ;;
+  esac
+fi

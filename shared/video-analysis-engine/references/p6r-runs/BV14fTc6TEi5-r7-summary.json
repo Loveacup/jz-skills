@@ -1,0 +1,60 @@
+{
+  "schema_version": "p6r-run-summary.v1",
+  "sample_id": "p6r-tech-BV14fTc6TEi5",
+  "bvid": "BV14fTc6TEi5",
+  "recorded_at": "2026-07-11T15:08:00",
+  "input": {
+    "path": ".p6r-cache/BV14fTc6TEi5_fetch_all.json",
+    "privacy": "git-ignored local evidence cache; not copied to Obsidian",
+    "bytes": 36140,
+    "sha256": "3a3123e376403fb7318b808c124ef6abd14c9a3b67c95a81ca526fe6e863cbe3",
+    "collector_command": "PYTHONPATH=scripts python3 scripts/fetch_all.py BV14fTc6TEi5",
+    "collector_ok": true,
+    "failed_steps": [],
+    "evidence": {
+      "subtitle_method": "h200-asr-chunked",
+      "bilibili_danmaku_count": 0,
+      "bilibili_comment_count": 1,
+      "youtube_comment_count": 100
+    }
+  },
+  "generation": {
+    "command": "PYTHONPATH=scripts python3 scripts/run_quality_gate.py --input .p6r-cache/BV14fTc6TEi5_fetch_all.json --output .p6r-cache/B站笔记_P6R_Pi_candidate_20260710_r7.md --writer-provider cli --mode full --publishable --fail-on-fallback-warning --section-qa-gate --depth-profile claim-first-full --claim-qa-gate --json",
+    "writer_provider": "cli",
+    "depth_profile": "claim-first-full",
+    "report_path": ".p6r-cache/B站笔记_P6R_Pi_candidate_20260710_r7.md",
+    "report_bytes": 63056,
+    "report_sha256": "2d4c6a22700c940e0c4f4e75920380a25eedc78cc4df597709f42359b72f44d4"
+  },
+  "quality_gate": {
+    "passed": true,
+    "verify_passed": true,
+    "coherence_passed": true,
+    "publishable_passed": true,
+    "publishable_gate_count": 10,
+    "publishable_failed_codes": [],
+    "fallback_warning_count": 0,
+    "section_qa_gate_passed": true,
+    "claim_qa_gate_passed": true,
+    "claim_evidence": {
+      "supported_count": 12,
+      "total_claims": 12,
+      "score": 1.0
+    }
+  },
+  "manual_reviewer": {
+    "reviewed_by": "hermes-default/manual-rubric-v1",
+    "reviewed_at": "2026-07-11T15:08:00",
+    "verdict": "accepted_gold",
+    "verdict_source": "r7 strict quality gate + source-bound human readability review",
+    "checks": {
+      "all_sections_0_to_8_present": true,
+      "zero_danmaku_disclaimer_present": true,
+      "highlight_time_anchors_present": true,
+      "knowledge_graph_has_no_asr_letter_fragments": true,
+      "critical_section_states_evidence_boundaries": true,
+      "no_skeleton_or_raw_json_residue": true
+    },
+    "caveat": "This is a video-analysis gold sample, not an independent fact check of the source video's external technical claims."
+  }
+}

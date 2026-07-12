@@ -1,0 +1,36 @@
+{
+  "schema_version": "4.1.0",
+  "status": "ready",
+  "identity": {
+    "platform": "bilibili",
+    "canonical_id": "BV14fTc6TEi5",
+    "canonical_url": "https://www.bilibili.com/video/BV14fTc6TEi5"
+  },
+  "metadata": {
+    "title": "Pi 编程智能体",
+    "author": "fixture-author",
+    "description": "用于验证 Bilibili Adapter。",
+    "duration_s": 62
+  },
+  "transcript": {
+    "text": "第一段提出 Pi 的核心能力。第二段说明使用边界。",
+    "language": "zh-Hans",
+    "source": "fixture-official",
+    "content_hash": "__ASSERT_SHA256__",
+    "segments": []
+  },
+  "audience_signals": [
+    {"kind": "comment", "label": "希望补充边界条件", "weight": 12.0},
+    {"kind": "danmaku", "label": "这个观点有意思", "weight": 1.0}
+  ],
+  "provenance": {
+    "adapter": "bilibili",
+    "adapter_version": "1.0.0",
+    "collected_at": "2026-07-11T00:00:00Z",
+    "source_refs": ["https://www.bilibili.com/video/BV14fTc6TEi5"],
+    "hashes": {"transcript": "__ASSERT_SHA256__"}
+  },
+  "errors": [],
+  "cross_platform": [],
+  "fact_checks": []
+}

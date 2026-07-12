@@ -1,0 +1,22 @@
+{
+  "id": "7591234567890123456",
+  "webpage_url": "https://www.douyin.com/video/7591234567890123456",
+  "title": "短视频证据契约示例",
+  "uploader": "fixture-author",
+  "description": "用于验证 Douyin Adapter 的 yt-dlp metadata 归一化。",
+  "duration": 42,
+  "timestamp": 1783776000,
+  "view_count": 1234,
+  "like_count": 88,
+  "comment_count": 7,
+  "extractor": "Douyin",
+  "formats": [
+    {
+      "format_id": "download_addr-0",
+      "url": "https://private-media.example.invalid/signed?token=secret"
+    }
+  ],
+  "http_headers": {
+    "Cookie": "secret"
+  }
+}

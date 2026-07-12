@@ -31,15 +31,15 @@ jz-skills/
 | 🎯 OMP | `omp/` | 2 | OMP‑only — STDD methodology + operations |
 | 🪟 Pi | `pi/` | 2 | Windows / pi‑only |
 | 🗄️ Archived | `_archived-hermes-3S6M-profiles/` | 12 profiles | Retired 三省六部 governance profiles |
-| **Total** | | **49 skills** | |
+| **Total** | | **50 skills** | |
 
 <details>
 <summary>🌳 Full skill tree</summary>
 
 ```
-shared/                              🧩 25 skills (+1 archived)
+shared/                              🧩 26 skills (+1 archived)
 ├── audio-transcriber            # 音频转录：降噪+声纹+中文ASR
-├── bilibili-video-analyzer      # B站视频深度分析
+├── bilibili-video-analyzer      # deprecated → video-analysis-engine
 ├── bookmark-organizer           # 书签策展
 ├── china-legal-optimized        # 中国法务（7大领域）
 ├── cqi-plan-writer              # 通用 CQI 写作方法论
@@ -52,11 +52,12 @@ shared/                              🧩 25 skills (+1 archived)
 ├── methodology-writer           # 经验→结构化方法论
 ├── obsidian                     # Vault 操作、CLI、Bases、Defuddle
 ├── obsidian-md-ac               # OFM + Mermaid + JSON Canvas 参考
-├── pdf                          # PDF 全处理：OCR/提取/Markdown→PDF
+├── 2pdf                         # PDF 全处理：OCR/提取/Markdown→PDF
 ├── skill-authoring              # 技能合规创作+七维评分（v4.0.0）
 ├── supermemory-maintenance      # Supermemory v7 参考
 ├── surge-gateway                # Surge 家庭代理网关
 ├── unifi-ops                    # UniFi AP/交换机/Controller 运维
+├── video-analysis-engine        # Bilibili/YouTube/Douyin 单视频证据分析
 ├── vault-keeper                 # Obsidian 知识库生命周期治理
 ├── voice-to-markdown-workflow   # 语音/视频→结构化 Markdown
 ├── web-research-router          # 多引擎搜索路由+深度研究循环
@@ -214,10 +215,11 @@ Hermes 通过三通道（Shell/RPC/ACP）标准化调用 OMP v16.2.4，提供跳
 | 📋 | [grill-with-docs](shared/grill-with-docs/) | Design review against governance docs / 设计审查 |
 | ✍️ | [skill-authoring](shared/skill-authoring/) | v4.0.0 11-step, 7-dim scoring / 合规创作 |
 | 🎯 | [goalgen](shared/goalgen/) | Multi-CLI goal instruction generator / 通用 goal 生成器 |
-| 📄 | [pdf](shared/pdf/) | OCR, extract, markdown→PDF / PDF 全处理 |
+| 📄 | [2pdf](shared/2pdf/) | OCR, extract, markdown→PDF / PDF 全处理 |
 | 🎙️ | [voice-to-markdown-workflow](shared/voice-to-markdown-workflow/) | Speech→structured markdown / 语音转文稿 |
 | 🔊 | [audio-transcriber](shared/audio-transcriber/) | Denoise+diarization+Chinese ASR / 音频转录 |
-| 📺 | [bilibili-video-analyzer](shared/bilibili-video-analyzer/) | Bilibili video analysis / B站视频分析 |
+| 📺 | [video-analysis-engine](shared/video-analysis-engine/) | Bilibili/YouTube/Douyin evidence-grounded analysis / 多平台视频分析 |
+| ↪️ | [bilibili-video-analyzer](shared/bilibili-video-analyzer/) | Deprecated compatibility shim / 旧入口转发 |
 | ⚖️ | [china-legal-optimized](shared/china-legal-optimized/) | 7 legal domains / 中国法务 |
 | 📊 | [cqi-plan-writer](shared/cqi-plan-writer/) | Signal-driven CQI writing / CQI 计划写作 |
 | 🔮 | [destiny-matrix](shared/destiny-matrix/) | Jungian+BaZi+ZiWei+Astrology / 命运矩阵 |
