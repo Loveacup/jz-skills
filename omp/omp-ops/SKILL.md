@@ -143,7 +143,12 @@ should not be treated as text-only.
 | Anthropic search | `ANTHROPIC_SEARCH_API_KEY` |
 | Codex search | `OPENAI_API_KEY` or stored Codex OAuth |
 
-### Recent OMP 16.2.9–16.4.2 operator notes
+### Recent OMP 16.2.9–16.4.8 operator notes
+
+- 16.4.8 search: Perplexity now forces retrieval for all queries, improving
+  reliability on search-heavy workflows.
+- 16.4.8 JS eval cells keep top-level `function` and `var` declarations across
+  cells even when the defining cell contains top-level `await`.
 
 - 16.3.14 tightened TUI rendering: raw thinking blocks now strip HTML comment
   noise, and unfinalized tool blocks no longer pin the live-region scroll seam.

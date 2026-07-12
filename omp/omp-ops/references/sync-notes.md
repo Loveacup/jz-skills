@@ -1,5 +1,16 @@
 # Sync Notes
 
+## 2026-07-13
+
+- Official OMP 16.4.8 synced cleanly. `references/VERSION` now tracks
+  `16.4.8-0`, `references/sync-state.json` records the new upstream timestamp,
+  and the official changelog mirror refreshed to include the 16.4.8 release.
+  Authored follow-up was limited to `references/providers/search.md`, `SKILL.md`,
+  and this note; no architecture or security rewrite was needed.
+- Missing daily-maintenance helpers in this repo remain
+  `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`.
+  `check-version.sh` and `orchestrate.sh` are present and usable.
+
 ## 2026-07-12
 
 - Official OMP 16.4.5 was already mirrored in the local official docs. This

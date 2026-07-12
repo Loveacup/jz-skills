@@ -31,6 +31,7 @@ OMP supports multiple web-search backends. Each provider is selected by setting 
 - Tavily retries without recency filters if the first response returns no
   content; 16.2.2/16.3.0 release notes document this as current behavior.
 - Perplexity supports API-key mode and cookie-auth mode. Cookie mode is used by the interactive `/login perplexity` flow.
+- 16.4.8 tightened Perplexity search reliability by forcing retrieval for all queries.
 - `z.ai` search also checks stored OAuth credentials in `agent.db`.
 - Codex search requires either `OPENAI_API_KEY` or a stored Codex OAuth credential.
 - Anthropic search has a dedicated key/base URL pair so search traffic can be routed independently from chat completions.
