@@ -143,7 +143,17 @@ should not be treated as text-only.
 | Anthropic search | `ANTHROPIC_SEARCH_API_KEY` |
 | Codex search | `OPENAI_API_KEY` or stored Codex OAuth |
 
-### Recent OMP 16.2.9–16.4.8 operator notes
+### Recent OMP 16.2.9–16.5.1 operator notes
+
+- 16.5.0 replaces the `--reasoning-slide-*` flag family with `--prewalk`,
+  `--prewalk-into <model>`, and `--no-prewalk`; use the new flags in current
+  operator guidance.
+- 16.5.0 model configuration supports `~/.omp/agent/models.yaml` as a fallback
+  beside `models.yml`; role aliases use `@role`, with `*` selecting `@default`.
+  Quote `@` aliases in YAML values.
+- 16.5.1 Anthropic OAuth accounts are organization-scoped: separate Team and
+  personal subscriptions under one email may be selected and rotated as
+  distinct accounts.
 
 - 16.4.8 search: Perplexity now forces retrieval for all queries, improving
   reliability on search-heavy workflows.

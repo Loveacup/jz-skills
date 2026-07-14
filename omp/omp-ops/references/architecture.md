@@ -20,7 +20,8 @@ OMP uses two scopes. Higher-precedence layers override lower ones.
 ~/.omp/agent/
 ├── config.yml              # global persistent settings
 ├── settings.json           # legacy; migrated to config.yml once
-├── models.yml              # custom providers / overrides; legacy equivalence is inert (16.2.12+)
+├── models.yml              # custom providers / overrides; preferred YAML config
+├── models.yaml             # fallback YAML config (16.5.0+)
 ├── secrets.yml             # custom secret obfuscation rules
 ├── .env                    # agent-scope env vars (third .env precedence)
 ├── agent.db                # SQLite auth store (API keys + OAuth credentials)

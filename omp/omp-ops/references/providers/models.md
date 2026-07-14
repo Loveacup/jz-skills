@@ -2,6 +2,12 @@
 
 Source: `docs/providers.md`, `docs/models.md`, `docs/settings.md`, `docs/environment-variables.md`.
 
+The default custom-model config prefers `~/.omp/agent/models.yml` and falls
+back to `~/.omp/agent/models.yaml` when the first file is absent. `models.json`
+migration only applies when both YAML files are missing. Role values may use
+`@role` aliases; `*` selects `@default`, and YAML values containing `@` should
+be quoted.
+
 ## Common provider API keys
 
 The table below lists the environment variable used by each core model provider when no stored credential exists. Set one of these in your shell or in an untracked `.env` file.
@@ -205,7 +211,13 @@ Use a bare exact flat id only when OMP can match that same id through provider p
 
 `modelProviderOrder` chooses among provider candidates; it no longer feeds a catalog-wide canonical alias resolver.
 
-### Recent provider notes (16.2.9–16.3.11)
+### Recent provider notes (16.2.9–16.5.1)
+
+- 16.5.1 treats each Anthropic organization/subscription as a separate OAuth
+  account for login, usage, logout, and credential rotation, including when one
+  email owns both a Team seat and a personal plan.
+- 16.5.0 replaced the reasoning-slide flag family with the `--prewalk`,
+  `--prewalk-into`, and `--no-prewalk` execution controls.
 
 - 16.3.11 session-title generation now uses marker-based parsing for all
   models. Treat bare JSON-shaped title output as a defect; the runtime strips
