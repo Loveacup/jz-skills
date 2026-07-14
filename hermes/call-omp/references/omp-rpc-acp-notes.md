@@ -1,14 +1,15 @@
 # OMP RPC / ACP 通道：实测协议与设计
 
-> 配套 `references/omp-shell-smoke-test.md`（Shell 通道）。本文档记录 **RPC 通道**（过渡首选）的
-> 真实协议与封装设计，以及 **ACP 通道**（终局预留）的定位。全部基于 omp **v16.2.2** 本机实测。
+> 配套 `references/omp-shell-smoke-test.md`（Shell 通道）。当前兼容基线是 OMP **v16.3.2**；
+> RPC/Shell 协议最早在 v16.2.2 实测，ACP 方言由独立 smoke/probe 动态识别。
 
 ## 0. 通道优先级（最新设计决策）
 
-`RPC（过渡首选）＞ Shell（快速单次降级）＞ ACP（终局首选（默认））`
+`RPC（默认）＞ Shell（快速单次降级）＞ ACP（显式实验）`
 
 - RPC 启动/就绪失败 → `omp-send` 自动降级 Shell（状态记 `degraded_from=rpc`）。
-- ACP 当前不实现，channel=acp 拒发（exit 3），架构预留接口位。
+- ACP 只负责产出待宿主消费的 prompt/state；必须先通过方言 probe，且宿主确实提供 ACP adapter。
+- 当前 Hermes `delegate_task` 若没有 ACP 参数，不得把 `pending_acp` 宣称为已执行。
 
 ## 1. RPC 协议（实测）
 

@@ -44,9 +44,15 @@ done
 [[ -n "$DECISION" ]] || { echo "omp-finish: 须三选一 --accept|--reject|--human-review" >&2; exit 3; }
 
 TASK_ID=$(jq -r '.task_id' "$STATE")
+require_task_id "$TASK_ID" || exit 3
 STATUS=$(jq -r '.status' "$STATE")
 MON_MODE=$(jq -r '.package.mode // ""' "$STATE"); MON_MODE="${MON_MODE%%:*}"
 RAW=$(jq -r '.run.raw_output // empty' "$STATE")
+EXPECTED_RAW=$(raw_path "$TASK_ID")
+[[ -z "$RAW" || "$RAW" == "$EXPECTED_RAW" ]] || { echo "omp-finish: state raw_output 非规范路径" >&2; exit 3; }
+RAW="$EXPECTED_RAW"
+RUN_EC=$(jq -r '.run.exit_code // empty' "$STATE")
+RUN_STOP=$(jq -r '.monitor.stop_reason // .run.stop_reason // empty' "$STATE")
 
 update_state() { local f="$1"; local s; s=$(jq "$f | .updated_at=\"$(now_iso)\"" "$STATE"); printf '%s' "$s" | atomic_write "$STATE"; }
 
@@ -84,7 +90,7 @@ build_verdict() {
 cleanup_tmp() {  # 清理 /tmp 工作文件（保留归档）
   $KEEP && { echo "   （--keep：保留所有产物）"; return; }
   rm -f "$(prompt_path "$TASK_ID")" "$OMP_TMPDIR/omp-pkg-${TASK_ID}.json" \
-        "$(counter_path "$TASK_ID")" "$RAW.err" 2>/dev/null || true
+        "$(counter_path "$TASK_ID")" "$RAW.err" "$RAW.exit" 2>/dev/null || true
 }
 
 # 进入裁决 = RPC daemon 使命结束，关闭（幂等；raw 已落盘，verdict 提取不依赖 daemon）
@@ -97,6 +103,8 @@ case "$DECISION" in
   accept)
     # ── 红线校验 ──
     [[ "$STATUS" == "reported" ]] || { echo "🚫 accept 拒绝：status=${STATUS}（须 reported；先 monitor）"; echo "===📋 END==="; exit 2; }
+    [[ -z "$RUN_EC" || "$RUN_EC" == "0" ]] || { echo "🚫 accept 拒绝：OMP exit_code=${RUN_EC}"; echo "===📋 END==="; exit 2; }
+    [[ "$RUN_STOP" == "stop" ]] || { echo "🚫 accept 拒绝：stopReason=${RUN_STOP:-unknown}（须 stop）"; echo "===📋 END==="; exit 2; }
     [[ "$SEV" != "blocker" ]]     || { echo "🚫 accept 拒绝：severity=blocker 是红线，不可接受。改用 --reject / --human-review"; echo "===📋 END==="; exit 2; }
     [[ "$MON_MODE" == "execute" || "$EVN" -gt 0 ]] || { echo "🚫 accept 拒绝：evidence 为空，不采信无证据的完成"; echo "===📋 END==="; exit 2; }
     VERDICT=$(build_verdict accept)

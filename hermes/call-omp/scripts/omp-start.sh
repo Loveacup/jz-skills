@@ -10,7 +10,7 @@
 #   或便捷参数自行拼装：
 #     --task <文本>           任务说明（必填）
 #     --mode <m>             audit|execute|govern:inspect|govern:clean|govern:deep-clean|govern:evidence|govern:sql（默认 audit）
-#     --channel <c>          rpc|shell|acp（默认 rpc 过渡首选；rpc 失败自动降级 shell；acp 终局预留）
+#     --channel <c>          rpc|shell|acp（默认 rpc；rpc 失败自动降级 shell；acp 仅显式实验）
 #     --cwd <dir>            scope 工作目录（危险任务必填其一：cwd 或 allowed-path）
 #     --allowed-path <p>     允许路径（可重复）
 #     --denied-path <p>      禁止路径（可重复）
@@ -90,6 +90,7 @@ else
       output:{format:"json",evidence_required:true}}')
 fi
 
+require_task_id "$TASK_ID" || exit 3
 CHANNEL=$(echo "$PKG" | jq -r '.channel // "rpc"')
 PKG_TMP="$OMP_TMPDIR/omp-pkg-${TASK_ID}.json"
 echo "$PKG" | atomic_write "$PKG_TMP"

@@ -67,7 +67,7 @@ timeline() { printf '{"ts":%d,"event":"%s"%s}\n' "$(date +%s)" "$1" "${2:+,$2}" 
 # ── Mock 模式（零 token 测试路径）─────────────────────────────────
 if [[ -n "$MOCK" ]]; then
   timeline "mock_mode_entered" "\"mock\":\"$MOCK\""
-  OMP_VER="mock-v16.2.4"; OMP_PATH="/mock/omp"
+  OMP_VER="mock-v16.3.2"; OMP_PATH="/mock/omp"
   STATUS=""; RC=0
   case "$MOCK" in
     pass)

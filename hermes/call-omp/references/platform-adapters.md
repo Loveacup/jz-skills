@@ -75,7 +75,7 @@ scripts/call-omp-smoke.sh --platform <codex|claude-code|omp-self> \
 | Claude Code | `.claude-plugin/plugin.json` | `claude-code` | — |
 | OMP 自调 | `.omp-plugin/plugin.json` | `omp-self` | `recursion_guard`（提示脚本级深度守卫） |
 
-每份清单同形：`name=call-omp`、`version=0.1.0`、`description`（含 mock-only 冒烟入口）、
+每份清单同形：`name=call-omp`、`version=0.8.0`、`description`（含 mock-only 冒烟入口）、
 `platform`、`skills`（指向父仓库 `../`）、`smoke`（指向 `scripts/call-omp-smoke.sh`）。
 各平台读到自己的清单后，即知从哪跑冷路径冒烟（`smoke` 字段），以及 skill 本体在父仓库何处（`skills` 字段）。
 

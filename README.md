@@ -70,7 +70,7 @@ hermes/                              ⚡ 20 skills
 ├── arxiv                        # arXiv + Semantic Scholar 论文检索
 ├── auto-diary                   # 自动化日记：日→周→月→年金字塔聚合
 ├── calendar-manager             # 智能日历+提醒
-├── call-omp                     # 🆕 三通道调用 OMP v16.2.4（Shell/RPC/ACP）
+├── call-omp                     # 🆕 OMP v0.8.0 fail-closed 审计桥（RPC/Shell/实验 ACP）
 ├── cc-tmux                      # tmux 驱动 CC v1.31.0：脚本强制护栏 · 15 测试文件 / 136 测试
 ├── cccmux                       # cmux 原生 CC agent team 编排
 ├── claude-code                  # CC 编排桥（已由 cc-tmux 取代）
@@ -170,17 +170,17 @@ Multi-engine deep research router with anti-hallucination guardrails and a new l
 
 → [`shared/web-research-router/`](shared/web-research-router/)
 
-### 🚀 call-omp · Hermes→OMP 沙箱逃生通道 v0.7.0
+### 🚀 call-omp · Hermes→OMP fail-closed 审计通道 v0.8.0
 
-> **7 commits in last 7 days · 🔥 全新技能** — sandbox escape + independent execution · 沙箱逃生+独立执行
+> **v0.8.0 安全加固** — fail-closed audit bridge · 默认只读、写能力隔离
 
-Standardized 3-channel (Shell / RPC / ACP) interface for Hermes to call OMP v16.2.4 — providing a **sandbox escape** execution channel plus independent audit, governance, and code assistance. OMP is a full CLI agent, not just an auditor.
-Hermes 通过三通道（Shell/RPC/ACP）标准化调用 OMP v16.2.4，提供跳出沙箱的执行通道+独立审计+治理+编码辅助。OMP 是完整 CLI agent。
+Standardized RPC / Shell / experimental ACP interface for independent OMP audits and evidence-based governance. Every task is gated, monitored, and independently verified; nonzero exits and non-`stop` terminal states are rejected.
+Hermes 通过 RPC / Shell / 实验性 ACP 调用 OMP 做独立审计与证据化治理；默认只读，非零退出和非 `stop` 终态一律拒绝。
 
-- **v0.7.0 Execute 模式:** OMP as a full CLI agent — can run arbitrary shell tasks (build/test/lint, `launchctl kickstart` to rescue Hermes gateway, etc.) / OMP 作为完整 CLI agent 执行任意 shell 任务
-- **v0.6.0 智能技能路由:** Auto-detect which OMP capability (audit/govern/code/execute) the task needs / 自动检测任务所需的 OMP 能力面
-- **v0.5.0 STDD 闭环:** Acceptance checklist + tests + independent audit for every release / 每次发布验收清单+测试+独立审计
-- **三通道标准化:** Shell (direct command) / RPC (structured request-response) / ACP (agent communication protocol) — full monitorability and interruptibility / 全程可监控、可干预
+- **v0.8.0 Fail-closed:** task ID/path hardening, async exit-code capture, canonical raw paths, non-`stop` rejection
+- **写能力隔离:** `--allow-write` 当前始终拒绝，不向 OMP 开放 `write/edit/bash`
+- **治理模式:** `govern:clean/deep-clean/sql` 只产出计划，强制 high risk、真实 scope 和 rollback
+- **三通道:** RPC 默认、Shell bounded fallback、ACP 显式实验；全程可监控、可干预
 
 → [`hermes/call-omp/`](hermes/call-omp/)
 
@@ -263,7 +263,7 @@ Hermes 通过三通道（Shell/RPC/ACP）标准化调用 OMP v16.2.4，提供跳
 | 📋 | [kanban-orchestrator](hermes/kanban-orchestrator/) | Decomposition playbook / Kanban 编排 |
 | 🛤️ | [kanban-codex-lane](hermes/kanban-codex-lane/) | Kanban→Codex CLI lane / Kanban Codex 通道 |
 | 🎓 | [teach-hermes](hermes/teach-hermes/) | Cross-session teaching in Telegram / Telegram 教学 |
-| 🚀 | [call-omp](hermes/call-omp/) | 🆕 3-channel OMP bridge v0.7.0 / OMP 三通道桥接 |
+| 🚀 | [call-omp](hermes/call-omp/) | 🆕 fail-closed OMP bridge v0.8.0 / OMP 安全审计桥 |
 
 ### omp/ — OMP Methodology & Operations · OMP 方法论与运维 (2 skills)
 

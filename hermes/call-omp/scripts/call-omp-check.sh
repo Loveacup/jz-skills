@@ -2,8 +2,7 @@
 # ─────────────────────────────────────────────────────────────────
 # call-omp-check.sh —— 平台发现自检（manifest discovery check）
 #
-# 校验三份平台清单（Codex / Claude Code / OMP 自调）齐全、是合法 JSON，
-# 且各自都引用了 mock-only 冒烟入口 `scripts/call-omp-smoke.sh`。
+# 校验主文档、Markdown 引用与三份平台清单（Codex / Claude Code / OMP 自调）。
 #   - 三份都在且可解析 + 都引用冒烟脚本 → 退出 0；
 #   - 任一缺失 / 非法 JSON / 未引用冒烟脚本 → 非零。
 #
@@ -26,6 +25,10 @@ MANIFESTS=(
 )
 
 rc=0
+SKILL_VERSION=$(awk -F': *' '/^version:/ {print $2; exit}' "$ROOT/SKILL.md")
+SKILL_LINES=$(wc -l < "$ROOT/SKILL.md" | tr -d ' ')
+if [[ -z "$SKILL_VERSION" ]]; then echo "❌ SKILL.md 缺 version"; rc=1; fi
+if [[ "$SKILL_LINES" -gt 300 ]]; then echo "❌ SKILL.md ${SKILL_LINES} 行（须 ≤300）"; rc=1; else echo "✅ SKILL.md ${SKILL_LINES} 行"; fi
 for entry in "${MANIFESTS[@]}"; do
   platform="${entry%%:*}"
   rel="${entry#*:}"
@@ -49,8 +52,34 @@ for entry in "${MANIFESTS[@]}"; do
     continue
   fi
 
-  echo "✅ [$platform] $rel 齐全 · 合法 JSON · 引用 $SMOKE_REF"
+  manifest_version=$(jq -r '.version // ""' "$path")
+  if [[ "$manifest_version" != "$SKILL_VERSION" ]]; then
+    echo "❌ [$platform] version=$manifest_version，与 SKILL.md $SKILL_VERSION 不一致"
+    rc=1
+    continue
+  fi
+
+  echo "✅ [$platform] $rel 齐全 · version=$manifest_version · 引用 $SMOKE_REF"
 done
+
+if ! python3 - "$ROOT" <<'PY'
+from pathlib import Path
+import re, sys
+root = Path(sys.argv[1])
+broken = []
+for doc in [root / 'SKILL.md', root / 'references' / 'INDEX.md']:
+    text = doc.read_text()
+    for target in re.findall(r'\]\(([^)]+\.md)(?:#[^)]+)?\)', text):
+        if not (doc.parent / target).resolve().is_file():
+            broken.append(f'{doc.relative_to(root)} -> {target}')
+if broken:
+    print('❌ Markdown 断链: ' + '; '.join(broken))
+    raise SystemExit(1)
+print('✅ SKILL.md / references/INDEX.md Markdown 链接完整')
+PY
+then
+  rc=1
+fi
 
 if [[ $rc -eq 0 ]]; then
   echo "── 三份平台清单全部就位，call-omp 可被 Codex / Claude Code / OMP 自调发现。"

@@ -54,6 +54,7 @@ done
 [[ -n "$STATE" && -r "$STATE" ]] || { echo "omp-monitor: 读不到状态文件（--state/--task-id）" >&2; exit 3; }
 
 TASK_ID=$(jq -r '.task_id' "$STATE")
+require_task_id "$TASK_ID" || exit 3
 # 自动检测 mode（用于 execute 跳过 JSON 校验）
 if [[ -z "$MONITOR_MODE" ]]; then
   MONITOR_MODE=$(jq -r '.package.mode // ""' "$STATE")
@@ -61,8 +62,12 @@ if [[ -z "$MONITOR_MODE" ]]; then
 fi
 STATUS=$(jq -r '.status' "$STATE")
 RAW=$(jq -r '.run.raw_output // empty' "$STATE")
+EXPECTED_RAW=$(raw_path "$TASK_ID")
+[[ -z "$RAW" || "$RAW" == "$EXPECTED_RAW" ]] || { echo "omp-monitor: state raw_output 非规范路径" >&2; exit 3; }
+RAW="$EXPECTED_RAW"
 PID=$(jq -r '.run.pid // empty' "$STATE")
 EC=$(jq -r '.run.exit_code // empty' "$STATE")
+RUN_MODE=$(jq -r '.run.mode // empty' "$STATE")
 CHANNEL_USED=$(jq -r '.run.channel_used // ""' "$STATE")
 RPC_PID=$(jq -r '.run.rpc_pid // empty' "$STATE")
 TSL=$(jq -r '.run.turn_start_line // 0' "$STATE")
@@ -180,6 +185,19 @@ if [[ -n "$PID" && "$STATUS" == "running" ]] && kill -0 "$PID" 2>/dev/null; then
   exit 0
 fi
 
+# Shell async 由后台 wrapper 把真实退出码写到 sidecar；进程已结束但 sidecar 缺失也必须失败关闭。
+if [[ "$RUN_MODE" == "async" && -z "$EC" ]]; then
+  if [[ -s "$RAW.exit" ]]; then
+    EC=$(tr -d '[:space:]' < "$RAW.exit")
+    [[ "$EC" =~ ^[0-9]+$ ]] || EC=125
+    update_state ".run.exit_code=$EC"
+  else
+    update_state ".status=\"rejected\" | .run.exit_code=125 | .monitor={checked_at:\"$(now_iso)\",issues:[\"async 退出码 sidecar 缺失\"]}"
+    echo "🚫 omp-monitor: async 进程已结束但退出码未知 → status=rejected" >&2
+    exit 2
+  fi
+fi
+
 # ── 完成：raw 须存在非空 ──
 if [[ ! -s "$RAW" ]]; then
   update_state ".status=\"rejected\" | .monitor={checked_at:\"$(now_iso)\",issues:[\"raw 缺失或空\"]}"
@@ -249,13 +267,13 @@ fi
 fi  # end of execute skip
 # ── stopReason / 退出码（同步有 EC；async 用 turn_end 兜底）──
 STOP=$(jsonl_stop_reason "$RAW"); [[ -z "$STOP" ]] && STOP="unknown"
+if [[ "$STOP" != "stop" ]]; then
+  ISSUES+=("OMP 未正常收尾：stopReason=${STOP}（须 stop）"); REJECT=true; EXITCODE=2
+  [[ -z "$FAILSTAGE" ]] && FAILSTAGE="stop_reason"
+fi
 if [[ -n "$EC" && "$EC" != "null" && "$EC" -ne 0 ]]; then
-  if [[ "$MONITOR_MODE" == "execute" ]]; then
-    ISSUES+=("omp 退出码非 0（${EC}）— execute 模式仍接受"); STOP="error"
-  else
-    ISSUES+=("omp 退出码非 0（${EC}）"); REJECT=true; [[ $EXITCODE -eq 0 ]] && EXITCODE=2
-    [[ -z "$FAILSTAGE" ]] && FAILSTAGE="exit_code"
-  fi
+  ISSUES+=("omp 退出码非 0（${EC}）"); REJECT=true; [[ $EXITCODE -eq 0 ]] && EXITCODE=2
+  [[ -z "$FAILSTAGE" ]] && FAILSTAGE="exit_code"
 fi
 
 # ── Package C：拒绝且非 execute → 构建紧凑诊断（capped，绝不回吐 raw）──
@@ -301,7 +319,6 @@ fi
 
 # ── execute 模式：设置默认值后再写 MON ──
 if [[ "$MONITOR_MODE" == "execute" ]]; then
-  REJECT=false
   SEV="completed"
   SEV_VALID=true
   SUMMARY="$(jsonl_final_text "$RAW" | head -c 160)"

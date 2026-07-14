@@ -2,6 +2,22 @@
 
 > 本文档从 `SKILL.md` 拆分，用于保存版本历史；`SKILL.md` 仅保留当前使用说明与操作约束。
 
+### v0.8.0（2026-07-14）— Fail-closed 安全加固与主文档重构
+
+- 修复 `govern:clean|deep-clean|sql` 与 danger gate 模式不一致导致的 scope/rollback 绕过。
+- 三种 govern 写模式强制 high risk + 非空白 scope/rollback；因 OMP 工具层不能硬约束路径，`--allow-write` 暂时隔离停用。
+- OMP 非零退出、最后 `stopReason != stop`、截断输出统一拒绝；execute 不再例外接受。
+- `task_id` 收紧为 `[A-Za-z0-9][A-Za-z0-9._-]{0,127}`，路径 helper 与所有入口 fail-closed。
+- 测试使用隔离 `OMP_TMPDIR` 和 mock `OMP_BIN`，不再移动真实 manifest、修改脚本权限或宽泛 `pkill -f`；新增 hot-path hash 比对。
+- 默认通道明确为 RPC；ACP 标记为实验性，兼容基线更新为 OMP 16.3.2。
+- `SKILL.md` 压缩为当前合同，增加顶部 Red Flags、末尾 Verification Checklist 与 reference 索引。
+- 补齐 gateway rescue / plist env 两份缺失 reference；旧主文档完整迁入 historical reference。
+- 三个平台 manifest 版本统一为 0.8.0。
+
+### v0.7.17–v0.7.20（2026-07-08 至 2026-07-14）— 运行时迭代（合并记录）
+
+这些版本曾只存在于本地运行副本，未形成独立 GitHub 发布记录；主要包含 ACP 方言探针、平台发现 manifest、bundle-only runaway 保护和历史事故文档。其最终有效能力、修复与兼容口径已统一收敛到 v0.8.0；不再把该区间视为独立可部署版本。
+
 ### v0.7.16（2026-07-08）— WRR P3-1 小型修复审计：raw 膨胀 + watch 超时 + Hermes override
 
 WRR P3-1 后审只改 2 个文件，但证据包塞了完整 `pytest tests/unit -q` 输出，导致 OMP raw 从 24MB 膨胀到 52MB+，`omp-monitor --watch` 240s 超时未完成。本版补齐小型修复审计的最佳实践和超时后的降级流程。

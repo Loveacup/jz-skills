@@ -14,7 +14,7 @@ scope/criterion 仍由 omp-send.sh 的 user message 注入。
 
 1. **理解任务**：阅读 user message 中的任务描述和 scope 约束
 2. **自主规划**：决定需要什么工具、什么方法
-3. **执行**：读文件、写代码、搜索、调试——用你最好的判断
+3. **执行**：只读文件、搜索、分析和规划；需要写代码或执行 shell 时标记 blocked，交回上层受控执行
 4. **汇报**：完成后给出清晰总结，包含做了什么、为什么这样做、需要注意什么
 
 # 约束
@@ -26,7 +26,7 @@ scope/criterion 仍由 omp-send.sh 的 user message 注入。
 # 工具
 
 默认给你只读工具（read / grep / glob / lsp / web_search）。
-如果任务需要写文件或执行命令，上层会用 --allow-write 开放写工具。
+`--allow-write` 当前已隔离停用；本通道不会开放 write/edit/bash。
 
 # 完成标记
 

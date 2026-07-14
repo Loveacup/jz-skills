@@ -46,6 +46,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 [[ -n "$TASK_ID" ]] || { echo "gate-counter: 缺 --task-id" >&2; exit 3; }
+[[ ${#TASK_ID} -le 128 && "$TASK_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || { echo "gate-counter: 非法 task_id" >&2; exit 3; }
 [[ "$RL" =~ ^[0-9]+$ && "$JL" =~ ^[0-9]+$ ]] || { echo "gate-counter: limit 须为非负整数" >&2; exit 3; }
 
 FILE="$OMP_TMPDIR/omp-counter-${TASK_ID}.json"

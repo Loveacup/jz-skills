@@ -96,23 +96,32 @@ if [[ "$MODE" == "package" ]]; then
     < <(jq -rc '.risk.dangerous_modes[]? // empty' "$FILE" 2>/dev/null || true)
 
   is_gov_danger=0
-  case "$pkg_mode" in clean|deep-clean|sql) is_gov_danger=1; DMODES+=("$pkg_mode") ;; esac
+  case "$pkg_mode" in
+    govern:clean|govern:deep-clean|govern:sql)
+      is_gov_danger=1
+      DMODES+=("${pkg_mode#govern:}")
+      ;;
+  esac
   [[ ${#decl_dmodes[@]} -gt 0 ]] && DMODES+=("${decl_dmodes[@]}")
   has_danger=0
   { [[ "$is_gov_danger" -eq 1 ]] || [[ ${#decl_dmodes[@]} -gt 0 ]] || [[ "$level" == "high" ]]; } && has_danger=1
 
-  # ① 危险任务必须有 scope（allowed_paths 非空 或 cwd 非空）
+  # ① 任意危险任务必须有 scope；三种 govern 写模式还必须 high + rollback。
   if [[ "$has_danger" -eq 1 ]]; then
-    scope_ok=$(jq -rc 'if ((.scope.allowed_paths|type=="array" and length>0) or ((.scope.cwd // "")!="")) then "1" else "0" end' "$FILE")
+    scope_ok=$(jq -rc '
+      def nonblank: type=="string" and (gsub("[[:space:]]";"")|length)>0;
+      if (((.scope.allowed_paths // []) | any(nonblank)) or ((.scope.cwd // "") | nonblank)) then "1" else "0" end' "$FILE")
     [[ "$scope_ok" == "1" ]] || REASONS+=("危险任务缺 scope（allowed_paths/cwd 均空）")
   fi
-  # ② clean/deep-clean/sql 必须有 rollback
   if [[ "$is_gov_danger" -eq 1 ]]; then
-    rb=$(jq -rc '(.risk.rollback // .rollback // "")' "$FILE")
+    rb=$(jq -rc '(.risk.rollback // .rollback // "") | if type=="string" then gsub("^[[:space:]]+|[[:space:]]+$";"") else "" end' "$FILE")
     [[ -n "$rb" ]] || REASONS+=("$pkg_mode 模式缺 rollback 描述")
+    [[ "$level" == "high" ]] || REASONS+=("$pkg_mode 模式 risk.level 须为 high")
   fi
   # ③ 全文扫描破坏性命令 + 凭据
-  content=$(jq -rc '.' "$FILE")
+  # Structural mode declarations such as govern:deep-clean are not prompt content.
+  # Scan the executable/task payload while excluding the mode fields that the gate already handles explicitly.
+  content=$(jq -rc 'del(.mode, .risk.dangerous_modes)' "$FILE")
   scan_destructive "$content"
   scan_sensitive "$content"
 else

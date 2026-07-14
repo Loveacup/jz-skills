@@ -35,12 +35,19 @@ now_iso() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 # ── now_epoch ─ 当前 epoch 秒 ──────────────────────────────────────
 now_epoch() { date +%s; }
 
-# ── 路径约定（全部基于 OMP_TMPDIR，单一来源）─────────────────────────
-state_path()    { echo "$OMP_TMPDIR/omp-state-$1.json"; }
-raw_path()      { echo "$OMP_TMPDIR/omp-raw-$1.json"; }     # omp --mode json 原始 JSONL
-prompt_path()   { echo "$OMP_TMPDIR/omp-prompt-$1.txt"; }   # 渲染后的 prompt（落盘，避免命令行超长）
-counter_path()  { echo "$OMP_TMPDIR/omp-counter-$1.json"; }
-archive_dir()   { echo "$OMP_TMPDIR/omp-archive/$1"; }
+# ── task_id / 路径约定（全部基于 OMP_TMPDIR，单一来源）──────────────
+validate_task_id() {
+  local id="${1:-}"
+  [[ -n "$id" && ${#id} -le 128 && "$id" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]
+}
+require_task_id() {
+  validate_task_id "${1:-}" || { echo "call-omp: 非法 task_id（须匹配 [A-Za-z0-9][A-Za-z0-9._-]{0,127}）" >&2; return 3; }
+}
+state_path()    { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-state-$1.json"; }
+raw_path()      { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-raw-$1.json"; }     # omp --mode json 原始 JSONL
+prompt_path()   { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-prompt-$1.txt"; }   # 渲染后的 prompt（落盘，避免命令行超长）
+counter_path()  { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-counter-$1.json"; }
+archive_dir()   { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-archive/$1"; }
 
 # ── omp_available ─ omp CLI 是否可用（0=可用，非 0=不可用）──────────
 # 不假设 omp 已装；channel 降级判断的唯一入口。
@@ -214,7 +221,7 @@ warn() { echo "omp: $*" >&2; }
 #   响应：stdout 每 turn 的 JSONL（turn_start..turn_end/agent_end），持续连接多 turn 复用。
 # fifo 写端要靠 holder 进程（sleep）保持打开，否则 daemon 读到 EOF 自退。
 
-fifo_path()   { echo "$OMP_TMPDIR/omp-rpc-$1.fifo"; }
+fifo_path()   { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-rpc-$1.fifo"; }
 
 # rpc_daemon_alive <pid> ─ daemon 进程存活？（0=活）
 rpc_daemon_alive() { [[ -n "${1:-}" && "${1:-}" != "null" ]] && kill -0 "$1" 2>/dev/null; }
@@ -230,15 +237,15 @@ rpc_wait_ready() {
   return 1
 }
 
-# rpc_turn_done <raw> <start_line> ─ start_line 之后是否出现 stopReason=stop 的 turn_end（0=本轮完成）
+# rpc_turn_done <raw> <start_line> ─ start_line 之后是否出现非 toolUse 的终态 turn_end（0=本轮结束）
 # RPC 一个 prompt 常产生多 turn：中间 toolUse turn（stopReason=toolUse，content 含 toolCall）
-# + 最终文本 turn（stopReason=stop，content 含 text）。必须等 stop 才算完成——只看 turn_end
-# 会在 tool turn 处误判，导致提取不到最终审计文本。start_line = 发 prompt 前 raw 行数（marker）。
+# + 最终文本 turn（正常为 stop；也可能 maxTokens/aborted/error）。toolUse 继续等待，其余交给 monitor fail-closed。
 rpc_turn_done() {
   local raw="$1" start="${2:-0}"
   [[ -f "$raw" ]] || return 1
   tail -n "+$((start + 1))" "$raw" 2>/dev/null \
-    | jq -rc 'select(.type=="turn_end")|.message.stopReason // empty' 2>/dev/null | grep -q '^stop$'
+    | jq -rc 'select(.type=="turn_end")|(.message.stopReason // .stopReason // empty)' 2>/dev/null \
+    | grep -Ev '^(toolUse)?$' >/dev/null
 }
 
 # rpc_stop <task_id> <daemon_pid> <holder_pid> ─ 关 daemon+holder、删 fifo（幂等）

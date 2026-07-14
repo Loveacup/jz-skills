@@ -2,28 +2,28 @@
 # ─────────────────────────────────────────────────────────────────
 # omp-send.sh —— 四步②：渲染 OMP prompt 并按通道调用 omp
 #
-# 通道优先级（v0.3.0）：ACP（终局首选）> RPC（过渡备选）> Shell（降级保底）。
+# 通道策略（v0.8.0）：RPC 默认 > Shell bounded fallback > ACP 显式实验通道。
 #   RPC   : omp --mode rpc 持续连接（NDJSON stdio）；daemon 常驻、fifo 发 prompt、stdout 落盘。
 #           天然异步——发 prompt 立即返回，omp-monitor 轮询 turn_end + daemon 心跳。
 #   Shell : omp -p --mode json 单次进程（同步/--async）。RPC 启动/就绪失败时自动降级到此。
-#   ACP   : delegate_task(acp_command='omp') 终局路径。omp-send 渲染 prompt、写 state、\n#           output 指导 Hermes 调用 delegate_task；实现见 §3。
+#   ACP   : 仅在宿主确实提供 ACP adapter 时显式启用；先跑 probe，不假设 delegate_task 支持。
 #
-# 真实接口（v16.2.2 实测）：
+# 兼容基线 v16.3.2；RPC/Shell 形态最早在 v16.2.2 实测：
 #   RPC  : omp --mode rpc --append-system-prompt <模板> --no-session --tools <白名单> [--cwd][--advisor]
 #          stdin: {"type":"prompt","message":"<任务正文>"}  → stdout: 每 turn JSONL（…turn_end）
 #   Shell: omp -p --mode json --no-session --max-time N --tools <白名单> [--cwd][--advisor]
 #          --append-system-prompt <模板> "<任务正文>"
 #   两通道输出同构 JSONL，由 omp-monitor.sh 双层解析（传输层 jq + 应用层内层 JSON）。
 #
-# 安全默认：只读工具白名单 read,grep,glob,lsp,web_search；放开写需 --allow-write。
+# 安全默认：只读工具白名单 read,grep,glob,lsp,web_search；--allow-write 当前隔离停用。
 #
 # 参数：
 #   --state <file>     omp-start.sh 写的状态文件（必填）
-#   --channel rpc|shell  覆盖委派包通道（默认用委派包 .channel；start 默认 rpc）
+#   --channel rpc|shell|acp  覆盖委派包通道（默认用委派包 .channel；start 默认 rpc）
 #   --max-time <N>     超时秒数（shell=omp --max-time；rpc=holder 存活上限）（默认 300）
 #   --async            Shell 通道后台跑（rpc 本就异步，此 flag 对 rpc 无意义）
 #   --advisor          附加 omp --advisor（实测 print/rpc 下不注入额外结构，语义见 references）
-#   --allow-write      放开写工具白名单（危险；仅 govern:clean/deep-clean/sql + rollback 时）
+#   --allow-write      已隔离停用；始终 exit 2，不开放 write/edit/bash
 #   --no-auto-approve  关闭 --auto-approve（默认开；只读白名单下安全）
 #   --no-fallback      RPC 失败时不降级 Shell（直接报错，便于诊断）
 #   --auto-skills      自动路由：审计/审查/架构类任务加载 stdd-omp（默认关）
@@ -65,8 +65,9 @@ done
 
 PKG=$(jq -c '.package' "$STATE")
 TASK_ID=$(jq -r '.task_id' "$STATE")
+require_task_id "$TASK_ID" || exit 3
 STATUS=$(jq -r '.status' "$STATE")
-CHANNEL=$(jq -r '.channel // "acp"' "$STATE")
+CHANNEL=$(jq -r '.channel // "rpc"' "$STATE")
 [[ -n "$CH_OVERRIDE" ]] && CHANNEL="$CH_OVERRIDE"
 [[ "$STATUS" == "gated" ]] || { echo "omp-send: status=${STATUS}（需 gated 才能发送；先过 omp-start）" >&2; exit 2; }
 
@@ -174,7 +175,10 @@ EOF
 
 # ── 工具白名单 ──
 TOOLS="read,grep,glob,lsp,web_search"
-if $ALLOW_WRITE; then TOOLS="read,grep,glob,lsp,web_search,write,edit,bash"; fi
+if $ALLOW_WRITE; then
+  echo "omp-send: --allow-write 已隔离停用：当前 OMP 工具层不能硬约束 allowed_paths，禁止自动开放 write/edit/bash" >&2
+  exit 2
+fi
 
 RAW="$(raw_path "$TASK_ID")"; PROMPT="$(prompt_path "$TASK_ID")"
 printf '%s\n' "$USER_MSG" | atomic_write "$PROMPT"
@@ -208,9 +212,12 @@ shell_send() {
   args+=(--append-system-prompt "$SYS" "$USER_MSG")
   update_state ".status=\"running\" | .run.channel_used=\"shell\" | .run.raw_output=\"$RAW\" | .run.started_at=\"$(now_iso)\" | .run.round=$ROUND"
   if $ASYNC; then
+    rm -f "$RAW.exit"
     if command -v perl >/dev/null 2>&1; then
-      ( perl -e 'alarm shift; exec @ARGV or exit 127' "$((MAXTIME + 30))" "$OMP_BIN" "${args[@]}" >"$RAW" 2>"$RAW.err" </dev/null ) &
-    else ( "$OMP_BIN" "${args[@]}" >"$RAW" 2>"$RAW.err" </dev/null ) & fi
+      ( set +e; perl -e 'alarm shift; exec @ARGV or exit 127' "$((MAXTIME + 30))" "$OMP_BIN" "${args[@]}" >"$RAW" 2>"$RAW.err" </dev/null; _ec=$?; printf '%s\n' "$_ec" | atomic_write "$RAW.exit" ) &
+    else
+      ( set +e; "$OMP_BIN" "${args[@]}" >"$RAW" 2>"$RAW.err" </dev/null; _ec=$?; printf '%s\n' "$_ec" | atomic_write "$RAW.exit" ) &
+    fi
     local pid=$!; disown 2>/dev/null || true
     update_state ".run.pid=$pid | .run.mode=\"async\""
     echo "===📋 BEGIN omp-send shell --async (relay verbatim)==="

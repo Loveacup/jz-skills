@@ -41,6 +41,7 @@ LINES=""; APPLIED=0
 del_task_files() {  # 删某 task_id 的全部 /tmp 工作文件（不含归档）
   local id="$1"
   rm -f "$(state_path "$id")" "$(raw_path "$id")" "$(raw_path "$id").err" \
+        "$(raw_path "$id").exit" \
         "$(prompt_path "$id")" "$(counter_path "$id")" \
         "$OMP_TMPDIR/omp-pkg-${id}.json" "$OMP_TMPDIR/omp-verdict-${id}.yaml" "$(fifo_path "$id")" 2>/dev/null || true
 }
@@ -51,6 +52,10 @@ for sf in "$OMP_TMPDIR"/omp-state-*.json; do
   TOTAL=$((TOTAL+1))
   id=$(jq -r '.task_id // empty' "$sf" 2>/dev/null || echo "")
   [[ -z "$id" ]] && { id=$(basename "$sf" .json); id="${id#omp-state-}"; }
+  if ! validate_task_id "$id"; then
+    LINES="${LINES}  🚫 unsafe   $(basename "$sf")（非法 task_id，跳过）"$'\n'
+    continue
+  fi
   status=$(jq -r '.status // "?"' "$sf" 2>/dev/null || echo "?")
   pid=$(jq -r '.run.pid // .run.rpc_pid // empty' "$sf" 2>/dev/null || echo "")
   age=$(( NOW - $(get_mtime "$sf") ))
@@ -99,6 +104,10 @@ for f in "$OMP_TMPDIR"/omp-raw-*.json "$OMP_TMPDIR"/omp-prompt-*.txt \
   b=$(basename "$f")
   id="$b"; id="${id#omp-raw-}"; id="${id#omp-prompt-}"; id="${id#omp-pkg-}"
   id="${id#omp-counter-}"; id="${id#omp-verdict-}"; id="${id%.json}"; id="${id%.txt}"; id="${id%.yaml}"
+  if ! validate_task_id "$id"; then
+    LINES="${LINES}  🚫 unsafe   ${b}（非法 task_id，跳过）"$'\n'
+    continue
+  fi
   [[ -f "$(state_path "$id")" ]] && continue   # 有主，不算孤儿
   age=$(( NOW - $(get_mtime "$f") )); ageh=$(( age / 3600 ))
   ORPHAN=$((ORPHAN+1))

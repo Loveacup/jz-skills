@@ -61,7 +61,7 @@ if [[ "$MODE" == "package" ]]; then
   #   - output 须 json + evidence_required
   set +e
   missing=$(jq -c '
-    [ (if (.task_id // "")     =="" then "task_id" else empty end),
+    [ (if ((.task_id // "") | test("^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$") | not) then "task_id(invalid)" else empty end),
       (if (.mode // "")        =="" then "mode" else empty end),
       (if (.task // "")        =="" then "task" else empty end),
       (if (.scope|type)        !="object" then "scope" else empty end),
@@ -91,6 +91,10 @@ fi
 if [[ ! -s "$FILE" ]]; then emit false "OMP 输出为空" "[]"; exit 1; fi
 if ! grep -q '"type":"turn_end"' "$FILE" 2>/dev/null; then
   emit false "OMP 输出无 turn_end 终结事件（未收尾/截断/超时/非 --mode json）" "[]"; exit 1
+fi
+last_stop=$(jq -r 'select(.type=="turn_end") | (.message.stopReason // .stopReason // "")' "$FILE" 2>/dev/null | tail -1)
+if [[ "$last_stop" != "stop" ]]; then
+  emit false "OMP 最后 stopReason=${last_stop:-unknown}（须 stop）" "[]"; exit 1
 fi
 # ── 应用层①：从 assistant 最终文本抠内层审计 JSON ──
 # 逐行 select（-c 压单行，容忍 rpc 流式末行）→ tail 取最后一个 → jq -r 解码回多行文本。

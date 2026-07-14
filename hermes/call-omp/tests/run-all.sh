@@ -13,7 +13,8 @@ SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"; S="$SKILL_DIR/scripts"
 TD="${TMPDIR:-/tmp}/omp-selftest-$$"; rm -rf "$TD"; mkdir -p "$TD"
 export OMP_TMPDIR="$TD"
 trap 'rm -rf "$TD"' EXIT
-chmod +x "$S"/*.sh "$S"/gate/*.sh 2>/dev/null
+HOT_START_BEFORE=$(shasum "$S/omp-start.sh" | awk '{print $1}')
+HOT_SEND_BEFORE=$(shasum "$S/omp-send.sh" | awk '{print $1}')
 
 P=0; F=0
 chk(){ if [[ "$2" == "$3" ]]; then echo "  ✅ $1"; P=$((P+1)); else echo "  ❌ $1 exp=[$2] got=[$3]"; F=$((F+1)); fi; }
@@ -40,15 +41,25 @@ cat > "$TD/mock-slow.sh" <<'M'
 echo '{"type":"session","id":"s"}'; sleep 6; echo '{"type":"turn_end","message":{"stopReason":"stop"}}'
 M
 chmod +x "$TD"/mock-*.sh
+export OMP_BIN="$TD/mock-omp.sh"
 
 GP='{"channel":"shell","mode":"audit","task":"审查 auth","scope":{"allowed_paths":["src/auth"],"denied_paths":[],"cwd":"/tmp/repo"},"criterion":["SQL 参数化"],"threshold":{"round_limit":3,"reject_limit":2},"risk":{"level":"low","dangerous_modes":[]},"auditor":{"required":true,"independence_level":"independent_readonly"},"output":{"format":"json","evidence_required":true}}'
-mkpkg(){ echo "$GP" | jq "$1"; }
+mkpkg(){ echo "$GP" | jq "$@"; }
 
 echo "═══ 1. gate-verify ═══"
 mkpkg '.task_id="t-ok"' > "$TD/pkg-ok.json"
 bash "$S/gate/gate-verify.sh" --mode package --file "$TD/pkg-ok.json" >/dev/null 2>&1; chk "package 齐全→0" 0 $?
 mkpkg '.task_id="t-ok"|.criterion=[]' > "$TD/pkg-noc.json"
 bash "$S/gate/gate-verify.sh" --mode package --file "$TD/pkg-noc.json" >/dev/null 2>&1; chk "缺 criterion→1" 1 $?
+for bad_id in '../escape' '/abs' 'a/b'; do
+  mkpkg --arg id "$bad_id" '.task_id=$id' > "$TD/pkg-bad-id.json"
+  bash "$S/gate/gate-verify.sh" --mode package --file "$TD/pkg-bad-id.json" >/dev/null 2>&1; chk "非法 task_id=${bad_id}→1" 1 $?
+  bash "$S/omp-start.sh" --mode execute --channel acp --task x --task-id "$bad_id" >/dev/null 2>&1; chk "start 拒绝 task_id=${bad_id}→3" 3 $?
+  bash "$S/gate/gate-counter.sh" --task-id "$bad_id" --inc-round >/dev/null 2>&1; chk "counter 拒绝 task_id=${bad_id}→3" 3 $?
+done
+LONG_ID=$(printf 'a%.0s' {1..129})
+mkpkg --arg id "$LONG_ID" '.task_id=$id' > "$TD/pkg-long-id.json"
+bash "$S/gate/gate-verify.sh" --mode package --file "$TD/pkg-long-id.json" >/dev/null 2>&1; chk "129字符 task_id→1" 1 $?
 "$TD/mock-omp.sh" > "$TD/raw-ok.json"
 bash "$S/gate/gate-verify.sh" --mode output --file "$TD/raw-ok.json" >/dev/null 2>&1; chk "output 有 evidence→0" 0 $?
 "$TD/mock-noev.sh" > "$TD/raw-noev.json"
@@ -56,10 +67,16 @@ bash "$S/gate/gate-verify.sh" --mode output --file "$TD/raw-noev.json" >/dev/nul
 
 echo "═══ 2. gate-danger ═══"
 bash "$S/gate/gate-danger.sh" --mode package --file "$TD/pkg-ok.json" >/dev/null 2>&1; chk "安全包→0" 0 $?
-mkpkg '.mode="clean"|.risk={level:"high",dangerous_modes:["clean"]}' > "$TD/pkg-cl.json"
-bash "$S/gate/gate-danger.sh" --mode package --file "$TD/pkg-cl.json" >/dev/null 2>&1; chk "clean 无 rollback→10" 10 $?
-mkpkg '.mode="clean"|.risk={level:"high",dangerous_modes:["clean"],rollback:"pg_dump 备份"}' > "$TD/pkg-clok.json"
-bash "$S/gate/gate-danger.sh" --mode package --file "$TD/pkg-clok.json" >/dev/null 2>&1; chk "clean 有 rollback→0" 0 $?
+for gm in clean deep-clean sql; do
+  mkpkg ".mode=\"govern:$gm\"|.scope={allowed_paths:[],denied_paths:[],cwd:\"\"}|.risk={level:\"low\",dangerous_modes:[]}" > "$TD/pkg-gov-$gm-noscope.json"
+  bash "$S/gate/gate-danger.sh" --mode package --file "$TD/pkg-gov-$gm-noscope.json" >/dev/null 2>&1; chk "govern:$gm 无 scope/rollback→10" 10 $?
+  mkpkg ".mode=\"govern:$gm\"|.scope.cwd=\"/tmp/repo\"|.risk={level:\"high\",dangerous_modes:[],rollback:\"restore backup\"}" > "$TD/pkg-gov-$gm-ok.json"
+  bash "$S/gate/gate-danger.sh" --mode package --file "$TD/pkg-gov-$gm-ok.json" >/dev/null 2>&1; chk "govern:$gm 有 scope+rollback→0" 0 $?
+  mkpkg ".mode=\"govern:$gm\"|.scope.cwd=\"/tmp/repo\"|.risk={level:\"low\",dangerous_modes:[],rollback:\"restore backup\"}" > "$TD/pkg-gov-$gm-low.json"
+  bash "$S/gate/gate-danger.sh" --mode package --file "$TD/pkg-gov-$gm-low.json" >/dev/null 2>&1; chk "govern:$gm risk=low→10" 10 $?
+done
+mkpkg '.mode="govern:clean"|.scope={allowed_paths:[""],denied_paths:[],cwd:" "}|.risk={level:"high",dangerous_modes:[],rollback:"   "}' > "$TD/pkg-gov-blank.json"
+bash "$S/gate/gate-danger.sh" --mode package --file "$TD/pkg-gov-blank.json" >/dev/null 2>&1; chk "govern 空白 scope/rollback→10" 10 $?
 bash "$S/gate/gate-danger.sh" --mode prompt --scan-text "rm -rf /data" >/dev/null 2>&1; chk "prompt rm-rf→10" 10 $?
 bash "$S/gate/gate-danger.sh" --mode prompt --scan-text "password: hunter2abc" >/dev/null 2>&1; chk "凭据→10" 10 $?
 
@@ -152,6 +169,20 @@ RDPID=$(jq -r .run.rpc_pid "$TD/omp-state-rpc1.json")
 bash "$S/omp-finish.sh" --state "$TD/omp-state-rpc1.json" --human-review >/dev/null 2>&1
 chk "rpc finish 停 daemon" stopped "$(kill -0 "$RDPID" 2>/dev/null && echo alive || echo stopped)"
 
+cat > "$TD/mock-rpc-aborted.sh" <<'M'
+#!/usr/bin/env bash
+echo '{"type":"ready"}'
+while IFS= read -r _l; do
+  printf '%s\n' '{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"aborted"}]}}' '{"type":"turn_end","message":{"stopReason":"aborted"}}'
+done
+M
+chmod +x "$TD/mock-rpc-aborted.sh"
+echo "$GP" | jq '.channel="rpc"' | bash "$S/omp-start.sh" --package-json - --task-id rpcabort >/dev/null 2>&1
+OMP_BIN="$TD/mock-rpc-aborted.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-rpcabort.json" --max-time 30 >/dev/null 2>&1
+bash "$S/omp-monitor.sh" --state "$TD/omp-state-rpcabort.json" >/dev/null 2>&1; chk "rpc aborted 立即拒绝→2" 2 $?
+chk "  rpc aborted rejected" rejected "$(jq -r .status "$TD/omp-state-rpcabort.json")"
+bash "$S/omp-finish.sh" --state "$TD/omp-state-rpcabort.json" --human-review >/dev/null 2>&1
+
 echo "═══ 11. RPC→Shell 降级（rpc daemon 不就绪）═══"
 cat > "$TD/mock-degrade.sh" <<'M'
 #!/usr/bin/env bash
@@ -171,24 +202,22 @@ echo "$GP" | jq '.channel="acp"' | bash "$S/omp-start.sh" --package-json - --tas
 OMP_BIN="$TD/mock-rpc.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-acp1.json" >/dev/null 2>&1; chk "acp send→0（pending_acp）" 0 $?
 chk "acp status=pending_acp" pending_acp "$(jq -r '.status' "$TD/omp-state-acp1.json")"
 chk "acp channel_used=acp" acp "$(jq -r '.run.channel_used' "$TD/omp-state-acp1.json")"
-pkill -f "mock-rpc.sh" 2>/dev/null; pkill -f "mock-degrade.sh" 2>/dev/null
-
 # ════ 13. --watch 模式（v0.5.0 STDD 修复）══════════════════════════
 echo "═══ 13. --watch 模式 ═══"
 
 # Setup mock state (ACP channel, so --watch should reject)
-cat > /tmp/omp-test-state.json << 'STATEEOF'
-{"task_id":"test-watch","status":"running","run":{"channel_used":"acp","raw_output":"/tmp/omp-test-raw.json","max_time":300}}
+cat > "$TD/omp-test-state.json" << STATEEOF
+{"task_id":"test-watch","status":"running","run":{"channel_used":"acp","raw_output":"$TD/omp-raw-test-watch.json","max_time":300}}
 STATEEOF
 
 # 13a: ACP 拒绝 --watch
 echo -n "  🧪 watch-acp-reject ... "
-OUT=$(bash "$S/omp-monitor.sh" --state /tmp/omp-test-state.json --watch 2>&1) || true
+OUT=$(bash "$S/omp-monitor.sh" --state "$TD/omp-test-state.json" --watch 2>&1) || true
 if echo "$OUT" | grep -q "不支持 ACP"; then echo "✅"; else echo "❌ 未检测到 ACP 拒绝 (got: ${OUT:0:80})"; ((F++)); fi
 
 # 13b: --interval 非法值
 echo -n "  🧪 watch-bad-interval ... "
-bash "$S/omp-monitor.sh" --state /tmp/omp-test-state.json --watch --interval abc 2>/dev/null; RC=$?
+bash "$S/omp-monitor.sh" --state "$TD/omp-test-state.json" --watch --interval abc 2>/dev/null; RC=$?
 [[ $RC -eq 3 ]] && echo "✅" || { echo "❌ exit=$RC 期望 3"; ((F++)); }
 
 # 13c: --help 覆盖 --watch
@@ -314,6 +343,12 @@ bash "$S/gate/gate-verify.sh" --mode package --file "$TD/pkg-bo-ok.json" >/dev/n
 mkpkg '.task_id="t"|.auditor.independence_level="wild"' > "$TD/pkg-il.json"
 bash "$S/gate/gate-verify.sh" --mode package --file "$TD/pkg-il.json" >/dev/null 2>&1; chk "非法 independence_level→1" 1 $?
 
+# 15c-2: --allow-write 全面隔离，不开放任何写模式
+mkpkg '.task_id="aw-audit"' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
+bash "$S/omp-send.sh" --state "$TD/omp-state-aw-audit.json" --allow-write --dry-run >/dev/null 2>&1; chk "audit --allow-write→2" 2 $?
+mkpkg '.task_id="aw-clean"|.mode="govern:clean"|.scope.cwd="/tmp/repo"|.risk={level:"high",dangerous_modes:[],rollback:"restore backup"}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
+bash "$S/omp-send.sh" --state "$TD/omp-state-aw-clean.json" --allow-write --dry-run >/dev/null 2>&1; chk "govern:clean --allow-write 隔离→2" 2 $?
+
 # 15d: execute 模式端到端（空证据允许——execute 豁免证据红线）
 cat > "$TD/mock-exec.sh" <<'M'
 #!/usr/bin/env bash
@@ -328,8 +363,48 @@ chk "  状态 gated" gated "$(jq -r .status "$TD/omp-state-ex1.json")"
 OMP_BIN="$TD/mock-exec.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-ex1.json" >/dev/null 2>&1; chk "execute send→0" 0 $?
 bash "$S/omp-monitor.sh" --state "$TD/omp-state-ex1.json" >/dev/null 2>&1; chk "execute monitor→reported" 0 $?
 chk "  状态 reported" reported "$(jq -r .status "$TD/omp-state-ex1.json")"
+jq '.run.exit_code=7' "$TD/omp-state-ex1.json" > "$TD/ex1-tmp.json" && mv "$TD/ex1-tmp.json" "$TD/omp-state-ex1.json"
+bash "$S/omp-finish.sh" --state "$TD/omp-state-ex1.json" --accept >/dev/null 2>&1; chk "finish 防御：reported+exit7→2" 2 $?
+jq '.run.exit_code=0' "$TD/omp-state-ex1.json" > "$TD/ex1-tmp.json" && mv "$TD/ex1-tmp.json" "$TD/omp-state-ex1.json"
 bash "$S/omp-finish.sh" --state "$TD/omp-state-ex1.json" --accept >/dev/null 2>&1; chk "execute accept 空证据→0" 0 $?
 chk "  状态 accepted" accepted "$(jq -r .status "$TD/omp-state-ex1.json")"
+printf 'keep\n' > "$TD/victim.err"; printf 'keep\n' > "$TD/victim.exit"
+jq --arg raw "$TD/victim" '.status="reported"|.run.raw_output=$raw' "$TD/omp-state-ex1.json" > "$TD/omp-state-spoof.json"
+bash "$S/omp-finish.sh" --state "$TD/omp-state-spoof.json" --accept >/dev/null 2>&1; chk "finish 拒绝非规范 raw 路径→3" 3 $?
+[[ -f "$TD/victim.err" && -f "$TD/victim.exit" ]] && chk "  spoof 路径未删除" y y || chk "  spoof 路径未删除" y n
+
+# 15e: 非终态 stopReason 与 execute 非零退出必须 fail-closed
+cat > "$TD/mock-tooluse.sh" <<'M'
+#!/usr/bin/env bash
+printf '%s\n' '{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"{\"severity\":\"pass\",\"summary\":\"partial\",\"evidence\":[{\"type\":\"reference\",\"ref\":\"x:1\"}]}"}]}}' '{"type":"turn_end","message":{"stopReason":"toolUse"}}'
+M
+cat > "$TD/mock-exec-fail.sh" <<'M'
+#!/usr/bin/env bash
+printf '%s\n' '{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"execution failed"}]}}' '{"type":"turn_end","message":{"stopReason":"stop"}}'
+exit 7
+M
+chmod +x "$TD/mock-tooluse.sh" "$TD/mock-exec-fail.sh"
+"$TD/mock-tooluse.sh" > "$TD/raw-tooluse.json"
+bash "$S/gate/gate-verify.sh" --mode output --file "$TD/raw-tooluse.json" >/dev/null 2>&1; chk "toolUse 非终态 gate→1" 1 $?
+echo "$GP" | jq '.mode="execute"|.criterion=[]' | bash "$S/omp-start.sh" --package-json - --task-id exfail >/dev/null 2>&1
+OMP_BIN="$TD/mock-exec-fail.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-exfail.json" >/dev/null 2>&1
+bash "$S/omp-monitor.sh" --state "$TD/omp-state-exfail.json" >/dev/null 2>&1; chk "execute exit7 monitor→2" 2 $?
+chk "  execute exit7 rejected" rejected "$(jq -r .status "$TD/omp-state-exfail.json")"
+bash "$S/omp-finish.sh" --state "$TD/omp-state-exfail.json" --accept >/dev/null 2>&1; chk "execute exit7 accept→2" 2 $?
+
+cat > "$TD/mock-exec-async-fail.sh" <<'M'
+#!/usr/bin/env bash
+printf '%s\n' '{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"async failed"}]}}' '{"type":"turn_end","message":{"stopReason":"stop"}}'
+exit 7
+M
+chmod +x "$TD/mock-exec-async-fail.sh"
+echo "$GP" | jq '.mode="execute"|.criterion=[]' | bash "$S/omp-start.sh" --package-json - --task-id exasyncfail >/dev/null 2>&1
+OMP_BIN="$TD/mock-exec-async-fail.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-exasyncfail.json" --async >/dev/null 2>&1
+APID=$(jq -r '.run.pid' "$TD/omp-state-exasyncfail.json")
+for _ in $(seq 1 50); do kill -0 "$APID" 2>/dev/null || break; sleep 0.1; done
+bash "$S/omp-monitor.sh" --state "$TD/omp-state-exasyncfail.json" >/dev/null 2>&1; chk "async execute exit7 monitor→2" 2 $?
+chk "  async exit code 已持久化" 7 "$(jq -r '.run.exit_code' "$TD/omp-state-exasyncfail.json")"
+chk "  async execute exit7 rejected" rejected "$(jq -r '.status' "$TD/omp-state-exasyncfail.json")"
 
 # ════ 16. Package C：紧凑诊断 compact_debug（拒绝路径落 .monitor.compact_debug，不回吐 raw）══
 echo "═══ 16. 紧凑诊断 compact_debug ═══"
@@ -450,10 +525,22 @@ grep -qi "recursion" "$OMP_MF" && chk "omp-self 清单含 recursion guard" y y |
 grep -q "scripts/call-omp-smoke.sh" "$CODEX_MF" && chk "codex 清单引用冒烟脚本" y y || chk "codex 清单引用冒烟脚本" y n
 grep -q "scripts/call-omp-smoke.sh" "$CLAUDE_MF" && chk "claude-code 清单引用冒烟脚本" y y || chk "claude-code 清单引用冒烟脚本" y n
 grep -q "scripts/call-omp-smoke.sh" "$OMP_MF" && chk "omp-self 清单引用冒烟脚本" y y || chk "omp-self 清单引用冒烟脚本" y n
-# 18g: 缺一份 → check 非零（临时移走 codex 清单再还原）
-mv "$CODEX_MF" "$TD/codex-mf.bak"
-bash "$CHECK" >/dev/null 2>&1; MISS_RC=$?
-mv "$TD/codex-mf.bak" "$CODEX_MF"
+# 18g: 缺一份 → check 非零（只操作隔离 fixture，不移动真实 manifest）
+CHECK_FIX="$TD/check-fixture"
+mkdir -p "$CHECK_FIX/scripts" "$CHECK_FIX/.codex-plugin" "$CHECK_FIX/.claude-plugin" "$CHECK_FIX/.omp-plugin"
+cp "$CHECK" "$CHECK_FIX/scripts/call-omp-check.sh"
+cp "$CODEX_MF" "$CHECK_FIX/.codex-plugin/plugin.json"
+cp "$CLAUDE_MF" "$CHECK_FIX/.claude-plugin/plugin.json"
+cp "$OMP_MF" "$CHECK_FIX/.omp-plugin/plugin.json"
+cp "$ROOT/SKILL.md" "$CHECK_FIX/SKILL.md"
+mkdir -p "$CHECK_FIX/references"
+cp "$ROOT/references/INDEX.md" "$CHECK_FIX/references/INDEX.md"
+# INDEX 里的目标也复制，确保基线失败不会被其他缺件伪造
+cp -R "$ROOT/references/." "$CHECK_FIX/references/"
+cp "$ROOT/CHANGELOG.md" "$CHECK_FIX/CHANGELOG.md"
+bash "$CHECK_FIX/scripts/call-omp-check.sh" >/dev/null 2>&1; chk "隔离 check fixture 基线→0" 0 $?
+rm -f "$CHECK_FIX/.codex-plugin/plugin.json"
+bash "$CHECK_FIX/scripts/call-omp-check.sh" >/dev/null 2>&1; MISS_RC=$?
 chk "缺清单→check 非零" nonzero "$([[ $MISS_RC -ne 0 ]] && echo nonzero || echo zero)"
 
 echo "═══ 19. OD-OMP-1 ACP smoke probe ═══"
@@ -532,12 +619,11 @@ echo "$SENT_METHODS" | jq -e '. | index("initialize")' >/dev/null 2>&1 && chk " 
 echo "$SENT_METHODS" | jq -e '. | index("session/list")' >/dev/null 2>&1 && chk "  probe_methods_sent 含 session/list" y y || chk "  probe_methods_sent 含 session/list" y n
 
 # 20h: hot-path 守护（omp-start.sh / omp-send.sh 未被此 slice 修改）
-HOT_START_HASH=$(shasum "$S/omp-start.sh" 2>/dev/null | awk '{print $1}')
-HOT_SEND_HASH=$(shasum "$S/omp-send.sh" 2>/dev/null | awk '{print $1}')
-# 这两个文件的内容在测试前后应完全一致（OD-OMP-2 只添加新脚本，不改现有 hot-path）
-# 因为是零 token 测试，我们只验证文件可读且有内容即可（实际 hash 比对需在真实 repo 做）
-[[ -s "$S/omp-start.sh" ]] && chk "  omp-start.sh 未被删除" y y || chk "  omp-start.sh 未被删除" y n
-[[ -s "$S/omp-send.sh" ]] && chk "  omp-send.sh 未被删除" y y || chk "  omp-send.sh 未被删除" y n
+HOT_START_AFTER=$(shasum "$S/omp-start.sh" 2>/dev/null | awk '{print $1}')
+HOT_SEND_AFTER=$(shasum "$S/omp-send.sh" 2>/dev/null | awk '{print $1}')
+chk "  omp-start.sh 测试前后 hash 一致" "$HOT_START_BEFORE" "$HOT_START_AFTER"
+chk "  omp-send.sh 测试前后 hash 一致" "$HOT_SEND_BEFORE" "$HOT_SEND_AFTER"
+[[ "$OMP_BIN" == "$TD/"* ]] && chk "  全局 OMP_BIN 指向隔离 mock" y y || chk "  全局 OMP_BIN 指向隔离 mock" y n
 
 echo; echo "════════ PASS=$P  FAIL=$F ════════"
 [[ $F -eq 0 ]] && exit 0 || exit 1
