@@ -15,13 +15,17 @@ description: >-
   与 cc-tmux 互补（cc-tmux 管长会话编码委派，omp 管审计/治理/工具面 + 沙箱逃生通道 + 任意 CLI 任务）。
 tags: []
 related_skills: []
-version: 0.6.9
+version: 0.7.20
 type: autonomous-ai-agents
 author: anyis (Hermes Agent Team)
 license: MIT
 ---
 
 # omp
+
+> Bundle-only 后审快速操作卡（`evidence_bundle.path`、`--out`、20MB raw 熔断、无 verdict 降级）：[`references/bundle-only-audit-gates.md`](references/bundle-only-audit-gates.md)。完整机制仍以现有 runaway/scope references 为准。
+>
+> 审计 scope 的真实路径合同（语义 `include` 会过结构 gate 但产生空可读 scope）：[`references/audit-scope-real-path-contract.md`](references/audit-scope-real-path-contract.md)。
 
 Thin skill + fat scripts：本文件只讲**何时用、怎么调、边界、坑**；gate、状态、JSONL 双层解析、
 计数、危险检测都在 `scripts/` 里（每个脚本有完整头注与 `--help`）。Hermes 负责目标拆解、风险裁决、
@@ -88,7 +92,7 @@ sleep 3
 
 # after probe
 curl -sS -o /dev/null -w "after: %{http_code}\n" --max-time 5 http://127.0.0.1:8460/health 2>&1 || echo "after: still unreachable"
-tail -10 /Users/alexcai/.hermes/logs/gateway.log | sed 's/^/  | /'
+tail -10 ~/.hermes/logs/gateway.log | sed 's/^/  | /'
 EOF
 chmod +x /tmp/omp-rescue.sh
 
@@ -336,6 +340,7 @@ scripts/omp-finish.sh --state <状态文件> --human-review   # 升级人工（�
   委派包**须带 `evidence_bundle.path`**）。证据包用只读生成器 `scripts/omp-bundle-code-audit.sh`
   （`--repo/--out/--scope/--base`）产出 `manifest.json / summary.md / file-list.txt / git-status.txt /
   diff.patch`，容忍非 git 目录，best-effort 剔除 `.env` / 密钥凭据类敏感路径，不改动被审仓库。
+  **bundle-only 的证据单位是 criterion，不是 diff**：若某项 criterion 由 HEAD 中未改动的旧测试/契约承担，必须把其 `file:line`、调用链和关键断言显式加入摘要或 source excerpt；否则 auditor 可能因只读 diff 而给出“缺测试”的假 concern。详见 `references/bundle-only-preexisting-evidence-coverage.md`。
 - **OMP 完整 CLI / execute 通道**：`mode=execute` 走 `execute-prompt-template.md`（通用执行者），
   可跑 build/test/lint/任意 shell，豁免 evidence 红线；仍走 start→send→monitor→finish 四步，不扩状态机。
 
@@ -352,6 +357,11 @@ scripts/omp-finish.sh --state <状态文件> --human-review   # 升级人工（�
 典型链路：Hermes → cc-tmux 实现 → omp 审计 → Hermes 裁决（blocker 不直接触发 cc-tmux 改，先裁决）。
 
 ## 常见坑（Pitfalls）
+
+- **合法 JSON verdict 不等于事实正确**：`severity/evidence/summary` 结构通过只证明 verdict 可解析，不证明 auditor 读全了证据。`bundle_only` concern 若声称“缺测试/缺契约”，Hermes 必须先检查 bundle 中未改动的旧测试、source excerpt 与 criterion coverage；若现有 `file:line` 已直接满足要求，应 `omp-finish --reject` 该误读 verdict，而不是为迎合 auditor 新增重复测试。若同一 evidence bundle 已出现 raw >20MB/tool-loop，再伴随一次可证伪 concern，禁止做第三次等价重试：改用 Hermes 原始命令证据 + 独立 read-only reviewer，并明确记录 OMP 本轮失败/误判。
+
+- **应用参数 `writer-provider=cli` 不等于 Codex，也不自动等于 OMP 审计**：先读 provider factory，确认默认命令和环境覆盖实际解析到哪个 CLI。若解析到 OMP，它此时是**内容生成器**；生成文本仍须由 Hermes 重跑 deterministic gate 并做人眼 QA，不能把同一生成 turn 当独立审计。fixture 通过而真实样本因临时 transcript locator 失效而 fail-closed 时，修持久化 artifact/locator，不得放宽 publish/claim/section gate。详见 `references/application-cli-writer-vs-omp-audit.md`。
+
 
 - **把 OMP 自然语言总结当证据** → 必拒；只认 evidence。
 - **`--mode json` 当单 JSON 解析** → 它是 **JSONL 事件流**；用 `omp-monitor` 提取，别 `jq .` 当单对象。
@@ -479,6 +489,8 @@ scripts/omp-finish.sh --state <状态文件> --human-review   # 升级人工（�
   **完整可用后**：`omp -p --tools bash` 跑救援脚本 / `delegate_task(acp_command='omp')`
   走 4 步状态机（start → send → delegate_task → monitor → finish）真能救活 gateway。
   v0.6.2 标注的"OMP 未配 model 走不通"边界反转：**v0.6.3 起 OMP 已配 = 沙箱逃生真工作**。
+- **🆕 OMP ≠ Claude Code（2026-07-05 用户纠正）**→ OMP 是 **Oh My Pi**（`/opt/homebrew/bin/omp`），一个独立的 CLI agent；Claude Code 是 Anthropic 的 `claude` 命令。**两者不是同一工具，不能互相替代**。常见误判：听到"OMP 审计"时调用 `claude --bg` 或 `claude -p` —— 这是错误的载体，必须回到 `omp-start.sh` → `omp-send.sh` → `omp-monitor.sh` 工作流。触发词为"OMP"时，永远先 `omp --version` 确认可用，再按 call-omp 流程走；只有在用户明确说"Claude Code 审计 / cc 审计"时才用 `claude`。
+
 - **🆕 别把 OMP 锁死成"审计/治理工具"**（v0.6.3 用户纠正）→ OMP v16.2.x（已配 model）是**完整
   CLI agent**，跟 Claude Code / Codex / 任何 agent CLI 一样能跑任意任务：build / test / lint /
   deploy / git / launchctl / 任何 shell。**call-omp skill 名字带"omp"但 OMP 本身**不只
@@ -490,6 +502,71 @@ scripts/omp-finish.sh --state <状态文件> --human-review   # 升级人工（�
   `mode` 选 `audit` 之外（实际上 audit 模式也能跑任意 shell task，**mode 是任务语义不是
   能力边界**）。**新会话规则**：用户说"用 omp / 用 OMP / 派 OMP" 不带"审计 / 治理 /
   verdict" → 90% 是通用 agent 任务，不限定 audit 模板。
+
+- **🆕 委派包 `risk` 必须是对象，不是字符串**（2026-07-05 实战）→ 我曾写成 `"risk": "low"`，导致 `gate-danger.sh` 的 jq 解析 `risk.level` 失败，gate 直接拒绝。正确写法：
+  ```json
+  "risk": {"level": "low", "dangerous_modes": []}
+  ```
+  这是 gate 契约，必须严格对象化。
+
+- **🆕 bundle_only 审计者还会越界读取相邻上下文文件（不限于 `.git/`）**（WRR P3-3 R1；P6-R wrapper audit）：即使 evidence_bundle 已预填 `git diff --name-only`，OMP 为理解完整上下文仍会读取不在 allowed_paths 中的相邻文件（如 `wrr/engines/community_sources.py` 或 wrapper 直接调用的 gate/evaluator），导致 scope violation。这说明 bundle_only 审计者不仅会自己跑 git，还会"好奇"地看相邻实现。**对策**：(1) 先沿目标调用链列出 wrapper 的直接 callee、契约定义与对应测试，并把这些只读依赖一并加入 `allowed_paths`；(2) 把审计者可能需要理解的相邻非红线文件也加入 `allowed_paths`（它们只读，无风险）；(3) 或在 evidence_bundle 中预填 source snippets / 关键文件切片，减少它读取 bundle 外文件的动机；(4) 把红线文件本身加入 allowed_paths（让 OMP 合法读取），而不是只提供 diff name-only。越界后仍须 reject 该轮 verdict；完整事件记录见 `references/omp-bundle-only-scope-creep-20260707.md`。
+- **🆕 越界发生后的 verdict 不可采信，但 in-scope evidence 可保留**（WRR P3-1/P3-3 实战）：当 OMP 因越界自判 `blocker` 时，不要直接 accept；应 (1) `omp-finish --reject`；(2) 从 raw JSONL 提取越界前已产生的 in-scope evidence；(3) 由 Hermes 独立运行关键命令（`git diff --name-only`、targeted tests、读关键文件）重新取证；(4) 若所有 criterion 通过，给出人工裁决并记录"OMP 越界导致本轮 verdict 作废，但独立取证证明代码通过"。不要因 OMP 越界就否定代码本身，也不要因 in-scope evidence 已正面就忽视 scope violation。
+- **🆕 审计者看不到未提交 diff 时，不要把工具缺失误判成代码 blocker**：审计 prompt 要求核对当前 diff，但该通道没有 `git diff`/bash，或 `allowed_paths` 漏了契约 reference 时，OMP 会合理中止，产出的 blocker 仅代表“无法取证”。预防：优先用 `bundle_only` + `omp-bundle-code-audit.sh` 提供 `diff.patch`/状态/精简测试摘要，或先确认 `independent_readonly` 通道具备 git；将审计任务实际需要读的测试、文档、相邻接口都放进 `allowed_paths`。发生后 `omp-finish --reject`，由 Hermes 独立复跑关键验证；不要伪造 OMP pass。详见 `references/audit-diff-availability.md`。
+
+## 待验证清单
+  `omp-send.sh --state ...` 默认同步 shell 会阻塞 terminal 工具直到 OMP 退出。Hermes `terminal`
+  有默认 120s 超时，而审计大 diff（如 2600+ 行、87 文件）可能耗时 3–5 分钟。超时会导致
+  terminal 工具 kill 调用进程，OMP 输出的 raw JSONL 不完整，最终 `omp-monitor` 看到
+  `stopReason=toolUse` 或空最终文本，审计被 `rejected`。**正确做法**：`omp-send.sh --state <state> --channel shell --async --max-time 300`，
+  让 OMP 在后台跑，raw 文件持续累积；然后再调 `omp-monitor.sh --state <state>`（或 `--watch`）提取 verdict。
+  不要等同步 shell 被超时 kill。
+
+- **🆕 `stopReason=toolUse` 且无 JSON verdict = 任务没说完，不是 block**（2026-07-05 实战）→
+  当审计内容太多（大证据包），OMP 可能在生成 verdict 前就用完时间/ token 或陷入工具循环，
+  最终 `stopReason=toolUse`。此时 `omp-monitor` 找不到合法 `{severity, evidence, summary}` JSON，
+  状态会置为 `rejected`。不要直接 accept 或 panic；**修复策略**：(1) 重新 `omp-start` 一个 task，
+  在 `task` 字段里**极其明确地**要求 OMP 只输出单一 JSON 对象、不调用额外工具、不加 markdown 围栏；
+  (2) 使用 `--async` + 更长的 `--max-time`；(3) 如果仍未输出，可手动从 `/tmp/omp-raw-*.json` 的
+  `message_update`/`assistantMessageEvent.delta` 文本中提取最后一个 assistant turn，作为人工 verdict。
+
+- **🆕 委派包 JSON 字段结构必须严格按模板**（2026-07-05 实战）→ `omp-start` 的 `gate-verify`
+  会拒绝字段缺失或类型错误。常见错误：
+  - 用 `allowed_path`（单数）而不是 `scope.allowed_paths`（数组）
+  - 顶层写 `cwd` 而不是 `scope.cwd`
+  - 缺少 `output.format` / `output.evidence_required`
+  - 缺少 `threshold.round_limit` / `threshold.reject_limit`
+  - 漏写 `evidence_bundle.path` 当 `auditor.independence_level=bundle_only`
+  **始终先用 `omp-start.sh --package-json ...` 跑 gate，根据返回的 `missing_fields` 修正。**
+  最小可跑 JSON 示例见 `references/omp-audit-package-json-minimal-example.md`。
+- **🆕 小型修复证据包要精简测试输出，避免 raw 膨胀导致 watch 超时**（2026-07-08 WRR P3-1 后审实战）→ 只改 2 个文件的 bugfix，如果 evidence bundle 里放 `pytest tests/unit -q` 的完整输出（700+ 行），OMP 会被庞大的 test log 淹没，raw 文件膨胀到 50MB+，`omp-monitor --watch` 在 240s 内无法完成。小型修复审计应只收集：**targeted 测试**（`pytest tests/unit/test_community.py -q`）、**CLI smoke**（1-2 条）、**commit stat**、**redline**。需要全量测试结果时，用 `--tb=no` 或把通过摘要单独存文件，不要把完整逐行输出喂给 OMP。详见 `references/omp-small-fix-audit-raw-bloat-20260708.md`。
+- **🆕 OMP raw 超时/过长 → 体积熔断 + 独立降级裁决**（2026-07-08/12 实战）→ `omp-monitor --watch` 主要按时间终止，**不会替你执行 raw-size 熔断**。即使 evidence bundle 已精简且 prompt 明令“不调用工具”，agent 仍可能 tool-loop；因此 Hermes 必须在 watch 外采样 raw 大小：
+  1. 每 10–15 秒读取 raw bytes/lines；超过 **20MB 且仍无合法 verdict**，或连续 3 个采样窗口高速增长而无新结论，立即停止 OMP 进程，不等 watch timeout。
+  2. 停止后单次运行 `omp-monitor --json`，再检查 compact debug / 最后 assistant turn。**注意 kill 与最终落盘存在竞态**：若此时得到 `phase=reported + severity_valid=true + evidence_count>0 + stop_reason=stop`，说明 verdict 已完整完成，必须按正常 blocker/concern/pass 流程处理，不能因刚执行过 kill 就机械判成工具失败。
+  3. 若 `stopReason=aborted/toolUse`、`evidence=0`、无合法 JSON：正式 `omp-finish --reject`。这代表**审计工具本轮失败**，不是代码 blocker，也不是 pass。
+  4. 若 monitor 已验证合法 verdict，但 `omp-finish` 因 evidence 是字符串数组而报 `Cannot index string with string "ref"`：保留 monitor verdict 与 state/raw 证据，明确记录 finish 展示层 schema 不兼容；不得丢弃 verdict、改判 pass 或伪造 finish 成功。后续 prompt 优先要求 evidence 对象形态。
+  5. 对同一 evidence bundle **不要再做第二次等价 OMP 重试**；改用 Hermes 真实命令证据（targeted/full tests、smoke、diff/redline）+ 独立 read-only reviewer（如 Codex）降级裁决，并在验收记录中明确 OMP 未产出 verdict。
+  6. 只有当委派包、scope 或 evidence 内容发生实质修订时才允许新一轮 OMP；纯粹加长 timeout 不算修订。
+  7. 完整熔断与降级模板见 `references/bundle-only-runaway-stop-policy.md`；kill 竞态与 finish schema 细节见 `references/runaway-race-and-finish-schema-20260713.md`。
+  8. **“字节不大 / 只有一个文件”都不等于审计负担小**：约 188 KB、4,242 行的全量 diff 可膨胀到 25 MB；单份约 60 KB、1,070 行的设计 Spec 也实测膨胀到 33,994,786 bytes，且两者都无合法 verdict。多 criterion 改动优先构造 criterion-specific source/test excerpts；长设计文档采用“干净 reviewer 全文初审 → 每项 concern 的 before/after 摘录 → OMP 只审 concern closure”，全文只作哈希附录。一次熔断后不做同包重试。见 `references/medium-bundle-runaway-criterion-excerpts.md`。
+- **🆕 `scope` 结构合法不等于审计者可取证**：`gate-verify` 只强校验 `scope` 是对象；写成 `{"include":["startup policy"]}` 这类语义标签可能通过 gate，却被 OMP 解析成 `allowed_paths=[]`，最终只能给“无法验证”的 concern。独立只读设计审计也必须写真实绝对路径：`scope.allowed_paths` + `scope.cwd`，并把官方摘录/候选策略整理为短 evidence markdown 一并列入 allowed paths。空路径 concern 应 reject，修 scope 后才是实质性重审；它是审计输入失败，不是设计 blocker。详见 `references/audit-scope-real-path-contract.md`。
+- **🆕 委派包字段类型必须严格匹配 gate-verify 契约**（2026-07-08 WRR P3-1 HN 修复实战）→ `omp-start` 的 `gate-verify.sh` 强校验：
+  - `scope` 必须是 **对象**（`{"domain":"...","focus":"..."}`），不能是字符串；字符串会报 `missing_fields: ["scope"]`。
+  - `output.evidence_required` 必须是 **布尔 `true`**，不能是数组或字符串；数组会报 `missing_fields: ["output.evidence_required"]`。
+  - 其他常见类型坑：`threshold.round_limit`/`reject_limit` 必须是 number；`criterion` 必须是数组；`redlines` 必须是数组。始终先 `omp-start.sh --package-json ...` 跑 gate，根据 `missing_fields` 修正。**不要**试图把字段含义当英文写，必须按 JSON schema 写类型。
+- **🆕 Shell 通道下 OMP 会越界读取 `.git/` 和相邻文件，即使委派包 denied_paths 已排除**（2026-07-08 WRR P3-1 HN 修复实战）→ 当 channel=shell 时，OMP 底层 LLM 的工具集（如 `read`/`glob`）**不**受 `allowed_paths`/`denied_paths` 硬约束，它仍会尝试读取 `.git/logs/HEAD`、`.git/objects/...` 或相邻源码文件来补全上下文。这导致 bundle_only 审计被自己的越界读取污染，自判 `blocker` 或 `concern`。对策：
+  1. 把 OMP 可能需要的**所有**源码文件（包括红线文件和相邻实现文件）加入 `allowed_paths`，让它合法读取；只读不是风险。
+  2. 在 evidence bundle 中预填**关键源码片段**（如 `community_sources.py:60-92` 的 `backup_commands` 逻辑）和 `git diff --name-only` 输出，减少它读取 bundle 外文件的动机。
+  3. 若已发生越界，整轮 verdict 不可采信；由 Hermes 独立取证关键命令并人工裁决，记录"OMP 越界导致本轮 verdict 作废"。详见 `references/omp-shell-scope-creep-hn-fix-20260708.md`。
+- **🆕 Shell 通道的 OMP 只有只读工具时无法执行运行时命令，导致 criterion 无法验证**（2026-07-08 WRR P3-1 HN 修复实战）→ OMP 配置或任务模板可能把工具白名单限制为 `read,grep,glob,lsp,...`（只读），审计者无法运行 `wrr search`、`wrr test`、`pytest` 等 shell 命令。即使 evidence bundle 已预填命令输出，OMP 也可能因为"无 shell 执行能力"把运行时 criterion 标记为"未证实"，给出 `concern`。对策：
+  1. 证据包里必须包含**运行时命令的完整输出**（stdout + stderr + exit_code + elapsed），并明确告诉 OMP "这些 criterion 的证据已预填在 bundle 中，无需执行 shell"。
+  2. 如果 OMP 仍然因缺少 shell 能力而 concern，改用 **同步 shell** 通道（`omp-send --channel shell --sync` 或直接用 `omp -p --tools bash ...`）让 OMP 能调 bash 工具。
+  3. 若仍失败，Hermes 独立运行这些命令并给出 override 裁决。
+- **🆕 `omp-monitor` 可能误判已输出合法 verdict 的审计为 rejected**（2026-07-08 WRR P3-1 HN 修复 R5 实战）→ OMP 在 raw JSONL 中确实输出了合法的 `{severity, evidence, summary}` JSON（`gate-verify.sh --mode output` 可识别为合法并通过），但 `omp-monitor` 的稳健提取器未能从 `message_update`/`text_delta` 事件流中正确重组最终文本，导致 `status=rejected` 并给出"输出结构不合格"。此时**不要直接 accept 工具的状态机输出**，应：
+  1. 先用 `gate-verify.sh --mode output --file /tmp/omp-raw-<id>.json` 做客观验证。
+  2. 手动从 raw JSONL 提取最终文本：`jq -c 'select(.type=="message_update" and .assistantMessageEvent.type=="text_delta") | .assistantMessageEvent.delta' /tmp/omp-raw-<id>.json | jq -s -r 'add'`。
+  3. 如果确认是合法的 pass/concern（非 blocker），记录为 Hermes override："OMP monitor 解析器误 reject，已人工提取并验证 verdict"。
+  4. 若 verifier 也说无合法 JSON，则返回步骤 2 重跑或改用同步 shell。
+  详见 `references/omp-shell-scope-creep-hn-fix-20260708.md` R5 小节及 `references/omp-hn-unit-fix-r5-override-20260708.md`。
 
 ## 待验证清单
 
@@ -516,6 +593,10 @@ async 监控/干预 + ACP delegate_task + 红线 + 稳健 verdict 提取 + 证�
 > `references/omp-shell-smoke-test.md`。适配层**非安装器、非全平台支持承诺**，不复制 4 步热路径。
 
 - 单一真相源：`references/platform-adapters.md`（non-goals、护栏、两类冒烟对照）。
-- 平台片段：`.codex/call-omp.md`、`references/claude-code-call-omp.md`、`references/omp-self-call.md`。
+完整实战记录 + 验证探针模板见 `references/hermes-gateway-plist-env-fix.md`。
+
+## 委派包 JSON 示例
+
+最小可用的 audit 委派包 JSON 与 `gate-verify` 常见拒绝原因对照见 `references/omp-audit-package-json-minimal-example.md`。
 
 > 📋 完整更新记录见 [CHANGELOG.md](CHANGELOG.md)。

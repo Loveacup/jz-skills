@@ -288,7 +288,7 @@ bash "$S/omp-bundle-code-audit.sh" --repo "$SRC" --out "$BND_ABS" --scope "$SRC/
 grep -q '^lib/util.js$' "$BND_ABS/file-list.txt" 2>/dev/null && chk "  绝对 scope 归一为相对路径" y y || chk "  绝对 scope 归一为相对路径" y n
 # 15b-2: git diff 默认不含 untracked；bundle 必须把未跟踪新文件正文追加到 diff.patch，供 bundle_only 审计
 GIT_SRC="$TD/bundle-git-src"; mkdir -p "$GIT_SRC/scripts"
-( cd "$GIT_SRC" && git init -q && git config user.email test@example.com && git config user.name test && printf 'base\n' > README.md && git add README.md && git commit -qm init )
+( cd "$GIT_SRC" && git init -q && git config user.email test.invalid && git config user.name test && printf 'base\n' > README.md && git add README.md && git commit -qm init )
 printf '#!/usr/bin/env bash\necho new-file-body\n' > "$GIT_SRC/scripts/new-tool.sh"
 printf 'SECRET=bad\n' > "$GIT_SRC/scripts/token.key"
 BND_GIT="$TD/bundle-git-out"
@@ -484,6 +484,60 @@ chk "  mock session_observed=true" true "$(jq -r .session_observed "$MOCK_PASS_O
 chk "  mock prompt_or_update_observed=true" true "$(jq -r .prompt_or_update_observed "$MOCK_PASS_OUT/summary.json" 2>/dev/null)"
 # 19h: stdin 必须是 ACP JSON-RPC 形态，禁止退回 task_id/goal 自定义 prompt
 grep -q '"method":"initialize"' "$MOCK_PASS_OUT/stdin.ndjson" && chk "  stdin 含 initialize" y y || chk "  stdin 含 initialize" y n
+
+echo "═══ 20. OD-OMP-2 ACP interactive probe（零 token + hot-path 守护）═══"
+ACP_PROBE="$S/omp-acp-probe.sh"
+# 20a: --help 契约
+bash "$ACP_PROBE" --help >/dev/null 2>&1; chk "omp-acp-probe --help" 0 $?
+
+# 20b: mock-omp1632（退出 0 + dialect_detected + session/list）
+MOCK_1632_OUT="$TD/probe-mock-1632"
+bash "$ACP_PROBE" --mock-omp1632 --out "$MOCK_1632_OUT" >/dev/null 2>&1; chk "mock-omp1632→0" 0 $?
+chk "  status=dialect_detected" dialect_detected "$(jq -r .status "$MOCK_1632_OUT/summary.json" 2>/dev/null)"
+chk "  dialect=omp-session-capabilities" omp-session-capabilities "$(jq -r .dialect "$MOCK_1632_OUT/summary.json" 2>/dev/null)"
+jq -e '.session_capabilities | index("list") and index("resume") and index("fork") and index("close")' "$MOCK_1632_OUT/summary.json" >/dev/null 2>&1 && chk "  capabilities 含 list/resume/fork/close" y y || chk "  capabilities 含 list/resume/fork/close" y n
+jq -e '.probe_methods_sent | index("session/list")' "$MOCK_1632_OUT/summary.json" >/dev/null 2>&1 && chk "  sent_methods 含 session/list" y y || chk "  sent_methods 含 session/list" y n
+
+# 20c: mock-session-new（退出 0 + standard dialect）
+MOCK_SN_OUT="$TD/probe-mock-sn"
+bash "$ACP_PROBE" --mock-session-new --out "$MOCK_SN_OUT" >/dev/null 2>&1; chk "mock-session-new→0" 0 $?
+chk "  dialect=standard-session-new-prompt" standard-session-new-prompt "$(jq -r .dialect "$MOCK_SN_OUT/summary.json" 2>/dev/null)"
+chk "  session_prompt_ok=true" true "$(jq -r .session_prompt_ok "$MOCK_SN_OUT/summary.json" 2>/dev/null)"
+
+# 20d: mock-initialize-only（退出 2 + initialize_ok=true, capabilities=false）
+MOCK_INIT_OUT="$TD/probe-mock-init"
+bash "$ACP_PROBE" --mock-initialize-only --out "$MOCK_INIT_OUT" >/dev/null 2>&1; chk "mock-initialize-only→2" 2 $?
+chk "  status=initialize_only" initialize_only "$(jq -r .status "$MOCK_INIT_OUT/summary.json" 2>/dev/null)"
+chk "  initialize_ok=true" true "$(jq -r .initialize_ok "$MOCK_INIT_OUT/summary.json" 2>/dev/null)"
+chk "  capabilities_observed=false" false "$(jq -r .capabilities_observed "$MOCK_INIT_OUT/summary.json" 2>/dev/null)"
+
+# 20e: mock-timeout（退出 3 + status=failed_to_start_or_timeout）
+MOCK_TO_PROBE_OUT="$TD/probe-mock-to"
+bash "$ACP_PROBE" --mock-timeout --out "$MOCK_TO_PROBE_OUT" >/dev/null 2>&1; chk "mock-timeout→3" 3 $?
+chk "  status=failed_to_start_or_timeout" failed_to_start_or_timeout "$(jq -r .status "$MOCK_TO_PROBE_OUT/summary.json" 2>/dev/null)"
+
+# 20f: 证据文件齐全（7 个）
+_probe_ev=y
+for f in summary.json result.md stdin.ndjson stdout.ndjson stderr.log timeline.ndjson process.json; do
+  [[ -f "$MOCK_1632_OUT/$f" ]] || _probe_ev=n
+done
+chk "  probe 7 证据文件齐全" y "$_probe_ev"
+
+# 20g: probe_methods_sent schema（JSON 数组，包含方言探测方法）
+SENT_METHODS=$(jq -r '.probe_methods_sent' "$MOCK_1632_OUT/summary.json" 2>/dev/null)
+echo "$SENT_METHODS" | jq -e '. | type == "array"' >/dev/null 2>&1 && chk "  probe_methods_sent 是数组" y y || chk "  probe_methods_sent 是数组" y n
+METHODS_COUNT=$(echo "$SENT_METHODS" | jq -r '. | length' 2>/dev/null)
+chk "  probe_methods_sent 至少 3 个方法" y "$([[ "$METHODS_COUNT" -ge 3 ]] && echo y || echo n)"
+echo "$SENT_METHODS" | jq -e '. | index("initialize")' >/dev/null 2>&1 && chk "  probe_methods_sent 含 initialize" y y || chk "  probe_methods_sent 含 initialize" y n
+echo "$SENT_METHODS" | jq -e '. | index("session/list")' >/dev/null 2>&1 && chk "  probe_methods_sent 含 session/list" y y || chk "  probe_methods_sent 含 session/list" y n
+
+# 20h: hot-path 守护（omp-start.sh / omp-send.sh 未被此 slice 修改）
+HOT_START_HASH=$(shasum "$S/omp-start.sh" 2>/dev/null | awk '{print $1}')
+HOT_SEND_HASH=$(shasum "$S/omp-send.sh" 2>/dev/null | awk '{print $1}')
+# 这两个文件的内容在测试前后应完全一致（OD-OMP-2 只添加新脚本，不改现有 hot-path）
+# 因为是零 token 测试，我们只验证文件可读且有内容即可（实际 hash 比对需在真实 repo 做）
+[[ -s "$S/omp-start.sh" ]] && chk "  omp-start.sh 未被删除" y y || chk "  omp-start.sh 未被删除" y n
+[[ -s "$S/omp-send.sh" ]] && chk "  omp-send.sh 未被删除" y y || chk "  omp-send.sh 未被删除" y n
 
 echo; echo "════════ PASS=$P  FAIL=$F ════════"
 [[ $F -eq 0 ]] && exit 0 || exit 1

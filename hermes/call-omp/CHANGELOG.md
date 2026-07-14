@@ -2,6 +2,59 @@
 
 > 本文档从 `SKILL.md` 拆分，用于保存版本历史；`SKILL.md` 仅保留当前使用说明与操作约束。
 
+### v0.7.16（2026-07-08）— WRR P3-1 小型修复审计：raw 膨胀 + watch 超时 + Hermes override
+
+WRR P3-1 后审只改 2 个文件，但证据包塞了完整 `pytest tests/unit -q` 输出，导致 OMP raw 从 24MB 膨胀到 52MB+，`omp-monitor --watch` 240s 超时未完成。本版补齐小型修复审计的最佳实践和超时后的降级流程。
+
+| 级别 | 新增/修复 | 描述 |
+|:---:|------|------|
+| P0 | 小型修复证据包应精简 | 小型修复（≤3 文件）只收集 targeted 测试、1-2 条 CLI smoke、commit stat、redline。全量测试用 `--tb=no` 或只存摘要，不要把完整逐行输出喂给 OMP。 |
+| P0 | OMP raw 超时/过长的降级流程 | `omp-monitor --watch` 超时或 raw > 20MB：kill pid → 手动提取 verdict → 改用同步 shell 重跑 → Hermes 独立取证并给出 override。 |
+| P1 | reference | 新增 `references/omp-small-fix-audit-raw-bloat-20260708.md`，记录事件时间线、根因、可复用命令、超时降级流程。 |
+| P1 | SKILL.md pitfalls | 常见坑新增两条：小型修复证据包精简、OMP raw 超时降级流程。 |
+
+**实战轨迹**：
+- R1（omp-rss-time-fix）：concern（`_recency_score` 未归一化 `created` + criterion 4 证据不足）
+- R2（omp-rss-time-fix-r2）：1-3 pass，criterion 4 warn（redline 缺少 v6.1.1 基线上下文）
+- R3（omp-rss-time-fix-r3）：OMP 因 raw 过大/超时未完成；Hermes 独立读取 `community.py:126-137`、`test_community.py:50-64`，运行 `git log/diff v6.1.1..HEAD -- registry.py deps.py` 均为空，全量测试通过，最终 override 为 pass。
+
+### v0.7.15（2026-07-07）— WRR P3 bundle_only 审计 scope creep：越界读 `.git/` 与相邻文件
+
+WRR P3-1 R3 和 P3-3 R1 两次 bundle_only 审计中，OMP 为验证"红线文件未改动"或理解上下文而越界读取 `.git/logs/HEAD`、`.git/objects/`、`wrr/engines/community_sources.py` 等不在 allowed_paths 中的文件，导致 verdict 被自判 `blocker`。本版补齐预防与裁决方法：
+
+| 级别 | 新增/修复 | 描述 |
+|:---:|------|------|
+| P0 | bundle_only 越界相邻文件 | 即使 evidence_bundle 预填 `git diff --name-only`，OMP 仍会"好奇"读取 allowed_paths 外的相邻上下文文件。对策：把红线文件/相邻文件加入 allowed_paths，或在 evidence_bundle 中预填 source snippets。 |
+| P0 | 越界后人工裁决流程 | OMP 自判 blocker 时，整轮 verdict 不可采信；但越界前已产生的 in-scope evidence 可保留。Hermes 应 `omp-finish --reject` + 独立重新取证 + 给出人工裁决。 |
+| P1 | reference | 新增 `references/omp-bundle-only-scope-creep-20260707.md`，记录事件 A/B、根因、证据包生成脚本、人工裁决流程。 |
+| P1 | SKILL.md pitfalls | 常见坑新增两条：`bundle_only 还会越界读相邻文件` 和 `越界后 verdict 不可采信但 in-scope evidence 可保留`。 |
+
+### v0.7.14（2026-07-05）— bilibili-video-analyzer 大 diff 审计：同步超时 + markdown 包裹 verdict
+
+实战审计 `shared/bilibili-video-analyzer` 质量优化改动（16 文件、2600+ diff 行、87 文件证据包）暴露两条新坑并补齐 reference：
+
+| 级别 | 新增/修复 | 描述 |
+|:---:|------|------|
+| P0 | Shell 同步模式超时截断 | 长代码审计（>120s）必须用 `--async --max-time 300`，否则 Hermes `terminal` 超时 kill 导致 raw 不完整、verdict 误判。 |
+| P0 | markdown 包裹 verdict 提取 | OMP 输出 ` ```json {severity,...} ``` ` 时 `omp-monitor` 解析失败。`task` 追加 "Do not wrap in markdown code fences"；若已发生，从 raw JSONL 的 `assistantMessageEvent.delta` 手动提取内部 JSON。 |
+| P1 | reference | 新增 `references/omp-audit-blocker-concern-raw-pass-20260705.md`，记录 R2 blocker → R3 concern → R5 raw 提取 pass 的完整迭代与复用命令。 |
+
+### v0.7.0（2026-07-05）— OD-OMP-2 交互式 ACP 方言探测器
+
+本版新增交互式 ACP 方言探测工具：先发送 `initialize`，解析 `agentCapabilities.sessionCapabilities`，再按 capabilities 选择 `session/list`（OMP 16.3.x 方言）或 `session/new` + `session/prompt`（标准方言）继续探测。它产出细粒度证据包，并提供 4 种零 token mock 测试路径。**仍是证据产出探针，不改默认通道。**
+
+| 级别 | 新增/修复 | 描述 |
+|:---:|------|------|
+| P0 | 交互式 ACP 方言探测器 | 新增 `scripts/omp-acp-probe.sh`：真实拉起 `omp acp` 后先发 `initialize` 并读取 capabilities；若发现 OMP 16.3.x 的 `list/fork/resume/close`，继续发 `session/list` 并记录 `dialect=omp-session-capabilities`；若发现标准 `new/prompt`，继续发 `session/new` + `session/prompt`。裁决：`dialect_detected`(退出0) / `initialize_only` 或 `protocol_incompatible`(退出2) / `failed_to_start_or_timeout`(退出3)。 |
+| P0 | 4 种 mock 模式 | `--mock-omp1632`（模拟 OMP 16.3.2 暴露 `list/fork/resume/close` capabilities 并响应 `session/list`）、`--mock-session-new`（标准 `session/new` + `session/prompt` 方言）、`--mock-initialize-only`（只有 initialize）、`--mock-timeout`（超时失败），全部零 token 测试路径。 |
+| P0 | `probe_methods_sent` 记录 | summary.json 新增 `probe_methods_sent` / `probe_methods_succeeded`，记录真实发送与观测成功的方法序列；OMP 16.3.x 当前预期为 `initialize → initialized → session/list`。 |
+| P1 | OD-OMP-2 规范 | 新增 `references/OD-OMP-2-acp-client.md`：方言检测目标、summary schema、4 种 mock 模式语义、真实探测命令、非目标（不改热路径、不自动启用 ACP、不跑真实审计任务）。 |
+| P1 | tests + docs | `tests/run-all.sh` 新增 Group 20（4 种 mock 模式 + 7 个证据文件齐全 + `probe_methods_sent` schema 验证 + OMP 16.3.x capabilities 断言 + hot-path 守护），当前 188/188 通过。SKILL.md 补版本历史。 |
+
+**与 OD-OMP-1 的区别**：OD-OMP-1 只证明 `initialize` 是否可响应；OD-OMP-2 读取 initialize 返回的 capabilities，并据此选择下一步探测方法。对 OMP 16.3.x，关键产物是 `dialect=omp-session-capabilities` 与 `session_capabilities=[list,fork,resume,close]`，这为后续方言适配提供依据，但仍不代表完整 ACP 热路径已经可用。
+
+**已知边界**：探针只观测 ACP 方言兼容性，**不改 call-omp 默认通道优先级**（仍是 ACP > RPC > Shell，v0.2.0）。真实启用 ACP 需探针通过 + Hermes 支持 delegate_task + 明确配置。
+
 ### v0.6.9（2026-07-05）— Package D slice 3：OD-OMP-1 ACP 真实探针
 
 本版补上 ACP 通道的真实 smoke probe：可手动验证 `omp acp` 启动 + 协议兼容性，产出结构化证据包（7 文件）。**仍是证据产出工具，不改默认通道**——即使探针通过，ACP 也不自动启用。
@@ -99,7 +152,9 @@ WRR Package A 复审实战暴露 monitor 会误抓首个 fenced JSON、漏掉 OM
 
 | 级别 | 新增 | 描述 |
 |:---:|------|------|
-| P0 | `delegate_task(acp_command='omp')` ≠ 沙箱逃生 | ACP 通道 spawn OMP 作为审计 agent，需 LLM 决策调 OMP 内部 bash 工具；OMP 未配 model 时跟 `omp -p` 一样走不通。新增 pitfall 明确边界 |
+- **🆕 长代码审计用 Shell 同步模式会被 Hermes terminal 超时截断**（2026-07-05 bilibili-video-analyzer 实战）→ `omp-send.sh --state ...` 默认同步 shell 会阻塞 Hermes `terminal` 工具直到 OMP 退出。Hermes `terminal` 默认 120s 超时，而审计大 diff（2600+ 行、87 文件）可能耗时 3–5 分钟。超时 kill 后 OMP raw JSONL 不完整，`omp-monitor` 看到 `stopReason=toolUse` 或空最终文本，审计被 `rejected`。**正确做法**：`omp-send.sh --state <state> --channel shell --async --max-time 300`，让 OMP 在后台跑；然后 `omp-monitor.sh --state <state>`（或 `--watch`）提取 verdict。详见 `references/omp-audit-blocker-concern-raw-pass-20260705.md`。
+- **🆕 OMP 输出被 markdown 包裹导致 monitor 解析失败**（2026-07-05 实战）→ 即使委派包 `task` 写了 "ONLY JSON"，OMP 仍可能把 verdict 放在 ` ```json ... ``` ` 围栏里。`omp-monitor` 只认纯 JSON 或裸文本中的 JSON 对象，会报 `rejected`。**修复**：(1) `task` 里追加 "Do not wrap the JSON in markdown code fences."；(2) 若已发生，手动从 `/tmp/omp-raw-*.json` 的 `message_update`/`assistantMessageEvent.delta` 文本中提取最后一个 JSON 块。复用脚本见 `references/omp-audit-blocker-concern-raw-pass-20260705.md`；独立提取参考 + 脚本见 `references/omp-extract-markdown-wrapped-verdict-20260706.md`。
+- **🆕 `delegate_task(acp_command='omp')` ≠ "OMP 跑 shell"**（v0.6.2 实战）→ ACP 通道 spawn OMP 作为审计 agent，需 LLM 决策调 OMP 内部 bash 工具；OMP 未配 model 时跟 `omp -p` 一样走不通。新增 pitfall 明确边界
 | P0 | `gate-danger` 拦 rollback 文本里的破坏性命令 | rollback 字段描述"pkill -9 强杀"会被 `kill[[:space:]]+-9` ERE 命中、gate exit 10。绕开：rollback 不写真实命令，只描述行为 |
 | P1 | Python `re.search` vs `grep -E` 在 POSIX 字符类上假阴性 | 调试 gate 误判时 Python `re` 不支持 `[[:space:]]` POSIX 字符类，假阴性。**真测试**用 `grep -Eiq` |
 | P1 | 沙箱逃生对照表扩展 | 边界表加 2 行：`omp -p --tools bash` 在 OMP 未配 model 时实际不执行；`delegate_task(acp_command='omp')` 同理 |

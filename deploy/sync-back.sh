@@ -133,6 +133,7 @@ PAIRS=(
   "hermes/xhs-crawler|xhs-crawler"
   "hermes/calendar-manager|calendar-manager"
   "hermes/de-slop|de-slop"
+  "hermes/call-omp|autonomous-ai-agents/call-omp"
   "hermes/claude-code|autonomous-ai-agents/claude-code"
   "hermes/kanban-orchestrator|devops/kanban-orchestrator"
   "hermes/kanban-codex-lane|autonomous-ai-agents/kanban-codex-lane"
