@@ -24,11 +24,16 @@ QUIET=false
 WATCH_SESSION="" ONCE=false USAGE_CHECK_NOW=false
 STALE="${CC_WATCH_STALE:-45}"        # heartbeat older than this (s) → probe
 INTERVAL="${CC_WATCH_INTERVAL:-15}"  # daemon loop sleep (s)
-# §R8c③ 顺带用量告警：每 N 圈跑一次轻量 ccusage 检查（避免频繁调）。可配。
-USAGE_EVERY="${CC_USAGE_CHECK_EVERY:-10}"   # 每多少圈跑一次用量检查
-USAGE_CEIL="${CC_USAGE_CEIL:-1500000000}"   # 累计 token 天花板阈值（默认 1.5B，可配）
-CC_USAGE_CMD="${CC_USAGE_CMD:-npx --yes ccusage@latest}"   # 可注入 stub 做 hermetic 测试
-USAGE_BOUND="${CC_USAGE_TIMEOUT_S:-30}"     # ccusage 调用上限（s）
+# §R8c③ 用量告警：每 N 圈尝试一次；全局 single-flight + cache 会把所有
+# per-session watcher 合并成至多一次本地离线读取，避免 N×ccusage 网络/CPU 放大。
+USAGE_EVERY="${CC_USAGE_CHECK_EVERY:-10}"
+USAGE_CEIL="${CC_USAGE_CEIL:-1500000000}"
+# 双离线：npx 自身不查 registry，ccusage 只用缓存定价，不访问 models.dev。
+CC_USAGE_CMD="${CC_USAGE_CMD:-npx --yes --offline ccusage@latest --offline}"
+USAGE_BOUND="${CC_USAGE_TIMEOUT_S:-30}"
+USAGE_CACHE_FILE="${CC_USAGE_CACHE_FILE:-/tmp/cc-usage-global-cache.json}"
+USAGE_LOCK_DIR="${CC_USAGE_LOCK_DIR:-/tmp/cc-usage-global.lock}"
+USAGE_CACHE_TTL="${CC_USAGE_CACHE_TTL:-900}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --quiet)        QUIET=true; shift ;;
@@ -74,19 +79,85 @@ if [[ -n "$WATCH_SESSION" ]]; then
     cat "$tmpf"; rm -f "$tmpf"; return "$rc"
   }
 
-  # usage_check <session> — 跑一次轻量 ccusage 检查；命中→原子写 alert，未命中→清陈旧 alert。
-  # 全程降级：ccusage 不可用/超时/非 JSON → 直接 return 0，【不动】既有 alert（不误清、不误写）。
+  usage_cache_fresh() {
+    [[ -s "$USAGE_CACHE_FILE" ]] || return 1
+    [[ "$USAGE_CACHE_TTL" =~ ^[0-9]+$ ]] || return 1
+    [[ "$USAGE_CACHE_TTL" -gt 0 ]] || return 1
+    local m age
+    m=$(get_mtime "$USAGE_CACHE_FILE" 2>/dev/null || echo 0)
+    [[ "$m" =~ ^[0-9]+$ ]] || return 1
+    age=$(( $(date +%s) - m ))
+    [[ "$age" -ge 0 && "$age" -lt "$USAGE_CACHE_TTL" ]]
+  }
+
+  release_usage_lock() {
+    rm -f "$USAGE_LOCK_DIR/created" 2>/dev/null || true
+    rmdir "$USAGE_LOCK_DIR" 2>/dev/null || true
+  }
+
+  # fetch_usage_output — 全机 single-flight。fresh cache 直接复用；只有 lock owner
+  # 能运行 ccusage。锁持有者崩溃后，超过 timeout+60s 可回收陈旧锁。
+  fetch_usage_output() {
+    if usage_cache_fresh; then
+      cat "$USAGE_CACHE_FILE"
+      return 0
+    fi
+
+    if ! mkdir "$USAGE_LOCK_DIR" 2>/dev/null; then
+      local created="" lock_age=0
+      created=$(cat "$USAGE_LOCK_DIR/created" 2>/dev/null || echo "")
+      # A lock without a valid owner timestamp may be between mkdir and timestamp write;
+      # fail closed instead of stealing a live lock.
+      [[ "$created" =~ ^[0-9]+$ ]] || return 1
+      lock_age=$(( $(date +%s) - created ))
+      if [[ "$lock_age" -gt $((USAGE_BOUND + 60)) ]]; then
+        release_usage_lock
+        mkdir "$USAGE_LOCK_DIR" 2>/dev/null || return 1
+      else
+        return 1
+      fi
+    fi
+    printf '%s\n' "$(date +%s)" > "$USAGE_LOCK_DIR/created" 2>/dev/null || {
+      release_usage_lock; return 1;
+    }
+
+    # Double-check after claiming the lock: another owner may have refreshed first.
+    if usage_cache_fresh; then
+      cat "$USAGE_CACHE_FILE"
+      release_usage_lock
+      return 0
+    fi
+
+    local fresh tmp rc=0
+    # shellcheck disable=SC2086  # CC_USAGE_CMD 需词分割，可注入 hermetic stub。
+    fresh=$(run_bounded "$USAGE_BOUND" $CC_USAGE_CMD --json 2>/dev/null) || rc=$?
+    if [[ "$rc" -ne 0 || -z "$fresh" ]]; then
+      release_usage_lock
+      return 1
+    fi
+    tmp="${USAGE_CACHE_FILE}.tmp.$$"
+    ( umask 077; printf '%s' "$fresh" > "$tmp" ) || {
+      rm -f "$tmp"; release_usage_lock; return 1;
+    }
+    mv -f "$tmp" "$USAGE_CACHE_FILE" || {
+      rm -f "$tmp"; release_usage_lock; return 1;
+    }
+    release_usage_lock
+    printf '%s' "$fresh"
+  }
+
+  # usage_check <session> — 读取全局缓存并把阈值判断映射成 session alert。
+  # cache miss/lock contention/命令失败均静默降级，不误清既有 alert。
   usage_check() {
     local s="$1"
     local alert="/tmp/cc-usage-alert-${s}" out tok hit="" reason=""
-    # shellcheck disable=SC2086  # CC_USAGE_CMD 需词分割（"npx --yes ccusage@latest"）
-    out=$(run_bounded "$USAGE_BOUND" $CC_USAGE_CMD --json 2>/dev/null) || return 0
+    out=$(fetch_usage_output 2>/dev/null) || return 0
     [[ -z "$out" ]] && return 0
-    # 信号①（兜底）：原始输出字面含告警字样（ccusage 累计 JSON 通常无，留作前向兼容）
+    # 信号①（兜底）：原始输出字面含告警字样。
     if printf '%s' "$out" | grep -Eqi 'approaching[[:space:]]+(your[[:space:]]+)?limit|rate[[:space:]]+limit'; then
       hit=1; reason="ccusage 输出含告警字样（approaching/rate limit）"
     fi
-    # 信号②（主判据）：累计 totalTokens ≥ 天花板阈值
+    # 信号②（主判据）：累计 totalTokens ≥ 天花板阈值。
     if command -v jq >/dev/null 2>&1; then
       tok=$(printf '%s' "$out" | jq -er '.totals.totalTokens' 2>/dev/null || echo "")
       if [[ "$tok" =~ ^[0-9]+$ ]] && [[ "$tok" -ge "$USAGE_CEIL" ]]; then
@@ -100,7 +171,6 @@ if [[ -n "$WATCH_SESSION" ]]; then
         mv -f "$tmpf" "$alert" 2>/dev/null || rm -f "$tmpf" 2>/dev/null
       fi
     else
-      # 实测在阈值以下 → 清掉陈旧 alert，避免长期误报
       [[ -f "$alert" ]] && rm -f "$alert" 2>/dev/null
     fi
     return 0

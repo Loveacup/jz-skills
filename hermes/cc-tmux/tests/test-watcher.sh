@@ -13,11 +13,16 @@ SESS="cctmux-test-watch-$$"
 PASS=0 FAIL=0
 ok(){  echo "  ✅ $1"; PASS=$((PASS+1)); }
 bad(){ echo "  ❌ $1"; FAIL=$((FAIL+1)); }
+CACHE="/tmp/cc-usage-cache-test-$$.json"
+CACHE_LOCK="/tmp/cc-usage-cache-test-$$.lock"
+COUNT_FILE="/tmp/cc-usage-count-test-$$"
+STUB="/tmp/cc-usage-stub-test-$$.sh"
 cleanup(){
   tmux kill-session -t "$SESS" 2>/dev/null || true
   rm -f "/tmp/cc-heartbeat-${SESS}" "/tmp/cc-state-${SESS}.log" \
         "/tmp/cc-fixture-${SESS}.txt" "/tmp/cc-freeze-${SESS}" \
-        "/tmp/cc-usage-alert-${SESS}"
+        "/tmp/cc-usage-alert-${SESS}" "$CACHE" "$COUNT_FILE" "$STUB"
+  rm -rf "$CACHE_LOCK"
 }
 trap cleanup EXIT
 cleanup
@@ -65,6 +70,11 @@ out=$(bash "$WATCHER" --quiet 2>&1); rc=$?
 
 # ── §R8c③ usage-alert tests (--usage-check single sync entrypoint, stubbed ccusage) ──
 ALERT="/tmp/cc-usage-alert-${SESS}"
+# Existing alert semantics tests need a fresh execution each time; cache behavior has
+# dedicated tests below.
+export CC_USAGE_CACHE_FILE="$CACHE"
+export CC_USAGE_LOCK_DIR="$CACHE_LOCK"
+export CC_USAGE_CACHE_TTL=0
 
 # Test 5: cumulative tokens ≥ ceiling → writes /tmp/cc-usage-alert-<s>
 rm -f "$ALERT"
@@ -102,6 +112,52 @@ echo "keep" > "$ALERT"
 CC_USAGE_CMD="cc-watcher-no-such-cmd-xyz" bash "$WATCHER" --watch "$SESS" --usage-check >/dev/null 2>&1
 [[ -f "$ALERT" ]] && ok "ccusage failure → pre-existing alert untouched" || bad "ccusage failure wrongly cleared alert"
 rm -f "$ALERT"
+
+# Test 10: the production default must be network-free. ccusage supports --offline,
+# so a watcher can never fetch models.dev merely to inspect local token logs.
+if grep -Eq 'CC_USAGE_CMD=.*ccusage@latest.*--offline' "$WATCHER"; then
+  ok "default ccusage command is offline"
+else
+  bad "default ccusage command can still access the network"
+fi
+
+# Fixture command: count real executions, pause to expose races, then emit valid JSON.
+cat > "$STUB" <<EOF
+#!/usr/bin/env bash
+n=0
+[[ -f "$COUNT_FILE" ]] && n=\$(cat "$COUNT_FILE")
+printf '%s\n' \$((n + 1)) > "$COUNT_FILE"
+sleep 1
+printf '%s\n' '{"totals":{"totalTokens":100,"totalCost":1}}'
+EOF
+chmod +x "$STUB"
+
+# Test 11: a fresh global cache is reused across per-session checks.
+rm -f "$CACHE" "$COUNT_FILE"; rm -rf "$CACHE_LOCK"
+for _ in 1 2; do
+  CC_USAGE_CMD="$STUB" CC_USAGE_CACHE_FILE="$CACHE" CC_USAGE_LOCK_DIR="$CACHE_LOCK" \
+    CC_USAGE_CACHE_TTL=3600 bash "$WATCHER" --watch "$SESS" --usage-check >/dev/null 2>&1
+done
+if [[ "$(cat "$COUNT_FILE" 2>/dev/null || echo 0)" == "1" ]]; then
+  ok "fresh global usage cache prevents duplicate ccusage runs"
+else
+  bad "global usage cache missed: executions=$(cat "$COUNT_FILE" 2>/dev/null || echo 0)"
+fi
+
+# Test 12: concurrent watchers are single-flight; only the lock owner may execute ccusage.
+rm -f "$CACHE" "$COUNT_FILE"; rm -rf "$CACHE_LOCK"
+pids=""
+for _ in 1 2 3 4; do
+  CC_USAGE_CMD="$STUB" CC_USAGE_CACHE_FILE="$CACHE" CC_USAGE_LOCK_DIR="$CACHE_LOCK" \
+    CC_USAGE_CACHE_TTL=3600 bash "$WATCHER" --watch "$SESS" --usage-check >/dev/null 2>&1 &
+  pids="$pids $!"
+done
+for p in $pids; do wait "$p"; done
+if [[ "$(cat "$COUNT_FILE" 2>/dev/null || echo 0)" == "1" ]]; then
+  ok "concurrent watcher checks collapse to one ccusage execution"
+else
+  bad "single-flight lock failed: executions=$(cat "$COUNT_FILE" 2>/dev/null || echo 0)"
+fi
 
 echo ""
 echo "=== Results: $PASS/$((PASS+FAIL)) passed ==="

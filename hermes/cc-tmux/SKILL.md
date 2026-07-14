@@ -159,6 +159,12 @@ tmux send-keys -t "cc-<name>" "读 /tmp/task.md 执行。" Enter
 ```
 3. 检查 pane 第一行是否「尝试 "create a util..."」——那是干净 session 的标志。若看到旧日期/task cards = 被污染。
 
+## ⚠️ Pitfall #72：per-session watcher 并发调用 ccusage 会放大代理流量
+
+**症状**：Surge 的进程统计显示 `ccusage` 数十 GiB/天；`models.dev` 与 `raw.githubusercontent.com` 出现大量并发下载，并经智能组分散到多个代理节点。
+
+**固定契约**：默认使用 `npx --yes --offline ccusage@latest --offline`；所有 watcher 共用 `/tmp/cc-usage-global-cache.json`（TTL 900s）与原子 mkdir lock，同一时刻最多一个执行者。紧急止血可用 `CC_USAGE_CHECK_EVERY=0` 重启 watcher，不杀 CC session。验收需同时通过 cache/single-flight 测试，并确认 Surge `m5/m15` 的 ccusage 归零。
+
 ## References
 
 - WRR v6 lesson: CC is reliable; implementation stalls usually mean task granularity/launch pattern is wrong (single-line + `/tmp` task file + small packages).

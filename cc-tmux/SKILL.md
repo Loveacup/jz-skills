@@ -294,6 +294,12 @@ tmux send-keys -t <session> "新的简明指令" Enter  # ← Enter 在文本行
 ```
 不要分两次（先 paste 文本、再单独 Enter）——单次 `send-keys` 末尾加 `Enter` 最可靠。
 
+## ⚠️ Pitfall #72：per-session watcher 并发调用 ccusage 会放大代理流量
+
+**症状**：Surge 的进程统计显示 `ccusage` 数十 GiB/天；`models.dev` 与 `raw.githubusercontent.com` 出现大量并发下载，并经智能组分散到多个代理节点。
+
+**固定契约**：默认使用 `npx --yes --offline ccusage@latest --offline`；所有 watcher 共用 `/tmp/cc-usage-global-cache.json`（TTL 900s）与原子 mkdir lock，同一时刻最多一个执行者。紧急止血可用 `CC_USAGE_CHECK_EVERY=0` 重启 watcher，不杀 CC session。验收需同时通过 cache/single-flight 测试，并确认 Surge `m5/m15` 的 ccusage 归零。
+
 ## ⚠️ Pitfall #56：macOS `tmux send-keys` 多行文本被 CC 队列吞掉
 
 `tmux send-keys` 发送多行文本时，CC CLI 将换行符解释为多行消息分隔符，触发「Press up to edit queued messages」模式——所有指令被队列化但永不执行。
