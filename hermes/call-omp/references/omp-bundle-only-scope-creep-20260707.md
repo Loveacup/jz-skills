@@ -41,10 +41,10 @@
 
 ```json
 "allowed_paths": [
-  "~/code/web-research-router/wrr/router.py",
-  "~/code/web-research-router/wrr/registry.py",
-  "~/code/web-research-router/wrr/deps.py",
-  "~/code/web-research-router/wrr/config.py",
+  "/path/to/web-research-router/wrr/router.py",
+  "/path/to/web-research-router/wrr/registry.py",
+  "/path/to/web-research-router/wrr/deps.py",
+  "/path/to/web-research-router/wrr/config.py",
   ...
 ]
 ```
@@ -94,8 +94,8 @@ done
 
 ```json
 "allowed_paths": [
-  "~/code/web-research-router/wrr/engines/community.py",
-  "~/code/web-research-router/wrr/engines/community_sources.py",
+  "/path/to/web-research-router/wrr/engines/community.py",
+  "/path/to/web-research-router/wrr/engines/community_sources.py",
   ...
 ]
 ```
@@ -105,7 +105,7 @@ done
 ```bash
 #!/bin/bash
 set -euo pipefail
-REPO="~/code/web-research-router"
+REPO="${HOME}/code/web-research-router"
 BASE="v6.1.1"
 OUT="/tmp/omp-evidence-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$OUT"

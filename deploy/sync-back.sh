@@ -76,15 +76,18 @@ sanitize_dir() {
     local tmp
     tmp="$(mktemp)"
     cp "$file" "$tmp"
-    awk -v home="$HOME/" '{gsub(home, "~/")}1' "$tmp" > "${tmp}.new" && mv "${tmp}.new" "$tmp"
-    sed -i '' -E 's/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/<email redacted>/g' "$tmp" 2>/dev/null || \
-    sed -i -E 's/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/<email redacted>/g' "$tmp"
-    sed -i '' -E 's/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)[0-9]+\.[0-9]+/<internal IP redacted>/g' "$tmp" 2>/dev/null || \
-    sed -i -E 's/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)[0-9]+\.[0-9]+/<internal IP redacted>/g' "$tmp"
-    sed -i '' -E 's/\b(gho|sk|sk-ant|hf)_[a-zA-Z0-9_-]{25,}/<API key redacted>/g' "$tmp" 2>/dev/null || \
-    sed -i -E 's/\b(gho|sk|sk-ant|hf)_[a-zA-Z0-9_-]{25,}/<API key redacted>/g' "$tmp"
-    sed -i '' -E 's/\b[A-Z_]{3,}(KEY|TOKEN|SECRET)\s*=\s*["'"'"']?[a-zA-Z0-9_\.\-]{20,}["'"'"']?/<API key redacted>/g' "$tmp" 2>/dev/null || \
-    sed -i -E 's/\b[A-Z_]{3,}(KEY|TOKEN|SECRET)\s*=\s*["'"'"']?[a-zA-Z0-9_\.\-]{20,}["'"'"']?/<API key redacted>/g' "$tmp"
+    # Keep replacements shell/JSON-safe. Angle-bracket prose placeholders can
+    # turn executable source into redirections (e.g. `git config user.email
+    # <email redacted>`) and `~/` is not expanded inside JSON strings.
+    awk -v home="$HOME/" '{gsub(home, "/Users/USER/")}1' "$tmp" > "${tmp}.new" && mv "${tmp}.new" "$tmp"
+    sed -i '' -E 's/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/redacted@example.invalid/g' "$tmp" 2>/dev/null || \
+    sed -i -E 's/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/redacted@example.invalid/g' "$tmp"
+    sed -i '' -E 's/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)[0-9]+\.[0-9]+/192.0.2.1/g' "$tmp" 2>/dev/null || \
+    sed -i -E 's/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)[0-9]+\.[0-9]+/192.0.2.1/g' "$tmp"
+    sed -i '' -E 's/(^|[^a-zA-Z0-9_])(gho|sk|sk-ant|hf)_[a-zA-Z0-9_-]{25,}/\1REDACTED_API_KEY/g' "$tmp" 2>/dev/null || \
+    sed -i -E 's/(^|[^a-zA-Z0-9_])(gho|sk|sk-ant|hf)_[a-zA-Z0-9_-]{25,}/\1REDACTED_API_KEY/g' "$tmp"
+    sed -i '' -E 's/(^|[^a-zA-Z0-9_])([A-Z_]{3,}(KEY|TOKEN|SECRET))[[:space:]]*=[[:space:]]*["'"'"']?[a-zA-Z0-9_\.\-]{20,}["'"'"']?/\1\2=REDACTED_SECRET/g' "$tmp" 2>/dev/null || \
+    sed -i -E 's/(^|[^a-zA-Z0-9_])([A-Z_]{3,}(KEY|TOKEN|SECRET))[[:space:]]*=[[:space:]]*["'"'"']?[a-zA-Z0-9_\.\-]{20,}["'"'"']?/\1\2=REDACTED_SECRET/g' "$tmp"
     if ! cmp -s "$file" "$tmp"; then
       cp "$tmp" "$file"
       [ "$DRY_RUN" = false ] && echo "     🧹 sanitized: $(basename "$file")"

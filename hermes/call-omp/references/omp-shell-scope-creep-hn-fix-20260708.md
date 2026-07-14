@@ -84,14 +84,14 @@ Path('/tmp/evidence/source-snippets.json').write_text(json.dumps(snippets, inden
 
 ```json
 "allowed_paths": [
-  "~/code/web-research-router/wrr/engines/community.py",
-  "~/code/web-research-router/wrr/engines/community_sources.py",
-  "~/code/web-research-router/wrr/_cli.py",
-  "~/code/web-research-router/tests/unit/test_community.py",
-  "~/code/web-research-router/tests/unit/test_cli_v6_flags.py",
-  "~/code/web-research-router/tests/unit/test_browser_harness_design_gate.py"
+  "/path/to/web-research-router/wrr/engines/community.py",
+  "/path/to/web-research-router/wrr/engines/community_sources.py",
+  "/path/to/web-research-router/wrr/_cli.py",
+  "/path/to/web-research-router/tests/unit/test_community.py",
+  "/path/to/web-research-router/tests/unit/test_cli_v6_flags.py",
+  "/path/to/web-research-router/tests/unit/test_browser_harness_design_gate.py"
 ],
-"denied_paths": ["~/code/web-research-router/.git"]
+"denied_paths": ["/path/to/web-research-router/.git"]
 ```
 
 红线文件（`registry.py`、`deps.py`）也加入 `allowed_paths`（只读无风险），让 OMP 合法读取，而不是偷偷越界读 `.git/`。

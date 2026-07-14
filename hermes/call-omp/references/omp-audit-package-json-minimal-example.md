@@ -13,7 +13,7 @@
   "scope": {
     "allowed_paths": ["shared/bilibili-video-analyzer"],
     "denied_paths": [],
-    "cwd": "~/code/jz-skills"
+    "cwd": "/path/to/jz-skills"
   },
   "criterion": [
     "新增 claim-first 数据结构完整、类型安全、无破坏现有接口",
@@ -53,7 +53,7 @@
   "mode": "audit",
   "channel": "acp",
   "task": "...",
-  "cwd": "~/code/jz-skills",
+  "cwd": "/path/to/jz-skills",
   "allowed_path": ["shared/bilibili-video-analyzer"],
   "criterion": [...]
 }
