@@ -3,15 +3,16 @@
 ## 2026-07-15
 
 - Official OMP 16.5.1 synced cleanly. `references/VERSION` now tracks
-  `16.5.1-0`, and the official mirrors refreshed for the 16.5.0/16.5.1
+  `16.5.1-1`, and the official mirrors refreshed for the 16.5.0/16.5.1
   changelog, provider organization-scoped Anthropic OAuth behavior, and
   `models.yml`/`models.yaml` plus `@role` selector semantics.
 - Authored follow-up updated `SKILL.md`, `references/providers/models.md`, and
   `references/architecture.md`. The official changelog also contains runtime
   fixes for TUI, kernels, MCP, launch, retry fallback, and Windows packaging;
   no authored guidance change was needed for those items.
-- Missing daily-maintenance helpers remain `fetch-official.sh`,
-  `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, and `release.sh`; `fetch-official.sh`
+  is not present, so the existing `sync-from-official.sh` helper was used.
 
 ## 2026-07-13
 
