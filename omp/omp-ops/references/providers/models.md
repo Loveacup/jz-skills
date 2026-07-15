@@ -211,7 +211,13 @@ Use a bare exact flat id only when OMP can match that same id through provider p
 
 `modelProviderOrder` chooses among provider candidates; it no longer feeds a catalog-wide canonical alias resolver.
 
-### Recent provider notes (16.2.9–16.5.1)
+### Recent provider notes (16.2.9–17.0.0)
+
+- 17.0.0 changes tool discovery and dispatch rather than provider credentials:
+  custom, extension, MCP, image-generation, and TTS tools are discoverable
+  through `xd://` devices, while BM25 tool discovery and per-tool MCP
+  selection are removed. Keep provider/model selection separate from this
+  runtime tool-transport change.
 
 - 16.5.1 treats each Anthropic organization/subscription as a separate OAuth
   account for login, usage, logout, and credential rotation, including when one

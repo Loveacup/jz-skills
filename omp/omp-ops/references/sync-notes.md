@@ -1,5 +1,20 @@
 # Sync Notes
 
+## 2026-07-16
+
+- Official OMP 17.0.0 synced cleanly. `references/VERSION` now tracks
+  `17.0.0-0`; the official mirrors refreshed `CHANGELOG.md` and
+  `custom-tools.md`, and `references/sync-state.json` records the upstream
+  sync timestamp.
+- Authored follow-up documents the 17.0.0 `hub`/`xd://` tool transport,
+  removal of BM25 discovery, hidden `resolve`, the SSH agent, and legacy
+  `report_finding` in `SKILL.md`, `references/providers/models.md`, and
+  `references/architecture.md`. No provider-auth or security guidance change
+  was required.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, `fetch-official.sh`, and `release.sh`;
+  `orchestrate.sh`, `sync-from-official.sh`, and `push-to-github.sh` were used.
+
 ## 2026-07-15
 
 - Official OMP 16.5.1 synced cleanly. `references/VERSION` now tracks

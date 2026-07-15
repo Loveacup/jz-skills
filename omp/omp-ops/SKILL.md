@@ -143,7 +143,19 @@ should not be treated as text-only.
 | Anthropic search | `ANTHROPIC_SEARCH_API_KEY` |
 | Codex search | `OPENAI_API_KEY` or stored Codex OAuth |
 
-### Recent OMP 16.2.9–16.5.1 operator notes
+### Recent OMP 16.2.9–17.0.0 operator notes
+
+- 17.0.0 consolidates `irc`, `job`, and `launch` into the `hub` tool and
+  exposes discoverable custom, extension, MCP, image, and TTS tools through
+  `xd://` devices. Use `read xd://<tool>` for documentation and
+  `write xd://<tool>` for execution; do not rely on the removed hidden
+  `resolve` or `search_tool_bm25` paths.
+- 17.0.0 removes the SSH agent tool and the legacy `report_finding` tool.
+  SSH host management remains available, but remote command execution is no
+  longer an OMP agent-tool workflow.
+- 17.0.0 adds opt-in `edit.enforceSeenLines` and optional generic-task
+  prewalk via `prewalk` / `task.agentPrewalk` / `task.prewalk`. The default
+  prewalk behavior remains off.
 
 - 16.5.0 replaces the `--reasoning-slide-*` flag family with `--prewalk`,
   `--prewalk-into <model>`, and `--no-prewalk`; use the new flags in current

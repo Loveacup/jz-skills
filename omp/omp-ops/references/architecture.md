@@ -139,6 +139,15 @@ Supported roles: `default`, `smol`, `slow`, `vision`, `plan`, `designer`, `commi
 Subagent names and model roles are separate; do not add `sonic` or `Tester` as `modelRoles`.
 Role values may append a thinking suffix: `:minimal`, `:low`, `:medium`, `:high`, `:xhigh`, `:max`.
 
+### OMP 17.0.0 tool transport boundary
+
+OMP 17.0.0 mounts discoverable custom, extension, MCP, image-generation, and
+TTS tools as `xd://` devices. Read a device for its documentation and write to
+the device to dispatch it. The former BM25 discovery settings and per-tool MCP
+selection settings are removed; do not add `tools.discoveryMode`,
+`mcp.discoveryMode`, or `mcp.discoveryDefaultServers` to new configuration.
+The `hub` tool now covers IRC, jobs, and launch/process supervision.
+
 ## Multi-Advisor (`WATCHDOG.yml`)
 
 As of 16.2.3, advisors are configured via `WATCHDOG.yml` (or `WATCHDOG.yaml`)
