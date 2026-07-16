@@ -35,6 +35,10 @@ OMP supports multiple web-search backends. Each provider is selected by setting 
 - `z.ai` search also checks stored OAuth credentials in `agent.db`.
 - Codex search requires either `OPENAI_API_KEY` or a stored Codex OAuth credential.
 - Anthropic search has a dedicated key/base URL pair so search traffic can be routed independently from chat completions.
+- 17.0.1 fixes xAI web search so configured `xai` / `xai-oauth` proxy endpoints
+  and headers are honored; official OAuth tokens are not sent to custom
+  endpoints. Treat custom endpoint routing as a security boundary and verify
+  the endpoint before enabling it.
 
 ## Minimal `.env` examples
 

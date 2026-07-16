@@ -6,10 +6,10 @@
   `17.0.1-0`; the official mirrors refreshed `CHANGELOG.md` and
   `environment-variables.md`, and `references/sync-state.json` records the
   upstream sync timestamp.
-- Authored review found no required changes to `SKILL.md`, provider search or
-  model guidance, architecture, or security. The release is primarily plugin
-  renderer resilience, CLI/path portability, TUI/session lifecycle fixes,
-  provider endpoint/auth routing fixes, and Windows/BSD-compatible builtins.
+- Authored review captured the xAI web-search proxy/header and OAuth-token
+  boundary fix in `SKILL.md` and provider search/model guidance. The release
+  is otherwise primarily plugin renderer resilience, CLI/path portability,
+  TUI/session lifecycle fixes, and Windows/BSD-compatible builtins.
   The updated `PI_TUI_RESIZE_IN_PLACE` wording remains in the official mirror
   as source material; no authored TUI configuration section currently exists.
 - Missing daily-maintenance helpers remain `diff-official.sh`,

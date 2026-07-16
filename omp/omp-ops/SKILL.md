@@ -143,7 +143,13 @@ should not be treated as text-only.
 | Anthropic search | `ANTHROPIC_SEARCH_API_KEY` |
 | Codex search | `OPENAI_API_KEY` or stored Codex OAuth |
 
-### Recent OMP 16.2.9–17.0.0 operator notes
+### Recent OMP 16.2.9–17.0.1 operator notes
+
+- 17.0.1 fixes `omp grep` paths with a stray leading colon, makes xAI web
+  search honor configured proxy endpoints and headers without forwarding
+  official OAuth tokens to custom endpoints, and improves Windows broken-pipe
+  handling. These are runtime fixes; they do not change provider credentials
+  or search-provider setup.
 
 - 17.0.0 consolidates `irc`, `job`, and `launch` into the `hub` tool and
   exposes discoverable custom, extension, MCP, image, and TTS tools through
