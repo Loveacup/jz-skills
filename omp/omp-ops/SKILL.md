@@ -143,7 +143,13 @@ should not be treated as text-only.
 | Anthropic search | `ANTHROPIC_SEARCH_API_KEY` |
 | Codex search | `OPENAI_API_KEY` or stored Codex OAuth |
 
-### Recent OMP 16.2.9–17.0.1 operator notes
+### Recent OMP 16.2.9–17.0.3 operator notes
+
+- 17.0.3 removes the unreliable Bing and Yahoo HTML-scraping web-search
+  providers. Do not treat either provider as an available fallback.
+- 17.0.3 clarifies `PI_TUI_RESIZE_IN_PLACE`: truthy values force in-place
+  resize without borrowing the alternate screen; false values force the
+  alternate-screen fast path. Warp defaults to the in-place path.
 
 - 17.0.1 fixes `omp grep` paths with a stray leading colon, makes xAI web
   search honor configured proxy endpoints and headers without forwarding

@@ -4,6 +4,9 @@ Source: `docs/environment-variables.md` section 3 (Web search subsystem).
 
 OMP supports multiple web-search backends. Each provider is selected by setting its auth variable and/or config key. Only set one provider at a time unless you intend fallback behavior.
 
+As of OMP 17.0.3, the unreliable Bing and Yahoo HTML-scraping providers are
+removed; they are intentionally absent from the provider matrix below.
+
 ## Provider matrix
 
 | Provider ID | Required env var(s) | Optional env var(s) / config keys | Validation command |

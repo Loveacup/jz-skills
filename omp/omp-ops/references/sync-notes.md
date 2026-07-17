@@ -1,5 +1,21 @@
 # Sync Notes
 
+## 2026-07-18
+
+- Official OMP 17.0.3 synced cleanly. `references/VERSION` now tracks
+  `17.0.3-0`; the official mirrors refreshed `CHANGELOG.md`,
+  `environment-variables.md`, and `models.md`, and `references/sync-state.json`
+  records the upstream sync timestamp.
+- Authored review added the LiteLLM management-route discovery/fallback rules,
+  the removal of Bing/Yahoo HTML-scraping search providers, and the updated
+  `PI_TUI_RESIZE_IN_PLACE` semantics. The remaining 17.0.2/17.0.3 changes are
+  runtime/TUI/plugin lifecycle fixes and do not require authored operator
+  guidance changes.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, `fetch-official.sh`, and `release.sh`;
+  `check-version.sh`, `orchestrate.sh`, `sync-from-official.sh`, and
+  `push-to-github.sh` are available.
+
 ## 2026-07-17
 
 - Official OMP 17.0.1 synced cleanly. `references/VERSION` now tracks
