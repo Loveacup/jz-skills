@@ -211,7 +211,11 @@ Use a bare exact flat id only when OMP can match that same id through provider p
 
 `modelProviderOrder` chooses among provider candidates; it no longer feeds a catalog-wide canonical alias resolver.
 
-### Recent provider notes (16.2.9–17.0.3)
+### Recent provider notes (16.2.9–17.0.4)
+
+- 17.0.4 adds `PI_CONFIG_FILES`, a platform-delimited settings-overlay path
+  list loaded before explicit `--config` overlays. Treat wrapper-provided files
+  as another configuration layer and keep secrets out of those files.
 
 - 17.0.3 expands LiteLLM discovery to try `/model_group/info`, `/v2/model/info`,
   `/model/info`, and `/v1/model/info` before falling back to `GET /models`.

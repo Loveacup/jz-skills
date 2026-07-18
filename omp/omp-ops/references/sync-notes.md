@@ -1,5 +1,19 @@
 # Sync Notes
 
+## 2026-07-19
+
+- Official OMP `17.0.4` synced cleanly. `references/VERSION` now tracks
+  `17.0.4-0`; the official mirrors refreshed `CHANGELOG.md`,
+  `environment-variables.md`, and `sync-state.json`.
+- Authored review added the new `PI_CONFIG_FILES` settings-overlay behavior to
+  `architecture.md`, `providers/models.md`, and `SKILL.md`. The 17.0.4 changelog
+  otherwise contains runtime performance, recorder, task-schema, terminal, and
+  shutdown fixes that do not require operator-reference changes.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, `fetch-official.sh`, and `release.sh`;
+  `check-version.sh`, `orchestrate.sh`, `sync-from-official.sh`, and
+  `push-to-github.sh` are available.
+
 ## 2026-07-18
 
 - Official OMP 17.0.3 synced cleanly. `references/VERSION` now tracks

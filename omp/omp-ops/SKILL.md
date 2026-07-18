@@ -143,7 +143,12 @@ should not be treated as text-only.
 | Anthropic search | `ANTHROPIC_SEARCH_API_KEY` |
 | Codex search | `OPENAI_API_KEY` or stored Codex OAuth |
 
-### Recent OMP 16.2.9–17.0.3 operator notes
+### Recent OMP 16.2.9–17.0.4 operator notes
+
+- 17.0.4 adds `PI_CONFIG_FILES`, a platform-delimited (`:` on Unix, `;` on
+  Windows) list of settings overlays loaded before explicit `--config`
+  overlays. Use it for wrapper-injected settings and keep credentials out of
+  the referenced files.
 
 - 17.0.3 removes the unreliable Bing and Yahoo HTML-scraping web-search
   providers. Do not treat either provider as an available fallback.

@@ -221,6 +221,11 @@ Rules:
 - Keys must match `[A-Za-z_][A-Za-z0-9_]*`.
 - Values may be single- or double-quoted; quotes are stripped.
 
+`PI_CONFIG_FILES` may provide a platform-delimited path list of settings
+overlays (`:` on Unix, `;` on Windows). These files load in listed order
+before explicit `--config` overlays, which is useful for wrapper scripts that
+need to inject settings without changing argv.
+
 ### Project-local `.env` example
 
 ```dotenv
