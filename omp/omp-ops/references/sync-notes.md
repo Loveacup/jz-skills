@@ -1,5 +1,19 @@
 # Sync Notes
 
+## 2026-07-20
+
+- Official OMP 17.0.5 is now mirrored; `references/VERSION` tracks
+  `17.0.5-0` and `sync-state.json` records the upstream sync timestamp.
+- Semantic review found no new authored operator guidance required. The
+  release adds Codex-subscription image generation and OTLP logs/metrics,
+  while the existing references already cover `openai-codex`, fallback
+  wildcard behavior, and `PI_CONFIG_FILES`; the remaining changes are
+  runtime, UI, or compatibility fixes.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, `fetch-official.sh`, and `release.sh`;
+  `check-version.sh`, `orchestrate.sh`, `sync-from-official.sh`, and
+  `push-to-github.sh` are available.
+
 ## 2026-07-19
 
 - Official OMP `17.0.4` synced cleanly. `references/VERSION` now tracks
@@ -107,7 +121,6 @@
   the changelog and did not need authored updates in
   `references/providers/models.md`, `references/providers/search.md`,
   `references/architecture.md`, or `references/security.md` for this run.
-
 ## 2026-07-06
 
 - Official OMP 16.3.11 sync refreshed `references/VERSION` and the official
