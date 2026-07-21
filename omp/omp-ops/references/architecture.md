@@ -198,7 +198,10 @@ Credential resolution order for a provider request:
 1. Runtime override (e.g. CLI `--api-key`).
 2. `models.yml` `apiKey` on a custom provider (env-name-or-literal).
 3. Stored API key in `agent.db`.
-4. Stored OAuth credential in `agent.db` (with refresh).
+4. Stored OAuth credential in `agent.db` (with refresh). For Anthropic and
+   ChatGPT/Codex, each organization or workspace is treated as a separate
+   account during login, usage, and rotation; select the intended workspace
+   in the consent flow.
 5. Provider environment variable (e.g. `OPENAI_API_KEY`).
 6. `models.yml` fallback resolver.
 

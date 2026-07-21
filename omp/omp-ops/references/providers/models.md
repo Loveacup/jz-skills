@@ -211,7 +211,16 @@ Use a bare exact flat id only when OMP can match that same id through provider p
 
 `modelProviderOrder` chooses among provider candidates; it no longer feeds a catalog-wide canonical alias resolver.
 
-### Recent provider notes (16.2.9–17.0.4)
+### Recent provider notes (16.2.9–17.0.7)
+
+- 17.0.7 preserves Portkey/gateway model ids that begin with `@` (for example,
+  `@modal/GLM-5-2-FP8`) instead of rewriting them to a bundled wire id. Keep
+  such ids exact in custom-provider model definitions.
+
+- 17.0.6 adds Codex-subscription image generation through the `openai-codex`
+  OAuth provider and supports a per-request image-provider override. This is
+  independent of the active chat model; do not assume an `OPENAI_API_KEY` is
+  required when a connected Codex subscription is selected.
 
 - 17.0.4 adds `PI_CONFIG_FILES`, a platform-delimited settings-overlay path
   list loaded before explicit `--config` overlays. Treat wrapper-provided files

@@ -143,7 +143,21 @@ should not be treated as text-only.
 | Anthropic search | `ANTHROPIC_SEARCH_API_KEY` |
 | Codex search | `OPENAI_API_KEY` or stored Codex OAuth |
 
-### Recent OMP 16.2.9–17.0.4 operator notes
+### Recent OMP 16.2.9–17.0.7 operator notes
+
+- 17.0.7 preserves custom-provider model ids beginning with `@` (such as
+  Portkey ids); keep those ids exact rather than normalizing them to a bundled
+  model id.
+
+- 17.0.6 adds Codex-subscription image generation through `openai-codex`,
+  independent of the active chat model, and makes Codex web search honor
+  custom endpoints without forwarding official OAuth credentials there.
+  Treat custom endpoint routing as a credential boundary and fail closed when
+  the explicitly selected provider has no usable credentials.
+
+- Anthropic and ChatGPT/Codex OAuth accounts are organization/workspace scoped;
+  select the intended workspace during login when one email has multiple seats
+  or subscriptions.
 
 - 17.0.4 adds `PI_CONFIG_FILES`, a platform-delimited (`:` on Unix, `;` on
   Windows) list of settings overlays loaded before explicit `--config`

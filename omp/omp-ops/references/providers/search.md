@@ -37,6 +37,10 @@ removed; they are intentionally absent from the provider matrix below.
 - 16.4.8 tightened Perplexity search reliability by forcing retrieval for all queries.
 - `z.ai` search also checks stored OAuth credentials in `agent.db`.
 - Codex search requires either `OPENAI_API_KEY` or a stored Codex OAuth credential.
+- 17.0.6 makes Codex web search honor a configured `openai-codex` base URL,
+  API key, and headers without forwarding official OAuth credentials to a
+  custom endpoint. Explicitly selected providers fail closed when their
+  credentials do not resolve; verify custom endpoints before enabling them.
 - Anthropic search has a dedicated key/base URL pair so search traffic can be routed independently from chat completions.
 - 17.0.1 fixes xAI web search so configured `xai` / `xai-oauth` proxy endpoints
   and headers are honored; official OAuth tokens are not sent to custom

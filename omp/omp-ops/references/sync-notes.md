@@ -1,5 +1,20 @@
 # Sync Notes
 
+## 2026-07-22
+
+- Official OMP 17.0.7 is now mirrored; `references/VERSION` tracks `17.0.7-0`
+  and `sync-state.json` records the upstream sync timestamp.
+- Semantic review covered the 17.0.6–17.0.7 changelog and official provider
+  documentation. Authored guidance now records exact `@`-prefixed gateway model
+  ids, Codex-subscription image generation, Codex custom-endpoint credential
+  isolation, and organization/workspace-scoped Anthropic and ChatGPT OAuth.
+  The remaining release changes are runtime, UI, transport, or compatibility
+  fixes and do not require operator-reference changes.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, `fetch-official.sh`, and `release.sh`;
+  `check-version.sh`, `orchestrate.sh`, `sync-from-official.sh`, and
+  `push-to-github.sh` are available.
+
 ## 2026-07-20
 
 - Official OMP 17.0.5 is now mirrored; `references/VERSION` tracks

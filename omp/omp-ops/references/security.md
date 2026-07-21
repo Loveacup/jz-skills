@@ -10,6 +10,11 @@ Source: `docs/providers.md`, `docs/secrets.md`, `docs/environment-variables.md`.
 4. **Project `.env` is allowed** for project-specific endpoints, but ensure it is ignored by version control.
 5. **`models.yml` `apiKey` is env-name-or-literal.** If the value names an existing env var, that var is used; otherwise the literal string becomes the key. Prefer env-var names over literals.
 6. **Command-resolved secrets.** Prefix a provider/header value with `!` to run a shell command (10 s timeout) and use trimmed stdout. This is acceptable for local password managers.
+7. **Custom endpoint isolation.** When routing Codex/OpenAI-compatible traffic
+   to a custom endpoint, use its explicit API key and headers; do not allow
+   official OAuth credentials to cross that endpoint boundary. Prefer an
+   explicit provider selection that fails closed when its credentials are
+   unavailable.
 
 ```yaml
 # acceptable in models.yml
