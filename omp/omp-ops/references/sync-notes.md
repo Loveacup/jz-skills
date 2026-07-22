@@ -1,5 +1,16 @@
 # Sync Notes
 
+## 2026-07-23
+
+- Official OMP remains 17.0.7. The official mirror was refreshed and reviewed;
+  tracked documentation content is unchanged, so no authored reference update
+  was required. `references/VERSION` advances the maintenance revision to
+  `17.0.7-1` and `sync-state.json` records the current sync timestamp.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, `fetch-official.sh`, and `release.sh`;
+  `check-version.sh`, `orchestrate.sh`, `sync-from-official.sh`, and
+  `push-to-github.sh` are available.
+
 ## 2026-07-22
 
 - Official OMP 17.0.7 is now mirrored; `references/VERSION` tracks `17.0.7-0`
