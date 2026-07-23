@@ -211,7 +211,11 @@ Use a bare exact flat id only when OMP can match that same id through provider p
 
 `modelProviderOrder` chooses among provider candidates; it no longer feeds a catalog-wide canonical alias resolver.
 
-### Recent provider notes (16.2.9–17.0.7)
+### Recent provider notes (16.2.9–17.0.9)
+
+- 17.0.9 allows each `task` tool call (and each item in a batch) to select a
+  model, fallback chain, and explicit reasoning suffix. Treat this as a
+  per-call override; it does not replace the configured `task` model role.
 
 - 17.0.7 preserves Portkey/gateway model ids that begin with `@` (for example,
   `@modal/GLM-5-2-FP8`) instead of rewriting them to a bundled wire id. Keep

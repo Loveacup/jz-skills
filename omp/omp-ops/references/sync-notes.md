@@ -1,5 +1,19 @@
 # Sync Notes
 
+## 2026-07-24
+
+- Official OMP 17.0.9 is now mirrored; `references/VERSION` tracks
+  `17.0.9-0` and `sync-state.json` records the upstream sync timestamp.
+- Authored guidance now records ordered web-search/image provider lists,
+  explicit keyless Firecrawl search, and per-call `task` model/fallback
+  selection. The new MCP Markdown rendering toggle and Hindsight/RPC/Auto QA
+  changes are runtime or client-surface details outside this skill's operator
+  reference boundary; consult the official mirrors when needed.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, `fetch-official.sh`, and `release.sh`;
+  `check-version.sh`, `orchestrate.sh`, `sync-from-official.sh`, and
+  `push-to-github.sh` are available.
+
 ## 2026-07-23
 
 - Official OMP remains 17.0.7. The official mirror was refreshed and reviewed;

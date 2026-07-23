@@ -52,9 +52,9 @@ Use this skill when the user asks about any of the following:
 - API key handling: env vars, `.env`, `agent.db`, `/login`, auth broker.
 - Search providers and caveats: Exa, Brave, Tavily, DuckDuckGo
   datacenter/shared-egress limitations, SearXNG, Perplexity, z.ai, Kagi, Jina,
-  Parallel, Anthropic search, Codex search, Kimi/Moonshot search.
+  Parallel, Firecrawl, Anthropic search, Codex search, Kimi/Moonshot search.
 - `modelRoles`, `cycleOrder`, `modelProviderOrder`, `enabledModels`,
-  `disabledProviders`, `task.softRequestBudgetNotice`, `task.maxConcurrency`,
+  `disabledProviders`, per-call `task` model selection, `task.softRequestBudgetNotice`, `task.maxConcurrency`,
   and `task.maxRecursionDepth`.
 - Hidden/undocumented runtime switches shown in OMP `tips.txt`, such as
   `PI_DIALECT`, `/btw`, `/tan`, `/force`, `/shake`, magic keywords

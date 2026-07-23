@@ -2,7 +2,7 @@
 
 Source: `docs/environment-variables.md` section 3 (Web search subsystem).
 
-OMP supports multiple web-search backends. Each provider is selected by setting its auth variable and/or config key. Only set one provider at a time unless you intend fallback behavior.
+OMP supports multiple web-search backends. Each provider is selected by setting its auth variable and/or config key. Use the ordered `providers.webSearchOrder` list for fallback priority and `providers.webSearchExclude` to suppress providers; legacy `providers.webSearch` values migrate automatically. Image search has the analogous `providers.imageOrder` list. Do not assume the first credentialed provider is the intended route when an explicit order is configured.
 
 As of OMP 17.0.3, the unreliable Bing and Yahoo HTML-scraping providers are
 removed; they are intentionally absent from the provider matrix below.
@@ -21,6 +21,7 @@ removed; they are intentionally absent from the provider matrix below.
 | `kagi` | `KAGI_API_KEY` | none | `curl -s "https://kagi.com/api/v0/search?q=test" -H "Authorization: $KAGI_API_KEY"` |
 | `jina` | `JINA_API_KEY` | none | `curl -s "https://r.jina.ai/http://example.com" -H "Authorization: Bearer $JINA_API_KEY"` |
 | `parallel` | `PARALLEL_API_KEY` | none | `curl -s "https://api.parallel.ai/v1/search" -H "Authorization: Bearer $PARALLEL_API_KEY" -d '{"query":"test"}'` |
+| `firecrawl` | none when explicitly selected; `FIRECRAWL_API_KEY` for automatic provider-chain eligibility | Firecrawl REST API key is omitted only in explicit keyless mode; the automatic chain remains credential-gated | `omp search --provider firecrawl "test"` |
 | `anthropic-search` | `ANTHROPIC_SEARCH_API_KEY` (optional; falls back to Anthropic auth) | `ANTHROPIC_SEARCH_BASE_URL`, `ANTHROPIC_SEARCH_MODEL` | `curl -s "${ANTHROPIC_SEARCH_BASE_URL:-https://api.anthropic.com}/v1/messages" -H "x-api-key: ${ANTHROPIC_SEARCH_API_KEY:-$ANTHROPIC_API_KEY}" -H "anthropic-version: 2023-06-01" -d '{"model":"'${ANTHROPIC_SEARCH_MODEL:-claude-haiku-4-5}'","max_tokens":1024,"messages":[{"role":"user","content":"hello"}]}'` |
 | `codex-search` | `OPENAI_API_KEY` or stored Codex OAuth in `agent.db` | `PI_CODEX_WEB_SEARCH_MODEL` | `curl -s "https://api.openai.com/v1/responses" -H "Authorization: Bearer $OPENAI_API_KEY" -H "Content-Type: application/json" -d '{"model":"'${PI_CODEX_WEB_SEARCH_MODEL:-gpt-5.3-codex}'","input":"hello"}'` |
 | `kimi/moonshot-search` | `MOONSHOT_SEARCH_API_KEY` or `KIMI_SEARCH_API_KEY` | `MOONSHOT_SEARCH_BASE_URL`, `KIMI_SEARCH_BASE_URL` | `curl -s "${MOONSHOT_SEARCH_BASE_URL:-https://api.moonshot.cn/v1}/chat/completions" -H "Authorization: Bearer ${MOONSHOT_SEARCH_API_KEY:-$KIMI_SEARCH_API_KEY}" -H "Content-Type: application/json" -d '{"model":"moonshot-v1-8k","messages":[{"role":"user","content":"hello"}]}'` |
@@ -46,6 +47,9 @@ removed; they are intentionally absent from the provider matrix below.
   and headers are honored; official OAuth tokens are not sent to custom
   endpoints. Treat custom endpoint routing as a security boundary and verify
   the endpoint before enabling it.
+- 17.0.9 adds explicit keyless Firecrawl search. Keep it explicitly selected
+  when intentionally using the keyless REST path; automatic provider ordering
+  still requires Firecrawl credentials.
 
 ## Minimal `.env` examples
 
