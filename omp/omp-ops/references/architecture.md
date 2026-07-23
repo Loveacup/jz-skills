@@ -148,6 +148,16 @@ selection settings are removed; do not add `tools.discoveryMode`,
 `mcp.discoveryMode`, or `mcp.discoveryDefaultServers` to new configuration.
 The `hub` tool now covers IRC, jobs, and launch/process supervision.
 
+### OMP 17.0.9 task and MCP settings
+
+`task.isolation.apply` defaults to `true`: successful isolated `task` runs
+apply their changes to the parent checkout. Set it to `false` when the caller
+must retain patch/branch artifacts for later integration.
+
+`mcp.renderMarkdownResults` defaults to `true`, so non-JSON MCP text results
+render as Markdown in the terminal transcript. Set it to `false` when raw MCP
+text is required for downstream parsing or comparison.
+
 ## Multi-Advisor (`WATCHDOG.yml`)
 
 As of 16.2.3, advisors are configured via `WATCHDOG.yml` (or `WATCHDOG.yaml`)

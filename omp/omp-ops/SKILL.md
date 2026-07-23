@@ -143,7 +143,17 @@ should not be treated as text-only.
 | Anthropic search | `ANTHROPIC_SEARCH_API_KEY` |
 | Codex search | `OPENAI_API_KEY` or stored Codex OAuth |
 
-### Recent OMP 16.2.9–17.0.7 operator notes
+### Recent OMP 16.2.9–17.0.9 operator notes
+
+- 17.0.9 adds per-call `model` selection to the `task` tool, including batch
+  item selectors, fallback chains, and reasoning suffixes; prefer this for
+  task-specific routing instead of changing the global `task` role.
+- 17.0.9 adds keyless Firecrawl search when `firecrawl` is explicitly selected;
+  automatic fallback still requires credentials. It also defaults
+  `task.isolation.apply` and `mcp.renderMarkdownResults` to `true`, respectively
+  applying successful isolated task changes to the parent checkout and rendering
+  non-JSON MCP text as Markdown. Set either key to `false` when retaining
+  artifacts or raw MCP text is required.
 
 - 17.0.7 preserves custom-provider model ids beginning with `@` (such as
   Portkey ids); keep those ids exact rather than normalizing them to a bundled
