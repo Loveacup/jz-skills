@@ -1,5 +1,19 @@
 # Sync Notes
 
+## 2026-07-25
+
+- Official OMP 17.1.2 is now mirrored; `references/VERSION` tracks
+  `17.1.2-0` and `sync-state.json` records the upstream sync timestamp.
+- Authored guidance now records per-call `task.effort`, SearXNG
+  `searxng.engines`, and the shared search-query directive/post-filter behavior.
+  The expanded embedded shell builtins and remaining changelog items are
+  runtime/tool-surface changes; consult the official mirror when needed and do
+  not duplicate them into operator configuration guidance.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, `fetch-official.sh`, and `release.sh`;
+  `check-version.sh`, `orchestrate.sh`, `sync-from-official.sh`, and
+  `push-to-github.sh` are available.
+
 ## 2026-07-24
 
 - Official OMP 17.0.9 is now mirrored; `references/VERSION` tracks

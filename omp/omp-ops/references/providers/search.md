@@ -16,7 +16,7 @@ removed; they are intentionally absent from the provider matrix below.
 | `tavily` | `TAVILY_API_KEY` | none | `curl -s "https://api.tavily.com/search" -H "content-type: application/json" -d '{"api_key":"'$TAVILY_API_KEY'","query":"test","max_results":1}'` |
 | `duckduckgo` | none | built-in fallback; 16.3.0 improves error clarity and documents datacenter/shared-egress limitations | `omp search --provider duckduckgo "test"` |
 | `perplexity` | `PERPLEXITY_API_KEY` (API-key mode) | `PERPLEXITY_COOKIES` (cookie-auth mode) | `curl -s "https://api.perplexity.ai/chat/completions" -H "Authorization: Bearer $PERPLEXITY_API_KEY" -H "Content-Type: application/json" -d '{"model":"sonar","messages":[{"role":"user","content":"hello"}]}'` |
-| `searxng` | `SEARXNG_ENDPOINT` (`SEARXNG_TOKEN` optional) | `SEARXNG_BASIC_USERNAME`, `SEARXNG_BASIC_PASSWORD`; or `searxng.endpoint`, `searxng.token`, `searxng.basicUsername`, `searxng.basicPassword` in `config.yml` | `curl -s "$SEARXNG_ENDPOINT/search?q=test&format=json" ${SEARXNG_TOKEN:+-H "Authorization: Bearer $SEARXNG_TOKEN"}` |
+| `searxng` | `SEARXNG_ENDPOINT` (`SEARXNG_TOKEN` optional) | `SEARXNG_BASIC_USERNAME`, `SEARXNG_BASIC_PASSWORD`; or `searxng.endpoint`, `searxng.token`, `searxng.basicUsername`, `searxng.basicPassword`, `searxng.engines` in `config.yml` | `curl -s "$SEARXNG_ENDPOINT/search?q=test&format=json" ${SEARXNG_TOKEN:+-H "Authorization: Bearer $SEARXNG_TOKEN"}` |
 | `zai` | `ZAI_API_KEY` | stored OAuth in `agent.db` also accepted | `curl -s "https://api.z.ai/v1/chat/completions" -H "Authorization: Bearer $ZAI_API_KEY" -H "Content-Type: application/json" -d '{"model":"glm-4-flash","messages":[{"role":"user","content":"hello"}]}'` |
 | `kagi` | `KAGI_API_KEY` | none | `curl -s "https://kagi.com/api/v0/search?q=test" -H "Authorization: $KAGI_API_KEY"` |
 | `jina` | `JINA_API_KEY` | none | `curl -s "https://r.jina.ai/http://example.com" -H "Authorization: Bearer $JINA_API_KEY"` |
@@ -50,6 +50,11 @@ removed; they are intentionally absent from the provider matrix below.
 - 17.0.9 adds explicit keyless Firecrawl search. Keep it explicitly selected
   when intentionally using the keyless REST path; automatic provider ordering
   still requires Firecrawl credentials.
+- 17.1.2 adds `searxng.engines`, a comma-separated engine/shortcut list sent to
+  SearXNG. Search queries also support shared operators such as `site:`, date
+  bounds, `filetype:`, quoted phrases, exclusions, and `OR`; unsupported
+  constraints are post-filtered when possible and relaxed with a notice if
+  they would remove every result.
 
 ## Minimal `.env` examples
 
@@ -84,6 +89,7 @@ searxng:
   token: optional-bearer-token
   basicUsername: user
   basicPassword: pass
+  engines: ddg, br, startpage
 ```
 
 All other search providers are enabled purely by environment variables or stored auth.

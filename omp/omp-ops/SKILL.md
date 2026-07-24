@@ -55,7 +55,7 @@ Use this skill when the user asks about any of the following:
   Parallel, Firecrawl, Anthropic search, Codex search, Kimi/Moonshot search.
 - `modelRoles`, `cycleOrder`, `modelProviderOrder`, `enabledModels`,
   `disabledProviders`, per-call `task` model selection, `task.softRequestBudgetNotice`, `task.maxConcurrency`,
-  and `task.maxRecursionDepth`.
+  `task.maxRecursionDepth`, and per-call `task.effort` selection.
 - Hidden/undocumented runtime switches shown in OMP `tips.txt`, such as
   `PI_DIALECT`, `/btw`, `/tan`, `/force`, `/shake`, magic keywords
   (`ultrathink`, `orchestrate`, `workflowz`), or `omp stats`.
@@ -257,6 +257,8 @@ Before answering, confirm:
 - [ ] No real API key, token, or password appears in the final response.
 - [ ] `references/official/` was consulted for behavior that may have changed.
 - [ ] `references/providers/` was consulted for provider-specific env vars.
+- [ ] For search questions, `searxng.engines` and supported query directives
+      are checked against the official mirror before giving configuration advice.
 - [ ] `modelRoles` examples use exact flat IDs or provider/model selectors; do not document canonical alias coalescing as active behavior.
 - [ ] Project/global scope and array-replacement behavior were mentioned when
       relevant.

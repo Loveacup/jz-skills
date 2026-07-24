@@ -211,7 +211,12 @@ Use a bare exact flat id only when OMP can match that same id through provider p
 
 `modelProviderOrder` chooses among provider candidates; it no longer feeds a catalog-wide canonical alias resolver.
 
-### Recent provider notes (16.2.9–17.0.9)
+### Recent provider notes (16.2.9–17.1.2)
+
+- 17.1.2 adds a `task` tool `effort` selector (`lo`, `med`, or `hi`) for each
+  spawned task. It maps to the resolved model's supported thinking range and
+  overrides the agent default for that call; omission preserves automatic
+  per-prompt classification.
 
 - 17.0.9 allows each `task` tool call (and each item in a batch) to select a
   model, fallback chain, and explicit reasoning suffix. Treat this as a
