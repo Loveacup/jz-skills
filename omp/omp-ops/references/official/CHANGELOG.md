@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+### Added
+
+- `omp usage` now surfaces auto-disabled credentials as red `✗` tombstone rows (identity, how long ago, the shortened upstream cause — e.g. `Refresh token expired` — and a re-login hint), including a provider section when no active credential remains. User-driven tombstones (`replaced by newer credential`, `deleted by user`) and API-key rows stay hidden. Requires a broker with `GET /v1/credentials/disabled`; older brokers degrade to no tombstone rows.
+- `omp usage` warns about Anthropic's ~30-day OAuth grant lifetime: accounts whose interactive login (`authorizedAt`) is within a week of the deadline get a yellow `⚠ re-login within <time>` line, and past-deadline accounts a red one. Grants die server-side exactly ~30 days after login regardless of refresh rotation, so this is the only warning before the broker auto-disables the row.
+
+### Fixed
+
+- Fixed the Docker `natives-builder` stage failing to build releases ≥ 17.1.1: the native audio stack added bindgen (miniaudio needs libclang) and a bundled-opus CMake build (needs cmake + make), none of which were installed in the slim builder image.
+- Fixed `omp usage` duplicating org-less legacy accounts as "no usage data" rows whenever any sibling report carried an organization (mixed pools of pre-org-capture rows and fresh org-scoped logins): an org-less account is now covered by its own org-less report, while org-attributed sibling reports still never count as its coverage.
+- `omp usage` revalidates the broker credential snapshot before rendering: live usage reports were previously paired with a disk-cached account list up to an hour old, so a just-completed re-login (org-less row upserted to org-scoped) rendered as a phantom duplicate until the cache expired.
+
+## [17.1.3] - 2026-07-24
+
+### Fixed
+
+- Fixed the in-process `find` builtin's `-exec`/`-execdir` children inheriting the omp process's real stdout/stderr, so commands like `find … -exec ls -ld {} \;` spammed their output straight into the terminal (corrupting the TUI) instead of the tool's captured output, and bypassed shell redirects. Exec children now stream stdout/stderr back through the shell's scope streams (matching `xargs`/`ifne`) and run with the shell's exported environment (`env_clear` + scope snapshot) instead of the host process environment.
+- Fixed `ast_edit` erroring with "`lang` is required" — an argument that no longer exists in the tool schema — when `paths` resolved to files of multiple languages (e.g. a crate directory with `.rs` + `.toml`). Mixed-language paths now rewrite per file: each file is parsed in its own inferred language, patterns are compiled per language, and a pattern that doesn't parse in some matched language simply skips those files.
+- Fixed the `retain` tool's TUI renderer crashing when streaming arguments temporarily expose a non-array `items` value ([#6528](https://github.com/can1357/oh-my-pi/issues/6528)).
+- Fixed Edit and Write tools failing with `Settings not initialized` in isolated sessions by using each tool session's settings for generated-file guards, with safe schema defaults for standalone guards and inline-image rendering ([#6549](https://github.com/can1357/oh-my-pi/issues/6549)).
+
 ## [17.1.2] - 2026-07-24
 
 ### Added
@@ -478,23 +498,3 @@
 - Fixed headless `omp -p` waiting indefinitely after a completed turn when final consolidation stalls.
 - Fixed explicit-tool sessions bypassing `xd://` presentation for ambient discoverable custom and MCP tools.
 - Fixed `providers.webSearch: kimi` incorrectly sending Moonshot credentials instead of Kimi Code credentials.
-- Fixed `registerTool` demoting essential built-in tools to `discoverable` when a re-registration omitted `loadMode`.
-- Fixed the advisor skipping the next user instruction after auto-learn accepted and pruned a terminal empty assistant stop.
-- Fixed built-in advisors retrying quota- or rate-limited providers instead of applying the matching `retry.fallbackChains` model chain.
-- Updated model selector status messages to use role tags (`SMOL`, `SLOW`) instead of display names (`Fast`, `Thinking`) for consistency.
-- Fixed Cursor models receiving only top-level tools by forwarding mounted `xd://` devices through Cursor's request-context MCP catalog.
-- Fixed Windows bash crashes when a piped command times out while flushing output.
-- Fixed a race condition where hub/IRC `send` and `ensureLive` could inject into a subagent session during disposal.
-- Migrated legacy nested/dotted configuration keys (`dev.autoqa.consent` and `todo.reminders.max`) to flat keys (`dev.autoqaConsent` and `todo.remindersMax`) on settings load.
-- Fixed keyboard input dying after the first keypress when a custom tool module attaches a stdin consumer at import time.
-- Fixed the alignment of the ask tool's custom-input dialog to start at column 0.
-- Fixed advisor context maintenance undercounting the provider context by anchoring compaction decisions on provider-reported context usage.
-- Fixed RPC mode (`--mode rpc`) crashing on non-JSON stdin lines; malformed lines are now reported as errors while the frame loop continues.
-- Fixed local llama.cpp Qwen-family models not honoring the `--thinking off` flag.
-- Documented the `ultrathink`, `orchestrate`, and `workflowz` magic keywords, including their effects, matching rules, and settings.
-- Fixed `/clear` autocomplete selecting `/autoresearch` and updated `/clear` to start a new session as an alias for `/new`.
-- Fixed `/review` aborting entirely when GitHub rejects a pull request's aggregate diff for exceeding the line limit by falling back to the paginated per-file endpoint.
-- Fixed `/q` + Enter running `/queue` instead of `/quit` by adding an explicit `q` alias to `/quit`.
-- Fixed Ctrl+L (`app.display.reset`) not refreshing the dark/light theme on certain terminals by issuing a background re-query before repainting.
-- Fixed a failing advisor stalling the primary agent: the per-turn catch-up gate parked the primary for up to its full 30s budget while a broken advisor (unsupported model, dead endpoint, render bug) retried — and an advisor exception could abort the primary's turn-end outright. A failing advisor now releases parked waiters the moment its turn fails (before any async hook), refuses new parks until a turn succeeds, and the turn-end boundary isolates advisor exceptions completely; a failed render restores the delta cursor so nothing is lost when the advisor recovers.
-- Fixed advisors retrying a permanently rejected request forever (e.g. `invalid_request_error: model not supported with this account`): unlike quota exhaustion — which pauses with a notice until an explicit reset — this class notified once and silently kept re-attempting every turn, re-building heavy context in a shared daemon. The runtime now hard-stops after a permanent rejection or three consecutive backlog-drop cycles, with a visible notice; an explicit reset (`/new`, config rebuild, restart) re-enables it. `waitForCatchup` resolves immediately while halted so the primary agent is never parked on a runtime that cannot drain.

@@ -1,5 +1,19 @@
 # Sync Notes
 
+## 2026-07-26
+
+- Official OMP 17.1.3 is now mirrored; `references/VERSION` tracks
+  `17.1.3-0` and `sync-state.json` records the upstream sync timestamp.
+- Semantic review found no authored operator-reference update required. The
+  17.1.3 changelog is limited to `find -exec` output isolation, mixed-language
+  `ast_edit` inference, `retain` streaming-render resilience, and isolated
+  session settings initialization; these are runtime/tool implementation fixes
+  rather than new configuration or provider guidance.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, `fetch-official.sh`, and `release.sh`;
+  `check-version.sh`, `orchestrate.sh`, `sync-from-official.sh`, and
+  `push-to-github.sh` are available.
+
 ## 2026-07-25
 
 - Official OMP 17.1.2 is now mirrored; `references/VERSION` tracks
