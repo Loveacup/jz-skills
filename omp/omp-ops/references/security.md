@@ -15,6 +15,12 @@ Source: `docs/providers.md`, `docs/secrets.md`, `docs/environment-variables.md`.
    official OAuth credentials to cross that endpoint boundary. Prefer an
    explicit provider selection that fails closed when its credentials are
    unavailable.
+8. **Credential display is redacted.** `omp config list` masks configured
+   credential values and omits them from JSON output; `omp config get <path>`
+   remains an explicit value request and should be handled as sensitive output.
+9. **Watch OAuth grant age.** `omp usage` warns when an Anthropic OAuth grant
+   is within roughly a week of its 30-day server-side lifetime; re-login before
+   the deadline instead of relying on refresh rotation alone.
 
 ```yaml
 # acceptable in models.yml

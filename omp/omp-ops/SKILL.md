@@ -54,7 +54,7 @@ Use this skill when the user asks about any of the following:
   datacenter/shared-egress limitations, SearXNG, Perplexity, z.ai, Kagi, Jina,
   Parallel, Firecrawl, Anthropic search, Codex search, Kimi/Moonshot search.
 - `modelRoles`, `cycleOrder`, `modelProviderOrder`, `enabledModels`,
-  `disabledProviders`, per-call `task` model selection, `task.softRequestBudgetNotice`, `task.maxConcurrency`,
+  `disabledProviders`, `task.softRequestBudgetNotice`, `task.maxConcurrency`,
   `task.maxRecursionDepth`, and per-call `task.effort` selection.
 - Hidden/undocumented runtime switches shown in OMP `tips.txt`, such as
   `PI_DIALECT`, `/btw`, `/tan`, `/force`, `/shake`, magic keywords
@@ -143,11 +143,11 @@ should not be treated as text-only.
 | Anthropic search | `ANTHROPIC_SEARCH_API_KEY` |
 | Codex search | `OPENAI_API_KEY` or stored Codex OAuth |
 
-### Recent OMP 16.2.9–17.0.9 operator notes
+### Recent OMP 16.2.9–17.1.4 operator notes
 
-- 17.0.9 adds per-call `model` selection to the `task` tool, including batch
-  item selectors, fallback chains, and reasoning suffixes; prefer this for
-  task-specific routing instead of changing the global `task` role.
+- 17.1.4 removes the per-call `model` selector from `task` and `agent()`;
+  spawned work uses the agent's configured model. Keep using `task.effort`
+  (`lo`, `med`, or `hi`) when only the thinking level needs to vary.
 - 17.0.9 adds keyless Firecrawl search when `firecrawl` is explicitly selected;
   automatic fallback still requires credentials. It also defaults
   `task.isolation.apply` and `mcp.renderMarkdownResults` to `true`, respectively

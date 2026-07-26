@@ -211,16 +211,19 @@ Use a bare exact flat id only when OMP can match that same id through provider p
 
 `modelProviderOrder` chooses among provider candidates; it no longer feeds a catalog-wide canonical alias resolver.
 
-### Recent provider notes (16.2.9–17.1.2)
+### Recent provider notes (16.2.9–17.1.4)
+
+- 17.1.4 removes explicit per-spawn model selectors from `task` and
+  `agent()`; spawned work uses the configured agent model. The `task.effort`
+  selector remains available for `lo`, `med`, or `hi` thinking effort.
 
 - 17.1.2 adds a `task` tool `effort` selector (`lo`, `med`, or `hi`) for each
   spawned task. It maps to the resolved model's supported thinking range and
   overrides the agent default for that call; omission preserves automatic
   per-prompt classification.
 
-- 17.0.9 allows each `task` tool call (and each item in a batch) to select a
-  model, fallback chain, and explicit reasoning suffix. Treat this as a
-  per-call override; it does not replace the configured `task` model role.
+- 17.0.9 previously introduced per-call model/fallback selection; this was
+  removed in 17.1.4, so do not rely on that older behavior.
 
 - 17.0.7 preserves Portkey/gateway model ids that begin with `@` (for example,
   `@modal/GLM-5-2-FP8`) instead of rewriting them to a bundled wire id. Keep

@@ -1,5 +1,20 @@
 # Sync Notes
 
+## 2026-07-27
+
+- Official OMP 17.1.4 is now mirrored; `references/VERSION` tracks
+  `17.1.4-0` and `sync-state.json` records the upstream sync timestamp.
+- Authored guidance corrected the removed per-call `task`/`agent()` model
+  selector and retained `task.effort`; security guidance now records config
+  list redaction and the Anthropic OAuth grant-lifetime warning. Credential
+  tombstones, Computer Use lifecycle details, Windows shell discovery, and
+  other changelog items are runtime/UI behavior without additional operator
+  reference changes.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, `fetch-official.sh`, and `release.sh`;
+  `check-version.sh`, `orchestrate.sh`, `sync-from-official.sh`, and
+  `push-to-github.sh` are available.
+
 ## 2026-07-26
 
 - Official OMP 17.1.3 is now mirrored; `references/VERSION` tracks
