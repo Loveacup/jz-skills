@@ -47,7 +47,7 @@ This skill teaches agents how to operate, configure, and troubleshoot
 Use this skill when the user asks about any of the following:
 
 - Model provider setup and API behavior: Anthropic, OpenAI, Google, Groq,
-  OpenRouter, Novita, local engines (Ollama, llama.cpp, LM Studio), custom
+  OpenRouter, Novita, SiliconFlow, local engines (Ollama, llama.cpp, LM Studio), custom
   providers in `models.yml`, and `providers.anthropic.serverSideFallback`.
 - API key handling: env vars, `.env`, `agent.db`, `/login`, auth broker.
 - Search providers and caveats: Exa, Brave, Tavily, DuckDuckGo
@@ -143,7 +143,11 @@ should not be treated as text-only.
 | Anthropic search | `ANTHROPIC_SEARCH_API_KEY` |
 | Codex search | `OPENAI_API_KEY` or stored Codex OAuth |
 
-### Recent OMP 16.2.9–17.1.4 operator notes
+### Recent OMP 16.2.9–17.1.6 operator notes
+
+- 17.1.6 makes the per-spawn `task.effort` hint opt-in: set
+  `task.enableEffort` before relying on `lo`, `med`, or `hi` values. Use
+  `task.maxEffort` to cap the resolved effort for spawned tasks and retries.
 
 - 17.1.4 removes the per-call `model` selector from `task` and `agent()`;
   spawned work uses the agent's configured model. Keep using `task.effort`

@@ -148,7 +148,7 @@ selection settings are removed; do not add `tools.discoveryMode`,
 `mcp.discoveryMode`, or `mcp.discoveryDefaultServers` to new configuration.
 The `hub` tool now covers IRC, jobs, and launch/process supervision.
 
-### OMP 17.0.9–17.1.4 task and MCP settings
+### OMP 17.0.9–17.1.6 task and MCP settings
 
 `task.isolation.apply` defaults to `true`: successful isolated `task` runs
 apply their changes to the parent checkout. Set it to `false` when the caller
@@ -158,10 +158,11 @@ must retain patch/branch artifacts for later integration.
 render as Markdown in the terminal transcript. Set it to `false` when raw MCP
 text is required for downstream parsing or comparison.
 
-Each `task` tool spawn may set `effort` to `lo`, `med`, or `hi`. OMP maps the
-selector to the resolved model's lowest, middle, or highest supported thinking
-level and applies it only to that call; omitting it keeps automatic prompt
-classification.
+Each `task` tool spawn may set `effort` to `lo`, `med`, or `hi` only when
+`task.enableEffort` is enabled. OMP maps the selector to the resolved model's
+lowest, middle, or highest supported thinking level and applies it only to that
+call; omitting it keeps automatic prompt classification. `task.maxEffort` can
+cap the resolved effort, including after retry-fallback model swaps.
 
 OMP 17.1.4 removes explicit per-call model selection from `task` and `agent()`;
 those spawns use the configured agent model.

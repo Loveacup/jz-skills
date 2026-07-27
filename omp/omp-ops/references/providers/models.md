@@ -36,6 +36,8 @@ The table below lists the environment variable used by each core model provider 
 | `huggingface` | `HUGGINGFACE_HUB_TOKEN` | `HF_TOKEN` |
 | `cerebras` | `CEREBRAS_API_KEY` | — |
 | `moonshot` | `MOONSHOT_API_KEY` | — |
+| `siliconflow` | `SILICONFLOW_API_KEY` | — |
+| `siliconflow-cn` | `SILICONFLOW_CN_API_KEY` | — |
 | `ollama` | `OLLAMA_API_KEY` (optional) | keyless by default |
 | `lm-studio` | `LM_STUDIO_API_KEY` (optional) | keyless by default |
 | `llama.cpp` | `LLAMA_CPP_API_KEY` (only when server requires auth) | keyless by default |
@@ -211,7 +213,11 @@ Use a bare exact flat id only when OMP can match that same id through provider p
 
 `modelProviderOrder` chooses among provider candidates; it no longer feeds a catalog-wide canonical alias resolver.
 
-### Recent provider notes (16.2.9–17.1.4)
+### Recent provider notes (16.2.9–17.1.6)
+
+- 17.1.6 makes the per-spawn `task.effort` hint opt-in through
+  `task.enableEffort` (default false), and adds `task.maxEffort` to cap the
+  resolved effort, including after retry-fallback model swaps.
 
 - 17.1.4 removes explicit per-spawn model selectors from `task` and
   `agent()`; spawned work uses the configured agent model. The `task.effort`

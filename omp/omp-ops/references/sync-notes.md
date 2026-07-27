@@ -1,5 +1,18 @@
 # Sync Notes
 
+## 2026-07-28
+
+- Official OMP 17.1.6 is now mirrored; `references/VERSION` tracks
+  `17.1.6-0` and `sync-state.json` records the upstream sync timestamp.
+- Authored guidance now records that `task.effort` is opt-in through
+  `task.enableEffort` and that `task.maxEffort` caps effort across retries.
+  The remaining 17.1.5–17.1.6 changelog items are runtime, UI, or tool
+  implementation fixes without additional operator-reference changes.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, `fetch-official.sh`, and `release.sh`;
+  `check-version.sh`, `orchestrate.sh`, `sync-from-official.sh`, and
+  `push-to-github.sh` are available.
+
 ## 2026-07-27
 
 - Official OMP 17.1.4 is now mirrored; `references/VERSION` tracks
@@ -252,3 +265,15 @@
 - Linux desktop notifications via D-Bus (`PI_NO_DESKTOP_NOTIFY=1` to disable).
 - Catalog pricing and context window updates for several models.
 - Reasoning capability disabled for multiple providers in catalog.
+## 2026-07-28 — 17.1.6 update
+
+- Official mirrors refreshed from `can1357/oh-my-pi` to OMP 17.1.6;
+  `references/VERSION` now tracks `17.1.6-0`.
+- Authored provider guidance now includes the newly documented
+  `siliconflow` / `siliconflow-cn` providers and their environment variables.
+- The official environment-variable docs also add
+  `PI_TUI_RAW_BACKSPACE_IS_CTRL` for SSH/container hops involving a Windows
+  Terminal client. This is recorded as a terminal troubleshooting detail, not
+  added to the core operator workflow.
+- No authored architecture or security changes were warranted by the
+  17.1.5–17.1.6 changelog entries reviewed in this run.
