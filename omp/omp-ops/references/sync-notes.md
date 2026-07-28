@@ -1,5 +1,21 @@
 # Sync Notes
 
+## 2026-07-29
+
+- Official OMP 17.1.7–17.1.8 is now mirrored; `references/VERSION` tracks
+  `17.1.8-0` and `sync-state.json` records the upstream sync timestamp.
+- Authored guidance records the 17.1.7 migration from
+  `inspect_image.enabled` to tri-state `inspect_image.mode`, plus the
+  session-scoped `/vision` controls. It also records the operator-facing
+  `omp cleanse`, conversational `/guided-goal`, and `tab.screenshot()` path
+  behavior. The remaining 17.1.7–17.1.8 entries are runtime, UI,
+  compatibility, or bug-fix changes without a new
+  provider/security/architecture reference requirement.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, `fetch-official.sh`, and `release.sh`;
+  `check-version.sh`, `orchestrate.sh`, `sync-from-official.sh`, and
+  `push-to-github.sh` are available.
+
 ## 2026-07-28
 
 - Official OMP 17.1.6 is now mirrored; `references/VERSION` tracks

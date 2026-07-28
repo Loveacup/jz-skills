@@ -143,12 +143,13 @@ should not be treated as text-only.
 | Anthropic search | `ANTHROPIC_SEARCH_API_KEY` |
 | Codex search | `OPENAI_API_KEY` or stored Codex OAuth |
 
-### Recent OMP 16.2.9–17.1.6 operator notes
-
+### Recent OMP 16.2.9–17.1.8 operator notes
+- 17.1.8 adds `omp cleanse`, conversational `/guided-goal`, and temp-directory screenshot saving.
+- 17.1.7 replaces `inspect_image.enabled` with `inspect_image.mode`;
+  `auto` delegates only without native image input; `on`/ `off` force behavior; use `/vision status` or `/vision auto|on|off`.
 - 17.1.6 makes the per-spawn `task.effort` hint opt-in: set
   `task.enableEffort` before relying on `lo`, `med`, or `hi` values. Use
   `task.maxEffort` to cap the resolved effort for spawned tasks and retries.
-
 - 17.1.4 removes the per-call `model` selector from `task` and `agent()`;
   spawned work uses the agent's configured model. Keep using `task.effort`
   (`lo`, `med`, or `hi`) when only the thinking level needs to vary.
@@ -158,11 +159,9 @@ should not be treated as text-only.
   applying successful isolated task changes to the parent checkout and rendering
   non-JSON MCP text as Markdown. Set either key to `false` when retaining
   artifacts or raw MCP text is required.
-
 - 17.0.7 preserves custom-provider model ids beginning with `@` (such as
   Portkey ids); keep those ids exact rather than normalizing them to a bundled
   model id.
-
 - 17.0.6 adds Codex-subscription image generation through `openai-codex`,
   independent of the active chat model, and makes Codex web search honor
   custom endpoints without forwarding official OAuth credentials there.
