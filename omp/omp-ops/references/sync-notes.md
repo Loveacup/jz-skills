@@ -1,5 +1,18 @@
 # Sync Notes
 
+## 2026-07-31 — 17.2.1 update
+
+- Official OMP 17.2.0–17.2.1 mirrors were refreshed; `references/VERSION` now
+  tracks `17.2.1-0` and `sync-state.json` records the upstream sync timestamp.
+- Authored guidance now records the changed credential precedence, `/login
+  exa`, `providers.autoThinkingMaxEffort`, and the opt-in `security.enabled`
+  workflow with the reserved `security://` namespace. The remaining changelog
+  items are primarily runtime, TUI, bridge, extension, and transport behavior.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, `fetch-official.sh`, and `release.sh`;
+  this run used the existing `check-version.sh`, `orchestrate.sh`, and
+  `sync-from-official.sh` plus bounded inline review and verification.
+
 ## 2026-07-29
 
 - Official OMP 17.1.7–17.1.8 is now mirrored; `references/VERSION` tracks

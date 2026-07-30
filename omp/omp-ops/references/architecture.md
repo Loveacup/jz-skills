@@ -98,6 +98,10 @@ tier:
 providers:
   anthropic:
     serverSideFallback: false  # opt-in Anthropic beta fallback chain (16.3.0+)
+  autoThinkingMaxEffort: xhigh  # use `max` only when explicitly enabled (17.2.0+)
+
+security:
+  enabled: false  # opt-in native security workflow (17.2.1+)
 
 task:
   softRequestBudgetNotice: false  # opt-in subagent soft-budget wrap-up steering notices (16.3.0+)

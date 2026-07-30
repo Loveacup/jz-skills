@@ -213,7 +213,18 @@ Use a bare exact flat id only when OMP can match that same id through provider p
 
 `modelProviderOrder` chooses among provider candidates; it no longer feeds a catalog-wide canonical alias resolver.
 
-### Recent provider notes (16.2.9–17.1.6)
+### Recent provider notes (16.2.9–17.2.1)
+
+- 17.2.0 adds `providers.autoThinkingMaxEffort`; set it to `max` only when
+  `auto` thinking classification should reach `max` on models that support it.
+  The default remains `xhigh`, and the on-device three-bucket classifier stays
+  capped at `xhigh`.
+
+- 17.2.1 changes credential precedence after the runtime override and
+  `models.yml` provider key: stored OAuth, a key saved by `/login`, provider
+  environment variables, other stored API keys, then the custom-provider
+  fallback resolver. Do not assume a legacy stored API key beats an explicit
+  environment variable.
 
 - 17.1.6 makes the per-spawn `task.effort` hint opt-in through
   `task.enableEffort` (default false), and adds `task.maxEffort` to cap the

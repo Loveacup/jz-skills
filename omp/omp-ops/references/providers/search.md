@@ -11,7 +11,7 @@ removed; they are intentionally absent from the provider matrix below.
 
 | Provider ID | Required env var(s) | Optional env var(s) / config keys | Validation command |
 |---|---|---|---|
-| `exa` | `EXA_API_KEY` | none | `curl -s "https://api.exa.ai/search" -H "x-api-key: $EXA_API_KEY" -d '{"query":"test","numResults":1}'` |
+| `exa` | `EXA_API_KEY` or stored key from `/login exa` | none | `omp search --provider exa "test"` |
 | `brave` | `BRAVE_API_KEY` | none | `curl -s "https://api.search.brave.com/res/v1/web/search?q=test&count=1" -H "X-Subscription-Token: $BRAVE_API_KEY"` |
 | `tavily` | `TAVILY_API_KEY` | none | `curl -s "https://api.tavily.com/search" -H "content-type: application/json" -d '{"api_key":"'$TAVILY_API_KEY'","query":"test","max_results":1}'` |
 | `duckduckgo` | none | built-in fallback; 16.3.0 improves error clarity and documents datacenter/shared-egress limitations | `omp search --provider duckduckgo "test"` |
@@ -55,6 +55,10 @@ removed; they are intentionally absent from the provider matrix below.
   bounds, `filetype:`, quoted phrases, exclusions, and `OR`; unsupported
   constraints are post-filtered when possible and relaxed with a notice if
   they would remove every result.
+- 17.2.0 adds interactive Exa key onboarding through `/login exa`; keep
+  `EXA_API_KEY` when environment-based configuration is preferred. Explicit
+  Exa selection still has a keyless public MCP fallback boundary as documented
+  by the official mirror.
 
 ## Minimal `.env` examples
 

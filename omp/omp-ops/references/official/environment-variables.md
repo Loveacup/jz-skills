@@ -244,7 +244,7 @@ OAuth host chain: `KIMI_CODE_OAUTH_HOST` → `KIMI_OAUTH_HOST` → `https://auth
 
 | Variable                                            | Used by                                                       |
 | --------------------------------------------------- | ------------------------------------------------------------- |
-| `EXA_API_KEY`                                       | Exa search provider and Exa MCP tools                         |
+| `EXA_API_KEY`                                       | Exa search/MCP; alternatively use `/login exa`                |
 | `BRAVE_API_KEY`                                     | Brave search provider                                         |
 | `PERPLEXITY_API_KEY`                                | Perplexity search provider API-key mode                       |
 | `PERPLEXITY_COOKIES`                                | Perplexity cookie-auth search mode                            |
@@ -267,7 +267,7 @@ SearXNG also reads the equivalent `searxng.endpoint`, `searxng.token`, `searxng.
 `searchAnthropic()` resolves credentials in this order:
 
 1. `ANTHROPIC_SEARCH_API_KEY`
-2. `authStorage.getApiKey("anthropic")` fallback credentials (runtime/config overrides, stored API-key credentials, stored OAuth credentials, then generic Anthropic env fallback: `ANTHROPIC_FOUNDRY_API_KEY` in Foundry mode, otherwise `ANTHROPIC_OAUTH_TOKEN` / `ANTHROPIC_API_KEY`)
+2. `authStorage.getApiKey("anthropic")` fallback credentials (runtime and config overrides, stored OAuth, a login-sourced API key, generic Anthropic environment fallback, then other stored API keys; the environment fallback is `ANTHROPIC_FOUNDRY_API_KEY` → `ANTHROPIC_OAUTH_TOKEN` → `ANTHROPIC_API_KEY` in Foundry mode, or `ANTHROPIC_OAUTH_TOKEN` → `ANTHROPIC_API_KEY` otherwise)
 
 For either credential path, base URL resolution is:
 

@@ -106,9 +106,10 @@ process env
 ```text
 runtime override (e.g. --api-key)
   <- models.yml apiKey on custom provider
-  <- stored API key in agent.db
   <- stored OAuth in agent.db
+  <- API key saved by /login
   <- provider env var / .env
+  <- other stored API key
   <- models.yml fallback resolver
 ```
 
@@ -142,26 +143,19 @@ should not be treated as text-only.
 | z.ai | `ZAI_API_KEY` |
 | Anthropic search | `ANTHROPIC_SEARCH_API_KEY` |
 | Codex search | `OPENAI_API_KEY` or stored Codex OAuth |
-
-### Recent OMP 16.2.9–17.1.8 operator notes
+### Recent OMP 16.2.9–17.2.1 operator notes
+- 17.2.1 adds default-off `security.enabled`; canonical findings and SARIF-compatible results use read-only `security://`; imported bundles remain distinct from native attribution.
+- 17.2.0 adds `providers.autoThinkingMaxEffort: max` for supported models (default `xhigh`) and `/login exa` as an alternative to `EXA_API_KEY`.
 - 17.1.8 adds `omp cleanse`, conversational `/guided-goal`, and temp-directory screenshot saving.
-- 17.1.7 replaces `inspect_image.enabled` with `inspect_image.mode`;
-  `auto` delegates only without native image input; `on`/ `off` force behavior; use `/vision status` or `/vision auto|on|off`.
-- 17.1.6 makes the per-spawn `task.effort` hint opt-in: set
-  `task.enableEffort` before relying on `lo`, `med`, or `hi` values. Use
-  `task.maxEffort` to cap the resolved effort for spawned tasks and retries.
-- 17.1.4 removes the per-call `model` selector from `task` and `agent()`;
-  spawned work uses the agent's configured model. Keep using `task.effort`
-  (`lo`, `med`, or `hi`) when only the thinking level needs to vary.
-- 17.0.9 adds keyless Firecrawl search when `firecrawl` is explicitly selected;
-  automatic fallback still requires credentials. It also defaults
+- 17.1.7 replaces `inspect_image.enabled` with `inspect_image.mode`; `auto` delegates only without native image input, while `on`/`off` force behavior. Use `/vision status` or `/vision auto|on|off`.
+- 17.1.6 makes the per-spawn `task.effort` hint opt-in: set `task.enableEffort` before relying on `lo`, `med`, or `hi`; use `task.maxEffort` to cap resolved effort for spawned tasks and retries.
+- 17.1.4 removes the per-call `model` selector from `task` and `agent()`; spawned work uses the agent's configured model. Keep using `task.effort` (`lo`, `med`, or `hi`) when only the thinking level needs to vary.
+- 17.0.9 adds keyless Firecrawl search when `firecrawl` is explicitly selected; automatic fallback still requires credentials. It also defaults
   `task.isolation.apply` and `mcp.renderMarkdownResults` to `true`, respectively
   applying successful isolated task changes to the parent checkout and rendering
   non-JSON MCP text as Markdown. Set either key to `false` when retaining
   artifacts or raw MCP text is required.
-- 17.0.7 preserves custom-provider model ids beginning with `@` (such as
-  Portkey ids); keep those ids exact rather than normalizing them to a bundled
-  model id.
+- 17.0.7 preserves custom-provider model ids beginning with `@` (such as Portkey ids); keep those ids exact rather than normalizing them to a bundled model id.
 - 17.0.6 adds Codex-subscription image generation through `openai-codex`,
   independent of the active chat model, and makes Codex web search honor
   custom endpoints without forwarding official OAuth credentials there.

@@ -5,7 +5,7 @@ Source: `docs/providers.md`, `docs/secrets.md`, `docs/environment-variables.md`.
 ## API key handling rules
 
 1. **Never commit keys.** API keys, OAuth tokens, bearer tokens, and passwords must not be written into committed config files, SKILL.md files, or tool outputs.
-2. **Prefer stored auth.** Use `/login` or `omp auth-broker login <provider>` to persist credentials in `~/.omp/agent/agent.db` (local SQLite) or a remote auth broker.
+2. **Prefer stored auth.** Use `/login` or `omp auth-broker login <provider>` to persist credentials in `~/.omp/agent/agent.db` (local SQLite) or a remote auth broker. For Exa search, `/login exa` is an interactive alternative to `EXA_API_KEY`.
 3. **Use environment variables.** Set provider env vars (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.) in an untracked `.env` or in your shell environment.
 4. **Project `.env` is allowed** for project-specific endpoints, but ensure it is ignored by version control.
 5. **`models.yml` `apiKey` is env-name-or-literal.** If the value names an existing env var, that var is used; otherwise the literal string becomes the key. Prefer env-var names over literals.
@@ -94,11 +94,22 @@ Any script or tool run by this skill that prints status must:
 ```text
 runtime override (e.g. --api-key)
   -> models.yml apiKey on custom provider
-  -> stored API key in agent.db
   -> stored OAuth in agent.db
+  -> API key saved by /login
   -> provider env var / .env
+  -> other stored API key (for example, a broker-migrated key)
   -> models.yml fallback resolver
 ```
+
+## Opt-in security workflow
+
+OMP 17.2.1 adds a native software-security workflow behind
+`security.enabled` (default `false`). When explicitly enabled, OMP owns the
+scan plan, canonical findings/coverage/SARIF publication, project-scoped
+history, and explicit dispositions. The read-only `security://` namespace is
+reserved for this canonical store; imported generic SARIF and official Codex
+Security bundles are normalized into it. Treat cloud scans as account-pinned
+operations and do not represent imported results as native runtime scans.
 
 ## Reporting leaks
 
