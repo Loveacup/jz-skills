@@ -2,6 +2,53 @@
 
 ## [Unreleased]
 
+## [17.2.2] - 2026-07-31
+
+### Added
+
+- Added an app.live.toggle keybinding (default Ctrl+L) to start or stop live voice mode.
+- Added ctx.invokeTool(params, options?) to extension contexts, allowing wrappers to run native tools while inheriting context, abort signals, and progress updates.
+
+### Changed
+
+- Moved the display-reset default keybinding (app.display.reset) from Ctrl+L to Alt+L to accommodate the new live-mode toggle.
+- Updated the hashline edit tool, streaming preview, and plan-mode guidance to support the unified PUT/CUT grammar, .= ranges, and named registers.
+- Improved startup performance by moving subagent model-registry refresh and session-file opening off the launch critical path.
+- Optimized session file writing performance by batching same-turn file-session appends.
+- Rewrote the Codex saved-reset auto-redeem algorithm to be pool-wide, window-exact, and expiry-aware, ensuring banked resets are automatically and reliably redeemed across multi-account setups before they expire.
+
+### Fixed
+
+- Fixed a crash in Kitty terminals when rendering non-PNG tool-result images if PNG conversion fails.
+- Fixed subagent evaluation resets (reset: true) wiping the shared kernel inherited from the parent session; resets from non-exclusive owners now fork into a private per-owner kernel.
+- Fixed the copy selector and ask dialog rendering raw key IDs instead of human-readable keybinding labels.
+- Fixed CLI positional initial messages bypassing automatic session-title generation.
+- Fixed the environment-variable reference omitting Kitty Unicode placeholder controls and tmux placement caveats.
+- Fixed extension validation failures during omp plugin install for extensions importing compact from @earendil-works/pi-coding-agent by adding the missing re-export.
+- Fixed Bash interceptor rules to inspect unquoted/unescaped compound command fragments (e.g., &&, ||, ;, |, &, and newlines) instead of only matching the complete command input.
+- Fixed ExtensionContext.cwd staying pinned to the initial session directory; it now dynamically tracks the active session's current working directory.
+- Fixed the web-search provider picker description for xAI/Grok to clarify that it supports SuperGrok/X Premium+ OAuth sign-ins.
+- Fixed /reload-plugins failing to reconnect MCP servers or refresh MCP tool and prompt-command registries.
+- Enforced the centralized artifact spill threshold on oversized read results, persisting them as recoverable session artifacts.
+- Fixed DuckDuckGo web search under-returning results above the first-page limit by automatically submitting continuation forms.
+- Fixed DuckDuckGo web search ignoring after: and before: date bounds by correctly parsing and filtering result timestamps.
+- Fixed env-driven OTLP trace export ignoring OTEL_RESOURCE_ATTRIBUTES.
+- Fixed a fresh session with deferred MCP discovery injecting the newly mounted xd:// tool catalog twice into the first model request.
+- Fixed the bash tool failing with EACCES permission errors on multi-user machines by scoping the snapshot directory per user ID.
+- Fixed LSP write batching replaying stale whole-file snapshots over newer external changes made before the batch flushed.
+- Fixed ctx.ui.editor() in ACP mode always resolving to undefined by routing it through the elicitation bridge.
+- Fixed omp commit failing to resolve extension-provided models in both agentic and legacy pipelines.
+- Fixed RPC hosts receiving no subagent lifecycle or progress frames when an IRC message revives an idle or parked keep-alive subagent.
+- Fixed copied fenced-code body rows in assistant messages retaining component and container margins.
+- Fixed mid-turn auto-compaction repeating dead-end rescue work and warnings at every tool boundary within a single oversized turn.
+- Fixed automatic terminal appearance changes clearing native scrollback and snapping readers away from their current scroll position.
+- Fixed exact-match edits failing on files containing credential-shaped tokens when secrets.enabled is active by using reversible placeholders instead of irreversible redactions.
+- Fixed context usage collapsing to the latest response size for Cursor models that omit prompt-token usage.
+- Fixed the browser tool crashing with EBUSY errors on Windows when a headless Chromium profile is locked during cleanup.
+- Fixed the Python RPC client dropping context, compaction, OAuth URL, and terminal-settlement fields.
+- Fixed the browser tool ignoring the url parameter when opening a new tab on an attached browser.
+- Fixed browser automation disrupting attached browsers by adopting the active foreground tab and avoiding raising new tabs during screenshots.
+
 ## [17.2.1] - 2026-07-30
 
 ### Added
@@ -15,6 +62,7 @@
 - Reserved `security://` from RPC host URI shadowing so vendor adapters cannot replace OMP's canonical security-analysis namespace.
 
 ### Fixed
+
 - Fixed remote or LAN local-engine endpoints being ignored during model discovery: the llama.cpp and Ollama probes used timeouts tuned for loopback, so a host reached over the network could exceed them and return no models, while changing `OLLAMA_BASE_URL`/`OLLAMA_HOST` could keep reusing a fresh cache from the previous endpoint. Non-loopback hosts now get a generous discovery timeout, and Ollama cache rows are scoped to the normalized endpoint ([#7087](https://github.com/can1357/oh-my-pi/issues/7087)).
 - Fixed `omp install` failing extension validation for pi extensions that import `createEditTool` or `createWriteTool` (e.g. gentle-pi) — the legacy `@oh-my-pi/pi-coding-agent` shim exported the read/bash/grep/find/ls tool factories but omitted the edit and write ones, so a named import threw Bun's static "Export named X not found" error. Added `createEditTool`/`createEditToolDefinition` and `createWriteTool`/`createWriteToolDefinition` to match the upstream pi surface ([#7094](https://github.com/can1357/oh-my-pi/issues/7094)).
 - Fixed Python eval's loopback tool bridge being routed through macOS system HTTP proxies, which caused `parallel()` tool reads to fail with `ConnectionRefusedError` after a local proxy stopped.
@@ -449,50 +497,3 @@
 - Updated diff generation and rendering components to rely exclusively on native UTF-16 diff bindings, removing `isWellFormed()` guards and JS fallback code paths.
 
 ### Removed
-
-- Removed npm `diff` dependency.
-- Fixed an issue where `Ctrl+V` clipboard paste was ignored while API-key and other modal prompts had focus.
-- Fixed `scripts/install.sh` incorrectly installing an x86_64 build on Apple Silicon when running under Rosetta.
-- Fixed the model picker hiding Codex models available through secondary configured ChatGPT/Codex OAuth accounts by unioning catalogs across all stored accounts.
-- Fixed GitHub Copilot 1M-context models disappearing from the model picker on restart with a "Could not restore model" warning.
-- Fixed `--model <role>` startup selection skipping configured fallback chains when the primary model is unavailable.
-- Fixed global model role updates clobbering concurrent or external edits to `config.yml` by merging only the changed role instead of persisting a stale in-memory snapshot.
-- Fixed terminal provider errors on continuation turns after failed tool results silently ending runs without persisting the error diagnostics.
-- Fixed repeated OpenRouter Gemini stream closures consuming the full retry budget by limiting recovery attempts before surfacing the error.
-- Fixed Agent Hub performance freezes when opening large read-only Advisor transcripts by collapsing synthetic inputs into compact summary rows and rendering Markdown lazily on expansion.
-- Fixed `/agents` incorrectly showing prewalk as disabled for the bundled `task` agent when enabled by its runtime default.
-- Fixed `hub start` waiting for the full timeout when a launched process exited or became ready quickly.
-- Fixed `tools.maxTimeout` failing to clamp default tool timeouts when no explicit timeout was provided by the agent.
-- Fixed MCP argument-shaping parity between direct and subagent tool calls, ensuring strict servers do not reject proxied calls with unrecognized keys.
-- Fixed a crash in extensions like `pi-mcp-adapter` caused by the TypeBox compatibility shim omitting `Type.Unsafe`.
-- Fixed `omp models` hanging after output by properly clearing managed extension timers and shutting down sessions before returning.
-- Fixed HTML session exports causing browser call stack overflows when rendering deeply nested conversation trees.
-- Fixed task agents ending prematurely on connection errors instead of entering the auto-retry path.
-- Fixed a startup race condition where the default model role was incorrectly overridden by an unrelated provider's default on a cold cache.
-- Fixed unqualified `--model` startup selection preferring unauthenticated provider catalog entries over configured providers.
-- Fixed provider stream failures being invisible in the main log by logging a warning with error details when a turn ends in a provider error.
-- Fixed parallel `todo done` calls losing completions due to asynchronous session events overwriting newer tool states.
-- Fixed `omp` crashing when `git` is not installed or missing from the system `PATH`.
-- Fixed `/changelog` commands reporting no entries in standalone binaries by embedding the release history as a fallback.
-- Fixed isolated branch merge-backs rejecting committed agent edits when the parent branch had unrelated uncommitted changes in the same file.
-- Fixed the 30-second Hindsight client timeout aborting healthy `reflect` operations by applying dedicated, longer deadlines.
-- Fixed Mnemopi consolidation redundantly re-storing cumulative session transcripts after incremental auto-retain.
-- Fixed turn-ending Codex rate-limit errors being hidden behind the Plan Review overlay.
-- Fixed prewalked subagents continuing to display their starting model after switching to the target model.
-- Fixed the Escape key aborting an ongoing agent turn instead of stopping text-to-speech playback.
-- Fixed project system prompts shortening working directories to `~`, which could cause models to generate incorrect absolute paths for tool calls.
-- Fixed the TUI `/usage` matrix misaligning multi-account columns across quota windows.
-- Fixed near-miss `xd://` write targets silently creating filesystem paths instead of throwing a corrective URI error.
-- Fixed the `task` tool rejecting valid batch calls with misleading validation errors when batching is disabled.
-- Fixed JS/TS `debug` launches timing out on WSL2 with mirrored networking by waiting for the adapter's listening banner and handling transport closures immediately.
-- Fixed post-compaction transcript rebuilds blocking the main thread by reusing settled message components and layout caches.
-- Fixed the fullscreen Plan Review overlay remaining interactive and appearing frozen during slow asynchronous operations by locking input and showing a submitting indicator.
-- Fixed dynamic model discovery refreshes dropping provider-level compatibility overrides from `models.yml`.
-- Fixed a startup crash that locked users out of the app when `prewalk.enabled` was set but the prewalk hand-off target had no configured API key.
-- Fixed in-progress aborts awaiting `session_stop` extension handlers whose results would be discarded.
-- Fixed `/retry` reporting "Nothing to retry" after a stream stalled or aborted mid-tool-call.
-- Fixed locally consumed extension commands triggering automatic title generation and exposing their command text to the title model.
-
-## [17.0.7] - 2026-07-21
-
-### Fixed

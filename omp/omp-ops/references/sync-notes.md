@@ -306,3 +306,15 @@
   added to the core operator workflow.
 - No authored architecture or security changes were warranted by the
   17.1.5–17.1.6 changelog entries reviewed in this run.
+## 2026-07-31 — 17.2.2 update
+
+- Official OMP 17.2.2 synced successfully; `references/VERSION` now tracks
+  `17.2.2-0`, and the official changelog/environment-variable mirrors were
+  refreshed.
+- Authored guidance was limited to `SKILL.md`: the Ctrl+L live-mode shortcut
+  and Alt+L display reset, unified PUT/CUT editing grammar, and Kitty/tmux
+  placeholder controls. No provider, model, architecture, or security
+  reference changes were warranted.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, and `release.sh`; the existing
+  `sync-from-official.sh` helper was used.

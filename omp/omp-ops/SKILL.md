@@ -143,7 +143,12 @@ should not be treated as text-only.
 | z.ai | `ZAI_API_KEY` |
 | Anthropic search | `ANTHROPIC_SEARCH_API_KEY` |
 | Codex search | `OPENAI_API_KEY` or stored Codex OAuth |
-### Recent OMP 16.2.9–17.2.1 operator notes
+### Recent OMP 16.2.9–17.2.2 operator notes
+- 17.2.2 reserves `Ctrl+L` for `app.live.toggle` (live voice mode) and moves
+  `app.display.reset` to `Alt+L`. Hashline editing and plan guidance now use
+  the unified `PUT`/`CUT` grammar with `.=` ranges and named registers.
+  For Kitty images inside tmux, `PI_KITTY_PLACEHOLDERS=1` opts into Unicode
+  placeholders; `PI_NO_KITTY_PLACEHOLDERS=1` takes precedence and disables them.
 - 17.2.1 adds default-off `security.enabled`; canonical findings and SARIF-compatible results use read-only `security://`; imported bundles remain distinct from native attribution.
 - 17.2.0 adds `providers.autoThinkingMaxEffort: max` for supported models (default `xhigh`) and `/login exa` as an alternative to `EXA_API_KEY`.
 - 17.1.8 adds `omp cleanse`, conversational `/guided-goal`, and temp-directory screenshot saving.
