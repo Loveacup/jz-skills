@@ -318,3 +318,18 @@
 - Missing daily-maintenance helpers remain `diff-official.sh`,
   `maintenance-plan.sh`, `verify.sh`, and `release.sh`; the existing
   `sync-from-official.sh` helper was used.
+
+## 2026-08-02 — 17.2.3 update
+
+- Official OMP 17.2.3 synced successfully; `references/VERSION` now tracks
+  `17.2.3-0`, and the tracked official changelog mirror was refreshed.
+- Authored search and `SKILL.md` guidance now notes that Codex Web Search SSE
+  errors preserve backend codes/messages, improving diagnosis of provider,
+  credential, and endpoint failures.
+- The remaining 17.2.3 changes concern prompt notation, shared headless
+  Chromium lifecycle, and background-process cleanup. They do not change this
+  skill's configuration, provider, model, or security guidance, so no further
+  authored reference changes were warranted.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, and `release.sh`; the existing
+  `sync-from-official.sh` helper was used.

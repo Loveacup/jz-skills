@@ -59,6 +59,10 @@ removed; they are intentionally absent from the provider matrix below.
   `EXA_API_KEY` when environment-based configuration is preferred. Explicit
   Exa selection still has a keyless public MCP fallback boundary as documented
   by the official mirror.
+- 17.2.3 preserves the backend code and message when Codex Web Search returns
+  an SSE error. When diagnosing `codex-search`, inspect the reported provider
+  error rather than treating the old generic `Codex error (): Unknown error`
+  text as a credential or endpoint diagnosis.
 
 ## Minimal `.env` examples
 
