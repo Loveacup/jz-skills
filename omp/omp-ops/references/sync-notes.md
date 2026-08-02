@@ -1,5 +1,24 @@
 # Sync Notes
 
+## 2026-08-03 — 17.2.4 update
+
+- Official OMP 17.2.4 synced successfully; `references/VERSION` now tracks
+  `17.2.4-0`, and the official changelog mirror was refreshed.
+- Semantic review covered the 17.2.4 changelog and the tracked official
+  configuration docs. The release adds computer/desktop sessions, browser
+  relay, shared LSP brokering, `--service-tier`, and web-search timeout
+  behavior, but the mirrored configuration docs do not expose enough stable
+  configuration shape to add authored guidance safely. MCP `requestIdFormat`
+  and provider discovery timeout details likewise remain changelog-only here;
+  consult the official mirror before advising on them.
+- No authored provider, model, architecture, security, or `SKILL.md` update
+  was warranted. The Windows exact-case environment lookup fix is recorded as
+  a runtime safety fix, not a new credential precedence rule.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, `fetch-official.sh`, and `release.sh`;
+  this run used `check-version.sh`, `orchestrate.sh`, and
+  `sync-from-official.sh` plus bounded inline review and verification.
+
 ## 2026-07-31 — 17.2.1 update
 
 - Official OMP 17.2.0–17.2.1 mirrors were refreshed; `references/VERSION` now

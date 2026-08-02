@@ -2,6 +2,60 @@
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- Replaced the computer tool's `{ window, actions }` coordinate batches with persistent JavaScript runs using `{ code, read_only?, timeout? }`; removed `computer.backend` and model-specific controller switching.
+
+### Added
+
+- Added optional `timeoutMs` to `discovery` configuration in provider options (`models.yml` / `models.json`) to configure custom HTTP probe timeouts for llama.cpp, Ollama, and OpenAI-compatible discovery endpoints ([#6952](https://github.com/can1357/oh-my-pi/issues/6952)).
+- Added a cross-platform, in-process `ps` shell builtin with BSD/procps selection forms, custom output columns, sorting, process metrics, and header suppression.
+- Added a `relay` browser mode that drives the user's own Chrome tabs through a local CDP relay plus the OMP Browser Relay extension: `omp browser-relay install` writes the bundled extension to disk, and `browser.relay` / `browser.relayUrl` (or per-call `app.relay`) route the browser tool through it. The relay server auto-starts under a profile-independent global daemon broker when the browser tool needs it; every relay consumer holds a broker lease, so the fixed-port singleton stops only after its last consumer across all projects exits. `omp browser-relay` remains available for `--token`/`--no-group`/custom ports, and a relay already serving the port is adopted. It multiplexes the supervisor and per-tab worker puppeteer connections over the single `chrome.debugger` attachment Chrome allows per tab, and gathers only the tabs the agent actively drives into a per-window "omp" tab group (released when the last client lets go of the tab, dissolved on disconnect, never re-grouping tabs the user pulls out).
+- Added a scriptable desktop session with persistent `desktop`/`Win`/`El` handles, window-targeted capture and input, native accessibility trees with `[ref=eN]` actions, clipboard access, streamed screenshots, and enforced read-only runs.
+- Added broker-shared language servers: one LSP server per (server, project) is now spawned by an `omp lsp mux` daemon under the per-project daemon broker (the same broker that owns the shared Chromium and `hub start` processes) and multiplexed to every omp instance in the project over a local socket — instances share the server's index, initialize result, diagnostics, and document state instead of each paying a private cold start. The mux reference-counts `didOpen`/`didClose`, remaps request ids and document versions per client, replays cached diagnostics/registrations/progress to late joiners, routes `workspace/applyEdit` to the most recently active instance, and intercepts per-session `shutdown`/`exit` so one instance leaving never kills the server for the rest; the broker still reaps everything when the last omp process in the project exits. Controlled by the new `lsp.shared` setting (default on); any broker/mux failure falls back to a private server spawn, and an external `lspmux` wrapper keeps precedence when configured.
+- Added `--service-tier` to override the OpenAI service tier for a session. The flag takes precedence over the configured `tier.openai` setting and over a resumed session's recorded tier, leaves the Anthropic and Google tiers alone, and persists across resumes; `none` omits `service_tier` from the request.
+- Added a configurable per-request web search timeout via `providers.webSearchTimeoutSeconds` ([#7197](https://github.com/can1357/oh-my-pi/pull/7197) by [@will-bogusz](https://github.com/will-bogusz)).
+- Added turn-aware `/tree` navigation: Alt+Up/Alt+Down traverses previous/next user or assistant turns while skipping tool and bookkeeping entries, Home/End jumps to the first/last visible item, and PageUp/PageDown moves by a visible page.
+
+### Changed
+
+- Exposed the script-driven `computer` schema to every model, including models with provider-native Computer Use support, because native action declarations cannot express persistent desktop sessions or accessibility handles.
+- Reduced `omp --help` cold-start latency and memory use by rendering lightweight command metadata without loading every runtime command and provider graph.
+
+### Fixed
+
+- Fixed template argument substitution (`substituteArgs`) executing recursive placeholder expansion when positional argument values contain literal `$@` or `$ARGUMENTS` tokens.
+- Fixed focused-agent status bar dimming darkening Powerline end caps.
+- Fixed the browser relay creating duplicate "omp" tab groups: the bridge now keeps at most one group RPC in flight (a queued drain replaces fire-and-forget per-tab requests), so concurrent requests can no longer race the extension's non-atomic query→create→set-title sequence in the same window. Also fixed an extension reconnect (relay daemon restart, service-worker recycle) being misread as the user dragging every tab out of the omp group — grouping state is reset when the extension socket closes, so tabs regroup on the next hello instead of being permanently opted out.
+- Fixed retained computer `Win` and `El` handles carrying a completed run's abort signal and permissions into later runs; handles now obey the current run while leaked async continuations remain denied.
+- Fixed computer-tool `win.ref("eN")` fabricating an element with empty role/title metadata; it now resolves the ref through the accessibility registry, returning a populated element and throwing `StaleRef` for expired refs.
+- Fixed macOS background keyboard input silently reaching a different window in the same application; ambiguous multi-window delivery now fails with `BackgroundUnavailable`, and foreground retries establish the addressed window as the app's main/focused window before typing.
+- Fixed macOS Chrome accessibility snapshots exposing only browser chrome by activating Chromium's renderer accessibility tree before resolving a window.
+- Fixed unnamed macOS accessibility controls such as Chrome's Back, Forward, and Reload buttons by using `AXDescription` when `AXTitle` is empty in snapshots and title queries.
+- Fixed shake re-eliding artifact recovery reads into a new artifact indefinitely.
+- Fixed Esc during a streaming `/loop` iteration pausing the loop instead of only aborting the current turn ([#7329](https://github.com/can1357/oh-my-pi/issues/7329)).
+- Fixed heavily branched conversation trees shifting linear continuations into disconnected gutter columns and accumulating unnecessary indentation ([#7332](https://github.com/can1357/oh-my-pi/issues/7332)).
+- Fixed the vibe pre-init-kill test racing `registry.kill()` against the worker's job-body dispatch (the mock only registered its AgentRef after the abort signal landed, so a loaded runner could observe no registration); the test now waits for the worker to be mid-initialization before killing.
+- Removed hard-coded `scout` references from agent, system, and tool prompts that leaked into the model even when the scout agent was disabled (`task.disabledAgents`) or absent from the spawn list: the init agent prompt, task tool description, delegation gates, plan-mode and workflowz notices, and glob/grep/ast-grep guidance no longer recommend an unavailable agent, including after live settings changes ([#7313](https://github.com/can1357/oh-my-pi/issues/7313)).
+- Fixed compiled Windows launches misclassifying ConPTY-backed terminals as console-less when `GetConsoleWindow()` returned no HWND, which spawned Python eval kernels with `CREATE_NO_WINDOW` and could deadlock imports of NumPy-backed packages such as Matplotlib ([#7343](https://github.com/can1357/oh-my-pi/issues/7343)).
+- Fixed headless print-mode teardown exceeding its Mnemopi consolidation budget when final retention blocks on a locked SQLite writer, leaving the parent process, embed worker, and MCP children alive after the turn completed ([#7351](https://github.com/can1357/oh-my-pi/issues/7351)).
+- Fixed headless `-p` / `--mode json` runs with `memory.backend: mnemopi` hanging after a completed turn and leaving `__omp_worker_mnemopi_embed` unreaped when the embed worker's fastembed/onnxruntime runtime wedged. Steady-state embed requests were unbounded, so a stuck native runtime blocked the turn's memory recall or shutdown consolidation forever; embeds are now bounded and the wedged worker is reaped on timeout so the next call respawns a fresh child, while initialization remains unbounded so first-time runtime installation and model bootstrap are not killed mid-install (regression of [#5753](https://github.com/can1357/oh-my-pi/issues/5753); [#7352](https://github.com/can1357/oh-my-pi/issues/7352)).
+- Fixed a literal API key configured via `/login` (e.g. OpenCode Zen's free `public` key) being hijacked on Windows by a case-differing system environment variable, causing 401s. `process.env`/`Bun.env` reads are case-insensitive on Windows, so the config-value resolvers' "env var name, else literal" fallback resolved `public` to the built-in `PUBLIC=C:\Users\Public`. Resolution now requires an exact-case env entry (via the new `$envExact` helper) before treating a value as an env-var reference ([#7361](https://github.com/can1357/oh-my-pi/issues/7361)).
+- Fixed redirected stdin being ignored when Bun reports a pipe with an undefined `isTTY`, so JSON/print sessions now process piped prompts and persist them under `--session-dir` or `PI_CODING_AGENT_SESSION_DIR` as requested ([#7378](https://github.com/can1357/oh-my-pi/issues/7378)).
+- Fixed Chromium-backed tests failing during suite registration when the shared availability probe was still initializing ([#7384](https://github.com/can1357/oh-my-pi/pull/7384) by [@paralin](https://github.com/paralin)).
+- Fixed the terminal-tab title dropping to idle (`>`) while an unsuppressed async job was still running — a `/vibe` worker turn or a bash `async` job that re-wakes the director after it settles. `EventController.#handleAgentEnd` now skips the idle/loader teardown on a non-terminal `agent_end` (`isTerminal: false`) and only tears down at the true terminal settle ([#7386](https://github.com/can1357/oh-my-pi/issues/7386)).
+- Fixed `omp setup python` to validate the same configured or discovered interpreter used by the Python eval runtime.
+- Fixed self-update misclassifying glibc Linux hosts with an installed musl loader as musl hosts, which could download an unusable musl binary instead of the glibc release.
+- Fixed a crash where opening the Agent Hub after a resume and moving the selection triggered an unbounded `ExtensionExitError` unhandled-rejection storm and exit 129. The postmortem module bound the native hard-exit at first evaluation; when the bundler deferred that evaluation into a `withHostGuard` window it froze the guard's throwing replacement, poisoning every later signal/fatal exit. The native exit is now resolved per call, and the guard stamps its replacement with the native primitive it shadows so mid-guard signals still exit ([#7393](https://github.com/can1357/oh-my-pi/issues/7393)).
+- Fixed project-scoped session directories using leading-hyphen names and collapsing distinct paths such as `~/project/hail-mary` and `~/project-hail-mary` into one bucket; directory names now use a portable readable prefix plus the canonical cwd hash, and colliding legacy buckets are split by their recorded session cwd during migration ([#7396](https://github.com/can1357/oh-my-pi/issues/7396)).
+- Fixed manual `/shake` leaving the context budget and next pre-turn compaction decision anchored to the stale pre-shake provider token count until another model response arrived.
+- Fixed Mnemopi scoped recall reporting "No relevant memories found" when every scoped target failed internally; target failures now warn, and total recall failure preserves the underlying engine error while healthy targets remain available ([#7364](https://github.com/can1357/oh-my-pi/issues/7364)).
+- Fixed `skill://` resolution ignoring explicitly configured `skills.customDirectories` entries when a same-named skill existed in a default discovery path: the custom-directory skill now wins as the higher-priority source ([#7190](https://github.com/can1357/oh-my-pi/issues/7190)).
+- Fixed image paste failing on Wayland-only Linux sessions by reading PNG clipboard payloads through `wl-paste` before falling back to the native bridge ([#7316](https://github.com/can1357/oh-my-pi/issues/7316)).
+- Fixed prewalk switching to the fast model during read-only investigation: `xd://` devices are dispatched through the `write` tool, so a read-only call such as an `lsp` navigation counted as the first edit/write and armed the one-way hand-off mid-planning. Device dispatches now carry the wrapped tool's approval tier and only trigger the switch at a `write`/`exec` tier — read-only `lsp`, `debug` inspection, and internal-URL `ast_edit` calls no longer downgrade the model ([#7312](https://github.com/can1357/oh-my-pi/issues/7312)).
+
+## [17.2.4] - 2026-08-01
+
 ### Added
 
 - Added `requestIdFormat` (`"string"` | `"number"`, default `"number"`) to MCP server config, honored by the stdio, HTTP, and SSE transports. JSON-RPC 2.0 permits both id shapes, but Apple's `xcrun mcpbridge` decodes `id` as an integer only and silently drops string ids (`mcpbridge.DecodeError Code=1`), hanging every request until it times out. The option is OMP-specific, so set it in an OMP-owned config (`.omp/mcp.json`, `~/.omp/agent/mcp.json`, a project `mcp.json`/`.mcp.json`, or an OMP plugin); servers imported from another tool's config ignore it ([#7053](https://github.com/can1357/oh-my-pi/issues/7053)).
@@ -40,7 +94,6 @@
 - Fixed explicit `thinking` metadata in `models.yml` custom definitions and `modelOverrides` being replaced by canonical catalog policy during model rebuilding. ([#7307](https://github.com/can1357/oh-my-pi/issues/7307))
 - Fixed the auto-titler installing a model's whole answer as the session title when the tiny title model ignored the titling task and answered the first user message instead. `normalizeGeneratedTitle` now rejects overlong output (>80 chars or >12 words) so the caller defers titling to the next user turn rather than accepting a full sentence ([#7303](https://github.com/can1357/oh-my-pi/issues/7303)).
 - Fixed the in-process `kill` builtin to validate signals, preserve negative PID operands, signal every process in pipeline jobs, continue after bad targets, and refuse non-probe signals aimed at the host process or process group.
-
 
 ## [17.2.3] - 2026-08-01
 
@@ -445,56 +498,3 @@
 - Fixed live-call attestation depending on the ChatGPT desktop app being installed: `generateLiveAttestation` now mints DeviceCheck tokens in-process through the `@oh-my-pi/pi-natives` `deviceCheckGenerateToken` binding instead of probing `/Applications` for the app's `devicecheck.node` addon, so the `x-oai-attestation` header works on hosts without the desktop app and drops the `createRequire` addon probing; the attestation provider is now wired up to `@oh-my-pi/pi-ai` for ChatGPT-OAuth Codex requests.
 - Fixed `xd://` device execution failures rendering as `write` errors instead of using the mounted tool's own error renderer.
 - Fixed custom tools without bespoke renderers losing the default state-tinted card when mounted under `xd://`; dispatched calls now keep their label, arguments, status, output preview, and expansion affordance instead of dumping a bare result line into the transcript.
-- Fixed the clipboard image-paste keybind mangling copied URL text into a bogus path error on macOS (e.g. `Image not found at /https/::i.can.ac:CE4Ek3.png` for a copied `https://i.can.ac/CE4Ek3.png`). AppleScript's `the clipboard as «class furl»` coerces plain *text* into a file URL by treating the string as an HFS path (`:`↔`/` swap), so `readMacFileUrlsFromClipboard` returned a garbage path that dead-ended in `handleImagePathPaste` instead of falling through to the text paste. The script now bails early via `clipboard info for «class furl»` unless the pasteboard actually carries a `public.file-url` representation, so URL/text clipboards paste as text.
-- Fixed spilled tool-output artifact descriptors leaking on error/abort paths. `OutputSink.dump()` was the only path that closed the spill `Bun.FileSink`, but the bash and Python executors re-throw on failure and their `finally` blocks never closed the sink, so a large-output command that errored leaked the artifact descriptor until an unrelated read (e.g. a `SKILL.md` load) hit `EMFILE`. `OutputSink` now exposes an idempotent `dispose()` that closes the sink exactly once, wired into every executor's `finally` ([#6463](https://github.com/can1357/oh-my-pi/issues/6463)).
-- Fixed the first submitted prompt stalling while the local tiny-title worker started: the interactive submit handler now paints the pending user row before starting title generation, and startup prewarms an idle, unref'd worker so the first submit reuses a live subprocess instead of paying spawn latency ahead of the first frame ([#6462](https://github.com/can1357/oh-my-pi/issues/6462)).
-- Fixed legacy Pi extensions failing validation when importing the upstream `keyText` keybinding helper ([#6470](https://github.com/can1357/oh-my-pi/issues/6470)).
-
-## [17.1.0] - 2026-07-24
-
-### Breaking Changes
-
-- Replaced the `providers.webSearch` and `providers.image` single-preference configuration options with `providers.webSearchOrder` and `providers.imageOrder` priority lists. Existing configurations migrate automatically on startup.
-
-### Added
-
-- Added dynamic multi-root workspace context support, allowing users to manage multiple workspace directories mid-session via `/add-dir`, `/remove-dir`, and `/dirs` slash commands, or seed them at launch using the `--add-dir` CLI flag.
-- Added `/live`, a Codex-authenticated real-time voice interface that streams microphone audio over WebRTC and routes coding tasks through the active agent session.
-- Added opt-in usage-aware model fallback for rationed coding plans, including a `/usage` command to view live quantitative usage data and automatic fallback chain traversal.
-- Added `error.notify` configuration to allow failed model turns to trigger distinct terminal or desktop notifications.
-- Added auto-following light and dark themes to HTML session exports, with a `/export --themes` option to bundle selected TUI themes.
-- Added owner-routed asynchronous job delivery, ensuring background bash and task results are injected directly into the owning subagent or agent session rather than the top-level session.
-- Added background-on-steer capability for auto-backgrounded bash commands, allowing incoming user or peer messages to immediately background running commands.
-- Added `friendlyName` support for hidden secrets, allowing model-visible placeholders to carry sanitized semantic labels, hashes, and case hints.
-- Added support for Jujutsu (`jj`) repositories in the statusline `git` segment, displaying the nearest bookmark or change ID and retrieving working-copy change counts.
-- Added `block` and `unblock` operations for tasks, introducing a `blocked` status for tasks waiting on external input to exclude them from incomplete-todo reminders.
-- Added a toggle-list editor in `/settings` for managing array-of-enum settings like search and image provider orders.
-- Added `models.yml` Bedrock Converse prompt-cache capability overrides for bundled and opaque inference profiles.
-- Added `getServiceTiers()` and `setServiceTier()` extension APIs to read and modify the live per-family service tier for session requests.
-- Added opt-in `omp bench --cache` for independent cold/warm prompt-cache benchmarking with stable-prefix controls.
-- Added `tools.xdevDocs` prompt-doc modes and the `tools.xdevInlineDevices` glob allowlist to control which mounted device documentation is inlined into the system prompt.
-- Added the opt-in `read.renderMarkdown` setting for formatted Markdown read previews.
-
-### Changed
-
-- Updated subagent behavior to inherit `async.enabled` and `bash.autoBackground.enabled` from parent sessions, and refined subagent run completion to wait for background jobs to settle.
-- Added ordered `bash.patterns` command approval rules to allow, prompt, or deny bash commands by pattern.
-- Updated Markdown file handling so all Markdown flavors (`.markdown`, `.mdx`, `.mdc`, etc.) respect the `read.summarize.prose` setting.
-- Upgraded xAI web search to use `grok-4.5` at low reasoning effort instead of `grok-4.3`.
-- Improved search provider resilience by cascading and falling back through other configured search providers when the preferred provider fails.
-- Extended the bash tool's `direnv` and `devenv` auto-loading to all backends (including the ACP client terminal and interactive PTY) while honoring `direnv`'s local allow list.
-
-### Fixed
-
-- Fixed a path traversal vulnerability in blob reference resolution by rejecting non-canonical hashes in `parseBlobRef`.
-- Fixed multiple edge cases in the secret obfuscation and redaction engine, including handling of context-sensitive regexes, placeholder key requirements in unwritable directories, friendly-name forgery vulnerabilities, and regex match boundaries straddling existing placeholders.
-- Fixed a first-use race condition in `ArtifactManager` where concurrent callers could allocate duplicate artifact IDs.
-- Fixed Vibe-mode session stability, resolving issues with workers disappearing across restarts, hanging during teardown, clobbering target tools during session switches, and resolving against incorrect models.
-- Fixed concurrent MCP configuration mutations losing updates by serializing read-modify-write operations under a per-file lock with atomic writes.
-- Fixed legacy extensions failing to load on npm/source-link installs due to transitive CommonJS dependency graph clobbering.
-- Fixed `omp auth-gateway` commands bypassing the process-scoped OAuth account pool configured via environment variables.
-- Fixed terminal transcript rendering issues where displaceable snapshots (like waiting polls and todo lists) spammed native scrollback.
-- Fixed the terminal title to reflect the active agent run state (working, waiting, or blocked) when `tui.titleState` is enabled.
-- Fixed the `browser` tool's `open` action ignoring timeouts during browser acquisition and leaking orphaned browser instances.
-- Fixed the `write` tool silently creating empty files when a read-tool selector was mis-dispatched as a write.
-- Fixed snapcompact archiving reproducing assistant reasoning (`¶think:` sections) into replayed frames for Anthropic-dialect models.
