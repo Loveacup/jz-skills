@@ -143,10 +143,10 @@ should not be treated as text-only.
 | z.ai | `ZAI_API_KEY` |
 | Anthropic search | `ANTHROPIC_SEARCH_API_KEY` |
 | Codex search | `OPENAI_API_KEY` or stored Codex OAuth |
-### Recent OMP 16.2.9–17.2.3 operator notes
-- 17.2.3 preserves backend codes and messages from Codex Web Search SSE
-  errors; use that detail when separating provider failures from credential or
-  endpoint configuration problems.
+### Recent OMP 16.2.9–17.2.6 operator notes
+- 17.2.6 adds `/reset`, which clears live context while retaining the session id and on-disk transcript.
+- 17.2.5 changes computer to persistent JavaScript runs and edit replace mode to one `{path, old_string, new_string, replace_all?}` operation; review old batch configs before upgrading.
+- 17.2.3 preserves backend codes and messages from Codex Web Search SSE errors; use that detail when separating provider failures from credential or endpoint configuration problems.
 - 17.2.2 reserves `Ctrl+L` for `app.live.toggle` (live voice mode) and moves
   `app.display.reset` to `Alt+L`. Hashline editing and plan guidance now use
   the unified `PUT`/`CUT` grammar with `.=` ranges and named registers.

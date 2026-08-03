@@ -232,7 +232,7 @@ In broker mode (`OMP_AUTH_BROKER_URL`), the local SQLite store is bypassed and l
 
 ## `.env` precedence
 
-OMP eagerly loads `.env` files before provider lookup. For each variable, the **first** source wins:
+OMP eagerly loads `.env` files before provider lookup. For each variable, the **first non-empty** source wins:
 
 1. Existing process environment.
 2. `<cwd>/.env`
@@ -242,10 +242,10 @@ OMP eagerly loads `.env` files before provider lookup. For each variable, the **
 
 Rules:
 
-- A variable already in the process environment is never overwritten.
-- Inside each parsed `.env`, `OMP_*` keys are mirrored to matching `PI_*` names.
+- Empty process values may be filled by a later `.env`; non-empty values are never overwritten.
+- Inside each parsed `.env`, `OMP_*` keys mirror matching `PI_*` names and override a same-file `PI_*` value.
 - Keys must match `[A-Za-z_][A-Za-z0-9_]*`.
-- Values may be single- or double-quoted; quotes are stripped.
+- Values are parsed literally (single/double quotes are stripped); unsafe names/values are discarded.
 
 `PI_CONFIG_FILES` may provide a platform-delimited path list of settings
 overlays (`:` on Unix, `;` on Windows). These files load in listed order

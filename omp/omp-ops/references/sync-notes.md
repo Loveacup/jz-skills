@@ -9,11 +9,11 @@
   `enabledServers`/`disabledServers` precedence, provider discovery
   `timeoutMs`, remote compaction, custom-tool ArkType/restricted-session
   behavior, browser relay/desktop sessions, and new environment controls.
-- No authored provider, model, architecture, security, or `SKILL.md` update
-  was warranted: the current authored files do not expose these as stable
-  recipes, and the official mirrors remain the source for their exact
-  configuration shapes. Do not infer runtime/profile migration steps from the
-  changelog alone.
+- Authored guidance now records `/reset`, the 17.2.5 computer/edit breaking
+  changes, `.env` empty-value and `OMP_*`/`PI_*` precedence, and provider
+  discovery `timeoutMs`. MCP allow/deny overrides, imported-config precedence,
+  and exact runtime/profile migration steps remain in the official mirror;
+  do not infer those steps from the changelog alone.
 - Missing daily-maintenance helpers remain `diff-official.sh`,
   `maintenance-plan.sh`, `verify.sh`, `fetch-official.sh`, and `release.sh`;
   this run used `check-version.sh`, `orchestrate.sh`, and

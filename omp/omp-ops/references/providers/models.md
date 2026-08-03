@@ -213,7 +213,10 @@ Use a bare exact flat id only when OMP can match that same id through provider p
 
 `modelProviderOrder` chooses among provider candidates; it no longer feeds a catalog-wide canonical alias resolver.
 
-### Recent provider notes (16.2.9–17.2.1)
+### Recent provider notes (16.2.9–17.2.5)
+
+- 17.2.5 supports positive `providers.<id>.discovery.timeoutMs` values for
+  slow or remote model-discovery probes.
 
 - 17.2.0 adds `providers.autoThinkingMaxEffort`; set it to `max` only when
   `auto` thinking classification should reach `max` on models that support it.
