@@ -1,5 +1,24 @@
 # Sync Notes
 
+## 2026-08-04 — 17.2.5–17.2.6 update
+
+- Official OMP 17.2.5–17.2.6 synced successfully; `references/VERSION` now
+  tracks `17.2.6-0`, and `sync-state.json` records the refreshed mirror.
+- Semantic review covered the changelog and all tracked official docs. The
+  operator-visible additions include MCP `requestIdFormat` plus user-level
+  `enabledServers`/`disabledServers` precedence, provider discovery
+  `timeoutMs`, remote compaction, custom-tool ArkType/restricted-session
+  behavior, browser relay/desktop sessions, and new environment controls.
+- No authored provider, model, architecture, security, or `SKILL.md` update
+  was warranted: the current authored files do not expose these as stable
+  recipes, and the official mirrors remain the source for their exact
+  configuration shapes. Do not infer runtime/profile migration steps from the
+  changelog alone.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, `fetch-official.sh`, and `release.sh`;
+  this run used `check-version.sh`, `orchestrate.sh`, and
+  `sync-from-official.sh` plus bounded inline review and verification.
+
 ## 2026-08-03 — 17.2.4 update
 
 - Official OMP 17.2.4 synced successfully; `references/VERSION` now tracks

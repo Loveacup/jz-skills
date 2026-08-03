@@ -2,57 +2,85 @@
 
 ## [Unreleased]
 
-### Breaking Changes
-
-- Replaced the computer tool's `{ window, actions }` coordinate batches with persistent JavaScript runs using `{ code, read_only?, timeout? }`; removed `computer.backend` and model-specific controller switching.
-
-### Added
-
-- Added optional `timeoutMs` to `discovery` configuration in provider options (`models.yml` / `models.json`) to configure custom HTTP probe timeouts for llama.cpp, Ollama, and OpenAI-compatible discovery endpoints ([#6952](https://github.com/can1357/oh-my-pi/issues/6952)).
-- Added a cross-platform, in-process `ps` shell builtin with BSD/procps selection forms, custom output columns, sorting, process metrics, and header suppression.
-- Added a `relay` browser mode that drives the user's own Chrome tabs through a local CDP relay plus the OMP Browser Relay extension: `omp browser-relay install` writes the bundled extension to disk, and `browser.relay` / `browser.relayUrl` (or per-call `app.relay`) route the browser tool through it. The relay server auto-starts under a profile-independent global daemon broker when the browser tool needs it; every relay consumer holds a broker lease, so the fixed-port singleton stops only after its last consumer across all projects exits. `omp browser-relay` remains available for `--token`/`--no-group`/custom ports, and a relay already serving the port is adopted. It multiplexes the supervisor and per-tab worker puppeteer connections over the single `chrome.debugger` attachment Chrome allows per tab, and gathers only the tabs the agent actively drives into a per-window "omp" tab group (released when the last client lets go of the tab, dissolved on disconnect, never re-grouping tabs the user pulls out).
-- Added a scriptable desktop session with persistent `desktop`/`Win`/`El` handles, window-targeted capture and input, native accessibility trees with `[ref=eN]` actions, clipboard access, streamed screenshots, and enforced read-only runs.
-- Added broker-shared language servers: one LSP server per (server, project) is now spawned by an `omp lsp mux` daemon under the per-project daemon broker (the same broker that owns the shared Chromium and `hub start` processes) and multiplexed to every omp instance in the project over a local socket — instances share the server's index, initialize result, diagnostics, and document state instead of each paying a private cold start. The mux reference-counts `didOpen`/`didClose`, remaps request ids and document versions per client, replays cached diagnostics/registrations/progress to late joiners, routes `workspace/applyEdit` to the most recently active instance, and intercepts per-session `shutdown`/`exit` so one instance leaving never kills the server for the rest; the broker still reaps everything when the last omp process in the project exits. Controlled by the new `lsp.shared` setting (default on); any broker/mux failure falls back to a private server spawn, and an external `lspmux` wrapper keeps precedence when configured.
-- Added `--service-tier` to override the OpenAI service tier for a session. The flag takes precedence over the configured `tier.openai` setting and over a resumed session's recorded tier, leaves the Anthropic and Google tiers alone, and persists across resumes; `none` omits `service_tier` from the request.
-- Added a configurable per-request web search timeout via `providers.webSearchTimeoutSeconds` ([#7197](https://github.com/can1357/oh-my-pi/pull/7197) by [@will-bogusz](https://github.com/will-bogusz)).
-- Added turn-aware `/tree` navigation: Alt+Up/Alt+Down traverses previous/next user or assistant turns while skipping tool and bookkeeping entries, Home/End jumps to the first/last visible item, and PageUp/PageDown moves by a visible page.
-
 ### Changed
 
-- Exposed the script-driven `computer` schema to every model, including models with provider-native Computer Use support, because native action declarations cannot express persistent desktop sessions or accessibility handles.
-- Reduced `omp --help` cold-start latency and memory use by rendering lightweight command metadata without loading every runtime command and provider graph.
+- Replaced arktype with `@oh-my-pi/omptype` across all tool parameter and config schemas: ~100x faster schema construction removes the arktype startup tax (the `scope({}, { jitless: true })` workarounds are gone). Config schema errors now report via `OmpErrors` entries with the same `path`/`problem` shape.
 
 ### Fixed
 
-- Fixed template argument substitution (`substituteArgs`) executing recursive placeholder expansion when positional argument values contain literal `$@` or `$ARGUMENTS` tokens.
-- Fixed focused-agent status bar dimming darkening Powerline end caps.
-- Fixed the browser relay creating duplicate "omp" tab groups: the bridge now keeps at most one group RPC in flight (a queued drain replaces fire-and-forget per-tab requests), so concurrent requests can no longer race the extension's non-atomic query→create→set-title sequence in the same window. Also fixed an extension reconnect (relay daemon restart, service-worker recycle) being misread as the user dragging every tab out of the omp group — grouping state is reset when the extension socket closes, so tabs regroup on the next hello instead of being permanently opted out.
-- Fixed retained computer `Win` and `El` handles carrying a completed run's abort signal and permissions into later runs; handles now obey the current run while leaked async continuations remain denied.
-- Fixed computer-tool `win.ref("eN")` fabricating an element with empty role/title metadata; it now resolves the ref through the accessibility registry, returning a populated element and throwing `StaleRef` for expired refs.
-- Fixed macOS background keyboard input silently reaching a different window in the same application; ambiguous multi-window delivery now fails with `BackgroundUnavailable`, and foreground retries establish the addressed window as the app's main/focused window before typing.
-- Fixed macOS Chrome accessibility snapshots exposing only browser chrome by activating Chromium's renderer accessibility tree before resolving a window.
-- Fixed unnamed macOS accessibility controls such as Chrome's Back, Forward, and Reload buttons by using `AXDescription` when `AXTitle` is empty in snapshots and title queries.
-- Fixed shake re-eliding artifact recovery reads into a new artifact indefinitely.
-- Fixed Esc during a streaming `/loop` iteration pausing the loop instead of only aborting the current turn ([#7329](https://github.com/can1357/oh-my-pi/issues/7329)).
-- Fixed heavily branched conversation trees shifting linear continuations into disconnected gutter columns and accumulating unnecessary indentation ([#7332](https://github.com/can1357/oh-my-pi/issues/7332)).
-- Fixed the vibe pre-init-kill test racing `registry.kill()` against the worker's job-body dispatch (the mock only registered its AgentRef after the abort signal landed, so a loaded runner could observe no registration); the test now waits for the worker to be mid-initialization before killing.
-- Removed hard-coded `scout` references from agent, system, and tool prompts that leaked into the model even when the scout agent was disabled (`task.disabledAgents`) or absent from the spawn list: the init agent prompt, task tool description, delegation gates, plan-mode and workflowz notices, and glob/grep/ast-grep guidance no longer recommend an unavailable agent, including after live settings changes ([#7313](https://github.com/can1357/oh-my-pi/issues/7313)).
-- Fixed compiled Windows launches misclassifying ConPTY-backed terminals as console-less when `GetConsoleWindow()` returned no HWND, which spawned Python eval kernels with `CREATE_NO_WINDOW` and could deadlock imports of NumPy-backed packages such as Matplotlib ([#7343](https://github.com/can1357/oh-my-pi/issues/7343)).
-- Fixed headless print-mode teardown exceeding its Mnemopi consolidation budget when final retention blocks on a locked SQLite writer, leaving the parent process, embed worker, and MCP children alive after the turn completed ([#7351](https://github.com/can1357/oh-my-pi/issues/7351)).
-- Fixed headless `-p` / `--mode json` runs with `memory.backend: mnemopi` hanging after a completed turn and leaving `__omp_worker_mnemopi_embed` unreaped when the embed worker's fastembed/onnxruntime runtime wedged. Steady-state embed requests were unbounded, so a stuck native runtime blocked the turn's memory recall or shutdown consolidation forever; embeds are now bounded and the wedged worker is reaped on timeout so the next call respawns a fresh child, while initialization remains unbounded so first-time runtime installation and model bootstrap are not killed mid-install (regression of [#5753](https://github.com/can1357/oh-my-pi/issues/5753); [#7352](https://github.com/can1357/oh-my-pi/issues/7352)).
-- Fixed a literal API key configured via `/login` (e.g. OpenCode Zen's free `public` key) being hijacked on Windows by a case-differing system environment variable, causing 401s. `process.env`/`Bun.env` reads are case-insensitive on Windows, so the config-value resolvers' "env var name, else literal" fallback resolved `public` to the built-in `PUBLIC=C:\Users\Public`. Resolution now requires an exact-case env entry (via the new `$envExact` helper) before treating a value as an env-var reference ([#7361](https://github.com/can1357/oh-my-pi/issues/7361)).
-- Fixed redirected stdin being ignored when Bun reports a pipe with an undefined `isTTY`, so JSON/print sessions now process piped prompts and persist them under `--session-dir` or `PI_CODING_AGENT_SESSION_DIR` as requested ([#7378](https://github.com/can1357/oh-my-pi/issues/7378)).
-- Fixed Chromium-backed tests failing during suite registration when the shared availability probe was still initializing ([#7384](https://github.com/can1357/oh-my-pi/pull/7384) by [@paralin](https://github.com/paralin)).
-- Fixed the terminal-tab title dropping to idle (`>`) while an unsuppressed async job was still running — a `/vibe` worker turn or a bash `async` job that re-wakes the director after it settles. `EventController.#handleAgentEnd` now skips the idle/loader teardown on a non-terminal `agent_end` (`isTerminal: false`) and only tears down at the true terminal settle ([#7386](https://github.com/can1357/oh-my-pi/issues/7386)).
-- Fixed `omp setup python` to validate the same configured or discovered interpreter used by the Python eval runtime.
-- Fixed self-update misclassifying glibc Linux hosts with an installed musl loader as musl hosts, which could download an unusable musl binary instead of the glibc release.
-- Fixed a crash where opening the Agent Hub after a resume and moving the selection triggered an unbounded `ExtensionExitError` unhandled-rejection storm and exit 129. The postmortem module bound the native hard-exit at first evaluation; when the bundler deferred that evaluation into a `withHostGuard` window it froze the guard's throwing replacement, poisoning every later signal/fatal exit. The native exit is now resolved per call, and the guard stamps its replacement with the native primitive it shadows so mid-guard signals still exit ([#7393](https://github.com/can1357/oh-my-pi/issues/7393)).
-- Fixed project-scoped session directories using leading-hyphen names and collapsing distinct paths such as `~/project/hail-mary` and `~/project-hail-mary` into one bucket; directory names now use a portable readable prefix plus the canonical cwd hash, and colliding legacy buckets are split by their recorded session cwd during migration ([#7396](https://github.com/can1357/oh-my-pi/issues/7396)).
-- Fixed manual `/shake` leaving the context budget and next pre-turn compaction decision anchored to the stale pre-shake provider token count until another model response arrived.
-- Fixed Mnemopi scoped recall reporting "No relevant memories found" when every scoped target failed internally; target failures now warn, and total recall failure preserves the underlying engine error while healthy targets remain available ([#7364](https://github.com/can1357/oh-my-pi/issues/7364)).
-- Fixed `skill://` resolution ignoring explicitly configured `skills.customDirectories` entries when a same-named skill existed in a default discovery path: the custom-directory skill now wins as the higher-priority source ([#7190](https://github.com/can1357/oh-my-pi/issues/7190)).
-- Fixed image paste failing on Wayland-only Linux sessions by reading PNG clipboard payloads through `wl-paste` before falling back to the native bridge ([#7316](https://github.com/can1357/oh-my-pi/issues/7316)).
-- Fixed prewalk switching to the fast model during read-only investigation: `xd://` devices are dispatched through the `write` tool, so a read-only call such as an `lsp` navigation counted as the first edit/write and armed the one-way hand-off mid-planning. Device dispatches now carry the wrapped tool's approval tier and only trigger the switch at a `write`/`exec` tier — read-only `lsp`, `debug` inspection, and internal-URL `ast_edit` calls no longer downgrade the model ([#7312](https://github.com/can1357/oh-my-pi/issues/7312)).
+- Fixed extension/custom/hook tool wrappers stripping schema methods off `parameters`: `applyToolProxy` bound every callable property, and binding a schema (a plain function carrying `toJsonSchema`/`assert`) dropped those properties, breaking wire-schema detection and crashing the status-line token estimator with `JSON.stringify(schema) === undefined`. Prototype methods are still bound; own data properties and schema callables now pass through untouched.
+- Fixed bug where `agent()` calls in eval cells ignored turn cancellation and continued running indefinitely
+- Fixed the built-in `tail` printing `tail: Broken pipe` and failing when a downstream pipeline reader exited early (e.g. `tail -c N file.jsonl | jq …` with jq aborting on a parse error); it now exits silently with 141 (128+SIGPIPE) like a real tail, in every output path including `--follow`.
+- Fixed the in-process ps shell builtin rejecting common procps/BSD format specifiers (`ps -o tpgid,...` failed with `unknown output format specifier`); added `tpgid`, `pri`, `flags`, real/effective user and group columns, `wchan`, fault counters, `sz`, and the STAT `+` foreground flag.
+
+## [17.2.6] - 2026-08-03
+
+### Added
+
+- Added the `/reset` slash command to reset the conversation context in place: it drops the live messages, queued turns, and pending tool calls (and cancels the turn's async jobs, post-prompt continuations, and checkpoint/plan runtime state) while keeping the session id, title, cwd, model, and on-disk transcript. It records a durable reset boundary so the live transcript stays cleared across rebuilds (theme change, focus attach, `/shake`, resume) instead of resurrecting the pre-reset messages, while the full pre-reset history stays on disk ([#3580](https://github.com/can1357/oh-my-pi/issues/3580)).
+
+### Fixed
+
+- Fixed extension slash commands appearing as user prompts after being handled locally.
+- Preserved explicit session titles when branching from an earlier conversation turn.
+- Fixed an issue where unhandled JavaScript rejections in the browser guest could crash the main process and active sessions, converting them into tool errors instead.
+- Fixed a critical issue on Windows where cancelling a timed-out bash tool command could mistakenly terminate the main process due to PID recycling.
+- Fixed an issue where supervised processes reaching a terminal state failed to notify their launching session, requiring polling; the broker now actively notifies the session upon process completion.
+- Fixed crashes on macOS when using PCRE2-only grep patterns with Bun by defaulting to the interpreted PCRE2 engine instead of JIT, and introduced the `OMP_PCRE2_JIT` environment variable to manually control JIT compilation.
+- Fixed issues with `/btw` branch promotion where branches could park behind active turns, cut from outdated session leaves, or leave rejected branch keys indistinguishable from composer input.
+- Fixed database bloat by ensuring archived main and nested session rows are properly cleaned up from `stats.db` during garbage collection.
+- Fixed startup hanging during local model discovery when a timed-out transport left its request pending, which blocked the CLI before OAuth login could finish ([#7482](https://github.com/can1357/oh-my-pi/issues/7482)).
+
+## [17.2.5] - 2026-08-03
+
+### Breaking Changes
+
+- Replaced the computer tool's coordinate-batch schema with persistent JavaScript runs, and removed computer.backend and model-specific controller switching.
+- Changed the edit tool's replace mode from a multi-edit batch schema to a single-edit schema ({ path, old_string, new_string, replace_all? }).
+
+### Added
+
+- Added a relay browser mode to drive local Chrome tabs via the OMP Browser Relay extension, supporting automatic daemon startup and tab grouping.
+- Added a scriptable desktop session featuring window-targeted capture and input, native accessibility trees, clipboard access, and streamed screenshots.
+- Added broker-shared language servers (controlled by the lsp.shared setting) to multiplex LSP servers across multiple instances in a project, reducing cold-start times and resource usage.
+- Added optional timeoutMs to discovery configuration in provider options to configure custom HTTP probe timeouts for llama.cpp, Ollama, and OpenAI-compatible endpoints.
+- Added a cross-platform, in-process ps shell builtin with custom columns, sorting, and process metrics.
+- Added the --service-tier flag to override the OpenAI service tier for a session.
+- Added a configurable per-request web search timeout via providers.webSearchTimeoutSeconds.
+- Added turn-aware /tree navigation shortcuts (Alt+Up/Alt+Down, Home/End, PageUp/PageDown) to traverse user and assistant turns.
+- Added display.hideToolActivity and a Ctrl+Shift+O shortcut to toggle the visibility of model-initiated tool calls and results.
+
+### Changed
+
+- Exposed the script-driven computer schema to all models, including those with provider-native Computer Use support.
+- Reduced omp --help cold-start latency and memory usage by rendering lightweight command metadata.
+
+### Fixed
+
+- Fixed durability of session transcripts to prevent data loss on process crashes.
+- Fixed a bug on Windows where a timed-out bash command could terminate the main omp process.
+- Fixed headless runs hanging or leaving background workers alive after completion.
+- Fixed a crash when opening the Agent Hub after resuming a session.
+- Fixed /mcp reauth environment variable expansion and token validation.
+- Fixed fuzzy replace-all edits re-matching replacement text indefinitely, which could freeze the TUI.
+- Fixed inspect_image ignoring configured thinking effort for vision models.
+- Fixed compiled binaries dropping certain extensions with complex CommonJS/ESM dependency graphs.
+- Fixed template argument substitution executing recursive placeholder expansion when positional arguments contain literal $@ or $ARGUMENTS tokens.
+- Fixed project-scoped session directories using leading-hyphen names and collapsing distinct paths.
+- Fixed manual /shake leaving the context budget anchored to stale pre-shake token counts.
+- Fixed Mnemopi scoped recall reporting "No relevant memories found" when individual targets fail internally.
+- Fixed skill:// resolution ignoring custom directories when a same-named skill exists in a default path.
+- Fixed image paste failing on Wayland-only Linux sessions.
+- Fixed prewalk switching to the fast model during read-only investigations.
+- Fixed self-update misclassifying glibc Linux hosts with an installed musl loader as musl hosts.
+- Fixed omp setup python to validate the correct interpreter used by the Python eval runtime.
+- Fixed the terminal-tab title dropping to idle while an unsuppressed async job was still running.
+- Fixed redirected stdin being ignored when Bun reports a pipe with an undefined isTTY.
+- Fixed a literal API key configured via /login being hijacked on Windows by case-differing system environment variables.
+- Fixed Esc during a streaming /loop iteration pausing the loop instead of aborting the current turn.
+- Fixed heavily branched conversation trees shifting linear continuations into disconnected columns.
+- Fixed plugin installation validation failures for legacy compatibility shims.
+- Removed hard-coded references to disabled or absent agents in system and tool prompts.
 
 ## [17.2.4] - 2026-08-01
 
@@ -470,31 +498,3 @@
 
 - Fixed `todo` calls that omit `op` hard-failing validation ("op must be operation to apply (was missing)"): the tool now validates leniently and infers the op for unambiguous payloads (`list` → `init`, `phase`+`items` → `append`, bare `items` on an empty list → `init`); `op` stays required in the schema, and ambiguous op-less calls surface the schema error as a retryable tool error.
 - Fixed credential-free web search engines (SearXNG, DuckDuckGo, Google, Startpage, Ecosia, Mojeek, and the Public Web fan-out) returning zero results for queries with `site:` paths (e.g. `site:github.com/owner/repo`) or `inurl:` operators: scraper engines only match `site:` against a bare domain and DuckDuckGo ignores `inurl:` entirely, so such queries silently emptied the result set and fell through to the next provider in the chain. A shared `formatScraperQuery` formatter now structurally demotes path-carrying `site:` and all `inurl:` values to plain search terms (covering OR-grouped and quoted directives) while preserving bare-domain `site:` filters, negated operators, and each engine's supported syntax; the pipeline post-filter still enforces the demoted constraints on returned sources.
-- Fixed `ast_edit` previews reading like applied edits to the model: the `⟨proposed⟩` badge was TUI-only, so the model-visible result (hashline header + `-`/`+` rows, identical to applied edit output) carried no staged-proposal signal. The preview result now leads with a "Staged as a proposal — files NOT modified yet" notice naming `xd://resolve`/`xd://reject`, the injected resolve reminder names the source tool, and the `ast_edit` tool prompt documents the two-phase flow.
-- Fixed the `hub` launch `ps`/`list` response burying the active process behind every exited one and growing without bound in long-lived projects: the broker now lists non-terminal daemons first (oldest to newest) and caps exited/failed history at the 10 most recently exited, so the active launch is immediately visible and the response stays bounded. Broker recovery also preserves each already-terminal daemon's real exit time instead of overwriting it with the restart timestamp, so the history cap keeps the genuinely most-recently-exited processes after an idle-broker restart ([#6517](https://github.com/can1357/oh-my-pi/issues/6517)).
-- Fixed a tool call rendering twice in the transcript. A mid-stream `rebuildChatFromMessages` (from `/shake`, auto-compaction, or a settings toggle) preserves the live `pendingTools` components across the clear+replay, but that preservation assumed every pending-tool component was still dangling. When a tool's result had already landed in the session entries while its component still lingered in `pendingTools`, the replay reconstructed the completed block *and* the preserved live component was re-appended, so the same block appeared twice; resolved components are now dropped from preservation and owned by the replay ([#6516](https://github.com/can1357/oh-my-pi/issues/6516)).
-- Fixed `--model default` (and other bare role names) resolving to the bundled `cursor/default` catalog model instead of the configured `modelRoles.default` role. `resolveCliModel`'s exact-match phase ran its unauthenticated catalog fallback before role resolution, so a bundled id colliding with a reserved role name shadowed a configured, runnable role — failing with `No API key found for cursor` on machines without Cursor credentials. The catalog fallback is now deferred so an authenticated exact model still wins, a configured role beats an unauthenticated catalog-only id, and the catalog id is still recovered when no role matches ([#6508](https://github.com/can1357/oh-my-pi/issues/6508)).
-
-### Removed
-
-- Removed the `model` parameter from `task` and `agent()`: explicit per-spawn model selectors and fallback chains are no longer supported; spawns always use the agent's configured model
-
-## [17.1.1] - 2026-07-24
-
-### Added
-
-- Added the `/session pin` subcommand and account picker to pin provider OAuth accounts for the current session
-- Added the disabled-by-default `computer` essential tool with configurable enablement, backend, display, and maximum width/height settings. Native desktop execution runs through a `DesktopSession` worker; observation uses read approval, input uses exec approval, and provider checks always prompt and fail closed.
-- Added the `/computer` slash command (`on`/`off`/`status`/toggle) to enable or disable the computer tool for the current session without persisting settings.
-- Exposed `computer` to models without native OpenAI computer-use support as a regular function tool with a typed GA action schema; the same native desktop backend and approval policy apply on both paths.
-- Hardened computer action ingress: action-specific fields, modifier/key arrays, coordinates, drag points, and scroll deltas fail closed before native input; numeric fields must be signed 32-bit integers and coordinates must be non-negative.
-
-### Changed
-
-- Replaced Chromium-backed `/live` media and external speech recorder/player subprocesses with the cross-platform native microphone, speaker, Opus, and WebRTC stack from `@oh-my-pi/pi-natives`.
-
-### Fixed
-
-- Fixed live-call attestation depending on the ChatGPT desktop app being installed: `generateLiveAttestation` now mints DeviceCheck tokens in-process through the `@oh-my-pi/pi-natives` `deviceCheckGenerateToken` binding instead of probing `/Applications` for the app's `devicecheck.node` addon, so the `x-oai-attestation` header works on hosts without the desktop app and drops the `createRequire` addon probing; the attestation provider is now wired up to `@oh-my-pi/pi-ai` for ChatGPT-OAuth Codex requests.
-- Fixed `xd://` device execution failures rendering as `write` errors instead of using the mounted tool's own error renderer.
-- Fixed custom tools without bespoke renderers losing the default state-tinted card when mounted under `xd://`; dispatched calls now keep their label, arguments, status, output preview, and expansion affordance instead of dumping a bare result line into the transcript.
