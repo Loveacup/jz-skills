@@ -2,16 +2,27 @@
 
 ## [Unreleased]
 
+## [17.2.8] - 2026-08-04
+
 ### Changed
 
-- Replaced arktype with `@oh-my-pi/omptype` across all tool parameter and config schemas: ~100x faster schema construction removes the arktype startup tax (the `scope({}, { jitless: true })` workarounds are gone). Config schema errors now report via `OmpErrors` entries with the same `path`/`problem` shape.
+- Upgraded the bundled omptype schema engine: intersection and pipe operators, bigint and RegExp literals in the string DSL, Standard Schema V1 interop, JSON Schema import via fromJsonSchema(), and richer union/collection error reporting.
+
+## [17.2.7] - 2026-08-03
+
+### Changed
+
+- Replaced arktype with @oh-my-pi/omptype for tool parameter and config schemas, significantly improving startup performance with ~100x faster schema construction. Config schema errors are now reported via OmpErrors using the same path/problem structure.
 
 ### Fixed
 
-- Fixed extension/custom/hook tool wrappers stripping schema methods off `parameters`: `applyToolProxy` bound every callable property, and binding a schema (a plain function carrying `toJsonSchema`/`assert`) dropped those properties, breaking wire-schema detection and crashing the status-line token estimator with `JSON.stringify(schema) === undefined`. Prototype methods are still bound; own data properties and schema callables now pass through untouched.
-- Fixed bug where `agent()` calls in eval cells ignored turn cancellation and continued running indefinitely
-- Fixed the built-in `tail` printing `tail: Broken pipe` and failing when a downstream pipeline reader exited early (e.g. `tail -c N file.jsonl | jq …` with jq aborting on a parse error); it now exits silently with 141 (128+SIGPIPE) like a real tail, in every output path including `--follow`.
-- Fixed the in-process ps shell builtin rejecting common procps/BSD format specifiers (`ps -o tpgid,...` failed with `unknown output format specifier`); added `tpgid`, `pri`, `flags`, real/effective user and group columns, `wchan`, fault counters, `sz`, and the STAT `+` foreground flag.
+- Fixed an issue where custom, extension, or hook tool wrappers stripped schema methods off parameters, causing wire-schema detection failures and status-line token estimator crashes.
+- Fixed a bug where agent() calls in evaluation cells ignored turn cancellation and continued running indefinitely.
+- Fixed the built-in tail command to exit silently with code 141 (SIGPIPE) instead of failing with a "Broken pipe" error when a downstream pipeline reader exits early.
+- Fixed the in-process ps shell builtin to support common procps/BSD format specifiers, including tpgid, pri, flags, real/effective user/group columns, wchan, fault counters, sz, and the STAT + foreground flag.
+- Fixed install.sh falsely reporting success on musl-based systems (such as Alpine Linux) when the binary fails to start; the installer now smoke-tests the binary, exits non-zero on failure, and provides remediation steps.
+- Fixed Codex config.toml discovery incorrectly importing MCP servers that are configured with enabled = false.
+- Fixed bash.patterns allow rules rejecting valid commands when quoted arguments contained shell metacharacters (such as Cargo benchmark regex filters).
 
 ## [17.2.6] - 2026-08-03
 
@@ -487,14 +498,3 @@
 - Added `searxng.engines` setting for the SearXNG web search provider: a comma-separated list of engine names or bang shortcuts (e.g. `ddg, br, startpage`) sent as the API's `engines=` parameter. Shortcuts are resolved to canonical engine names via the instance's `/config` endpoint (cached per endpoint; entries pass through verbatim if `/config` is unreachable). Bang syntax in queries (`!ddg foo`) continues to pass through to the instance, and external bangs (`!!g`) are now stripped client-side since SearXNG answers them with an HTTP redirect even for JSON requests.
 - Web search queries now understand Google-style directives on every provider: `site:`/`-site:` (plus `domain:`/`host:` aliases), `after:`/`before:`/`since:`/`until:` date bounds, `inurl:`/`intitle:`/`intext:`/`allin*:`, `filetype:`/`ext:`, `lang:`, quoted phrases (including smart quotes), `+term`, `-`/`NOT` exclusions, and `OR`/`|` groups. A shared parser (`web/search/query.ts`) structures the query once per request; each provider maps constraints onto native API filters where the upstream supports them (Perplexity domain/date/language filters on both the API-key and ask paths, Tavily `include_domains`/`exclude_domains` + `start_date`/`end_date`, Exa domain lists + published-date bounds on API and MCP paths, Anthropic `allowed_domains`/`blocked_domains`, xAI `filters.allowed_domains`/`excluded_domains`, Parallel `source_policy`, Brave absolute `freshness` ranges, Firecrawl `tbs=cdr` date ranges, Jina `X-Site`, SearXNG `language`) and otherwise re-emits only the operator syntax its engine parses (full Google syntax for Gemini grounding, OpenAI, Kagi, and the credential-free scrapers — with scraper-hostile path-`site:`/`inurl:` operators demoted to plain keywords; conservative subsets for DuckDuckGo, Mojeek, Kimi, Z.AI, TinyFish, and Synthetic). The pipeline then applies a lenient post-filter to every response: constraints the engine ignored are enforced on the returned sources, and any constraint dimension that would eliminate every result is relaxed and reported to the model (`Note: no results matched \`site:...\`; the constraint was relaxed`) instead of returning nothing. Directive-free queries are passed through byte-identical everywhere.
 - Eval and browser `run` code previews are now prettified for display: minified/compact agent-written cells are expanded by conservative streaming formatters (Python, JavaScript, Ruby, Julia) that indent block structure, split statements, normalize operator spacing (JS), and expand object literals wider than 100 columns onto one property per line — purely for rendering, the executed source is untouched. The formatters handle in-flight prefixes (unterminated strings/comments/blocks) without inventing closers, and layout decisions are prefix-stable so already-rendered lines never reflow while a call streams.
-
-### Changed
-
-- Large pastes saved via the large-paste menu now insert `local://paste-N.md` references (previously `local://attachment-N`), so the saved paste carries a markdown extension and a clearer name.
-- Raw SSE debug capture now trims over-budget events smartly instead of chopping off the tail: tool definitions inside `data:` payloads are compacted first (name kept, schema/description elided — often enough to keep the whole payload as valid JSON), and anything still over the 64k cap keeps its head and tail with a `: omp-debug-elided chars=N` comment marking the removed middle, so trailing fields like `usage` stay visible.
-- The `web_search` tool prompt now tells the model to never search for content that is programmatically accessible or has a known URL (GitHub, known arXiv papers, Wikipedia pages, official docs) and to `read` the URL directly instead.
-
-### Fixed
-
-- Fixed `todo` calls that omit `op` hard-failing validation ("op must be operation to apply (was missing)"): the tool now validates leniently and infers the op for unambiguous payloads (`list` → `init`, `phase`+`items` → `append`, bare `items` on an empty list → `init`); `op` stays required in the schema, and ambiguous op-less calls surface the schema error as a retryable tool error.
-- Fixed credential-free web search engines (SearXNG, DuckDuckGo, Google, Startpage, Ecosia, Mojeek, and the Public Web fan-out) returning zero results for queries with `site:` paths (e.g. `site:github.com/owner/repo`) or `inurl:` operators: scraper engines only match `site:` against a bare domain and DuckDuckGo ignores `inurl:` entirely, so such queries silently emptied the result set and fell through to the next provider in the chain. A shared `formatScraperQuery` formatter now structurally demotes path-carrying `site:` and all `inurl:` values to plain search terms (covering OR-grouped and quoted directives) while preserving bare-domain `site:` filters, negated operators, and each engine's supported syntax; the pipeline post-filter still enforces the demoted constraints on returned sources.

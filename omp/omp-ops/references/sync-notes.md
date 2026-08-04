@@ -1,5 +1,20 @@
 # Sync Notes
 
+## 2026-08-05 — 17.2.8 update
+
+- Official OMP 17.2.8 synced successfully; `references/VERSION` now tracks
+  `17.2.8-0`, and `sync-state.json` records the refreshed mirror.
+- The tracked official configuration/provider/model documents are unchanged
+  from the prior mirror. The 17.2.8 changelog contains a bundled `omptype`
+  schema-engine upgrade (string-DSL intersection/pipe operators, bigint and
+  RegExp literals, Standard Schema V1 interop, JSON Schema import, and richer
+  union/collection errors); this does not establish a new operator setting or
+  provider/auth rule, so no authored reference update is warranted.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, `fetch-official.sh`, and `release.sh`;
+  this run used `check-version.sh`, `orchestrate.sh`, and
+  `sync-from-official.sh` plus bounded inline review and verification.
+
 ## 2026-08-04 — 17.2.5–17.2.6 update
 
 - Official OMP 17.2.5–17.2.6 synced successfully; `references/VERSION` now
