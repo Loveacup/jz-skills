@@ -386,3 +386,20 @@
 - Missing daily-maintenance helpers remain `diff-official.sh`,
   `maintenance-plan.sh`, `verify.sh`, and `release.sh`; the existing
   `sync-from-official.sh` helper was used.
+
+## 2026-08-06 — 17.2.9 update
+
+- Official OMP 17.2.9 synced successfully; `references/VERSION` now tracks
+  `17.2.9-0`, and all seven tracked official mirrors plus sync state were
+  refreshed.
+- Authored architecture guidance now records that translated MCP importers
+  preserve `enabled: false` and load project entries before same-named user
+  entries for Claude Code, Codex, Gemini CLI, Cursor, Windsurf, and VS Code;
+  OpenCode remains user-first.
+- The remaining 17.2.9 changes concern browser discovery, Agent Hub/TUI,
+  session migration, streaming/runtime robustness, and internal helpers. They
+  do not warrant additional provider, model, or security guidance in this
+  skill.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, and `release.sh`; the existing
+  `sync-from-official.sh` helper was used.

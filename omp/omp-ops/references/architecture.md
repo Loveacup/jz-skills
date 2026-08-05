@@ -171,6 +171,13 @@ cap the resolved effort, including after retry-fallback model swaps.
 OMP 17.1.4 removes explicit per-call model selection from `task` and `agent()`;
 those spawns use the configured agent model.
 
+OMP 17.2.9 preserves `enabled: false` while importing MCP servers from Claude
+Code, Codex, Gemini CLI, Cursor, Windsurf, and VS Code. For those translated
+sources, a project entry is loaded before a same-named user entry, so a
+project-level disable suppresses the user-level server. OpenCode retains its
+user-first ordering; verify that source when diagnosing a translated MCP
+server that remains mounted.
+
 ## Multi-Advisor (`WATCHDOG.yml`)
 
 As of 16.2.3, advisors are configured via `WATCHDOG.yml` (or `WATCHDOG.yaml`)
