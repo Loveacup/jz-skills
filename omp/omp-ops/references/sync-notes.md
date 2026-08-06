@@ -420,3 +420,18 @@
 - Missing daily-maintenance helpers remain `diff-official.sh`,
   `maintenance-plan.sh`, `verify.sh`, and `release.sh`; the existing
   `sync-from-official.sh` helper was used.
+
+## 2026-08-07 — 17.2.10 update
+
+- Official OMP 17.2.10 synced successfully; all seven tracked official mirrors
+  and sync state were refreshed.
+- The release adds extension-facing `omptype` compatibility changes and a
+  trusted-extension allowlist; the latter is already covered in
+  `references/security.md`. Agent Hub and stability fixes do not require new
+  operator guidance in this skill.
+- Added the missed operator-facing `providers.webSearchTimeoutSeconds` note to
+  `references/providers/search.md`, based on the 17.2.5 official configuration
+  change surfaced during this review.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, `release.sh`, and `fetch-official.sh`;
+  the existing `sync-from-official.sh` helper was used.

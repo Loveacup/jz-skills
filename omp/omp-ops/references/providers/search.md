@@ -63,6 +63,10 @@ removed; they are intentionally absent from the provider matrix below.
   an SSE error. When diagnosing `codex-search`, inspect the reported provider
   error rather than treating the old generic `Codex error (): Unknown error`
   text as a credential or endpoint diagnosis.
+- 17.2.5 adds `providers.webSearchTimeoutSeconds` for a configurable per-request
+  web-search timeout. Increase it only for providers that are known to need
+  more time; keep the default when diagnosing ordinary credential or endpoint
+  failures.
 
 ## Minimal `.env` examples
 
