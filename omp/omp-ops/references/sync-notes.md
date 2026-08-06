@@ -1,5 +1,22 @@
 # Sync Notes
 
+## 2026-08-07 — 17.2.10 update
+
+- Official OMP 17.2.10 synced successfully; `references/VERSION` now tracks
+  `17.2.10-0`, and `sync-state.json` records the refreshed mirror.
+- Authored security guidance now records the exact-path
+  `--trusted-extension` allowlist, which is an operator-facing extension
+  loading boundary. The `omptype`-backed Zod compatibility facade is a
+  plugin-author API change and does not require operator guidance here.
+- The remaining 17.2.10 changes are Agent Hub UI, crash-resume output,
+  schema/runtime, platform, browser, and session behavior; no additional
+  authored provider, model, architecture, or security update is warranted.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, `fetch-official.sh`, and `release.sh`;
+  this run uses `check-version.sh`, `orchestrate.sh`,
+  `sync-from-official.sh`, and `push-to-github.sh` plus bounded inline review
+  and verification.
+
 ## 2026-08-05 — 17.2.8 update
 
 - Official OMP 17.2.8 synced successfully; `references/VERSION` now tracks

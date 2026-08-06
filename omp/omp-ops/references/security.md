@@ -111,6 +111,13 @@ reserved for this canonical store; imported generic SARIF and official Codex
 Security bundles are normalized into it. Treat cloud scans as account-pinned
 operations and do not represent imported results as native runtime scans.
 
+## Extension loading boundary
+
+OMP 17.2.10 provides `--trusted-extension <absolute-path>` to load an exact
+extension-module allowlist instead of relying on ambient extension discovery.
+Use an explicit absolute path when a session must load a known extension and
+avoid treating ambient discovery as an approval mechanism.
+
 ## Reporting leaks
 
 If a key is accidentally written to any file in this skill repository, rotate the credential immediately and overwrite the file with a redacted version.
