@@ -8,6 +8,14 @@ function restoreDirtyOnError(version) {
 }
 
 function main() {
+  if (process.argv.slice(2).some((arg) => arg === "--help" || arg === "-h")) {
+    jsonOut({
+      status: "ok",
+      usage: "push-to-github.sh",
+      message: "Release verified scoped omp-ops changes to origin/main.",
+    });
+    return;
+  }
   const version = readText(path.join(REFS_DIR, "VERSION"), "0.0.0-0").trim() || "0.0.0-0";
   const root = gitRoot();
   if (!root) {

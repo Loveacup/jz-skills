@@ -24,6 +24,14 @@ const DOCS = [
 ];
 
 async function main() {
+  if (process.argv.slice(2).some((arg) => arg === "--help" || arg === "-h")) {
+    jsonOut({
+      status: "ok",
+      usage: "sync-from-official.sh",
+      message: "Mirror official OMP docs and update sync metadata.",
+    });
+    return;
+  }
   mkdirSync(OFFICIAL_DIR, { recursive: true });
   const versionUrl = `https://raw.githubusercontent.com/${OFFICIAL_REPO}/${OFFICIAL_BRANCH}/packages/coding-agent/package.json`;
   let officialVersion = "unknown";
