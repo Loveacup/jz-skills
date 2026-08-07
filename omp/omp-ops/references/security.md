@@ -22,6 +22,20 @@ Source: `docs/providers.md`, `docs/secrets.md`, `docs/environment-variables.md`.
    is within roughly a week of its 30-day server-side lifetime; re-login before
    the deadline instead of relying on refresh rotation alone.
 
+## Remote MCP and plugin boundaries
+
+- For remote MCP transports, client-generated HTTP/MCP/authorization headers
+  take precedence over configured headers case-insensitively. Agent Plugins
+  servers must not forward configured headers across redirects to a different
+  origin; method-changing redirects of JSON-RPC POSTs are refused.
+- Agent Plugins stdio `env` and remote `headers` are literal plugin inputs for
+  this boundary: they do not perform ambient environment-name lookup or
+  `!command` execution. Keep credentials out of plugin manifests and use the
+  supported local auth/configuration mechanisms instead.
+- Plugin skill reads must remain contained within the plugin root, including
+  `skill://` resource access. Treat plugin packages and their MCP servers as
+  trusted inputs that require explicit provenance.
+
 ```yaml
 # acceptable in models.yml
 providers:

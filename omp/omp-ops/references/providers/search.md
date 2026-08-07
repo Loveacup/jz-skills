@@ -11,7 +11,7 @@ removed; they are intentionally absent from the provider matrix below.
 
 | Provider ID | Required env var(s) | Optional env var(s) / config keys | Validation command |
 |---|---|---|---|
-| `exa` | `EXA_API_KEY` or stored key from `/login exa` | none | `omp search --provider exa "test"` |
+| `exa` | `EXA_API_KEY` or stored key from `/login exa` | `exa.enabled` controls Exa web-search enablement; legacy `exa.enableSearch` migrates automatically | `omp search --provider exa "test"` |
 | `brave` | `BRAVE_API_KEY` | none | `curl -s "https://api.search.brave.com/res/v1/web/search?q=test&count=1" -H "X-Subscription-Token: $BRAVE_API_KEY"` |
 | `tavily` | `TAVILY_API_KEY` | none | `curl -s "https://api.tavily.com/search" -H "content-type: application/json" -d '{"api_key":"'$TAVILY_API_KEY'","query":"test","max_results":1}'` |
 | `duckduckgo` | none | built-in fallback; 16.3.0 improves error clarity and documents datacenter/shared-egress limitations | `omp search --provider duckduckgo "test"` |
@@ -67,6 +67,9 @@ removed; they are intentionally absent from the provider matrix below.
   web-search timeout. Increase it only for providers that are known to need
   more time; keep the default when diagnosing ordinary credential or endpoint
   failures.
+- The current official migration consolidates Exa enablement on `exa.enabled`;
+  legacy `exa.enableSearch` is migrated automatically. The obsolete Researcher
+  and Websets settings are removed, so do not add them to new configuration.
 
 ## Minimal `.env` examples
 

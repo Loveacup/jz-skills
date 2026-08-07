@@ -57,7 +57,11 @@ async function main() {
     process.exit(1);
   }
 
-  writeText(path.join(REFS_DIR, "VERSION"), `${officialVersion}-0\n`);
+  const versionPath = path.join(REFS_DIR, "VERSION");
+  const currentVersion = readText(versionPath, "").trim();
+  const currentBase = currentVersion.match(/^(\d+\.\d+\.\d+)(?:-(\d+))?$/);
+  const revision = currentBase?.[1] === officialVersion ? (currentBase[2] || "0") : "0";
+  writeText(versionPath, `${officialVersion}-${revision}\n`);
   const syncStatePath = path.join(REFS_DIR, "sync-state.json");
   let state = {};
   try {

@@ -1,5 +1,20 @@
 # Sync Notes
 
+## 2026-08-08 — 17.2.10 maintenance follow-up
+
+- Re-ran the official mirror sync for OMP 17.2.10. The upstream `Unreleased`
+  changelog now includes Agent Plugins, remote MCP header/origin enforcement,
+  and the Exa enablement migration.
+- The sync helper incorrectly reset an existing same-version skill revision
+  (`17.2.10-1` to `17.2.10-0`). The helper now preserves the revision when the
+  official base version is unchanged and resets it only for a new official
+  version.
+- Authored guidance records the confirmed Exa `exa.enabled` migration and the
+  remote MCP/plugin security boundaries. No `SKILL.md` change was made because
+  it is already 299 lines; no provider/model architecture change was warranted.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, `fetch-official.sh`, and `release.sh`.
+
 ## 2026-08-07 — 17.2.10 update
 
 - Official OMP 17.2.10 synced successfully; `references/VERSION` now tracks
