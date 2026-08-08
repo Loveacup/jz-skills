@@ -2,44 +2,58 @@
 
 ## [Unreleased]
 
+## [17.2.12] - 2026-08-08
+
+### Fixed
+
+- Fixed shell minimization replacing meaningful `rustc --print` output with `OK`.
+- Fixed shell minimization altering outputs shorter than 1,000 characters; these now pass through unchanged.
+- Fixed primary and advisor Codex sessions falling back to another provider before trying sibling accounts when an account lacks Trusted Access for Cyber approval.
+- Fixed task subagent assistant turns being omitted from the per-model TPS/TTFT aggregates shown by `/models`. ([#8022](https://github.com/can1357/oh-my-pi/issues/8022))
+- Fixed terminal-title spinner writes consuming CPU during WSL/ConPTY agent waits by using the same static working separator as native Windows ([#8012](https://github.com/can1357/oh-my-pi/issues/8012)).
+- Fixed long-running sessions leaking memory for every completed keep-alive `task`/scout subagent: a disposed (parked) subagent's `AgentSession` stayed pinned through the lifecycle adoption record's reviver closure, and `dispose()` never released the message array, append-only provider transcript, session-manager entries, or the raw-SSE debug buffer, so heavy transcripts and captured provider wire frames accumulated for the process lifetime ([#8003](https://github.com/can1357/oh-my-pi/issues/8003)).
+- Fixed Z.AI web search dropping sources and exposing raw JSON when MCP responses double-encode content text ([#8000](https://github.com/can1357/oh-my-pi/issues/8000)).
+- Fixed `/handoff` masking empty/whitespace-only generation and harness-initiated aborts as "Handoff cancelled"; manual empty generation now surfaces a logged failure, harness aborts preserve their reason (or report "Handoff aborted by session"), and auto-handoff still falls back to context-full compaction ([#7993](https://github.com/can1357/oh-my-pi/issues/7993)).
+
+## [17.2.11] - 2026-08-07
+
 ### Added
 
-- Added support for the [Agent Plugins 1.0.0 standard](https://agent-plugins.org): plugin packages with a root `plugin.json` targeting the canonical schema are discovered from marketplace installs, `--plugin-dir`, and configured extension roots, with `skills/` and `mcp.json` loaded per the specification (closed-schema validation per skills-ref, `${PLUGIN_ROOT}`/`${PLUGIN_DATA}` expansion, reserved subprocess environment, instance-keyed persistent data directories, and per-component failure isolation). Package-boundary containment is enforced before every read — including `skill://` resource access from the read tool and bash, where plugin skill files must realpath-resolve inside the plugin root.
-- Remote MCP transports now enforce header precedence and origin policy: client-generated HTTP/MCP/authorization headers win over configured headers case-insensitively, and Agent Plugins servers never forward configured headers across a redirect to a different origin (method-changing redirects of JSON-RPC POSTs are refused). Agent Plugins stdio `env` values and remote `headers` are likewise exempt from config-value resolution (no ambient env-name lookup, no `!command` execution, empty values preserved).
-- Added `omp share <session>`: share a saved session by id prefix or `.jsonl` path without launching the agent — same encrypted upload, store selection, and `share.redactSecrets` handling as the `/share` slash command.
-- Added `AGENT=1` to coding-agent child-process environments so downstream tools can detect agent-driven execution ([#7847](https://github.com/can1357/oh-my-pi/issues/7847)).
+- Added support for the Agent Plugins 1.0.0 standard, enabling automatic discovery, validation, and secure execution of compliant plugin packages.
+- Added the `omp share <session>` command to share saved sessions by ID prefix or file path without launching the agent.
+- Added the `AGENT=1` environment variable to child processes spawned by `coding-agent` to allow downstream tools to detect agent-driven execution.
 
 ### Changed
 
-- Consolidated Exa web-search enablement on `exa.enabled`; legacy `exa.enableSearch` values migrate automatically, and the obsolete Researcher and Websets settings have been removed.
-- Removed stale `computer.backend` values during config migration.
-- Clarified the JavaScript/TypeScript debug adapter install path: `js-debug-adapter` is the omp adapter id, not an npm package, so `npm i -g js-debug-adapter` 404s. The docs and the "adapter not available" message now point to the supported installs — Mason, the standalone release tarball extracted under `~/.local/opt` (auto-discovered), or `JS_DEBUG_DAP_SERVER`. The docs also note the adapter runs under `node` if available, else the omp Bun host ([#7757](https://github.com/can1357/oh-my-pi/issues/7757)).
+- Consolidated Exa web-search configuration under `exa.enabled`, automatically migrating legacy `exa.enableSearch` values and removing obsolete Researcher and Websets settings.
+- Removed stale `computer.backend` values during configuration migration.
+- Updated documentation and error messages for the JavaScript/TypeScript debug adapter (`js-debug-adapter`) to clarify supported installation paths (Mason, standalone tarball, or `JS_DEBUG_DAP_SERVER`).
 
 ### Fixed
 
-- Fixed proxy discovery preferring the bundled catalog name over the proxy-reported name, so `omp models refresh` now updates stale display names (e.g. a proxy serving `longcat-2.0` as `"LongCat"` no longer shows the raw id).
-- Fixed the compiled binary build on Windows: `Bun.Glob.scan` yields backslash-separated paths, which the legacy Pi virtual module used verbatim for export keys and generated identifiers, producing invalid JavaScript.
-- Fixed Ctrl+O (`app.tools.expand`) not expanding truncated tool output while a tool-approval prompt or other selection dialog held keyboard focus, by promoting the shortcut to a global input listener that fires regardless of focus (it still defers to fullscreen overlays and the tree selector's own Ctrl+O filter cycle) ([#7837](https://github.com/can1357/oh-my-pi/issues/7837)).
-- Fixed `omp commit` printing a wall of bundled source when a `pre-commit`/`commit-msg` hook refuses a commit: hook failures are now reported with the hook's own message, split plans report how far they got, and the command exits non-zero cleanly ([#7834](https://github.com/can1357/oh-my-pi/issues/7834)).
-- Fixed `omp commit --push` exiting 0 without pushing when the working tree is already clean; it now pushes the existing commits (or fails non-zero if the push is refused) ([#7834](https://github.com/can1357/oh-my-pi/issues/7834)).
+- Fixed an issue where `/reload-plugins` and the Agent Control Center failed to propagate updated agent definitions to existing tools without a restart.
+- Fixed legacy Pi extensions failing to load when calling `pi.unregisterProvider()`, ensuring provider replacements take effect immediately.
+- Fixed zero-width daemon readiness and wait regex matches being rejected by the hub wire decoder.
+- Fixed proxy model discovery preferring bundled catalog names over proxy-reported names, allowing `omp models refresh` to correctly update display names.
+- Fixed Windows compiled binary builds failing due to backslash-separated paths in `Bun.Glob.scan` producing invalid JavaScript in virtual modules.
+- Fixed the Ctrl+O (`app.tools.expand`) shortcut not expanding truncated tool output when a tool-approval prompt or selection dialog had keyboard focus.
+- Improved `omp commit` error reporting when pre-commit or commit-msg hooks fail, displaying the hook's own message and exiting non-zero cleanly instead of printing bundled source code.
+- Fixed `omp commit --push` exiting with code 0 without pushing when the working tree is already clean; it now correctly pushes existing commits.
+- Fixed `omp commit` exiting with code 0 when the commit agent failed and fell back to a mechanical commit; it now exits non-zero to indicate the fallback was used.
 - Fixed strict output schemas being rejected when native JSON Schema definition maps contain `ref` or applicator branches use `properties` without `type`.
-- Fixed the leading `cd <path> && ...` extraction absorbing shell syntax into the structured `cwd`, so `cd /tmp 2>/dev/null && echo ok` died with "Working directory does not exist: /tmp 2>/dev/null" before the shell ran. Extraction now captures a single path token via a quote-aware scanner and defers to the shell when anything else (redirects, extra arguments, shell expansion) precedes the top-level `&&` ([#7883](https://github.com/can1357/oh-my-pi/issues/7883)).
-- Applied reason-specific backoff to transient rate-limit retries and collapsed exhausted retry sagas into one terminal error naming the spent budget ([#7767](https://github.com/can1357/oh-my-pi/issues/7767)).
-- Fixed session-tree rows rendering as bare bullets: bookkeeping entries (title changes, credential pins, mode and service-tier changes, TTSR injections, reset boundaries, session init) had no display text at all, so they drew as empty rows. They are now hidden in the default view like other settings entries, and labelled with what they recorded in `all` mode.
-- Fixed extension and custom tools inheriting a same-named built-in TUI renderer, which could replace successful result content with incorrect built-in status text ([#7770](https://github.com/can1357/oh-my-pi/issues/7770)).
-- Fixed the bundled `ts-no-tiny-functions` TTSR rule never firing on one-line arrow functions in real files: the second alternative's `$` anchor only matched at the absolute end of input, so the trailing newline present in every real file suppressed the match. The condition now opens with the `(?m)` inline flag so the arrow body matches to the line end ([#6890](https://github.com/can1357/oh-my-pi/issues/6890)).
-- Fixed `omp commit` exiting 0 when the commit agent failed and the mechanical fallback wrote the commit: the command now exits non-zero when the fallback was used, so callers can distinguish a degraded numstat commit from a legitimate single-commit decision ([#7835](https://github.com/can1357/oh-my-pi/issues/7835)).
-- Fixed prewalk lifecycle handling so same-model/same-effort arms reject without plan injection or false success output, consumed plan nudges do not return after context rebuilds, explicit re-arms require a fresh TODO, and settings-enabled prewalk does not implicitly re-arm restored sessions.
-- Fixed the todo completion reminder still firing while the agent was waiting on a user question asked in a non-English language. The `isAwaitingUserAnswer` guard only recognized English question words and pronouns, so a `？`/`?`-terminated Chinese, Japanese, Korean, or Spanish prompt (e.g. `我应该继续吗？`) went undetected and the `<system-reminder>` interrupted the pause — which the model then misread as the user's answer and acted on. A trailing question mark plus any non-ASCII character in the line now counts as a pending question ([#7803](https://github.com/can1357/oh-my-pi/issues/7803)).
-- Normalized resolved file paths in `read` summary recovery selectors, PDF image handles, and notebook errors so suffix-matched input does not teach agents malformed follow-up paths ([#7788](https://github.com/can1357/oh-my-pi/issues/7788)).
-- Fixed a per-turn `before_agent_start` system prompt override being silently dropped when a base-prompt rebuild fired between the hook and the provider request. The override lived only on the agent state, so `refreshBaseSystemPrompt`/`applyActiveToolsByName` re-pushing the rebuilt base (context-overflow compaction/promotion, memory promotion, MCP/RPC tool refresh, or the fire-and-forget hindsight MM-TTL refresh) clobbered it. The tools controller now tracks the active override and re-applies it on every base rebuild during the turn, clearing it when the turn ends ([#7755](https://github.com/can1357/oh-my-pi/issues/7755)).
-- Fixed ACP `session/load` and `session/resume` failing with `ACP session not found` for sessions created under the legacy/hashed project-directory scheme (17.2.5+, reverted in #7656): the lookup only scanned the directory re-derived from `cwd`, so sessions stored under a differently-named directory were unreachable. It now falls back to a global by-id scan (the same one the fork path already uses) when the cwd-scoped lookup misses ([#7779](https://github.com/can1357/oh-my-pi/issues/7779)).
-- Fixed `vault://<name>?op=...` commands targeting the focused/most-recently-active vault instead of the named one. The `vault=<name>` argument was appended after the Obsidian CLI subcommand (`obsidian bases vault=Work`), but the CLI only honors it as a top-level option before the subcommand (`obsidian vault=Work bases`); it is now prepended so the named vault is queried (and opened) regardless of window focus ([#7771](https://github.com/can1357/oh-my-pi/issues/7771)).
-- The status-line `session_name` segment now honors the `statusLine.sessionAccent` setting: when disabled, the rendered session name falls back to the theme `accent` color instead of emitting the hash-derived session accent, matching the gap-fill divider behavior ([#7867](https://github.com/can1357/oh-my-pi/pull/7867)).
-
-### Fixed
-
-- Fixed `/handoff` reporting "Handoff cancelled" for real generation failures. A provider error named `AbortError` (e.g. a stalled/idle-timed-out stream) no longer masquerades as a user cancellation; the actual error now surfaces unless the handoff was genuinely aborted ([#7903](https://github.com/can1357/oh-my-pi/issues/7903)).
+- Fixed shell syntax extraction in `cd <path> && ...` commands to prevent redirects, extra arguments, or shell expansions from being incorrectly absorbed into the structured working directory path.
+- Applied reason-specific backoff to transient rate-limit retries and consolidated exhausted retry errors.
+- Fixed session-tree rows rendering as empty bullets for bookkeeping entries (such as title changes, credential pins, and mode changes); these are now hidden by default and properly labeled in `all` mode.
+- Fixed extension and custom tools inheriting same-named built-in TUI renderers, which could overwrite successful results with incorrect status text.
+- Fixed prewalk lifecycle handling to prevent plan injection on rejected same-model/same-effort arms, ensure consumed plan nudges do not return after context rebuilds, and prevent settings-enabled prewalk from implicitly re-arming restored sessions.
+- Fixed the todo completion reminder interrupting pauses when waiting for non-English questions (such as Chinese, Japanese, Korean, or Spanish prompts ending in `？` or `?`).
+- Normalized resolved file paths in read summaries, PDF image handles, and notebook errors to prevent agents from learning malformed paths.
+- Fixed a bug where a per-turn `before_agent_start` system prompt override was silently dropped during base-prompt rebuilds.
+- Fixed ACP `session/load` and `session/resume` failing with `ACP session not found` for sessions created under the legacy hashed project-directory scheme by falling back to a global ID scan.
+- Fixed `vault://<name>?op=...` commands targeting the active vault instead of the named vault in Obsidian CLI queries.
+- Fixed the status-line `session_name` segment to honor the `statusLine.sessionAccent` setting, falling back to the theme's accent color when disabled.
+- Fixed automatic `agent.continue()` paths failing to run context-fit maintenance when reverting to a smaller-context model after a cooldown expiry.
+- Fixed `/handoff` reporting "Handoff cancelled" for actual generation or stream timeout errors, ensuring the real error is surfaced.
 
 ## [17.2.10] - 2026-08-06
 
@@ -484,17 +498,3 @@
 - Added the bundled `ts-no-local-is-record` TTSR rule, which catches local `isRecord` function and lambda definitions and directs agents to shared guards plus explicit shape validation.
 - A `tool_call` handler (extension or hook) can now return `input` to revise the arguments a tool executes with, not just `block` it. The returned object is the raw execution input passed to the tool (ignored when `block` is set, and not applied to `computer` tool calls), enabling wrappers that normalize or rewrite a built-in's arguments without reimplementing the tool. For model-issued calls the event fires at arg-prep time in the agent loop, so a revision is revalidated against the tool schema and is what concurrency scheduling, `tool_execution_start`/transcripts, the persisted assistant message, and the approval gate all observe — the user approves exactly what runs, and a revision that changes a tool's functional concurrency (e.g. bash `pty`) schedules correctly. A revised nested `write xd://` device dispatch forfeits the outer write gate's approval and faces the full prompt again ([#6681](https://github.com/can1357/oh-my-pi/pull/6681) by [@psyrendust](https://github.com/psyrendust)).
 - Added a parser for macOS `sample`(1) call-tree reports to the read tool: `*.sample.txt` reads now return a compact bottleneck summary — per-thread hot paths with on-CPU sample counts (blocked syscall time excluded), demangled Rust v0/legacy symbols, flattened direct recursion, merged call-site siblings, idle-thread classification, and a process-wide top-functions-by-self-samples table. `:raw` still reads the original report, and files that merely carry the extension fall back to plain text.
-- Added V8 `.cpuprofile` support to the read tool (Node/Bun `--cpu-prof`, Chrome DevTools, CDP `Profiler.stop` output): reads now return a compact bottleneck summary — hot-path call tree with on-CPU milliseconds (`(idle)` time excluded), collapsed pass-through chains, flattened direct recursion, shortened file URLs, and a top-functions-by-self-time table. `:raw` still reads the original JSON, and files that merely carry the extension fall back to plain text.
-
-### Changed
-
-- Direct and `xd://` dispatch now share one canonical tool map: `write xd://<tool>` executes any enabled top-level or mounted tool, and `read xd://<tool>` returns its docs, instead of failing when the name was exposed through the other layer. Mounted names are presentation metadata only, so tool replacement and disconnection cannot leave stale device instances; disabled tools remain unreachable, and both `xd://` and Cursor/top-level fallback execution retain the tool's approval and ACP permission gates.
-- Session listing now caches parsed headers keyed on file stat identity (mtime + size), so repeated resume-picker opens and startup scans re-read only changed session files
-- Reduced per-keystroke editor dispatch overhead: keybinding resolution happens once per input chunk and the per-action interception chain is gated behind a single canonical-key set probe
-- `xd://` device docs now render the parameter schema as a comment-annotated TypeScript type (via `jsonSchemaToTypeScript`, the same renderer the in-band tool inventory uses) instead of a raw JSON Schema dump, shrinking system-prompt device sections while keeping descriptions inline.
-- Added a `/vision [on|off|auto|status]` slash command for session-scoped control of the `inspect_image` vision-delegation tool, modeled on `/computer`: `on`/`off` force the tool for the current session only, `auto` returns to the persisted setting, and `status` reports the effective mode, session override, tool state, and active-model image capability.
-- Replaced the `inspect_image.enabled` boolean with the tri-state `inspect_image.mode` (`auto`|`on`|`off`, default `auto`). In `auto` the tool is registered only when the active model lacks native image input, so vision-capable models (e.g. `kimi-code/k3`) read images inline with their own capabilities instead of delegating to a separate vision model; the tool set is re-evaluated on every model switch with a status notice when it flips. The `read` tool now follows the effective state dynamically rather than the raw setting, so it returns decoded image blocks again whenever `inspect_image` is hidden. Existing `inspect_image.enabled: true/false` configs migrate to `inspect_image.mode: on/off`.
-
-## [17.1.6] - 2026-07-27
-
-### Added

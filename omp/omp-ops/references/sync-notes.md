@@ -450,3 +450,17 @@
 - Missing daily-maintenance helpers remain `diff-official.sh`,
   `maintenance-plan.sh`, `verify.sh`, `release.sh`, and `fetch-official.sh`;
   the existing `sync-from-official.sh` helper was used.
+
+## 2026-08-09 — 17.2.12 update
+
+- Official OMP 17.2.12 synced successfully; `references/VERSION` now tracks
+  `17.2.12-0`, and the tracked official changelog mirror plus sync state were
+  refreshed.
+- The release fixes shell-output minimization, Codex Trusted Access account
+  selection, keep-alive subagent memory retention, Z.AI MCP double-encoded
+  search responses, `/handoff` error reporting, and model usage aggregation.
+  These are runtime/stability fixes and do not warrant new provider, model,
+  architecture, security, or `SKILL.md` operator guidance.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, and `release.sh`; the existing
+  `sync-from-official.sh` helper was used.
