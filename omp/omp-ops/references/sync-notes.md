@@ -454,6 +454,18 @@
 ## 2026-08-09 — 17.2.12 update
 
 - Official OMP 17.2.12 synced successfully; `references/VERSION` now tracks
+  `17.2.12-0`, and the tracked official mirrors plus sync state were refreshed.
+- The 17.2.11–17.2.12 changelog entries concern Agent Plugins, session sharing,
+  child-process metadata, provider fallback, web-search rendering, and runtime
+  stability. No additional operator-facing provider, model, architecture, or
+  security guidance was warranted.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, and `release.sh`; the existing
+  `sync-from-official.sh` helper was used.
+
+## 2026-08-09 — 17.2.12 update
+
+- Official OMP 17.2.12 synced successfully; `references/VERSION` now tracks
   `17.2.12-0`, and the tracked official changelog mirror plus sync state were
   refreshed.
 - The release fixes shell-output minimization, Codex Trusted Access account
