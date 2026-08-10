@@ -1,5 +1,16 @@
 # Sync Notes
 
+## 2026-08-11 — daily maintenance
+
+- Official OMP remains `17.2.12`; the official mirrors were refreshed and only
+  `references/sync-state.json` changed because of the new sync timestamp.
+- The 17.2.11–17.2.12 official material was reviewed again; no additional
+  authored provider, model, architecture, security, or `SKILL.md` guidance was
+  warranted.
+- Skill maintenance revision advanced to `17.2.12-3`; missing daily-maintenance
+  helpers remain `fetch-official.sh`, `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, and `release.sh`.
+
 ## 2026-08-08 — 17.2.10 maintenance follow-up
 
 - Re-ran the official mirror sync for OMP 17.2.10. The upstream `Unreleased`
