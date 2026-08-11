@@ -415,6 +415,23 @@
   `maintenance-plan.sh`, `verify.sh`, and `release.sh`; the existing
   `sync-from-official.sh` helper was used.
 
+## 2026-08-11 — 17.2.14 update
+
+- Official OMP 17.2.14 synced successfully; `references/VERSION` now tracks
+  `17.2.14-0`, and the official changelog, skills mirror, and sync state were
+  refreshed.
+- The 17.2.13–17.2.14 changes add SearXNG safe-search configuration,
+  Cloudflare AI Gateway and Exa MCP search support, TinyFish domain filtering,
+  the `externalThinking` setting, and distribution-aware update behavior.
+  Existing authored search and security guidance covers the operator-facing
+  boundaries; no additional authored provider, model, architecture, security,
+  or `SKILL.md` changes were warranted.
+- The official skills mirror also clarifies `AGENTS.md` ancestor discovery;
+  this does not change the `omp-ops` operator workflow.
+- Missing daily-maintenance helpers remain `fetch-official.sh`,
+  `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`;
+  the existing `sync-from-official.sh` helper was used.
+
 ## 2026-08-02 — 17.2.3 update
 
 - Official OMP 17.2.3 synced successfully; `references/VERSION` now tracks
