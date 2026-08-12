@@ -514,3 +514,20 @@
 - Missing daily-maintenance helpers remain `diff-official.sh`,
   `maintenance-plan.sh`, `verify.sh`, and `release.sh`; the existing
   `sync-from-official.sh` helper was used.
+
+## 2026-08-12 — 17.2.15 update
+
+- Official OMP 17.2.15 synced successfully; `references/VERSION` now tracks
+  `17.2.15-0`, the official changelog mirror was refreshed, and sync state was
+  updated.
+- The release adds `--external-thinking`, `omp compress`, and broader /
+  natural-language `omp cleanse` support; these are CLI/workflow additions
+  outside the `omp-ops` operator guidance surface.
+- The remaining changes concern think-tool transport eligibility, headless
+  print-mode startup, MCP Streamable HTTP interoperability, handoff artifact
+  copying, tar parsing hardening, display activity, and cleanse defaults. No
+  additional authored provider, model, architecture, security, or `SKILL.md`
+  guidance was warranted.
+- Missing daily-maintenance helpers remain `fetch-official.sh`,
+  `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`; the
+  existing `sync-from-official.sh` helper was used.
