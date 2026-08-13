@@ -515,6 +515,22 @@
   `maintenance-plan.sh`, `verify.sh`, and `release.sh`; the existing
   `sync-from-official.sh` helper was used.
 
+## 2026-08-13 — 17.3.1 update
+
+- Official OMP 17.3.1 synced successfully; `references/VERSION` now tracks
+  `17.3.1-0`, the official changelog and model mirror were refreshed, and sync
+  state was updated.
+- The 17.3.0 breaking change removes global `advisor.subagents`; authored
+  architecture guidance now points operators to per-agent `advisor`
+  frontmatter or `task.agentAdvisor`, including the automatic migration.
+- Authored model guidance now documents `imageInputDecoder: stb` for custom
+  vision backends that need WebP normalization. The remaining 17.3.0–17.3.1
+  changes are runtime, packaging, UI, LSP, or platform fixes and do not
+  warrant further provider, security, or `SKILL.md` changes.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, and `release.sh`; the existing
+  `sync-from-official.sh` helper was used.
+
 ## 2026-08-12 — 17.2.15 update
 
 - Official OMP 17.2.15 synced successfully; `references/VERSION` now tracks

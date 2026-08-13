@@ -159,6 +159,10 @@ Built-in roles:
 | `task` | Task-tool subagent model. |
 | `advisor` | Advisor/WATCHDOG reviewer model (16.2.3+: full tool access, multi-advisor via WATCHDOG.yml). |
 
+For custom vision models whose serving backend cannot accept WebP, set
+`imageInputDecoder: stb` on the model or its `modelOverrides` entry. OMP then
+normalizes attached and historical WebP image blocks before provider dispatch.
+
 `Tester` and `sonic` are built-in subagents, not `modelRoles`; `oracle` is no
 longer built in as of 16.2.9.
 

@@ -183,7 +183,11 @@ server that remains mounted.
 As of 16.2.3, advisors are configured via `WATCHDOG.yml` (or `WATCHDOG.yaml`)
 in `~/.omp/agent/`. Each advisor can have its own model, tool subset, and
 instructions. Advisors now have full access to all built-in agent tools
-(including edit, write, and bash) — no longer read-only.
+(including edit, write, and bash) — no longer read-only. In 17.3.0, the global
+`advisor.subagents` setting was removed: configure advisors per agent through
+the `advisor` frontmatter field or the `task.agentAdvisor` setting. Existing
+`advisor.subagents: true` configurations migrate to
+`task.agentAdvisor: { task: "on" }`.
 
 Manage the roster with `/advisor configure`, a mouse-driven full-screen TUI.
 
