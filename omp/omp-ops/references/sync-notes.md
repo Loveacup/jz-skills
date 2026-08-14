@@ -531,6 +531,22 @@
   `maintenance-plan.sh`, `verify.sh`, and `release.sh`; the existing
   `sync-from-official.sh` helper was used.
 
+## 2026-08-15 — 17.3.4 update
+
+- Official OMP 17.3.2–17.3.4 synced successfully; `references/VERSION` now
+  tracks `17.3.4-0`, the changelog and Antigravity environment-variable
+  mirror were refreshed, and sync state was updated.
+- The release changes are PDF backend/rendering, MCP Streamable HTTP
+  interoperability, Gemini retry behavior, TUI/path/update fixes, and
+  platform stability fixes. Existing authored guidance is sufficient; no new
+  provider, model, architecture, security, or `SKILL.md` operator guidance
+  is warranted. The new Antigravity User-Agent override variables are
+  low-level client metadata rather than provider configuration rules.
+- Missing daily-maintenance helpers remain `verify.sh`, `fetch-official.sh`,
+  `diff-official.sh`, `maintenance-plan.sh`, and `release.sh`; this run uses
+  `check-version.sh`, `orchestrate.sh`, `sync-from-official.sh`, and
+  `push-to-github.sh` plus bounded inline review and verification.
+
 ## 2026-08-12 — 17.2.15 update
 
 - Official OMP 17.2.15 synced successfully; `references/VERSION` now tracks
