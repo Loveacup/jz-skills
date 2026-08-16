@@ -547,6 +547,21 @@
   `check-version.sh`, `orchestrate.sh`, `sync-from-official.sh`, and
   `push-to-github.sh` plus bounded inline review and verification.
 
+## 2026-08-17 — 17.3.5 update
+
+- Official OMP 17.3.5 synced successfully; `references/VERSION` now tracks
+  `17.3.5-0`, the official changelog mirror was refreshed, and sync state was
+  updated.
+- Added authored xAI guidance: paid `xai` and `xai-oauth` models use the
+  Responses API, default to `grok-4.5`, and reject presence/frequency
+  penalties and stop sequences for reasoning models. The Extensions settings
+  group and remaining runtime/stability fixes do not require additional
+  operator guidance in this skill.
+- Missing daily-maintenance helpers remain `verify.sh`, `fetch-official.sh`,
+  `diff-official.sh`, `maintenance-plan.sh`, and `release.sh`; this run uses
+  `check-version.sh`, `orchestrate.sh`, `sync-from-official.sh`, and
+  `push-to-github.sh` plus bounded inline review and verification.
+
 ## 2026-08-12 — 17.2.15 update
 
 - Official OMP 17.2.15 synced successfully; `references/VERSION` now tracks

@@ -42,6 +42,15 @@ The table below lists the environment variable used by each core model provider 
 | `lm-studio` | `LM_STUDIO_API_KEY` (optional) | keyless by default |
 | `llama.cpp` | `LLAMA_CPP_API_KEY` (only when server requires auth) | keyless by default |
 
+### xAI paid-model routing
+
+On OMP 17.3.5, paid xAI models selected through `XAI_API_KEY` and the
+`xai-oauth` provider use the Responses API path. Both provider defaults are
+`grok-4.5`; when only `XAI_API_KEY` is available, automatic selection prefers
+`xai/grok-4.5`, while `xai-oauth/grok-4.5` remains an explicit choice. Do not
+configure presence/frequency penalties or stop sequences for xAI reasoning
+models such as `grok-4.5` because the endpoint rejects them.
+
 16.2.7 changed Google Vertex precedence so explicit env credentials override
 stored auth before broker migration; verify exact env names against official
 docs before advising a user to set them.
@@ -309,6 +318,11 @@ Use a bare exact flat id only when OMP can match that same id through provider p
 - 16.4.2 adds `novita` provider auth via `NOVITA_API_KEY`.
 - 16.4.2 extends thinking suffix support with `:max` in addition to the
   existing `:minimal`, `:low`, `:medium`, `:high`, and `:xhigh` values.
+
+### Recent provider notes (17.3.5)
+
+- Paid xAI models now use the Responses API, default to `grok-4.5`, and reject
+  presence/frequency penalties and stop sequences when reasoning is enabled.
 
 ---
 
