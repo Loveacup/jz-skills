@@ -1,5 +1,20 @@
 # Sync Notes
 
+## 2026-08-18 — 17.3.6–17.3.7 daily maintenance
+
+- Official OMP `17.3.7` is mirrored; `references/VERSION` tracks `17.3.7-0`
+  and `sync-state.json` records the official sync.
+- Authored model guidance now tracks the 17.3.6 xAI default change to
+  `grok-4.6` for both `xai` and `xai-oauth`, while retaining the Responses API
+  and reasoning-parameter restriction guidance from 17.3.5.
+- The 17.3.6 extension file-write/delete fallback API and `omp stats --host`
+  support are recorded as extension/runtime behavior in the official mirror;
+  no operator configuration or security guidance was added because the
+  changelog does not establish a stable `omp-ops` setting or workflow.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, and `release.sh`; `fetch-official.sh`
+  is also absent, while `sync-from-official.sh` is the available equivalent.
+
 ## 2026-08-11 — daily maintenance
 
 - Official OMP remains `17.2.12`; the official mirrors were refreshed and only

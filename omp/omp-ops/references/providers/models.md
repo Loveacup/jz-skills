@@ -319,9 +319,9 @@ Use a bare exact flat id only when OMP can match that same id through provider p
 - 16.4.2 extends thinking suffix support with `:max` in addition to the
   existing `:minimal`, `:low`, `:medium`, `:high`, and `:xhigh` values.
 
-### Recent provider notes (17.3.5)
+### Recent provider notes (17.3.6)
 
-- Paid xAI models now use the Responses API, default to `grok-4.5`, and reject
+- Paid xAI models use the Responses API, default to `grok-4.6`, and reject
   presence/frequency penalties and stop sequences when reasoning is enabled.
 
 ---
