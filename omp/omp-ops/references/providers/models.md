@@ -44,12 +44,12 @@ The table below lists the environment variable used by each core model provider 
 
 ### xAI paid-model routing
 
-On OMP 17.3.5, paid xAI models selected through `XAI_API_KEY` and the
+On OMP 17.3.6, paid xAI models selected through `XAI_API_KEY` and the
 `xai-oauth` provider use the Responses API path. Both provider defaults are
-`grok-4.5`; when only `XAI_API_KEY` is available, automatic selection prefers
-`xai/grok-4.5`, while `xai-oauth/grok-4.5` remains an explicit choice. Do not
+`grok-4.6`; when only `XAI_API_KEY` is available, automatic selection prefers
+`xai/grok-4.6`, while `xai-oauth/grok-4.6` remains an explicit choice. Do not
 configure presence/frequency penalties or stop sequences for xAI reasoning
-models such as `grok-4.5` because the endpoint rejects them.
+models such as `grok-4.6` because the endpoint rejects them.
 
 16.2.7 changed Google Vertex precedence so explicit env credentials override
 stored auth before broker migration; verify exact env names against official

@@ -562,6 +562,21 @@
   `check-version.sh`, `orchestrate.sh`, `sync-from-official.sh`, and
   `push-to-github.sh` plus bounded inline review and verification.
 
+## 2026-08-18 — 17.3.7 update
+
+- Official OMP 17.3.7 synced successfully; `references/VERSION` now tracks
+  `17.3.7-0`, the official changelog mirror was refreshed, and sync state was
+  updated.
+- Authored model guidance now tracks the 17.3.6 xAI default change from
+  `grok-4.5` to `grok-4.6`; the Responses API routing and reasoning-model
+  parameter restrictions remain applicable.
+- The 17.3.6 extension filesystem fallback and stats `--host` support are
+  extension/runtime details and do not require additional `omp-ops` guidance.
+- Missing daily-maintenance helpers remain `verify.sh`, `fetch-official.sh`,
+  `diff-official.sh`, `maintenance-plan.sh`, and `release.sh`; this run uses
+  `check-version.sh`, `orchestrate.sh`, `sync-from-official.sh`, and
+  `push-to-github.sh` plus bounded inline review and verification.
+
 ## 2026-08-12 — 17.2.15 update
 
 - Official OMP 17.2.15 synced successfully; `references/VERSION` now tracks
