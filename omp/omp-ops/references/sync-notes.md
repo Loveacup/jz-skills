@@ -1,5 +1,23 @@
 # Sync Notes
 
+## 2026-08-20 — 17.3.8 update
+
+- Official OMP `17.3.8` synced successfully; `references/VERSION` now tracks
+  `17.3.8-0`, and `sync-state.json` records the upstream sync timestamp.
+- Authored model guidance now documents `qwenTemplateReasoningEffort`, which
+  lets Qwen 3.8+ local models route selected effort through the chat-template
+  reasoning argument; strict servers that reject unknown template kwargs should
+  set it to `false`.
+- The new `providers.cacheRetention` setting and the external-thinking risk
+  note are present in the official changelog, but the tracked configuration
+  mirrors do not expose enough stable schema detail to add safe authored
+  operator guidance. The remaining 17.3.8 changes are runtime, UI, security
+  hardening, or bug fixes and require no `omp-ops` reference changes.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, `fetch-official.sh`, and
+  `release.sh`; this run uses `check-version.sh`, `orchestrate.sh`,
+  `sync-from-official.sh`, and inline semantic review.
+
 ## 2026-08-18 — 17.3.6–17.3.7 daily maintenance
 
 - Official OMP `17.3.7` is mirrored; `references/VERSION` tracks `17.3.7-0`

@@ -214,6 +214,12 @@ modelRoles:
   advisor: anthropic/claude-sonnet-4-5:medium
 ```
 
+For local Qwen 3.8+ models using the `qwen-chat-template` dialect, OMP can
+route the selected effort through `chat_template_kwargs.reasoning_effort`.
+Set the model compatibility field `qwenTemplateReasoningEffort: false` when a
+strict local server rejects unknown `chat_template_kwargs`; effort selections
+are then omitted for the Qwen dialects and the template uses its own default.
+
 ### Exact flat IDs and provider preference
 
 16.2.12 removed canonical alias coalescing.
@@ -226,7 +232,11 @@ Use a bare exact flat id only when OMP can match that same id through provider p
 
 `modelProviderOrder` chooses among provider candidates; it no longer feeds a catalog-wide canonical alias resolver.
 
-### Recent provider notes (16.2.9–17.2.5)
+### Recent provider notes (16.2.9–17.3.8)
+
+- 17.3.8 adds `qwenTemplateReasoningEffort` to model compatibility settings for
+  Qwen 3.8+ local backends. Keep it disabled only for strict servers that
+  reject the generated chat-template reasoning argument.
 
 - 17.2.5 supports positive `providers.<id>.discovery.timeoutMs` values for
   slow or remote model-discovery probes.
