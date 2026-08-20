@@ -113,14 +113,15 @@ tools:
     read: allow
 
 compaction:
-  strategy: snapcompact
   methodOrder: [remote, snap]  # ordered preference; replaces strategy/remoteEnabled (17.4.0+)
+  asyncEnabled: true            # speculate compaction in the background (17.4.0+)
   thresholdPercent: 80
   remoteStreamingV2Enabled: true  # forward full history to provider (16.2.3+)
   v2RetainedMessageBudget: 50     # max retained turns for V2 streaming
 
 statusLine:
   compactThinkingLevel: true   # render thinking level as single leading glyph
+  contextLine: annotated        # context gauge: percentage, annotated, or embedded (17.4.0+)
 
 edit:
   citationTags: true           # emit hashline headers as OpenAI citation markers
@@ -220,6 +221,8 @@ advisors:
 | `statusLine.compactThinkingLevel` | boolean | Render thinking level as a single leading glyph instead of text suffix. |
 | `edit.citationTags` | boolean | Emit hashline section headers as OpenAI citation markers. |
 | `compaction.methodOrder` | array | Ordered compaction method preference, replacing `compaction.strategy` and `compaction.remoteEnabled`. |
+| `compaction.asyncEnabled` | boolean | Speculatively compact context in the background (enabled by default). |
+| `statusLine.contextLine` | string | Show context usage as `percentage`, `annotated`, or `embedded`. |
 | `extendedContext` | boolean | Allow premium long-context model tiers; disable to compact earlier at standard-pricing limits. |
 
 ## `agent.db` and `auth_credentials`
