@@ -132,6 +132,14 @@ extension-module allowlist instead of relying on ambient extension discovery.
 Use an explicit absolute path when a session must load a known extension and
 avoid treating ambient discovery as an approval mechanism.
 
+## External Thinking warning
+
+OMP 17.4.0 marks `External Thinking` (`externalThinking` /
+`--external-thinking`) as a risk-sensitive setting because some providers have
+flagged its request shape as abuse, potentially triggering account-level
+enforcement. Treat it as an explicit, provider-approved choice rather than a
+general troubleshooting switch.
+
 ## Reporting leaks
 
 If a key is accidentally written to any file in this skill repository, rotate the credential immediately and overwrite the file with a redacted version.

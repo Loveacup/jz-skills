@@ -1,5 +1,21 @@
 # Sync Notes
 
+## 2026-08-21 — 17.4.0 update
+
+- Official OMP `17.4.0` synced successfully; `references/VERSION` now tracks
+  `17.4.0-0`, and the official mirror includes the new tokenizer and LiteLLM
+  discovery behavior.
+- Authored guidance now documents `tokenizer` for ambiguous proxy model ids,
+  LiteLLM's Responses-versus-Chat-Completions routing, the new ordered
+  `compaction.methodOrder` and `extendedContext` settings, and the
+  External Thinking provider-risk warning.
+- The remaining 17.4.0 changes are runtime, UI, extension, or platform fixes;
+  no additional `omp-ops` operator guidance was warranted.
+- Missing daily-maintenance helpers remain `diff-official.sh`,
+  `maintenance-plan.sh`, `verify.sh`, `fetch-official.sh`, and `release.sh`;
+  this run uses `check-version.sh`, `orchestrate.sh`,
+  `sync-from-official.sh`, and `push-to-github.sh` plus bounded inline review.
+
 ## 2026-08-20 — 17.3.8 update
 
 - Official OMP `17.3.8` synced successfully; `references/VERSION` now tracks

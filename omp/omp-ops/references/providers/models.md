@@ -66,7 +66,7 @@ Local engines are discovered automatically if not explicitly configured in `mode
 | `lm-studio` | `LM_STUDIO_BASE_URL` | `http://127.0.0.1:1234/v1` | keyless |
 | `litellm` | `LITELLM_BASE_URL` | `http://127.0.0.1:4000/v1` | `LITELLM_API_KEY` (when proxy requires key) |
 
-`litellm` discovery probes LiteLLM management metadata first (`GET /model_group/info`, then `GET /v2/model/info`), then falls back to the OpenAI-compatible `GET /models` list. Rich metadata maps `max_input_tokens`, `max_output_tokens`, `supports_vision`, and `supports_reasoning`; bare fallback ids are enriched against bundled reference metadata when available.
+`litellm` discovery probes LiteLLM management metadata first (`GET /model_group/info`, then `GET /v2/model/info`), then falls back to the OpenAI-compatible `GET /models` list. Rich metadata maps `max_input_tokens`, `max_output_tokens`, `supports_vision`, `supports_reasoning`, and upstream-provider identity; bare fallback ids are enriched against bundled reference metadata when available. OpenAI-backed discovered models use the Responses route so reasoning summaries remain available, while mixed-provider groups stay on Chat Completions.
 
 Release caveats:
 
@@ -171,6 +171,12 @@ Built-in roles:
 For custom vision models whose serving backend cannot accept WebP, set
 `imageInputDecoder: stb` on the model or its `modelOverrides` entry. OMP then
 normalizes attached and historical WebP image blocks before provider dispatch.
+
+For proxy models whose id is ambiguous or noncanonical, `tokenizer` may select
+an embedded local tokenizer (`claude-v3`, `claude-v47`, `claude-v5`,
+`claude-v5-sonnet`, `qwen3`, `deepseek-v3`, `kimi-k2`, or `glm5`). Prefer the
+catalog identity policy when it is correct; unknown models otherwise retain the
+fast local estimate.
 
 `Tester` and `sonic` are built-in subagents, not `modelRoles`; `oracle` is no
 longer built in as of 16.2.9.
@@ -333,6 +339,12 @@ Use a bare exact flat id only when OMP can match that same id through provider p
 
 - Paid xAI models use the Responses API, default to `grok-4.6`, and reject
   presence/frequency penalties and stop sequences when reasoning is enabled.
+
+### Recent provider notes (17.4.0)
+
+- LiteLLM discovery now selects `openai-responses` for OpenAI-backed models
+  and preserves Chat Completions for mixed-provider groups; this keeps
+  reasoning summaries available without changing custom gateway definitions.
 
 ---
 
