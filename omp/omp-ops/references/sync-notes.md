@@ -1,5 +1,20 @@
 # Sync Notes
 
+## 2026-08-22 — 17.4.2 update
+
+- Official OMP `17.4.2` synced successfully; `references/VERSION` now tracks
+  `17.4.2-0`, and the official changelog plus sync state were refreshed.
+- Authored security and model guidance version markers were corrected to match
+  the official 17.4.1 changelog placement for the External Thinking warning and
+  `qwenTemplateReasoningEffort` compatibility field.
+- The 17.4.1–17.4.2 changes otherwise concern composer attachments, image URL
+  brokering, CLI reference documentation, UI/runtime fixes, and compatibility
+  hardening; no additional stable `omp-ops` operator guidance was warranted.
+- Missing daily-maintenance helpers remain `fetch-official.sh`,
+  `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`;
+  this run uses `check-version.sh`, `orchestrate.sh`,
+  `sync-from-official.sh`, and `push-to-github.sh` plus bounded inline review.
+
 ## 2026-08-21 — 17.4.0 update
 
 - Official OMP `17.4.0` synced successfully; `references/VERSION` now tracks

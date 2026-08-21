@@ -134,7 +134,7 @@ avoid treating ambient discovery as an approval mechanism.
 
 ## External Thinking warning
 
-OMP 17.4.0 marks `External Thinking` (`externalThinking` /
+OMP 17.4.1 marks `External Thinking` (`externalThinking` /
 `--external-thinking`) as a risk-sensitive setting because some providers have
 flagged its request shape as abuse, potentially triggering account-level
 enforcement. Treat it as an explicit, provider-approved choice rather than a

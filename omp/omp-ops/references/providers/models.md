@@ -240,7 +240,7 @@ Use a bare exact flat id only when OMP can match that same id through provider p
 
 ### Recent provider notes (16.2.9–17.3.8)
 
-- 17.3.8 adds `qwenTemplateReasoningEffort` to model compatibility settings for
+- 17.4.1 adds `qwenTemplateReasoningEffort` to model compatibility settings for
   Qwen 3.8+ local backends. Keep it disabled only for strict servers that
   reject the generated chat-template reasoning argument.
 
