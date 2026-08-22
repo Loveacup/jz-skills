@@ -140,6 +140,12 @@ flagged its request shape as abuse, potentially triggering account-level
 enforcement. Treat it as an explicit, provider-approved choice rather than a
 general troubleshooting switch.
 
+## Automatic QA push boundary
+
+`PI_AUTO_QA_PUSH=1` bypasses the consent dialog for automatic tool-issue
+recording. Keep it disabled unless unattended recording is explicitly intended,
+and review `PI_AUTO_QA_PUSH_URL` as an external data-sharing boundary.
+
 ## Reporting leaks
 
 If a key is accidentally written to any file in this skill repository, rotate the credential immediately and overwrite the file with a redacted version.

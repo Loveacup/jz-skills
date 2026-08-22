@@ -72,6 +72,10 @@ removed; they are intentionally absent from the provider matrix below.
   for direct API mode; `FIRECRAWL_BASE_URL` and `GOOGLE_GEMINI_BASE_URL` route
   those search backends to explicit HTTP(S) endpoints. Treat custom endpoints
   as a security boundary and verify them before enabling.
+- `PI_PROXY` is process-wide and also covers OAuth refresh/login, usage probes,
+  and model discovery; provider-specific `PI_PROXY_<PROVIDER>` overrides it
+  only for that provider's requests. Loopback, private-range, and `NO_PROXY`
+  targets remain direct.
 - The current official migration consolidates Exa enablement on `exa.enabled`;
   legacy `exa.enableSearch` is migrated automatically. The obsolete Researcher
   and Websets settings are removed, so do not add them to new configuration.
