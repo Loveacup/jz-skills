@@ -15,13 +15,13 @@ removed; they are intentionally absent from the provider matrix below.
 | `brave` | `BRAVE_API_KEY` | none | `curl -s "https://api.search.brave.com/res/v1/web/search?q=test&count=1" -H "X-Subscription-Token: $BRAVE_API_KEY"` |
 | `tavily` | `TAVILY_API_KEY` | none | `curl -s "https://api.tavily.com/search" -H "content-type: application/json" -d '{"api_key":"'$TAVILY_API_KEY'","query":"test","max_results":1}'` |
 | `duckduckgo` | none | built-in fallback; 16.3.0 improves error clarity and documents datacenter/shared-egress limitations | `omp search --provider duckduckgo "test"` |
-| `perplexity` | `PERPLEXITY_API_KEY` (API-key mode) | `PERPLEXITY_COOKIES` (cookie-auth mode) | `curl -s "https://api.perplexity.ai/chat/completions" -H "Authorization: Bearer $PERPLEXITY_API_KEY" -H "Content-Type: application/json" -d '{"model":"sonar","messages":[{"role":"user","content":"hello"}]}'` |
+| `perplexity` | `PERPLEXITY_API_KEY` (API-key mode) | `PERPLEXITY_COOKIES` (cookie-auth mode); `PI_PERPLEXITY_MODEL` (consumer subscription model, default `experimental`); `PI_PERPLEXITY_API_MODEL` (direct API model, default `sonar-pro`) | `curl -s "https://api.perplexity.ai/chat/completions" -H "Authorization: Bearer $PERPLEXITY_API_KEY" -H "Content-Type: application/json" -d '{"model":"sonar","messages":[{"role":"user","content":"hello"}]}'` |
 | `searxng` | `SEARXNG_ENDPOINT` (`SEARXNG_TOKEN` optional) | `SEARXNG_BASIC_USERNAME`, `SEARXNG_BASIC_PASSWORD`; or `searxng.endpoint`, `searxng.token`, `searxng.basicUsername`, `searxng.basicPassword`, `searxng.engines` in `config.yml` | `curl -s "$SEARXNG_ENDPOINT/search?q=test&format=json" ${SEARXNG_TOKEN:+-H "Authorization: Bearer $SEARXNG_TOKEN"}` |
 | `zai` | `ZAI_API_KEY` | stored OAuth in `agent.db` also accepted | `curl -s "https://api.z.ai/v1/chat/completions" -H "Authorization: Bearer $ZAI_API_KEY" -H "Content-Type: application/json" -d '{"model":"glm-4-flash","messages":[{"role":"user","content":"hello"}]}'` |
 | `kagi` | `KAGI_API_KEY` | none | `curl -s "https://kagi.com/api/v0/search?q=test" -H "Authorization: $KAGI_API_KEY"` |
 | `jina` | `JINA_API_KEY` | none | `curl -s "https://r.jina.ai/http://example.com" -H "Authorization: Bearer $JINA_API_KEY"` |
 | `parallel` | `PARALLEL_API_KEY` | none | `curl -s "https://api.parallel.ai/v1/search" -H "Authorization: Bearer $PARALLEL_API_KEY" -d '{"query":"test"}'` |
-| `firecrawl` | none when explicitly selected; `FIRECRAWL_API_KEY` for automatic provider-chain eligibility | Firecrawl REST API key is omitted only in explicit keyless mode; the automatic chain remains credential-gated | `omp search --provider firecrawl "test"` |
+| `firecrawl` | none when explicitly selected; `FIRECRAWL_API_KEY` for automatic provider-chain eligibility | `FIRECRAWL_BASE_URL` overrides the search endpoint (`FIRECRAWL_API_URL` is a fallback alias); Firecrawl REST API key is omitted only in explicit keyless mode; the automatic chain remains credential-gated | `omp search --provider firecrawl "test"` |
 | `anthropic-search` | `ANTHROPIC_SEARCH_API_KEY` (optional; falls back to Anthropic auth) | `ANTHROPIC_SEARCH_BASE_URL`, `ANTHROPIC_SEARCH_MODEL` | `curl -s "${ANTHROPIC_SEARCH_BASE_URL:-https://api.anthropic.com}/v1/messages" -H "x-api-key: ${ANTHROPIC_SEARCH_API_KEY:-$ANTHROPIC_API_KEY}" -H "anthropic-version: 2023-06-01" -d '{"model":"'${ANTHROPIC_SEARCH_MODEL:-claude-haiku-4-5}'","max_tokens":1024,"messages":[{"role":"user","content":"hello"}]}'` |
 | `codex-search` | `OPENAI_API_KEY` or stored Codex OAuth in `agent.db` | `PI_CODEX_WEB_SEARCH_MODEL` | `curl -s "https://api.openai.com/v1/responses" -H "Authorization: Bearer $OPENAI_API_KEY" -H "Content-Type: application/json" -d '{"model":"'${PI_CODEX_WEB_SEARCH_MODEL:-gpt-5.3-codex}'","input":"hello"}'` |
 | `kimi/moonshot-search` | `MOONSHOT_SEARCH_API_KEY` or `KIMI_SEARCH_API_KEY` | `MOONSHOT_SEARCH_BASE_URL`, `KIMI_SEARCH_BASE_URL` | `curl -s "${MOONSHOT_SEARCH_BASE_URL:-https://api.moonshot.cn/v1}/chat/completions" -H "Authorization: Bearer ${MOONSHOT_SEARCH_API_KEY:-$KIMI_SEARCH_API_KEY}" -H "Content-Type: application/json" -d '{"model":"moonshot-v1-8k","messages":[{"role":"user","content":"hello"}]}'` |
@@ -67,6 +67,11 @@ removed; they are intentionally absent from the provider matrix below.
   web-search timeout. Increase it only for providers that are known to need
   more time; keep the default when diagnosing ordinary credential or endpoint
   failures.
+- 18.0.0 adds endpoint/model overrides for search integrations: use
+  `PI_PERPLEXITY_MODEL` for consumer-cookie mode and `PI_PERPLEXITY_API_MODEL`
+  for direct API mode; `FIRECRAWL_BASE_URL` and `GOOGLE_GEMINI_BASE_URL` route
+  those search backends to explicit HTTP(S) endpoints. Treat custom endpoints
+  as a security boundary and verify them before enabling.
 - The current official migration consolidates Exa enablement on `exa.enabled`;
   legacy `exa.enableSearch` is migrated automatically. The obsolete Researcher
   and Websets settings are removed, so do not add them to new configuration.

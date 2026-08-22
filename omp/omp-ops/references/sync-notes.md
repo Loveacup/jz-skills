@@ -1,5 +1,21 @@
 # Sync Notes
 
+## 2026-08-23 — 18.0.0 update
+
+- Official OMP `18.0.0` synced successfully; `references/VERSION` now tracks
+  `18.0.0-0`, and the official changelog/environment mirror plus sync state
+  were refreshed.
+- Authored search guidance now records the new Perplexity model selectors and
+  Firecrawl endpoint override, plus the corresponding Gemini endpoint boundary
+  from the official environment reference.
+- The remaining 18.0.0 release changes are editor/UI, transcript, benchmark,
+  edit-tool, and runtime fixes; no additional authored model, architecture, or
+  security guidance was warranted.
+- Missing daily-maintenance helpers remain `fetch-official.sh`,
+  `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`;
+  this run uses `check-version.sh`, `orchestrate.sh`,
+  `sync-from-official.sh`, and `push-to-github.sh` plus bounded inline review.
+
 ## 2026-08-22 — 17.4.2 update
 
 - Official OMP `17.4.2` synced successfully; `references/VERSION` now tracks
