@@ -674,3 +674,22 @@
 - Missing daily-maintenance helpers remain `fetch-official.sh`,
   `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`; the
   existing `sync-from-official.sh` helper was used.
+
+## 2026-08-24 — 18.0.3 update
+
+- Official OMP 18.0.1–18.0.3 synced successfully; `references/VERSION` now
+  tracks `18.0.3-0`, the official changelog mirror was refreshed, and sync
+  state was updated.
+- The 18.0.1 changelog announces provider-wide Amazon Bedrock guardrail
+  settings, but the tracked official `models.md` mirror does not expose the
+  setting names or schema. No authored configuration guidance was added to
+  avoid inventing an unsupported contract; revisit when official schema
+  documentation is available.
+- The remaining changes are update-channel selection, edit parse-repair,
+  transcript/UI behavior, runtime stability, and compatibility fixes. They do
+  not require new provider, model, architecture, security, or `SKILL.md`
+  guidance.
+- Missing daily-maintenance helpers remain `fetch-official.sh`,
+  `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`;
+  this run uses `check-version.sh`, `orchestrate.sh`,
+  `sync-from-official.sh`, and bounded inline review and verification.
