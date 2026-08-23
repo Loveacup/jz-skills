@@ -678,7 +678,7 @@
 ## 2026-08-24 — 18.0.3 update
 
 - Official OMP 18.0.1–18.0.3 synced successfully; `references/VERSION` now
-  tracks `18.0.3-0`, the official changelog mirror was refreshed, and sync
+  tracks `18.0.3-1`, the official changelog mirror was refreshed, and sync
   state was updated.
 - The 18.0.1 changelog announces provider-wide Amazon Bedrock guardrail
   settings, but the tracked official `models.md` mirror does not expose the
