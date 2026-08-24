@@ -38,9 +38,14 @@ The table below lists the environment variable used by each core model provider 
 | `moonshot` | `MOONSHOT_API_KEY` | — |
 | `siliconflow` | `SILICONFLOW_API_KEY` | — |
 | `siliconflow-cn` | `SILICONFLOW_CN_API_KEY` | — |
+| `deepinfra` | `DEEPINFRA_API_KEY` | — |
 | `ollama` | `OLLAMA_API_KEY` (optional) | keyless by default |
 | `lm-studio` | `LM_STUDIO_API_KEY` (optional) | keyless by default |
 | `llama.cpp` | `LLAMA_CPP_API_KEY` (only when server requires auth) | keyless by default |
+
+DeepInfra also provides the `image_gen` and `tts` backends. Select it in
+`providers.imageOrder`, choose `provider: deepinfra` for an image-generation
+request, or set `providers.tts: deepinfra`; TTS output supports MP3 and WAV.
 
 ### xAI paid-model routing
 

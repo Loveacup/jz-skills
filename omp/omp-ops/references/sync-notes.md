@@ -1,5 +1,23 @@
 # Sync Notes
 
+## 2026-08-25 — 18.0.4 update
+
+- Official OMP `18.0.4` synced successfully; `references/VERSION` now tracks
+  `18.0.4-1`, and the official changelog, provider, environment-variable, and
+  sync-state mirrors were refreshed.
+- Added authored DeepInfra guidance: authenticate with `DEEPINFRA_API_KEY`,
+  select image generation through `providers.imageOrder` or a per-request
+  `provider: deepinfra`, and select DeepInfra TTS with `providers.tts`.
+- The remaining 18.0.4 changes concern the `omp git` and Extensions TUI,
+  streaming/rendering behavior, edit validation, transcript stability, and
+  platform/runtime fixes; no additional provider, architecture, security, or
+  `SKILL.md` guidance was warranted.
+- Missing daily-maintenance helpers remain `fetch-official.sh`,
+  `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`;
+  this run uses `check-version.sh`, `orchestrate.sh`,
+  `sync-from-official.sh`, and `push-to-github.sh` plus bounded inline review
+  and verification.
+
 ## 2026-08-23 — 18.0.0 update
 
 - Official OMP `18.0.0` synced successfully; `references/VERSION` now tracks
