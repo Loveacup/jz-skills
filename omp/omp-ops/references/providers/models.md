@@ -39,6 +39,7 @@ The table below lists the environment variable used by each core model provider 
 | `siliconflow` | `SILICONFLOW_API_KEY` | — |
 | `siliconflow-cn` | `SILICONFLOW_CN_API_KEY` | — |
 | `deepinfra` | `DEEPINFRA_API_KEY` | — |
+| `yolo-auto` | `YOLO_AUTO_API_KEY` | — |
 | `ollama` | `OLLAMA_API_KEY` (optional) | keyless by default |
 | `lm-studio` | `LM_STUDIO_API_KEY` (optional) | keyless by default |
 | `llama.cpp` | `LLAMA_CPP_API_KEY` (only when server requires auth) | keyless by default |
@@ -46,6 +47,15 @@ The table below lists the environment variable used by each core model provider 
 DeepInfra also provides the `image_gen` and `tts` backends. Select it in
 `providers.imageOrder`, choose `provider: deepinfra` for an image-generation
 request, or set `providers.tts: deepinfra`; TTS output supports MP3 and WAV.
+
+Yolo-Auto is an API-key-backed provider for its flat-rate Qwen models. Set
+`YOLO_AUTO_API_KEY` and verify the provider's current model catalog before
+pinning a model id.
+
+For custom models, `thinking.requiresEffort` defaults to auto-detection. Set it
+to `false` only after verifying that the backend accepts an explicit reasoning-
+off request; this preserves the `:off` selector instead of clamping it to the
+lowest effort.
 
 ### xAI paid-model routing
 

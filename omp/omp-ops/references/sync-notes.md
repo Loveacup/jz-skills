@@ -1,5 +1,24 @@
 # Sync Notes
 
+## 2026-08-26 — 18.0.5 update
+
+- Official OMP `18.0.5` synced successfully; `references/VERSION` now tracks
+  `18.0.5-0`, and the official changelog, provider, model,
+  environment-variable, and sync-state mirrors were refreshed.
+- Added authored model guidance for the new `yolo-auto` provider and its
+  `YOLO_AUTO_API_KEY`, plus the custom-model `thinking.requiresEffort: false`
+  compatibility switch. The switch should be used only after backend
+  verification because it changes explicit reasoning-off request shaping.
+- The remaining 18.0.5 changes concern git/TUI, transcript/rendering,
+  benchmarking, plugin discovery, login flow, and runtime/platform fixes; no
+  additional stable provider, architecture, security, or `SKILL.md` guidance
+  was warranted.
+- Missing daily-maintenance helpers remain `fetch-official.sh`,
+  `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`;
+  this run uses `check-version.sh`, `orchestrate.sh`,
+  `sync-from-official.sh`, and `push-to-github.sh` plus bounded inline review
+  and verification.
+
 ## 2026-08-25 — 18.0.4 update
 
 - Official OMP `18.0.4` synced successfully; `references/VERSION` now tracks
