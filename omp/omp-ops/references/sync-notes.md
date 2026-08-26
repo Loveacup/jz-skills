@@ -1,5 +1,24 @@
 # Sync Notes
 
+## 2026-08-27 — 18.0.7 update
+
+- Official OMP `18.0.6`–`18.0.7` synced successfully; `references/VERSION`
+  now tracks `18.0.7-0`, and the official changelog plus sync state were
+  refreshed.
+- The 18.0.7 changelog adds usage-client reporting and clarifies browser relay,
+  computer-tool, and MCP approval behavior. The tracked provider, model,
+  environment-variable, and MCP configuration references expose no new stable
+  authored schema for this skill, so no additional operator guidance was
+  invented.
+- The remaining 18.0.6–18.0.7 changes concern the git TUI, transcript/rendering,
+  extensions, runtime recovery, and platform fixes; no additional provider,
+  architecture, security, or `SKILL.md` guidance was warranted.
+- Missing daily-maintenance helpers remain `fetch-official.sh`,
+  `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`;
+  this run uses `check-version.sh`, `orchestrate.sh`,
+  `sync-from-official.sh`, and `push-to-github.sh` plus bounded inline review
+  and verification.
+
 ## 2026-08-26 — 18.0.5 update
 
 - Official OMP `18.0.5` synced successfully; `references/VERSION` now tracks
