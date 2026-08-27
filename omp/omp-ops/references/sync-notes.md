@@ -1,5 +1,24 @@
 # Sync Notes
 
+## 2026-08-28 — 18.0.8 update
+
+- Official OMP `18.0.8` synced successfully; `references/VERSION` now tracks
+  `18.0.8-0`, and the official changelog, model reference, and sync state were
+  refreshed.
+- The official model documentation expands the shared models.dev catalog
+  refresh and cache/source-freshness behavior; authored model guidance now
+  records the additive, cached, non-authoritative boundary and keeps provider
+  endpoint discovery authoritative for account availability.
+- The remaining release notes concern usage display, transcript recovery,
+  startup/tool reconciliation, TUI/LSP/runtime fixes, and RPC launchers. They
+  do not expose a stable provider, model, architecture, security, or `SKILL.md`
+  contract for this skill; no authored guidance was invented.
+- Missing daily-maintenance helpers remain `fetch-official.sh`,
+  `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`;
+  this run uses `check-version.sh`, `orchestrate.sh`,
+  `sync-from-official.sh`, and `push-to-github.sh` plus bounded inline review
+  and verification.
+
 ## 2026-08-27 — 18.0.7 update
 
 - Official OMP `18.0.6`–`18.0.7` synced successfully; `references/VERSION`

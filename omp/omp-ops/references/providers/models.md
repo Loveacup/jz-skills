@@ -83,6 +83,16 @@ Local engines are discovered automatically if not explicitly configured in `mode
 
 `litellm` discovery probes LiteLLM management metadata first (`GET /model_group/info`, then `GET /v2/model/info`), then falls back to the OpenAI-compatible `GET /models` list. Rich metadata maps `max_input_tokens`, `max_output_tokens`, `supports_vision`, `supports_reasoning`, and upstream-provider identity; bare fallback ids are enriched against bundled reference metadata when available. OpenAI-backed discovered models use the Responses route so reasoning summaries remain available, while mixed-provider groups stay on Chat Completions.
 
+### Shared model catalog refresh
+
+Recent OMP releases also refresh the shared `models.dev` catalog in the
+background for known providers. Bundled and cached models remain the startup
+and offline baseline; newly discovered IDs are merged additively and cached,
+so a remote catalog outage preserves the last usable snapshot. Treat this
+catalog as supplemental metadata and model discovery: it cannot register a
+provider, add arbitrary headers or code, or remove bundled models. Provider
+endpoint discovery remains the authority for account availability.
+
 Release caveats:
 
 - 16.3.0 fixed llama.cpp router/preset status-bar context reporting; do not

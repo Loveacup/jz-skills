@@ -59,7 +59,8 @@ async function main() {
   const changelogUrl = `https://raw.githubusercontent.com/${OFFICIAL_REPO}/${OFFICIAL_BRANCH}/packages/coding-agent/CHANGELOG.md`;
   try {
     const changelog = await fetchText(changelogUrl);
-    writeText(path.join(OFFICIAL_DIR, "CHANGELOG.md"), `${changelog.split(/\r?\n/).slice(0, 500).join("\n")}\n`);
+    const changelogHead = changelog.split(/\r?\n/).slice(0, 500).join("\n").replace(/\n+$/, "");
+    writeText(path.join(OFFICIAL_DIR, "CHANGELOG.md"), `${changelogHead}\n`);
   } catch {
     jsonOut({ status: "error", message: `Failed to download CHANGELOG from ${changelogUrl}` }, process.stderr);
     process.exit(1);
