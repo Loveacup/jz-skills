@@ -1,5 +1,24 @@
 # Sync Notes
 
+## 2026-08-29 — 18.0.10 update
+
+- Official OMP `18.0.9`–`18.0.10` synced successfully; `references/VERSION`
+  now tracks `18.0.10-0`, and the official provider, environment-variable,
+  changelog, and sync-state mirrors were refreshed.
+- Authored model guidance now records the stable Cloudflare AI Gateway
+  credential trio and login/environment boundary, plus the documented
+  distinction between coding-plan login providers and standard Zhipu BigModel
+  account-balance keys.
+- The remaining 18.0.9–18.0.10 changes concern VCS internals, TUI/status
+  display, retry/restart, session durability, MCP/ACP diagnostics, and runtime
+  fixes; no additional architecture, security, or `SKILL.md` guidance was
+  warranted.
+- Missing daily-maintenance helpers remain `fetch-official.sh`,
+  `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`;
+  this run uses `check-version.sh`, `orchestrate.sh`,
+  `sync-from-official.sh`, and `push-to-github.sh` plus bounded inline review
+  and verification.
+
 ## 2026-08-28 — 18.0.8 update
 
 - Official OMP `18.0.8` synced successfully; `references/VERSION` now tracks

@@ -52,6 +52,24 @@ Yolo-Auto is an API-key-backed provider for its flat-rate Qwen models. Set
 `YOLO_AUTO_API_KEY` and verify the provider's current model catalog before
 pinning a model id.
 
+### Cloudflare AI Gateway
+
+The built-in `cloudflare-ai-gateway` provider uses a gateway token together
+with the Cloudflare account and gateway IDs. Authenticate interactively with
+`/login cloudflare-ai-gateway`, or provide `CLOUDFLARE_AI_GATEWAY_API_KEY`,
+`CLOUDFLARE_ACCOUNT_ID`, and `CLOUDFLARE_GATEWAY_ID` in the environment. The
+provider selects the appropriate Anthropic, OpenAI, or Workers AI route for
+the model; do not add a separate `models.yml` base-URL override.
+
+### Zhipu BigModel account-balance keys
+
+`/login zai` and `/login zhipu-coding-plan` target coding-plan endpoints, not
+the general BigModel account-balance endpoint. For a standard BigModel key,
+use a custom OpenAI-compatible provider with `https://open.bigmodel.cn/api/paas/v4`
+and an env-name `apiKey`, then select the configured model (for example,
+`bigmodel/glm-4.6`). BigModel keys use the `<id>.<secret>` form rather than an
+`sk-` prefix.
+
 For custom models, `thinking.requiresEffort` defaults to auto-detection. Set it
 to `false` only after verifying that the backend accepts an explicit reasoning-
 off request; this preserves the `:off` selector instead of clamping it to the
