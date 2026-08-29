@@ -25,6 +25,8 @@ removed; they are intentionally absent from the provider matrix below.
 | `anthropic-search` | `ANTHROPIC_SEARCH_API_KEY` (optional; falls back to Anthropic auth) | `ANTHROPIC_SEARCH_BASE_URL`, `ANTHROPIC_SEARCH_MODEL` | `curl -s "${ANTHROPIC_SEARCH_BASE_URL:-https://api.anthropic.com}/v1/messages" -H "x-api-key: ${ANTHROPIC_SEARCH_API_KEY:-$ANTHROPIC_API_KEY}" -H "anthropic-version: 2023-06-01" -d '{"model":"'${ANTHROPIC_SEARCH_MODEL:-claude-haiku-4-5}'","max_tokens":1024,"messages":[{"role":"user","content":"hello"}]}'` |
 | `codex-search` | `OPENAI_API_KEY` or stored Codex OAuth in `agent.db` | `PI_CODEX_WEB_SEARCH_MODEL` | `curl -s "https://api.openai.com/v1/responses" -H "Authorization: Bearer $OPENAI_API_KEY" -H "Content-Type: application/json" -d '{"model":"'${PI_CODEX_WEB_SEARCH_MODEL:-gpt-5.3-codex}'","input":"hello"}'` |
 | `kimi/moonshot-search` | `MOONSHOT_SEARCH_API_KEY` or `KIMI_SEARCH_API_KEY` | `MOONSHOT_SEARCH_BASE_URL`, `KIMI_SEARCH_BASE_URL` | `curl -s "${MOONSHOT_SEARCH_BASE_URL:-https://api.moonshot.cn/v1}/chat/completions" -H "Authorization: Bearer ${MOONSHOT_SEARCH_API_KEY:-$KIMI_SEARCH_API_KEY}" -H "Content-Type: application/json" -d '{"model":"moonshot-v1-8k","messages":[{"role":"user","content":"hello"}]}'` |
+| `tinyfish` | `TINYFISH_API_KEY` | required for this provider; verify the current endpoint before use | `omp search --provider tinyfish "test"` |
+| `public` | none | credential-free aggregate including DuckDuckGo, Startpage, Google, Ecosia, and Mojeek | `omp search --provider public "test"` |
 
 ## Notes
 
@@ -79,6 +81,9 @@ removed; they are intentionally absent from the provider matrix below.
 - The current official migration consolidates Exa enablement on `exa.enabled`;
   legacy `exa.enableSearch` is migrated automatically. The obsolete Researcher
   and Websets settings are removed, so do not add them to new configuration.
+- 18.0.11 documents TinyFish search credentials and a keyless `public` aggregate.
+  DuckDuckGo is also directly selectable without credentials; keep keyless
+  providers explicit when diagnosing provider-chain behavior.
 
 ## Minimal `.env` examples
 

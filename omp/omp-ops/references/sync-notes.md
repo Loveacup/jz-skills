@@ -1,5 +1,25 @@
 # Sync Notes
 
+## 2026-08-30 — 18.0.11 update
+
+- Official OMP `18.0.11` synced successfully; `references/VERSION` now tracks
+  `18.0.11-0`, and the official changelog, provider, model,
+  environment-variable, skills, and sync-state mirrors were refreshed.
+- Authored model guidance now records `compactionModel` and provider/model-level
+  `remoteCompaction`, including the supported option keys and the custom
+  endpoint boundary. Provider guidance also records the newly documented hosted
+  providers and credential aliases; search guidance records TinyFish and the
+  keyless `public` aggregate.
+- The remaining 18.0.11 changes concern gallery/status UI, MCP OAuth discovery,
+  retry and image recovery, plugin discovery, platform/runtime fixes, and
+  diagnostics. They do not require additional authored architecture or security
+  guidance.
+- Missing daily-maintenance helpers remain `fetch-official.sh`,
+  `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`;
+  this run uses `check-version.sh`, `orchestrate.sh`,
+  `sync-from-official.sh`, and `push-to-github.sh` plus bounded inline review
+  and verification.
+
 ## 2026-08-29 — 18.0.10 update
 
 - Official OMP `18.0.9`–`18.0.10` synced successfully; `references/VERSION`
@@ -787,3 +807,20 @@
   `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`;
   this run uses `check-version.sh`, `orchestrate.sh`,
   `sync-from-official.sh`, and bounded inline review and verification.
+
+## 2026-08-30 — 18.0.11 update
+
+- Official OMP 18.0.11 mirrors were refreshed for the changelog, environment
+  variables, providers, models, and skills references; `references/VERSION`
+  now tracks `18.0.11-0` and sync state records the official version.
+- Authored model guidance adds the documented `compactionModel` and
+  `remoteCompaction` options, with provider-support and endpoint caution.
+  New provider aliases, search credentials, model-selection details, skill
+  invocation provenance, and the compact status-line display are already
+  represented by the refreshed official mirrors or existing authored guidance.
+  The remaining release notes are runtime, UI, reliability, or bug fixes and
+  do not warrant additional operator guidance.
+- Missing daily-maintenance helpers remain `fetch-official.sh`,
+  `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`;
+  this run uses `check-version.sh`, `orchestrate.sh`,
+  `sync-from-official.sh`, and bounded inline verification.

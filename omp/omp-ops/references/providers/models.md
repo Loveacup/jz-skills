@@ -8,6 +8,21 @@ migration only applies when both YAML files are missing. Role values may use
 `@role` aliases; `*` selects `@default`, and YAML values containing `@` should
 be quoted.
 
+### Model-specific compaction
+
+Official 18.0.11 adds two model configuration surfaces:
+
+- `compactionModel` may select a separate model for context summarization when
+  the current model's session is compacted. It applies per model, including
+  entries under `modelOverrides`.
+- `remoteCompaction` opts an eligible model into provider-native compaction.
+  It may be set at provider level or per model; per-model values override the
+  provider baseline. Supported fields are `enabled`, `api`, `endpoint`,
+  `model`, `v2StreamingEnabled`, `v2Endpoint`, and `streamingEndpoint`.
+
+Confirm provider support and endpoint behavior before enabling remote
+compaction; do not infer a provider's schema from a model catalog entry alone.
+
 ## Common provider API keys
 
 The table below lists the environment variable used by each core model provider when no stored credential exists. Set one of these in your shell or in an untracked `.env` file.
@@ -44,6 +59,17 @@ The table below lists the environment variable used by each core model provider 
 | `lm-studio` | `LM_STUDIO_API_KEY` (optional) | keyless by default |
 | `llama.cpp` | `LLAMA_CPP_API_KEY` (only when server requires auth) | keyless by default |
 
+Additional hosted providers documented by the current official catalog include
+`baseten` (`BASETEN_API_KEY`), `coreweave` (`COREWEAVE_API_KEY` with
+`WANDB_API_KEY` fallback and a required project header), `sakana`
+(`SAKANA_API_KEY` with `FUGU_API_KEY` fallback), `devin` (`DEVIN_API_KEY`),
+`aiand` (`AIAND_API_KEY`), `gmi-cloud` (`GMI_API_KEY`), and `meta`
+(`MODEL_API_KEY` with `META_API_KEY` fallback). Verify the provider's current
+endpoint and model catalog before adding a custom model entry. `CURSOR_API_KEY`
+aliases `CURSOR_ACCESS_TOKEN`, `VERCEL_AI_GATEWAY_API_KEY` aliases
+`AI_GATEWAY_API_KEY`, and `KIMI_API_KEY` aliases `MOONSHOT_API_KEY`; use the
+documented primary names when portability matters.
+
 DeepInfra also provides the `image_gen` and `tts` backends. Select it in
 `providers.imageOrder`, choose `provider: deepinfra` for an image-generation
 request, or set `providers.tts: deepinfra`; TTS output supports MP3 and WAV.
@@ -74,6 +100,16 @@ For custom models, `thinking.requiresEffort` defaults to auto-detection. Set it
 to `false` only after verifying that the backend accepts an explicit reasoning-
 off request; this preserves the `:off` selector instead of clamping it to the
 lowest effort.
+
+### Remote compaction
+
+`compactionModel` selects a separate model for context summarization and may be
+set on a model or its `modelOverrides` entry. `remoteCompaction` enables
+provider-native compaction and may be set at provider level or per model; the
+per-model value overrides the provider baseline. Supported keys are `enabled`,
+`api`, `endpoint`, `model`, `v2StreamingEnabled`, `v2Endpoint`, and
+`streamingEndpoint`. Treat custom compaction endpoints as a separate auth and
+data-routing boundary, and verify compatibility before enabling them.
 
 ### xAI paid-model routing
 
