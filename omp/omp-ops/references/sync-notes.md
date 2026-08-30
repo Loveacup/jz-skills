@@ -1,5 +1,22 @@
 # Sync Notes
 
+## 2026-08-31 — official mirror refresh (18.0.11)
+
+- Official OMP remains `18.0.11`; upstream `main` changed the tracked
+  environment-variable, provider, and changelog mirrors without a package
+  version bump.
+- Authored model guidance now includes the documented `cline-pass` provider
+  and `CLINE_API_KEY`, while treating its subscription roster, quotas, and
+  model metadata as provider-reported and subject to change.
+- The Unreleased entries concern status/UI, edit-mode compatibility, config
+  update preservation, notifications, Anthropic sampling, and context-file
+  discovery. They do not establish additional stable operator guidance for
+  architecture, security, search, or `SKILL.md`.
+- Missing daily-maintenance helpers remain `verify.sh`, `fetch-official.sh`,
+  `diff-official.sh`, `maintenance-plan.sh`, and `release.sh`; this run uses
+  `check-version.sh`, `orchestrate.sh`, `sync-from-official.sh`, and bounded
+  inline comparison/verification.
+
 ## 2026-08-30 — 18.0.11 update
 
 - Official OMP `18.0.11` synced successfully; `references/VERSION` now tracks

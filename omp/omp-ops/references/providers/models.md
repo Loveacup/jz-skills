@@ -64,8 +64,12 @@ Additional hosted providers documented by the current official catalog include
 `WANDB_API_KEY` fallback and a required project header), `sakana`
 (`SAKANA_API_KEY` with `FUGU_API_KEY` fallback), `devin` (`DEVIN_API_KEY`),
 `aiand` (`AIAND_API_KEY`), `gmi-cloud` (`GMI_API_KEY`), and `meta`
-(`MODEL_API_KEY` with `META_API_KEY` fallback). Verify the provider's current
-endpoint and model catalog before adding a custom model entry. `CURSOR_API_KEY`
+(`MODEL_API_KEY` with `META_API_KEY` fallback), and `cline-pass`
+(`CLINE_API_KEY`, with subscription and free-tier model access). ClinePass
+also exposes provider-reported quotas and model metadata; verify the current
+roster and subscription limits before pinning a model. Verify the provider's
+current endpoint and model catalog before adding a custom model entry.
+`CURSOR_API_KEY`
 aliases `CURSOR_ACCESS_TOKEN`, `VERCEL_AI_GATEWAY_API_KEY` aliases
 `AI_GATEWAY_API_KEY`, and `KIMI_API_KEY` aliases `MOONSHOT_API_KEY`; use the
 documented primary names when portability matters.

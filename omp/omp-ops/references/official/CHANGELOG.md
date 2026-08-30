@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added provider-reported credits and concrete routed-model counts to `/session` statistics ([#8590](https://github.com/can1357/oh-my-pi/pull/8590) by [@will-bogusz](https://github.com/will-bogusz)).
+- Added `CLINE_API_KEY` to the CLI environment help for native ClinePass subscription inference ([#7863](https://github.com/can1357/oh-my-pi/pull/7863) by [@will-bogusz](https://github.com/will-bogusz)).
+- Devin model selectors now accept the native CLI's short aliases (`devin/opus`, `devin/swe`), dotted upstream spellings (`devin/gemini-3.7-flash`), and raw effort-route wire uids for dynamically collapsed families ([#8590](https://github.com/can1357/oh-my-pi/pull/8590) by [@will-bogusz](https://github.com/will-bogusz)).
+- Added provider-supplied model metadata to the `/models` detail line: `new`, `beta`, and `recommended` badges beside the model name, and the upstream description after the context, cost, and perf facts ([#8590](https://github.com/can1357/oh-my-pi/pull/8590) by [@will-bogusz](https://github.com/will-bogusz)).
+- Standalone `CLAUDE.md` files in the project root (and ancestor directories) are now loaded as context, mirroring `AGENTS.md` discovery; config-directory context files still take precedence per scope.
+
+### Changed
+
+- Disabled `hashline` edit mode for Kimi, Mimo, DeepSeek Flash, and Stepfun models for stability
+
+### Fixed
+
+- Fixed an issue where custom model overrides were lost during configuration updates
+- Fixed "Please use nerdfont" notification incorrectly persisting after theme configuration
+- Fixed sampling parameter errors for newer Anthropic models (Opus 4.7+, Sonnet 5+)
+
 ## [18.0.11] - 2026-08-29
 
 ### Added
@@ -92,7 +110,6 @@
 - Transcript usage rows now show the total prompt-to-yield time (Δ + clock, including tool calls) after the turn timestamp, opt-in via `display.showTurnTime` (off by default).
 - `omp usage` now shows Z.AI GLM Coding Plan credit quotas (5h + weekly) with the subscribed plan tier.
 - The usage status line now labels untiered quota windows with the report's plan tier, surfacing Z.AI Coding Plan (`pro`) and Codex plan names next to the 5h/7d percentages.
-
 ### Fixed
 
 - Fixed corrupt session headers silently overwriting recoverable transcripts during resume ([#9915](https://github.com/can1357/oh-my-pi/issues/9915)).
@@ -481,20 +498,3 @@
 - Word completions accepted via Tab now insert a trailing space when not immediately followed by whitespace or punctuation.
 - Increased default visible autocomplete dropdown rows to 10 and added the `autocompleteMaxVisible` configuration setting.
 - Slash-command descriptions in the autocomplete popup now truncate to two lines instead of wrapping indefinitely.
-
-### Fixed
-
-- Fixed streaming code blocks not rendering syntax highlighting live until completion.
-- Fixed an issue where interrupting Claude during reasoning would replay partial thinking blocks on subsequent turns and cause API rejection errors.
-- Fixed session resume performance by avoiding redundant edit-matching execution across historical transcripts.
-- Fixed image requests to Kimi Code / Moonshot failing with 400 errors by sending inline base64 images directly.
-- Fixed reading WAL-mode SQLite databases that do not have active `-wal` or `-shm` files.
-- Fixed terminal transcript layout corruption on Windows caused by collapsed edit results with long wrapped diff lines ([#9302](https://github.com/can1357/oh-my-pi/issues/9302)).
-- Fixed disappearing terminal scrollback history below updating cards such as background jobs or hub status cards.
-- Fixed pasted image attachment thumbnails rendering as blank boxes in Kitty terminal graphics mode.
-- Fixed context gauge display issues in the status line for unnamed sessions.
-- Fixed accurate benchmark input token counts on providers with automatic prompt caching.
-- Fixed C# files incorrectly displaying D3.js icons in edit results ([#9323](https://github.com/can1357/oh-my-pi/issues/9323)).
-- Fixed incorrect token delta reporting in expanded context compaction summaries when pre-compaction usage was omitted by the provider ([#9293](https://github.com/can1357/oh-my-pi/issues/9293)).
-
-## [17.4.4] - 2026-08-22
