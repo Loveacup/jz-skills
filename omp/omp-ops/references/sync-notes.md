@@ -841,3 +841,15 @@
   `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`;
   this run uses `check-version.sh`, `orchestrate.sh`,
   `sync-from-official.sh`, and bounded inline verification.
+
+## 2026-09-01 — 18.0.11 follow-up
+
+- Official mirrors were refreshed; the package version remains `18.0.11`.
+- Added authored guidance for `discovery.injectV1: false`, which preserves a
+  versioned OpenAI-compatible gateway path when discovering `/models`.
+- This maintenance-only revision advances `references/VERSION` from
+  `18.0.11-1` to `18.0.11-2`.
+- Missing daily-maintenance helpers remain `fetch-official.sh`,
+  `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`;
+  this run uses `check-version.sh`, `orchestrate.sh`,
+  `sync-from-official.sh`, and bounded inline verification.

@@ -23,6 +23,15 @@ Official 18.0.11 adds two model configuration surfaces:
 Confirm provider support and endpoint behavior before enabling remote
 compaction; do not infer a provider's schema from a model catalog entry alone.
 
+### Versioned OpenAI-compatible discovery URLs
+
+For `discovery.type: openai-models-list`, OMP injects `/v1` into the configured
+`baseUrl` by default. Set `discovery.injectV1: false` when the gateway already
+roots its OpenAI-compatible API at a versioned path such as
+`https://api.example.com/v3/compat`; discovery then requests that path's
+`/models` endpoint without adding `/v1`. Verify the gateway's model-list route
+before using this override.
+
 ## Common provider API keys
 
 The table below lists the environment variable used by each core model provider when no stored credential exists. Set one of these in your shell or in an untracked `.env` file.
