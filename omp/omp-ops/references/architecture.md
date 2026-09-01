@@ -220,6 +220,7 @@ advisors:
 | `compaction.v2RetainedMessageBudget` | integer | Max retained messages for V2 streaming compaction. |
 | `statusLine.compactThinkingLevel` | boolean | Render thinking level as a single leading glyph instead of text suffix. |
 | `edit.citationTags` | boolean | Emit hashline section headers as OpenAI citation markers. |
+| `edit.recoverInlineEdits` | boolean | Recover stray XML-shaped sloppy-edit payloads emitted as plain text into edit calls (18.1.2+). |
 | `compaction.methodOrder` | array | Ordered compaction method preference, replacing `compaction.strategy` and `compaction.remoteEnabled`. |
 | `compaction.asyncEnabled` | boolean | Speculatively compact context in the background (enabled by default). |
 | `statusLine.contextLine` | string | Show context usage as `percentage`, `annotated`, or `embedded`. |

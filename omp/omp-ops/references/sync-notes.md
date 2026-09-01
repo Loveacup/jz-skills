@@ -853,3 +853,17 @@
   `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`;
   this run uses `check-version.sh`, `orchestrate.sh`,
   `sync-from-official.sh`, and bounded inline verification.
+
+## 2026-09-02 — 18.1.2 update
+
+- Official OMP 18.1.2 mirrors were refreshed; `references/VERSION` now tracks
+  `18.1.2-0`, and sync state records the official version.
+- Added authored edit troubleshooting guidance for the XML-shaped sloppy-edit
+  payloads and `edit.recoverInlineEdits`, based on the 18.1.2 changelog.
+- The remaining 18.1.0–18.1.2 changes concern UI, trace, Agent Hub, advisor
+  context, model discovery refresh, and runtime stability; they do not require
+  additional provider, model, architecture, or security guidance.
+- Missing daily-maintenance helpers remain `fetch-official.sh`,
+  `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`;
+  this run uses `check-version.sh`, `orchestrate.sh`,
+  `sync-from-official.sh`, and bounded inline verification.

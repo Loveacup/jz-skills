@@ -202,7 +202,7 @@ should not be treated as text-only.
 - 17.0.0 adds opt-in `edit.enforceSeenLines` and optional generic-task
   prewalk via `prewalk` / `task.agentPrewalk` / `task.prewalk`. The default
   prewalk behavior remains off.
-
+- 18.1.2 uses XML-shaped sloppy edits (`<SM:EDIT>`, `<SM:FIND>`, `<SM:PUT>`) and can recover stray inline payloads; preserve copy-ready error payloads and check `edit.recoverInlineEdits` before blaming the model or file contents.
 - 16.5.0 replaces the `--reasoning-slide-*` flag family with `--prewalk`,
   `--prewalk-into <model>`, and `--no-prewalk`; use the new flags in current
   operator guidance.
