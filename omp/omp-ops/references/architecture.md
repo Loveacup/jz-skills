@@ -166,6 +166,11 @@ must retain patch/branch artifacts for later integration.
 render as Markdown in the terminal transcript. Set it to `false` when raw MCP
 text is required for downstream parsing or comparison.
 
+From OMP 18.1.3, MCP tool results also expose the protocol's
+`structuredContent` channel to the model. When an MCP server returns a terse
+acknowledgement in `content` and its actual payload in `structuredContent`,
+inspect the structured payload rather than treating the result as data-less.
+
 Each `task` tool spawn may set `effort` to `lo`, `med`, or `hi` only when
 `task.enableEffort` is enabled. OMP maps the selector to the resolved model's
 lowest, middle, or highest supported thinking level and applies it only to that

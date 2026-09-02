@@ -867,3 +867,18 @@
   `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`;
   this run uses `check-version.sh`, `orchestrate.sh`,
   `sync-from-official.sh`, and bounded inline verification.
+
+## 2026-09-03 — 18.1.4 update
+
+- Official OMP 18.1.4 mirrors were refreshed; `references/VERSION` now tracks
+  `18.1.4-0`, and sync state records the official version.
+- The 18.1.3 changelog adds MCP `structuredContent` exposure; authored
+  architecture guidance now tells operators to inspect that structured
+  payload when `content` is only a terse acknowledgement.
+- The remaining 18.1.3 changes are UI, session, memory, TypeScript, plugin,
+  and runtime fixes. The package is 18.1.4, but the tracked changelog has no
+  separate 18.1.4 section, so no additional guidance is inferred.
+- Missing daily-maintenance helpers remain `fetch-official.sh`,
+  `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`;
+  this run uses `check-version.sh`, `orchestrate.sh`,
+  `sync-from-official.sh`, and bounded inline verification.
