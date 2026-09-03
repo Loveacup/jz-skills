@@ -74,7 +74,6 @@ modelRoles:
   slow: anthropic/claude-opus-4-5:high
   vision: gemini/gemini-3-pro-preview
   plan: anthropic/claude-opus-4-5
-  designer: anthropic/claude-sonnet-4-5
   commit: openai/gpt-4.1-mini
   title: openai/gpt-4.1-mini
   task: anthropic/claude-sonnet-4-5
@@ -143,7 +142,7 @@ extendedContext: true  # allow premium long-context tiers before compaction (17.
 | `enabledModels` | array | Allow-list of provider/model ids or exact flat model ids. |
 | `disabledProviders` | array | Block model/discovery providers by id. |
 
-Supported roles: `default`, `smol`, `slow`, `vision`, `plan`, `designer`, `commit`, `tiny`, `title`, `task`, `advisor`.
+Supported roles: `default`, `smol`, `slow`, `vision`, `plan`, `commit`, `tiny`, `title`, `task`, `advisor`.
 Subagent names and model roles are separate; do not add `sonic` or `Tester` as `modelRoles`.
 Role values may append a thinking suffix: `:minimal`, `:low`, `:medium`, `:high`, `:xhigh`, `:max`.
 
@@ -179,6 +178,15 @@ cap the resolved effort, including after retry-fallback model swaps.
 
 OMP 17.1.4 removes explicit per-call model selection from `task` and `agent()`;
 those spawns use the configured agent model.
+
+### OMP 18.1.7 local models and eval
+
+On Apple silicon, `providers.tinyModelDevice: mlx` or
+`PI_TINY_DEVICE=mlx|metal` routes local tiny-model work through MLX; ONNX CPU
+remains the fallback when the MLX runtime is unavailable. Ruby and Julia eval
+backends are removed. Eval `agent()` and `completion()` return asynchronous
+handles, so integrations should use `await`/`wait`; the former `parallel()` and
+`pipeline()` helpers are no longer available.
 
 OMP 17.2.9 preserves `enabled: false` while importing MCP servers from Claude
 Code, Codex, Gemini CLI, Cursor, Windsurf, and VS Code. For those translated

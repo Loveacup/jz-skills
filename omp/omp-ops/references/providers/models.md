@@ -253,7 +253,6 @@ Built-in roles:
 | `slow` | Strong reasoning model for hard problems. |
 | `vision` | Image-capable model. |
 | `plan` | Model used for planning phases. |
-| `designer` | UI/UX or architecture work. |
 | `commit` | Commit-message generation. |
 | `tiny` | Lightweight background tasks such as titles, memory, and auto-classification. |
 | `title` | Session-title generation. |
@@ -283,7 +282,6 @@ modelRoles:
   slow: anthropic/claude-opus-4-5:high
   vision: gemini/gemini-3-pro-preview
   plan: anthropic/claude-opus-4-5
-  designer: anthropic/claude-sonnet-4-5
   commit: openai/gpt-4.1-mini
   tiny: openai/gpt-4.1-mini
   title: openai/gpt-4.1-mini

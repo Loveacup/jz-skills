@@ -115,7 +115,7 @@ runtime override (e.g. --api-key)
 
 ### Built-in model roles
 
-`default`, `smol`, `slow`, `vision`, `plan`, `designer`, `commit`, `tiny`,
+`default`, `smol`, `slow`, `vision`, `plan`, `commit`, `tiny`,
 `title`, `task`, `advisor`. Values may append `:minimal`, `:low`, `:medium`,
 `:high`, `:xhigh`, `:max`.
 
@@ -143,7 +143,7 @@ should not be treated as text-only.
 | z.ai | `ZAI_API_KEY` |
 | Anthropic search | `ANTHROPIC_SEARCH_API_KEY` |
 | Codex search | `OPENAI_API_KEY` or stored Codex OAuth |
-### Recent OMP 16.2.9–17.2.6 operator notes
+### Recent OMP 16.2.9–18.1.7 operator notes
 - 17.2.6 adds `/reset`, which clears live context while retaining the session id and on-disk transcript.
 - 17.2.5 changes computer to persistent JavaScript runs and edit replace mode to one `{path, old_string, new_string, replace_all?}` operation; review old batch configs before upgrading.
 - 17.2.3 preserves backend codes and messages from Codex Web Search SSE errors; use that detail when separating provider failures from credential or endpoint configuration problems.
@@ -158,7 +158,9 @@ should not be treated as text-only.
 - 17.1.7 replaces `inspect_image.enabled` with `inspect_image.mode`; `auto` delegates only without native image input, while `on`/`off` force behavior. Use `/vision status` or `/vision auto|on|off`.
 - 17.1.6 makes the per-spawn `task.effort` hint opt-in: set `task.enableEffort` before relying on `lo`, `med`, or `hi`; use `task.maxEffort` to cap resolved effort for spawned tasks and retries.
 - 17.1.4 removes the per-call `model` selector from `task` and `agent()`; spawned work uses the agent's configured model. Keep using `task.effort` (`lo`, `med`, or `hi`) when only the thinking level needs to vary.
-- 17.0.9 adds keyless Firecrawl search when `firecrawl` is explicitly selected; automatic fallback still requires credentials. It also defaults
+- 18.1.5 removes the bundled `designer` subagent and model role; remove `designer` / `@designer` from model-role configurations.
+- 18.1.7 adds the Apple Silicon MLX backend for local tiny models (`PI_TINY_DEVICE=mlx` or `metal`) and removes Ruby/Julia eval backends. Eval `agent()`/`completion()` calls now return asynchronous handles; synchronize them with `await`/`wait` rather than the removed `parallel()`/`pipeline()` helpers.
+- 17.0.9 adds keyless Firecrawl search when `firecrawl` is explicitly selected; automatic fallback still requires credentials, while the 18.1.6 `providers.fetch` URL reader requires `FIRECRAWL_API_KEY`. It also defaults
   `task.isolation.apply` and `mcp.renderMarkdownResults` to `true`, respectively
   applying successful isolated task changes to the parent checkout and rendering
   non-JSON MCP text as Markdown. Set either key to `false` when retaining
@@ -169,11 +171,9 @@ should not be treated as text-only.
   custom endpoints without forwarding official OAuth credentials there.
   Treat custom endpoint routing as a credential boundary and fail closed when
   the explicitly selected provider has no usable credentials.
-
 - Anthropic and ChatGPT/Codex OAuth accounts are organization/workspace scoped;
   select the intended workspace during login when one email has multiple seats
   or subscriptions.
-
 - 17.0.4 adds `PI_CONFIG_FILES`, a platform-delimited (`:` on Unix, `;` on
   Windows) list of settings overlays loaded before explicit `--config`
   overlays. Use it for wrapper-injected settings and keep credentials out of

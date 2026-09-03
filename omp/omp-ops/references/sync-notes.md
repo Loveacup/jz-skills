@@ -882,3 +882,21 @@
   `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`;
   this run uses `check-version.sh`, `orchestrate.sh`,
   `sync-from-official.sh`, and bounded inline verification.
+
+## 2026-09-04 — 18.1.7 update
+
+- Official OMP 18.1.5–18.1.7 mirrors were refreshed; `references/VERSION` now
+  tracks `18.1.7-0`, and sync state records the official version.
+- OMP 18.1.5 removed the bundled `designer` subagent and model role. Authored
+  role lists and examples were corrected in `SKILL.md`, `architecture.md`,
+  and `providers/models.md`.
+- OMP 18.1.6 adds Firecrawl as a `providers.fetch` URL reader requiring
+  `FIRECRAWL_API_KEY`; authored search guidance now distinguishes that from
+  explicitly selected keyless Firecrawl search. Authored guidance also records
+  the 18.1.7 MLX/tiny-model backend and eval async-handle/removal boundary;
+  workpool and runtime/UI changes remain official source material without a
+  confirmed additional authored configuration contract.
+- Missing daily-maintenance helpers remain `fetch-official.sh`,
+  `diff-official.sh`, `maintenance-plan.sh`, `verify.sh`, and `release.sh`;
+  this run uses `check-version.sh`, `orchestrate.sh`,
+  `sync-from-official.sh`, and bounded inline verification.
