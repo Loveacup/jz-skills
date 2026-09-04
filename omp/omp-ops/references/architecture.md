@@ -170,6 +170,18 @@ From OMP 18.1.3, MCP tool results also expose the protocol's
 acknowledgement in `content` and its actual payload in `structuredContent`,
 inspect the structured payload rather than treating the result as data-less.
 
+### OMP 18.1.8–18.1.10 eval and image/tool boundaries
+
+Eval `agent()` and `completion()` calls return asynchronous handles; use
+`await`/`wait` for completion and do not rely on the removed `parallel()` or
+`pipeline()` helpers. Background tasks may expose structured results through
+`agent://<id>` when inline JSON is too large or invalid. Browser and computer
+automation now use JavaScript/Python evaluation preludes with reusable handles;
+review integrations that depended on the former object-shaped run schemas.
+Image questions use `read <image>?q=<question>`; the former `inspect_image` and
+`/vision` controls are not current. `inspect_image.timeoutMs` migrates to
+`images.questionTimeoutMs`.
+
 Each `task` tool spawn may set `effort` to `lo`, `med`, or `hi` only when
 `task.enableEffort` is enabled. OMP maps the selector to the resolved model's
 lowest, middle, or highest supported thinking level and applies it only to that

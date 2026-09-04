@@ -143,7 +143,9 @@ should not be treated as text-only.
 | z.ai | `ZAI_API_KEY` |
 | Anthropic search | `ANTHROPIC_SEARCH_API_KEY` |
 | Codex search | `OPENAI_API_KEY` or stored Codex OAuth |
-### Recent OMP 16.2.9–18.1.7 operator notes
+### Recent OMP 16.2.9–18.1.10 operator notes
+- 18.1.8–18.1.10: background task structured results use `agent://<id>` when inline JSON is unsuitable; eval `agent()`/`completion()` use async handles (`await`/`wait`); browser/computer APIs use JS/Python eval preludes; image questions use `read <image>?q=` and `images.questionTimeoutMs`; `yield` accepts direct `data`/`error`. Review integrations before upgrading.
+- Unreleased `retry.waitForUsageReset` may wait through provider-reported quota resets beyond `retry.maxDelayMs`; treat it as pending until the official settings schema is documented.
 - 17.2.6 adds `/reset`, which clears live context while retaining the session id and on-disk transcript.
 - 17.2.5 changes computer to persistent JavaScript runs and edit replace mode to one `{path, old_string, new_string, replace_all?}` operation; review old batch configs before upgrading.
 - 17.2.3 preserves backend codes and messages from Codex Web Search SSE errors; use that detail when separating provider failures from credential or endpoint configuration problems.
@@ -213,10 +215,8 @@ should not be treated as text-only.
   personal subscriptions under one email may be selected and rotated as
   distinct accounts.
 
-- 16.4.8 search: Perplexity now forces retrieval for all queries, improving
-  reliability on search-heavy workflows.
-- 16.4.8 JS eval cells keep top-level `function` and `var` declarations across
-  cells even when the defining cell contains top-level `await`.
+- 16.4.8 search: Perplexity forces retrieval for search-heavy workflows; JS eval
+  cells keep top-level `function` and `var` declarations across cells.
 
 - 16.3.14 tightened TUI rendering: raw thinking blocks now strip HTML comment
   noise, and unfinalized tool blocks no longer pin the live-region scroll seam.
