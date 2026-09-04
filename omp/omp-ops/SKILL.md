@@ -155,7 +155,7 @@ should not be treated as text-only.
 - 17.2.1 adds default-off `security.enabled`; canonical findings and SARIF-compatible results use read-only `security://`; imported bundles remain distinct from native attribution.
 - 17.2.0 adds `providers.autoThinkingMaxEffort: max` for supported models (default `xhigh`) and `/login exa` as an alternative to `EXA_API_KEY`.
 - 17.1.8 adds `omp cleanse`, conversational `/guided-goal`, and temp-directory screenshot saving.
-- 17.1.7 replaces `inspect_image.enabled` with `inspect_image.mode`; `auto` delegates only without native image input, while `on`/`off` force behavior. Use `/vision status` or `/vision auto|on|off`.
+- 18.1.9 replaces the `inspect_image` tool and `/vision` controls with `read <image>?q=<question>`; `inspect_image.timeoutMs` migrates to `images.questionTimeoutMs`. Browser/computer automation now uses JS/Python eval preludes with reusable handles. In 18.1.10, subagent `yield` takes `data`/`error` directly instead of a nested `result` wrapper.
 - 17.1.6 makes the per-spawn `task.effort` hint opt-in: set `task.enableEffort` before relying on `lo`, `med`, or `hi`; use `task.maxEffort` to cap resolved effort for spawned tasks and retries.
 - 17.1.4 removes the per-call `model` selector from `task` and `agent()`; spawned work uses the agent's configured model. Keep using `task.effort` (`lo`, `med`, or `hi`) when only the thinking level needs to vary.
 - 18.1.5 removes the bundled `designer` subagent and model role; remove `designer` / `@designer` from model-role configurations.

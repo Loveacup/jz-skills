@@ -1,5 +1,22 @@
 # Sync Notes
 
+## 2026-09-05 — official mirror refresh (18.1.8–18.1.10)
+
+- Official OMP `18.1.10` is now mirrored and `references/VERSION` tracks
+  `18.1.10-0`.
+- The confirmed breaking operator surface from 18.1.9 is recorded in `SKILL.md`:
+  browser/computer automation uses JS/Python eval preludes, image questions use
+  `read <image>?q=<question>`, and `inspect_image.timeoutMs` migrates to
+  `images.questionTimeoutMs`. OMP 18.1.10 also changes subagent `yield` to use
+  direct `data`/`error` fields.
+- 18.1.8 background-result retention and 18.1.10 compaction/UI fixes remain
+  official source material without a stable authored configuration contract.
+- Unreleased `retry.waitForUsageReset` is recorded as pending schema review;
+  the tracked official mirrors do not expose enough configuration detail to
+  add safe authored guidance yet.
+- Missing daily-maintenance helpers remain `verify.sh`, `fetch-official.sh`,
+  `diff-official.sh`, `maintenance-plan.sh`, and `release.sh`.
+
 ## 2026-08-31 — official mirror refresh (18.0.11)
 
 - Official OMP remains `18.0.11`; upstream `main` changed the tracked

@@ -2,6 +2,76 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added the `retry.waitForUsageReset` setting: when a provider reports usage-limit exhaustion with a reset time (5-hour or weekly quota windows on any provider), the session sleeps until the reset instead of failing fast past `retry.maxDelayMs`.
+
+### Fixed
+
+- Report oversized selected lines that cannot fit after read context, with a working raw recovery selector instead of a looping continuation hint ([#10775](https://github.com/can1357/oh-my-pi/issues/10775)).
+- Fixed WorkPool child sessions crashing during startup while constructing their incremental `yield` tool schema.
+- Commit summaries written in Vietnamese, Korean, and other accented scripts are no longer rejected for exceeding the length limit, and keep their accents as typed.
+
+## [18.1.10] - 2026-09-04
+
+### Changed
+
+- Subagent `yield` now takes `data`/`error` directly instead of nesting them under a `result` wrapper.
+
+### Fixed
+
+- Fixed Codex V2 remote compaction rebuilding the request prefix differently from normal turns, restoring prompt-cache reuse ([#10786](https://github.com/can1357/oh-my-pi/issues/10786)).
+- Restored mouse clicks, hover, and wheel scrolling in Plan Review.
+
+## [18.1.9] - 2026-09-04
+
+### Breaking Changes
+
+- Browser and computer automation now use JavaScript/Python evaluation preludes with reusable tab and element handles, replacing the previous standalone tool schemas and object-shaped run APIs.
+- Replaced the `inspect_image` tool and `/vision` controls with `read <image>?q=<question>` for image questions; text-only models now receive image metadata and guidance for using this selector.
+- Renamed `inspect_image.timeoutMs` to `images.questionTimeoutMs`; existing settings are migrated automatically.
+
+### Added
+
+- Bash now extracts Kitty and Sixel terminal graphics as image results for foreground, failed, manual, and background executions.
+- Markdown links to existing local files and resources are now clickable while preserving their displayed URLs.
+- Added `/switch <model>` for session-only model changes, with the same model selectors and completions supported by `--model`; ACP `/model <model>` accepts these selectors as well.
+- Added the `worktree.cleanSource` setting to reset and clean the original checkout when creating a worktree with `/wt`.
+- Expanded the computer JavaScript/Python evaluation prelude with direct desktop, window, screenshot, accessibility, and element interaction helpers, while keeping `computer.run` available for multi-step scripts.
+
+### Changed
+
+- Agent delegation is now model-aware, allowing some models to favor focused inline work instead of spawning subagents.
+
+### Fixed
+
+- Fixed fallback authorization-code prompts remaining active after native OAuth callback completion.
+- Fixed reciprocal idle subagents repeatedly waking one another indefinitely.
+- Fixed `/wt` and `git worktree add` failing when the new worktree targeted the same commit as the clean source checkout.
+- Fixed omp-installed marketplace plugins and `--plugin-dir` plugins losing their skills when the Claude plugin source was not separately enabled ([#10743](https://github.com/can1357/oh-my-pi/issues/10743)).
+- Fixed session accent colors rendering as bright white in terminals without truecolor support, including Terminal.app ([#10759](https://github.com/can1357/oh-my-pi/issues/10759)).
+- Rules with `enabled: false` frontmatter are now omitted during discovery, matching disabled skills ([#10769](https://github.com/can1357/oh-my-pi/issues/10769)).
+- Fixed large MCP tool-result previews losing the relevant tail content when an oversized output line preceded it ([#10761](https://github.com/can1357/oh-my-pi/issues/10761)).
+- Fixed `Ctrl+V` replacing CJK characters with `?` when pasting from XWayland clipboard owners on Wayland ([#10762](https://github.com/can1357/oh-my-pi/issues/10762)).
+- Fixed byte-limited artifact reads reporting the displayed byte count instead of the actual read limit ([#10764](https://github.com/can1357/oh-my-pi/issues/10764)).
+- Fixed read-tool truncation notices incorrectly reporting zero delivered lines or bytes when previewing a partial oversized line ([#10768](https://github.com/can1357/oh-my-pi/issues/10768)).
+- Fixed Mnemopi removing explicitly retained or learned long-term memory after sessions longer than 24 hours by consolidating eligible working memory at session start ([#10770](https://github.com/can1357/oh-my-pi/issues/10770)).
+
+### Removed
+
+- Removed the librarian agent.
+
+## [18.1.8] - 2026-09-03
+
+### Fixed
+
+- Improved background task results with structured output schemas: parsed results are now available through the `agent://<id>` resource, while large or invalid inline JSON is replaced with a reliable pointer to the complete result.
+- Background task artifacts are retained long enough for follow-up turns to read them, including failed tasks that lack valid structured output, and are cleaned up without blocking shutdown or leaking resources.
+- Fixed context compaction incorrectly accepting archived history that was larger because of opaque reasoning data, allowing the next compaction strategy to run instead.
+- Fixed the Model Hub sidebar jumping to the top when provider refreshes rebuild the list; the focused model, or its nearest remaining entry, is now preserved.
+- Fixed the `inspect_image` status hint showing the wrong model after switching between image-capable model roles.
+- Fixed multi-minute TUI freezes during subagent activity and batch execution.
+
 ## [18.1.7] - 2026-09-03
 
 ### Breaking Changes
@@ -428,73 +498,3 @@
 - Fixed browser relay sessions leaving Chrome's debugging infobar attached after the last client releases a tab.
 - Fixed interactive TTSR interruptions being displayed as errors when the rule injection succeeded.
 - Fixed cold interactive launches duplicating the welcome header in Windows console scrollback.
-- Fixed Git TUI hunk navigation and sidebar selection after staging or unstaging files, including correct handling of CRLF files on Windows.
-- Fixed long sessions becoming unrecoverable when a provider rejects histories that exceed its message-count limit.
-- Improved `/dump` output with readable titles for system notices and fenced XML payloads.
-- Fixed kernel session recovery when a dead kernel reports cancellation.
-- Applied advisor tool-call loop limits to advisor runs as well as regular model runs.
-- Fixed `lsp rename_file` error handling for unreadable source paths and destination checks.
-- Fixed LSP clients with different process arguments, initialization options, or settings from incorrectly sharing one process; `lsp reload *` now replaces superseded clients.
-- Fixed auto-retry countdowns appearing frozen during long provider-specified waits.
-- Fixed the Todo HUD after viewing a subagent and returning to the main session.
-- Fixed child task results from linking unreadable artifacts and from replaying result bodies that had already been delivered.
-- Fixed `omp update` showing a Unix reinstall command on Windows after a package-rename migration verification failure.
-- Preserved `thinking.requiresEffort: false` in custom model configuration so supported local models can explicitly disable thinking.
-- Prevented incompatible non-object values in shared project settings from silently replacing an entire settings group; such values are dropped with a warning.
-- Jina Reader now uses configured credentials for authenticated rate limits while remaining available anonymously.
-- Improved advisor session recovery and listing performance for large advisor transcripts.
-- Fixed failed `browser.open` calls from leaving OMP-spawned application processes running when no tab could be acquired.
-- Browser handles now fail fast with a specific per-operation timeout error instead of hanging an entire browser cell.
-- Fixed autonomous runs becoming idle when a thinking-only length stop overlaps speculative handoff and compaction recovery.
-- Kept completed assistant replies visible when viewport pressure prevents older active content from being retired.
-- Accelerated SHA-2 and SHA-3 checksum builtins on supported ARM64 hardware.
-- Fixed joined collaboration guests becoming inconsistent with the host after host-side compaction.
-- Fixed `hub list` and child peer rosters counting parked agents from stale root sessions; the persisted roster now scopes to the current root, retries transient filesystem faults, and renders live rows through the production subagent prompt template with a truthful omitted count.
-
-## [18.0.6] - 2026-08-26
-
-### Added
-
-- Added fast, cached conventional commit message generation to the git TUI and `omp commit --legacy`, including automatic handling of whitespace-only changes, clearer commit scopes, and improved grammar and tense in generated summaries.
-- The git TUI sidebar now supports collapsing and expanding the Unstaged and Staged sections, with keyboard shortcuts to stage or unstage an entire section.
-- Long streaming thinking and reasoning output now continues into terminal scrollback during a turn instead of remaining clipped to the viewport.
-
-### Changed
-
-- `omp commit --legacy` now uses the same conventional commit message generation as the git TUI.
-- The git TUI sidebar now groups new files separately from tracked changes in the Unstaged section, while Staged and commit file lists use a unified status-based view.
-- Improved resilience when streaming output changes during rendering, preventing incomplete blocks from causing further display updates to fail.
-
-### Fixed
-
-- Commit-message generation errors in the git TUI now remain visible in the status bar instead of disappearing and returning to an idle state.
-- Fixed `omp update` leaving standalone Windows binaries on the old version when stale Bun launcher metadata was present, and preserved launchers installed by a newer concurrent update during binary repair ([#9806](https://github.com/can1357/oh-my-pi/issues/9806)).
-- Quitting `omp git` during commit-message generation now exits cleanly without leaving the process running.
-
-## [18.0.5] - 2026-08-25
-
-### Added
-
-- Added append-only transcript declarations and stable-row APIs for components with immutable history prefixes.
-- Added the `:img` read selector to rasterize local SVG and SVGZ files for vision input.
-- Added side-by-side image and SVG previews to `omp git`, including Git LFS object resolution and clear placeholders for unavailable or unsupported binary content.
-- Added the `omp if-bench` command for zero-tool instruction-following and working-memory benchmarking across models, with live progress and ranked results.
-- Added `q` to quit the git TUI.
-- Added advanced whitespace filtering to the git TUI, including formatting-only changes and import-only changes in TypeScript, JavaScript, Rust, and Go.
-- Improved the git TUI sidebar by compressing single-child directory chains and separating new or untracked files from tracked changes.
-- Added Yolo-Auto to `/login` and documented the `YOLO_AUTO_API_KEY` environment variable.
-- Updated the OpenRouter `/login` flow to support browser-based sign-in and automatic API-key provisioning, while retaining support for pasted `sk-or-…` keys.
-- Added DeepInfra support for the `image_gen` and `tts` tools, including provider selection and MP3 or WAV output for text-to-speech.
-
-### Changed
-
-- Standardized completed edit results with hashline-style paths and numbered previews across edit modes.
-- Improved `omp git` responsiveness with immediate file rendering, progressive syntax highlighting, and deferred large-commit statistics.
-- Documented that `retry.maxDelayMs: 0` permits provider-requested quota waits to continue until automatic retry, rather than enforcing a wait ceiling.
-- Expanded git TUI navigation and file-management shortcuts, including refresh, stage/unstage, directory operations, hunk and file navigation, pane movement, diff-view selection, commit-form access, and paging.
-
-### Fixed
-
-- Fixed race condition where tunnel startup was incorrectly reported as failure on quick process exit
-- Fixed Obsidian theme task instructions and usage-limit text becoming unreadable against dark backgrounds.
-- Fixed marketplace-installed plugins failing to discover their `rules/` directories.
