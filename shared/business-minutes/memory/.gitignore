@@ -1,0 +1,3 @@
+# Personal memory (speakers, voiceprints, corrections) never enters the repo.
+*.json
+!_templates/*.json

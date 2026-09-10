@@ -41,6 +41,7 @@ shared/                              🧩 26 skills (+1 archived)
 ├── audio-transcriber            # 音频转录：降噪+声纹+中文ASR
 ├── bilibili-video-analyzer      # deprecated → video-analysis-engine
 ├── bookmark-organizer           # 书签策展
+├── business-minutes             # 逐字稿→商务纪要：8阶段管线+证据门 verify_minutes.py
 ├── china-legal-optimized        # 中国法务（7大领域）
 ├── cqi-plan-writer              # 通用 CQI 写作方法论
 ├── de-slop                      # 中英双语去AI味

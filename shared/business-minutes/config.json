@@ -1,0 +1,13 @@
+{
+  "version": "1.0.0",
+  "skill_name": "business-minutes",
+  "memory_dir": "${SKILL_DIR}/memory",
+  "modes": {
+    "standard": {"phases": ["P0","P1","P2","P3","P4","P5","P7","P8"], "quote_floor_per_hour": 3},
+    "deep":     {"phases": ["P0","P1","P2","P3","P4","P5","P6","P7","P8"], "quote_floor_per_hour": 4, "length_multiplier": 1.25}
+  },
+  "scenes": ["bd-meeting", "requirements-interview", "partnership", "weekly-sync", "general-meeting"],
+  "relay": {"max_read_chars_per_file": 60000, "forbid_subagents_in_workers": true},
+  "crystallization": {"min_occurrences": 5, "min_sessions": 2},
+  "pdf": {"theme": "blue", "page_size": "A4"}
+}
