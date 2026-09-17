@@ -1,0 +1,16 @@
+# Private ownership and initialization state
+devices.json
+initialization.json
+.inventory.lock
+.devices.json.*
+.initialization.json.*
+
+# Runtime logs and generated local state
+*.log
+.local/
+local-state/
+generated-state/
+
+# Python-generated files
+__pycache__/
+*.py[cod]
