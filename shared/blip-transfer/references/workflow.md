@@ -1,4 +1,6 @@
-# macOS Blip operating procedure
+# macOS Blip GUI operating procedure
+
+This reference applies only to the unlocked GUI helper `blip.swift`. For new sends while already locked, use the version-pinned local RPC CLI described in `headless-rpc.md`; it verifies live peer identity and prepared archive state rather than GUI rows. Do not remove the GUI helper's lock guard or treat it as a limitation of the RPC route.
 
 ## Acceptance checklist
 
@@ -67,4 +69,4 @@ Do not delete an authorized user's files; keep pending-transfer sources availabl
 
 For Hermes, Claude Code, Codex and OMP use a fresh session with a narrowly scoped prompt: discover `blip-transfer`, read its instructions, inspect private inventory without printing contact emails, execute `doctor`, and report raw output. Do not run `prepare`, `send`, permission prompts or repeated transfers in a discovery test. Where tool allowlists are available, allow only reads and the exact doctor command. A runtime sandbox can deny Accessibility independently of successful discovery: report both dimensions separately.
 
-A separately authorized manual path was receiver-confirmed and proves only that the mechanism worked in that tested configuration. A new or changed script is not end-to-end validated merely because it uses the same mechanism. Testing executable send logic requires a separate current authorization and a new receiver-confirmed or explicit app-complete result.
+The first manual path was receiver-confirmed on 2026-09-17. A later script is not end-to-end validated merely because it uses the same mechanism. A real test of new send code requires a new explicit authorization.

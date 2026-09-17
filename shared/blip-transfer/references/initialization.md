@@ -2,7 +2,7 @@
 
 All runtimes use one private state directory. The default is `~/.agents/private/blip-transfer`; `--state-dir` exists only for an intentionally isolated state directory, such as a disposable test fixture. Paths are expanded and made absolute without resolving or rewriting symlinks. The state directory, lock file, `devices.json`, and `initialization.json` must not be symlinks.
 
-The inventory CLI does not open Blip, inspect the UI, discover devices, prepare files, or send anything. A runtime must first obtain a successful, valid `devices` JSON response from the native helper and only then pipe that response to `sync`. Never pipe failed or partial discovery output.
+The inventory CLI does not open Blip, inspect the UI, discover devices, prepare files, or send anything. Obtain a valid live `devices` response from `blip-rpc.py` (including while locked) or the unlocked GUI helper before `sync`. The RPC CLI may exit 2 for ownership questions with a successful structured discovery; inspect its JSON. Never pipe transport errors or partial discovery output.
 
 ## Exact CLI
 
@@ -14,34 +14,45 @@ python3 scripts/inventory.py [--state-dir DIR] confirm \
   --ownership user|family-shared|other|unknown \
   --label LABEL \
   [--confirmed-by-user]
+python3 scripts/inventory.py [--state-dir DIR] note \
+  --device EXACT \
+  [--label LABEL] \
+  [--alias ALIAS]... \
+  [--notes TEXT]
 ```
 
-Global options precede the subcommand. Every successful command writes JSON to standard output. Exit status `0` means the operation completed without unresolved live ownership questions. For `sync`, exit status `2` means its JSON output is valid but contains mandatory `ownership_questions` or duplicate-name ambiguity. Exit status `1` is a state, input, filesystem, or validation failure. Standard argument-parser usage errors also use exit status `2`.
+Global options precede the subcommand. Every successful command writes JSON to standard output. Exit status `0` means the operation completed without unresolved live ownership questions. For `sync`, exit status `2` means its JSON output is valid but contains mandatory `ownership_questions` or duplicate-name ambiguity. Exit status `1` is a state, input, filesystem, or validation failure. Standard argument-parser usage errors also use exit status `2`. The `note` command requires at least one of `--label`, `--alias`, or `--notes`.
 
 ## `init`
 
 `init` creates the state directory with mode `0700`. When absent, it creates `devices.json` and `initialization.json` with mode `0600`, schema version 1, and an atomic no-overwrite operation. The initial inventory has an empty `devices` array and a policy requiring identity confirmation for every new device while forbidding standing send authorization. Initialization records the UTC date and platform; `--runtime` adds an informational runtime label only when `initialization.json` is first created.
 
-Existing records are never replaced or reset. `init` validates existing JSON and schema under the same interprocess lock, normalizes the managed file modes, and fails closed for corrupt JSON, unsupported schemas, non-regular files, or symlink destinations. Re-running `init` from another runtime therefore continues to use the same records rather than creating a runtime-specific inventory.
+Existing records are never replaced or reset. `init` validates existing JSON and schema, including optional `label: string`, `aliases: string[]`, and `notes: string` annotations, under the same interprocess lock. It normalizes the managed file modes and fails closed for corrupt JSON, malformed annotations, unsupported schemas, non-regular files, or symlink destinations. Re-running `init` from another runtime therefore continues to use the same records and annotations rather than creating a runtime-specific inventory.
 
-`initialization.json` starts with `status: awaiting_live_sync`. A successful live sync records `last_sync_date`, `unresolved_live_device_count`, and `status: awaiting_ownership_confirmation` or `ready`. An ownership answer is followed by another live sync before claiming setup is ready. If the Mac is locked, local metadata initialization may complete but live synchronization remains pending; never substitute cached names for a fresh discovery.
+`initialization.json` starts with `status: awaiting_live_sync`. A successful live sync records `last_sync_date`, `unresolved_live_device_count`, and `status: awaiting_ownership_confirmation` or `ready`. An ownership answer is followed by another live sync before claiming setup is ready. Locking blocks GUI discovery but not the supported local RPC route; if neither route succeeds, preserve pending state rather than substituting cached names.
 
 ## `sync`
 
-`sync` accepts only an object shaped as `{ "devices": [{ "display_name": "..." }] }` on standard input. The caller is responsible for ensuring it came from a successful current native discovery. Under the shared lock, `sync`:
+`sync` accepts only an object shaped as `{ "devices": [{ "display_name": "..." }] }` on standard input. The caller must ensure it came from a successful current RPC or native GUI discovery. Under the shared lock, `sync`:
 
 - matches display names exactly and never infers a rename, alias, or owner;
 - updates `last_seen` for each observed exact name;
 - adds each newly observed name as `unconfirmed`, with `requires_identity_confirmation: true`, `evidence_type: "live_observation"`, and `standing_send_authorization: false`;
-- preserves existing ownership, labels, aliases, evidence, and records absent from the current live list;
+- preserves existing ownership, labels, aliases, notes, evidence, and records absent from the current live list;
 - retains one record for a duplicated exact live name, while the returned annotation still reports the duplicate and requires disambiguation.
 
 The output is the same annotation shape produced by `annotate.py`. Every new exact display name must be shown to the human as an ownership question, even if it resembles a known alias. Do not hide, auto-answer, or postpone that question because a different known target is usable. Unknown or incomplete first-use state remains explicitly unconfirmed.
 
 ## `confirm`
 
-`confirm` changes only the one existing inventory record whose `display_name` exactly equals `--device`; it never creates a record. `user`, `family-shared`, and `other` map to the documented confirmed ownership values and require `--confirmed-by-user`. `unknown` keeps identity confirmation required. The command records the supplied friendly label, UTC evidence date, and `evidence_type: "user_confirmation"` only when the human-confirmation flag is present (otherwise `unconfirmed`), preserves unrelated records and fields such as aliases, and forces standing send authorization to false.
+`confirm` changes only the one existing inventory record whose `display_name` exactly equals `--device`; it never creates a record. `user`, `family-shared`, and `other` map to the documented confirmed ownership values and require `--confirmed-by-user`. `unknown` keeps identity confirmation required. The command records the supplied friendly label, UTC evidence date, and `evidence_type: "user_confirmation"` only when the human-confirmation flag is present (otherwise `unconfirmed`), preserves unrelated records and fields such as aliases and notes, and forces standing send authorization to false.
 
 `--confirmed-by-user` is an audit assertion, not permission to send. The agent must first ask the human who owns the exact newly observed device and must never supply the flag based on its own inference, an alias resemblance, prior transfer history, or another runtime's guess. Choosing `unknown` is not a bypass: the record remains blocked for identity-sensitive use. Every future send still requires a current user request naming the files and recipient.
+
+## `note`
+
+`note` updates private human-readable memory on exactly one existing record. `--label` replaces the label only when supplied, repeated `--alias` values replace the aliases array only when supplied, and `--notes` replaces the notes only when supplied. An explicitly empty notes value clears notes. The command rejects an unknown or inexact `--device` and never creates a record.
+
+Labels, aliases, and notes are untrusted annotation data. Alias collisions are permitted, but no alias is ever an alternate `display_name`: annotations cannot select a live device, satisfy ownership confirmation, change ownership or evidence, or authorize a send. The command preserves `ownership`, `requires_identity_confirmation`, `standing_send_authorization`, and all evidence fields exactly as stored.
 
 All mutating operations use the same `.inventory.lock` and atomic file replacement. They never grant standing permission and never delete records merely because a device is absent from one discovery.

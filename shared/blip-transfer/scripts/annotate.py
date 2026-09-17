@@ -23,6 +23,13 @@ def annotate(live, inventory):
             raise ValueError("inventory names must be nonempty and unique")
         if item.get("standing_send_authorization") is not False:
             raise ValueError("inventory must never grant standing send authorization")
+        if "label" in item and not isinstance(item["label"], str):
+            raise ValueError("inventory device label must be a string")
+        aliases = item.get("aliases", [])
+        if not isinstance(aliases, list) or any(not isinstance(alias, str) for alias in aliases):
+            raise ValueError("inventory device aliases must be an array of strings")
+        if "notes" in item and not isinstance(item["notes"], str):
+            raise ValueError("inventory device notes must be a string")
         known[name] = item
     if not isinstance(live, dict) or not isinstance(live.get("devices"), list):
         raise ValueError("expected helper JSON with a devices array")
@@ -40,6 +47,8 @@ def annotate(live, inventory):
                               or record.get("requires_identity_confirmation") is not False or duplicate)
         row = {"display_name": name,
                "label": record.get("label", name) if record else name,
+               "aliases": list(record.get("aliases", [])) if record else [],
+               "notes": record.get("notes", "") if record else "",
                "ownership": record.get("ownership", "unconfirmed") if record else "unconfirmed",
                "new_device": record is None,
                "duplicate_live_name": duplicate,

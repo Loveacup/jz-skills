@@ -267,6 +267,38 @@ def run_confirm(args, state_dir):
             "sending_authorized": False}, 0
 
 
+def run_note(args, state_dir):
+    if not args.device:
+        raise ValueError("device must be nonempty")
+    if args.label is None and args.alias is None and args.notes is None:
+        raise ValueError("note requires at least one of --label, --alias, or --notes")
+    devices_path = state_dir / "devices.json"
+    with locked_state(state_dir):
+        inventory = validate_inventory(load_json(devices_path))
+        validate_initialization(load_json(state_dir / "initialization.json"))
+        matches = [item for item in inventory["devices"] if item["display_name"] == args.device]
+        if len(matches) != 1:
+            raise ValueError("device must exactly match one previously observed inventory name")
+        record = matches[0]
+        if args.label is not None:
+            record["label"] = args.label
+        if args.alias is not None:
+            record["aliases"] = args.alias
+        if args.notes is not None:
+            record["notes"] = args.notes
+        replace_json(devices_path, inventory)
+    return {
+        "device": args.device,
+        "label": record.get("label", args.device),
+        "aliases": list(record.get("aliases", [])),
+        "notes": record.get("notes", ""),
+        "ownership": record.get("ownership", "unconfirmed"),
+        "requires_identity_confirmation": record.get("requires_identity_confirmation", True),
+        "standing_send_authorization": False,
+        "sending_authorized": False,
+    }, 0
+
+
 def parser():
     root = argparse.ArgumentParser(description=__doc__)
     root.add_argument("--state-dir", type=Path, default=DEFAULT_STATE_DIR)
@@ -279,6 +311,11 @@ def parser():
     confirm.add_argument("--ownership", required=True, choices=OWNERSHIP)
     confirm.add_argument("--label", required=True)
     confirm.add_argument("--confirmed-by-user", action="store_true")
+    note = commands.add_parser("note", help="update non-authorizing device annotations")
+    note.add_argument("--device", required=True)
+    note.add_argument("--label")
+    note.add_argument("--alias", action="append")
+    note.add_argument("--notes")
     return root
 
 
@@ -286,7 +323,12 @@ def main():
     args = parser().parse_args()
     state_dir = normalized_path(args.state_dir)
     try:
-        action = {"init": run_init, "sync": run_sync, "confirm": run_confirm}[args.command]
+        action = {
+            "init": run_init,
+            "sync": run_sync,
+            "confirm": run_confirm,
+            "note": run_note,
+        }[args.command]
         result, status = action(args, state_dir)
     except (OSError, TypeError, ValueError) as error:
         print(json.dumps({"error": str(error), "sending_authorized": False}, ensure_ascii=False))
