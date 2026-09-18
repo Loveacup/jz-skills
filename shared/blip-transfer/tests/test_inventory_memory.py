@@ -238,6 +238,59 @@ class InventoryMemoryCLITests(unittest.TestCase):
             missing["initialization_status"], "awaiting_contact_check"
         )
 
+    def test_external_account_relation_without_live_kind_preserves_confirmed_device(self):
+        live = {
+            "devices": [{
+                "display_name": CONTACT,
+                "is_contact": True,
+                "recipient_devices": [{
+                    "display_name": "",
+                    "device_id": f"synthetic-child-{index}",
+                    "is_online": True,
+                    "is_pushable": True,
+                    "live": True,
+                    "is_self": False,
+                } for index in range(5)],
+            }],
+            "discovery_scope": DISCOVERED_SCOPE,
+        }
+        self.run_cli("init", "--runtime", "unittest")
+        pending = self.run_cli("sync", input_value=live, expected=2)
+        self.assertEqual(
+            pending["initialization_status"], "awaiting_ownership_confirmation"
+        )
+        self.assertEqual(pending["unclassified_entries"], [CONTACT])
+        self.assertEqual(
+            [question["display_name"] for question in pending["ownership_questions"]],
+            [CONTACT],
+        )
+        self.run_cli(
+            "confirm",
+            "--device",
+            CONTACT,
+            "--ownership",
+            "other",
+            "--label",
+            "Confirmed external device",
+            "--entry-type",
+            "device",
+            "--confirmed-by-user",
+        )
+
+        ready = self.run_cli("sync", input_value=live)
+
+        self.assertEqual(ready["initialization_status"], "ready")
+        self.assertEqual(ready["classification_conflicts"], [])
+        self.assertEqual(ready["unclassified_entries"], [])
+        self.assertEqual(ready["ownership_questions"], [])
+        self.assertEqual(ready["devices"][0]["entry_type"], "device")
+        self.assertFalse(ready["devices"][0]["entry_type_conflict"])
+        self.assertNotIn("live_entry_type", ready["devices"][0])
+        inventory_names = [
+            record["display_name"] for record in self.read_inventory()["devices"]
+        ]
+        self.assertEqual(inventory_names, [CONTACT])
+
     def test_observed_type_conflict_requires_reconfirmation_without_changing_kind(self):
         live = {
             "devices": [{

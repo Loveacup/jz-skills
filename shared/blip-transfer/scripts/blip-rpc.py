@@ -528,7 +528,6 @@ def _parse_user(data):
         "user_id": user_id,
         "is_contact": True,
         "is_self": False,
-        "live_entry_type": "contact",
         "recipient_devices": devices,
     }]
 
@@ -704,7 +703,7 @@ def _decode_state(data, target_id=None, *, include_devices=True):
         if number == 500:
             parsed = _parse_users(value)
             for entry in parsed:
-                if entry["live_entry_type"] == "contact":
+                if entry.get("is_contact") is True:
                     if entry["user_id"] in contact_ids:
                         raise BlipError("Blip returned a duplicate discovered contact",
                                         code="invalid_contact_state", exit_status=3)
@@ -778,7 +777,8 @@ def _annotated_devices(devices):
     live_for_annotation = {"devices": [
         {
             "display_name": entry["display_name"],
-            "live_entry_type": entry["live_entry_type"],
+            **({"live_entry_type": entry["live_entry_type"]}
+               if "live_entry_type" in entry else {}),
         }
         for entry in devices if entry["display_name"]
     ]}
@@ -796,7 +796,8 @@ def _annotated_devices(devices):
         annotation = by_name[name]
         row = {
             "display_name": name,
-            "live_entry_type": entry["live_entry_type"],
+            **({"live_entry_type": entry["live_entry_type"]}
+               if "live_entry_type" in entry else {}),
             "label": annotation["label"],
             "aliases": annotation["aliases"],
             "notes": annotation["notes"],
@@ -809,7 +810,7 @@ def _annotated_devices(devices):
         }
         if "entry_type_conflict" in annotation:
             row["entry_type_conflict"] = annotation["entry_type_conflict"]
-        if entry["live_entry_type"] == "contact":
+        if entry.get("is_contact") is True:
             row.update({
                 "is_contact": True,
                 "is_self": False,
@@ -843,7 +844,7 @@ def _annotated_devices(devices):
     }
 
 
-def _confirmed_inventory_recipient(name, *, entry_type="device",
+def _confirmed_inventory_recipient(name, *, entry_types=("device",),
                                    ownership="user_confirmed"):
     inventory = _load_inventory()
     matches = [item for item in inventory["devices"] if item.get("display_name") == name]
@@ -851,7 +852,7 @@ def _confirmed_inventory_recipient(name, *, entry_type="device",
         raise BlipError("recipient must exactly match one private inventory record",
                         code="recipient_not_confirmed", exit_status=2)
     record = matches[0]
-    if (record.get("entry_type") != entry_type
+    if (record.get("entry_type") not in entry_types
             or record.get("ownership") != ownership
             or record.get("requires_identity_confirmation") is not False):
         raise BlipError("recipient inventory kind or ownership is not confirmed for this send mode",
@@ -864,11 +865,14 @@ def _select_recipient(devices, exact_name):
         entry for entry in devices
         if entry["display_name"] == exact_name
     ]
-    if (len(matches) != 1
-            or matches[0].get("live_entry_type", "device") != "device"):
+    if len(matches) != 1:
         raise BlipError("recipient name is absent or duplicated in freshly queried Blip state",
                         code="recipient_not_unique", exit_status=2)
     recipient = matches[0]
+    if (recipient.get("is_contact") is not False
+            or recipient.get("live_entry_type") != "device"):
+        raise BlipError("recipient is not a freshly discovered owned device",
+                        code="recipient_not_owned_device", exit_status=2)
     if recipient["is_self"]:
         raise BlipError("the current device cannot be a transfer recipient",
                         code="recipient_is_self", exit_status=2)
@@ -881,20 +885,25 @@ def _select_recipient(devices, exact_name):
     return {"user_id": recipient["user_id"], "device_id": recipient["device_id"]}
 
 
-def _select_contact_recipient(entries, contact_name, device_name):
-    contacts = [
+def _select_external_account(entries, exact_name):
+    matches = [
         entry for entry in entries
-        if entry["display_name"] == contact_name
+        if entry["display_name"] == exact_name
     ]
-    if (len(contacts) != 1
-            or contacts[0].get("live_entry_type") != "contact"):
-        raise BlipError("contact name is absent or duplicated in freshly queried Blip state",
+    if len(matches) != 1:
+        raise BlipError("recipient name is absent or duplicated in freshly queried Blip state",
                         code="recipient_not_unique", exit_status=2)
-    contact = contacts[0]
-    if (contact.get("is_contact") is not True or contact.get("is_self") is not False
-            or not contact.get("user_id")):
-        raise BlipError("contact lacks a complete non-self account identity",
+    recipient = matches[0]
+    if (recipient.get("is_contact") is not True
+            or recipient.get("is_self") is not False
+            or not recipient.get("user_id")):
+        raise BlipError("recipient lacks a complete non-self account identity",
                         code="recipient_invalid", exit_status=2)
+    return recipient
+
+
+def _select_contact_recipient(entries, contact_name, device_name):
+    contact = _select_external_account(entries, contact_name)
     matches = [
         device for device in contact.get("recipient_devices", [])
         if device.get("display_name") == device_name
@@ -915,11 +924,29 @@ def _select_contact_recipient(entries, contact_name, device_name):
     return {"user_id": contact["user_id"], "device_id": device["device_id"]}
 
 
-def _select_send_recipient(entries, args):
-    device_name = getattr(args, "recipient_device", None)
-    if device_name is None:
-        return _select_recipient(entries, args.recipient)
-    return _select_contact_recipient(entries, args.recipient, device_name)
+def _select_account_recipient(entries, account_name):
+    account = _select_external_account(entries, account_name)
+    children = [
+        device for device in account.get("recipient_devices", [])
+        if device.get("is_self") is False and device.get("device_id")
+    ]
+    if not children:
+        raise BlipError("recipient account has no complete non-self device identity",
+                        code="recipient_invalid", exit_status=2)
+    if not any(device.get("live") for device in children):
+        raise BlipError("recipient account has no online or push-reachable device",
+                        code="recipient_not_reachable", exit_status=2)
+    return {"user_id": account["user_id"], "device_id": ""}
+
+
+def _select_send_recipient(entries, args, mode=None):
+    mode = mode or _recipient_mode(args)
+    if mode == "account":
+        return _select_account_recipient(entries, args.recipient)
+    if mode == "child":
+        return _select_contact_recipient(
+            entries, args.recipient, args.recipient_device)
+    return _select_recipient(entries, args.recipient)
 
 
 def _source_snapshot(raw_path):
@@ -988,20 +1015,41 @@ def _revalidate_sources(snapshots):
                             details={"source": expected["path"]})
 
 
-def _peer_message(peer):
-    return _pb_text(1, peer["user_id"]) + _pb_text(2, peer["device_id"])
+def _peer_message(peer, *, account_scope=False):
+    user_id = peer.get("user_id")
+    device_id = peer.get("device_id")
+    if not user_id or not isinstance(device_id, str):
+        raise BlipError("peer identity is incomplete",
+                        code="protocol_violation", exit_status=3)
+    message = _pb_text(1, user_id)
+    if account_scope:
+        if device_id:
+            raise BlipError("account-scoped peer must omit the device identity",
+                            code="protocol_violation", exit_status=3)
+        return message
+    if not device_id:
+        raise BlipError("device-scoped peer requires a device identity",
+                        code="protocol_violation", exit_status=3)
+    return message + _pb_text(2, device_id)
 
 
-def _event_payload(event_name, transfer_id, peer=None, paths=None):
+def _event_payload(event_name, transfer_id, peer=None, paths=None,
+                   *, account_scope=False):
     if event_name == "TransferCreateRequested":
-        return _pb_text(1, transfer_id) + _pb_message(2, _peer_message(peer))
+        return (
+            _pb_text(1, transfer_id)
+            + _pb_message(2, _peer_message(peer, account_scope=account_scope))
+        )
     if event_name == "TransferAddContentRequested":
         payload = bytearray(_pb_text(1, transfer_id))
         for path in paths:
             payload.extend(_pb_text(2, path))
         return bytes(payload)
     if event_name == "TransferInviteRequested":
-        return _pb_text(1, transfer_id) + _pb_message(2, _peer_message(peer))
+        return (
+            _pb_text(1, transfer_id)
+            + _pb_message(2, _peer_message(peer, account_scope=account_scope))
+        )
     raise BlipError("event type is not allowlisted", code="protocol_violation", exit_status=3)
 
 
@@ -1203,18 +1251,31 @@ def run_status(args):
     return result, 0 if result["completed"] else PENDING_EXIT
 
 
+def _post_invite_peer_matches(expected, observed, mode):
+    if mode == "account":
+        return observed.get("user_id") == expected["user_id"]
+    return observed == expected
+
+
 def _run_send_locked(args, transfer_id, sources):
     last_mutation = None
     try:
+        mode = _recipient_mode(args)
+        account_scope = mode == "account"
         initial = _state_snapshot(transfer_id)
         if initial["transfer"] is not None:
             raise BlipError("transfer id already exists; existing transfers are never resumed or retried",
                             code="transfer_id_exists", exit_status=2)
-        peer = _select_send_recipient(initial["devices"], args)
+        peer = _select_send_recipient(initial["devices"], args, mode)
 
         last_mutation = "create_requested"
-        _dispatch_event("TransferCreateRequested",
-                        _event_payload("TransferCreateRequested", transfer_id, peer=peer))
+        _dispatch_event(
+            "TransferCreateRequested",
+            _event_payload(
+                "TransferCreateRequested", transfer_id, peer=peer,
+                account_scope=account_scope,
+            ),
+        )
         _wait_until_created(transfer_id, peer)
 
         last_mutation = "content_requested"
@@ -1224,7 +1285,7 @@ def _run_send_locked(args, transfer_id, sources):
         _wait_until_prepared(transfer_id, peer, sources)
 
         final_snapshot = _state_snapshot(transfer_id)
-        final_peer = _select_send_recipient(final_snapshot["devices"], args)
+        final_peer = _select_send_recipient(final_snapshot["devices"], args, mode)
         if final_peer != peer:
             raise BlipError("recipient identity changed before invitation",
                             code="recipient_identity_changed", exit_status=4)
@@ -1235,11 +1296,16 @@ def _run_send_locked(args, transfer_id, sources):
         _revalidate_sources(sources)
 
         last_mutation = "invite_requested"
-        _dispatch_event("TransferInviteRequested",
-                        _event_payload("TransferInviteRequested", transfer_id, peer=peer))
+        _dispatch_event(
+            "TransferInviteRequested",
+            _event_payload(
+                "TransferInviteRequested", transfer_id, peer=peer,
+                account_scope=account_scope,
+            ),
+        )
         observed = _require_transfer(
             _state_snapshot(transfer_id, include_devices=False), transfer_id)
-        if observed["peer"] != peer:
+        if not _post_invite_peer_matches(peer, observed["peer"], mode):
             raise BlipError("transfer peer changed after invitation",
                             code="transfer_peer_changed", exit_status=4)
         if observed["has_local_error"] or observed["has_remote_error"]:
@@ -1249,8 +1315,9 @@ def _run_send_locked(args, transfer_id, sources):
         result.update({
             "command": "send",
             "recipient": args.recipient,
+            "recipient_scope": "account" if account_scope else "device",
             **({"recipient_device": args.recipient_device}
-               if getattr(args, "recipient_device", None) is not None else {}),
+               if mode == "child" else {}),
             "files": [{"name": source["basename"], "size": source["size"]}
                       for source in sources],
             "invite_requested": True,
@@ -1272,10 +1339,22 @@ def _run_send_locked(args, transfer_id, sources):
 
 
 def _recipient_mode(args):
+    recipient_scope = getattr(args, "recipient_scope", "device")
     recipient_device = getattr(args, "recipient_device", None)
     confirmed_device = getattr(args, "confirm_recipient_device", None)
+    if recipient_scope not in ("device", "account"):
+        raise BlipError("recipient scope must be device or account",
+                        code="invalid_arguments", exit_status=2)
+    if recipient_scope == "account":
+        if recipient_device is not None or confirmed_device is not None:
+            raise BlipError(
+                "account scope cannot be combined with recipient device flags",
+                code="recipient_scope_conflict",
+                exit_status=2,
+            )
+        return "account"
     if recipient_device is None and confirmed_device is None:
-        return "device"
+        return "own"
     if (not recipient_device or not confirmed_device
             or recipient_device != confirmed_device):
         raise BlipError(
@@ -1283,7 +1362,7 @@ def _recipient_mode(args):
             code="recipient_device_confirmation_mismatch",
             exit_status=2,
         )
-    return "contact"
+    return "child"
 
 
 def run_send(args):
@@ -1294,10 +1373,10 @@ def run_send(args):
                         code="recipient_confirmation_mismatch", exit_status=2)
     mode = _recipient_mode(args)
     with _exclusive_send_lock():
-        if mode == "contact":
+        if mode in ("child", "account"):
             _confirmed_inventory_recipient(
                 args.recipient,
-                entry_type="contact",
+                entry_types=("device", "contact"),
                 ownership="other_person_confirmed",
             )
         else:
@@ -1316,6 +1395,8 @@ def build_parser():
     send_parser = commands.add_parser("send", help="create, prepare, and invite one transfer")
     send_parser.add_argument("--recipient", required=True)
     send_parser.add_argument("--confirm-recipient", required=True)
+    send_parser.add_argument(
+        "--recipient-scope", choices=("device", "account"), default="device")
     send_parser.add_argument("--recipient-device")
     send_parser.add_argument("--confirm-recipient-device")
     send_parser.add_argument("--transfer-id", required=True)

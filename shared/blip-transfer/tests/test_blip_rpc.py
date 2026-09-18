@@ -22,6 +22,7 @@ SPEC.loader.exec_module(blip_rpc)
 
 TRANSFER_ID = "00000000-0000-4000-8000-000000000001"
 PEER = {"user_id": "user-1", "device_id": "device-1"}
+ACCOUNT_PEER = {"user_id": "account-1", "device_id": ""}
 
 
 def _varint(value):
@@ -62,7 +63,6 @@ def _contact(name="Other Person", device_name="Other Phone", *, peer=PEER,
         "user_id": peer["user_id"],
         "is_contact": True,
         "is_self": False,
-        "live_entry_type": "contact",
         "recipient_devices": [{
             "display_name": device_name,
             "device_id": peer["device_id"],
@@ -164,6 +164,10 @@ class InvitationGateTests(unittest.TestCase):
             "wrong peer": _transfer(
                 peer={"user_id": "user-2", "device_id": "device-2"},
                 files=[{"name": source["basename"], "kind": "file", "size": source["size"]}]),
+            "wrong device on same account": _transfer(
+                peer={"user_id": PEER["user_id"], "device_id": "device-2"},
+                files=[{"name": source["basename"], "kind": "file",
+                        "size": source["size"]}]),
         }
         for label, transfer in cases.items():
             with self.subTest(label=label):
@@ -205,7 +209,49 @@ class InvitationGateTests(unittest.TestCase):
         revalidate.assert_called_once_with([source])
         self.assertEqual(result["transfer_id"], TRANSFER_ID)
         self.assertTrue(result["invite_requested"])
+        self.assertEqual(result["recipient_scope"], "device")
+        self.assertNotIn("recipient_device", result)
         self.assertEqual(exit_status, blip_rpc.PENDING_EXIT)
+
+    def test_device_scope_rejects_same_account_device_change_after_invite(self):
+        source = _source()
+        prepared = _transfer(
+            files=[{"name": source["basename"], "kind": "file",
+                    "size": source["size"]}])
+        changed = _transfer(
+            peer={"user_id": PEER["user_id"], "device_id": "device-2"},
+            files=prepared["files"],
+            status_code=2,
+        )
+        snapshots = [
+            {"devices": [_device()], "transfer": None},
+            {"devices": [_device()], "transfer": prepared},
+            {"devices": [], "transfer": changed},
+        ]
+        with ExitStack() as stack:
+            stack.enter_context(mock.patch.object(
+                blip_rpc, "_state_snapshot", side_effect=snapshots))
+            dispatch = stack.enter_context(
+                mock.patch.object(blip_rpc, "_dispatch_event"))
+            stack.enter_context(
+                mock.patch.object(blip_rpc, "_wait_until_created"))
+            stack.enter_context(
+                mock.patch.object(blip_rpc, "_wait_until_prepared"))
+            stack.enter_context(
+                mock.patch.object(blip_rpc, "_revalidate_sources"))
+            with self.assertRaises(blip_rpc.BlipError) as raised:
+                blip_rpc._run_send_locked(
+                    SimpleNamespace(recipient="Owned Phone"),
+                    TRANSFER_ID,
+                    [source],
+                )
+
+        self.assertEqual(raised.exception.code, "transfer_peer_changed")
+        self.assertEqual(
+            [call.args[0] for call in dispatch.call_args_list],
+            ["TransferCreateRequested", "TransferAddContentRequested",
+             "TransferInviteRequested"],
+        )
 
     def test_contact_send_result_names_contact_and_selected_child_without_ids(self):
         source = _source()
@@ -224,6 +270,7 @@ class InvitationGateTests(unittest.TestCase):
         args = SimpleNamespace(
             recipient="Other Person",
             recipient_device="Other Phone",
+            confirm_recipient_device="Other Phone",
         )
         with ExitStack() as stack:
             stack.enter_context(mock.patch.object(
@@ -246,9 +293,102 @@ class InvitationGateTests(unittest.TestCase):
         )
         self.assertEqual(result["recipient"], "Other Person")
         self.assertEqual(result["recipient_device"], "Other Phone")
+        self.assertEqual(result["recipient_scope"], "device")
         self.assertNotIn("user_id", result)
         self.assertNotIn("device_id", result)
         self.assertEqual(exit_status, blip_rpc.PENDING_EXIT)
+
+    def test_account_send_accepts_engine_selected_device_after_invite(self):
+        source = _source()
+        prepared = _transfer(
+            peer=ACCOUNT_PEER,
+            files=[{"name": source["basename"], "kind": "file",
+                    "size": source["size"]}],
+        )
+        after_invite = _transfer(
+            peer={"user_id": ACCOUNT_PEER["user_id"], "device_id": "engine-choice"},
+            files=prepared["files"],
+            status_code=2,
+        )
+        contact = _contact(
+            device_name="",
+            peer={"user_id": ACCOUNT_PEER["user_id"], "device_id": "reachable-child"},
+        )
+        snapshots = [
+            {"devices": [contact], "transfer": None},
+            {"devices": [contact], "transfer": prepared},
+            {"devices": [], "transfer": after_invite},
+        ]
+        args = SimpleNamespace(
+            recipient="Other Person",
+            recipient_scope="account",
+            recipient_device=None,
+            confirm_recipient_device=None,
+        )
+        with ExitStack() as stack:
+            stack.enter_context(mock.patch.object(
+                blip_rpc, "_state_snapshot", side_effect=snapshots))
+            dispatch = stack.enter_context(
+                mock.patch.object(blip_rpc, "_dispatch_event"))
+            stack.enter_context(
+                mock.patch.object(blip_rpc, "_wait_until_created"))
+            stack.enter_context(
+                mock.patch.object(blip_rpc, "_wait_until_prepared"))
+            stack.enter_context(
+                mock.patch.object(blip_rpc, "_revalidate_sources"))
+            result, exit_status = blip_rpc._run_send_locked(
+                args, TRANSFER_ID, [source])
+
+        self.assertEqual(
+            [call.args[0] for call in dispatch.call_args_list],
+            ["TransferCreateRequested", "TransferAddContentRequested",
+             "TransferInviteRequested"],
+        )
+        self.assertEqual(result["recipient_scope"], "account")
+        self.assertNotIn("recipient_device", result)
+        self.assertEqual(exit_status, blip_rpc.PENDING_EXIT)
+
+    def test_account_send_rejects_wrong_user_observed_after_invite(self):
+        source = _source()
+        prepared = _transfer(
+            peer=ACCOUNT_PEER,
+            files=[{"name": source["basename"], "kind": "file",
+                    "size": source["size"]}],
+        )
+        wrong_user = _transfer(
+            peer={"user_id": "different-account", "device_id": "engine-choice"},
+            files=prepared["files"],
+            status_code=2,
+        )
+        contact = _contact(
+            device_name="",
+            peer={"user_id": ACCOUNT_PEER["user_id"], "device_id": "reachable-child"},
+        )
+        args = SimpleNamespace(
+            recipient="Other Person",
+            recipient_scope="account",
+            recipient_device=None,
+            confirm_recipient_device=None,
+        )
+        with ExitStack() as stack:
+            stack.enter_context(mock.patch.object(
+                blip_rpc, "_state_snapshot", side_effect=[
+                    {"devices": [contact], "transfer": None},
+                    {"devices": [contact], "transfer": prepared},
+                    {"devices": [], "transfer": wrong_user},
+                ]))
+            stack.enter_context(
+                mock.patch.object(blip_rpc, "_dispatch_event"))
+            stack.enter_context(
+                mock.patch.object(blip_rpc, "_wait_until_created"))
+            stack.enter_context(
+                mock.patch.object(blip_rpc, "_wait_until_prepared"))
+            stack.enter_context(
+                mock.patch.object(blip_rpc, "_revalidate_sources"))
+            with self.assertRaises(blip_rpc.BlipError) as raised:
+                blip_rpc._run_send_locked(args, TRANSFER_ID, [source])
+
+        self.assertEqual(raised.exception.code, "transfer_peer_changed")
 
 
 class MutationFailureTests(unittest.TestCase):
@@ -312,10 +452,40 @@ class RecipientAndSourceTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, "recipient_confirmation_mismatch")
         lock.assert_not_called()
 
+    def test_send_parser_defaults_to_device_scope_and_accepts_explicit_account(self):
+        parser = blip_rpc.build_parser()
+        common = [
+            "send",
+            "--recipient", "Other Person",
+            "--confirm-recipient", "Other Person",
+            "--transfer-id", TRANSFER_ID,
+            "/synthetic-source",
+        ]
+
+        self.assertEqual(
+            parser.parse_args(common).recipient_scope, "device")
+        self.assertEqual(
+            parser.parse_args(
+                common[:1] + ["--recipient-scope", "account"] + common[1:]
+            ).recipient_scope,
+            "account",
+        )
+
     def test_incorrect_live_target_name_is_rejected(self):
         with self.assertRaises(blip_rpc.BlipError) as raised:
             blip_rpc._select_recipient([_device()], "Different Phone")
         self.assertEqual(raised.exception.code, "recipient_not_unique")
+
+    def test_default_own_route_rejects_a_foreign_account_row_without_fallback(self):
+        foreign = _contact(
+            "Owned Phone",
+            "Unnamed child",
+            peer={"user_id": "foreign-account", "device_id": "foreign-device"},
+        )
+        with self.assertRaises(blip_rpc.BlipError) as raised:
+            blip_rpc._select_send_recipient(
+                [foreign], SimpleNamespace(recipient="Owned Phone"))
+        self.assertEqual(raised.exception.code, "recipient_not_owned_device")
 
     def test_local_unreachable_or_incomplete_peers_are_rejected_in_both_modes(self):
         cases = (
@@ -392,6 +562,48 @@ class RecipientAndSourceTests(unittest.TestCase):
         self.assertEqual(
             selected, {"user_id": "account-a", "device_id": "tablet-a"})
 
+    def test_account_resolution_uses_account_peer_with_five_nameless_children(self):
+        contact = _contact(
+            peer={"user_id": "account-a", "device_id": "child-0"})
+        contact["recipient_devices"] = [{
+            "display_name": "",
+            "device_id": f"child-{index}",
+            "is_online": index == 4,
+            "is_pushable": False,
+            "live": index == 4,
+            "is_self": False,
+        } for index in range(5)]
+
+        selected = blip_rpc._select_account_recipient(
+            [contact], "Other Person")
+
+        self.assertEqual(
+            selected, {"user_id": "account-a", "device_id": ""})
+
+    def test_account_resolution_rejects_ambiguous_or_unreachable_accounts(self):
+        duplicate = [
+            _contact(peer={"user_id": "account-a", "device_id": "child-a"}),
+            _contact(peer={"user_id": "account-b", "device_id": "child-b"}),
+        ]
+        unreachable = _contact(
+            peer={"user_id": "account-a", "device_id": "child-a"},
+            live=False,
+        )
+        incomplete = _contact(
+            peer={"user_id": "account-a", "device_id": ""},
+        )
+        cases = (
+            (duplicate, "recipient_not_unique"),
+            ([unreachable], "recipient_not_reachable"),
+            ([incomplete], "recipient_invalid"),
+        )
+        for entries, expected_code in cases:
+            with self.subTest(expected_code=expected_code):
+                with self.assertRaises(blip_rpc.BlipError) as raised:
+                    blip_rpc._select_account_recipient(
+                        entries, "Other Person")
+                self.assertEqual(raised.exception.code, expected_code)
+
     def test_contact_or_child_name_ambiguity_is_rejected(self):
         duplicate_contacts = [
             _contact(peer={"user_id": "account-a", "device_id": "device-a"}),
@@ -413,7 +625,26 @@ class RecipientAndSourceTests(unittest.TestCase):
                         entries, "Other Person", "Other Phone")
                 self.assertEqual(raised.exception.code, expected_code)
 
-    def test_contact_send_requires_confirmed_contact_kind_and_other_person(self):
+    def test_external_send_accepts_confirmed_human_device_or_contact_kind(self):
+        for entry_type in ("device", "contact"):
+            record = {
+                "display_name": "Other Person",
+                "entry_type": entry_type,
+                "ownership": "other_person_confirmed",
+                "requires_identity_confirmation": False,
+            }
+            with self.subTest(entry_type=entry_type):
+                with mock.patch.object(
+                        blip_rpc, "_load_inventory",
+                        return_value={"devices": [record]}):
+                    selected = blip_rpc._confirmed_inventory_recipient(
+                        "Other Person",
+                        entry_types=("device", "contact"),
+                        ownership="other_person_confirmed",
+                    )
+                self.assertIs(selected, record)
+
+    def test_external_send_rejects_unconfirmed_kind_ownership_or_identity(self):
         base = {
             "display_name": "Other Person",
             "entry_type": "contact",
@@ -421,7 +652,7 @@ class RecipientAndSourceTests(unittest.TestCase):
             "requires_identity_confirmation": False,
         }
         cases = (
-            {**base, "entry_type": "device"},
+            {**base, "entry_type": "unknown"},
             {**base, "ownership": "user_confirmed"},
             {**base, "requires_identity_confirmation": True},
         )
@@ -433,19 +664,20 @@ class RecipientAndSourceTests(unittest.TestCase):
                     with self.assertRaises(blip_rpc.BlipError) as raised:
                         blip_rpc._confirmed_inventory_recipient(
                             "Other Person",
-                            entry_type="contact",
+                            entry_types=("device", "contact"),
                             ownership="other_person_confirmed",
                         )
                 self.assertEqual(raised.exception.code, "recipient_not_confirmed")
 
-    def test_stored_kind_conflict_stops_before_source_validation_or_mutation(self):
+    def test_account_mode_accepts_confirmed_human_device_classification(self):
         args = SimpleNamespace(
             transfer_id=TRANSFER_ID,
             recipient="Other Person",
             confirm_recipient="Other Person",
-            recipient_device="Other Phone",
-            confirm_recipient_device="Other Phone",
-            files=["/not-inspected"],
+            recipient_scope="account",
+            recipient_device=None,
+            confirm_recipient_device=None,
+            files=["/synthetic-source"],
         )
         stored_device = {
             "display_name": "Other Person",
@@ -453,6 +685,8 @@ class RecipientAndSourceTests(unittest.TestCase):
             "ownership": "other_person_confirmed",
             "requires_identity_confirmation": False,
         }
+        sources = [_source()]
+        expected = ({"command": "send"}, blip_rpc.PENDING_EXIT)
         with ExitStack() as stack:
             stack.enter_context(
                 mock.patch.object(blip_rpc, "_require_pinned_build"))
@@ -461,16 +695,16 @@ class RecipientAndSourceTests(unittest.TestCase):
                 return_value={"devices": [stored_device]}))
             stack.enter_context(
                 mock.patch.object(blip_rpc, "_exclusive_send_lock"))
-            validate = stack.enter_context(
-                mock.patch.object(blip_rpc, "_validate_sources"))
-            send = stack.enter_context(
-                mock.patch.object(blip_rpc, "_run_send_locked"))
-            with self.assertRaises(blip_rpc.BlipError) as raised:
-                blip_rpc.run_send(args)
+            validate = stack.enter_context(mock.patch.object(
+                blip_rpc, "_validate_sources", return_value=sources))
+            send = stack.enter_context(mock.patch.object(
+                blip_rpc, "_run_send_locked", return_value=expected))
 
-        self.assertEqual(raised.exception.code, "recipient_not_confirmed")
-        validate.assert_not_called()
-        send.assert_not_called()
+            result = blip_rpc.run_send(args)
+
+        self.assertEqual(result, expected)
+        validate.assert_called_once_with(args.files)
+        send.assert_called_once_with(args, TRANSFER_ID, sources)
 
     def test_contact_device_flags_must_be_present_and_confirmed_as_a_pair(self):
         args = SimpleNamespace(
@@ -489,6 +723,31 @@ class RecipientAndSourceTests(unittest.TestCase):
             raised.exception.code, "recipient_device_confirmation_mismatch")
         lock.assert_not_called()
 
+    def test_account_scope_rejects_either_child_flag_before_lock_or_mutation(self):
+        for field in ("recipient_device", "confirm_recipient_device"):
+            values = {
+                "recipient_device": None,
+                "confirm_recipient_device": None,
+            }
+            values[field] = "Other Phone"
+            args = SimpleNamespace(
+                transfer_id=TRANSFER_ID,
+                recipient="Other Person",
+                confirm_recipient="Other Person",
+                recipient_scope="account",
+                files=[],
+                **values,
+            )
+            with self.subTest(field=field):
+                with mock.patch.object(blip_rpc, "_require_pinned_build"):
+                    with mock.patch.object(
+                            blip_rpc, "_exclusive_send_lock") as lock:
+                        with self.assertRaises(blip_rpc.BlipError) as raised:
+                            blip_rpc.run_send(args)
+                self.assertEqual(
+                    raised.exception.code, "recipient_scope_conflict")
+                lock.assert_not_called()
+
     def test_contact_identity_drift_stops_before_invitation(self):
         source = _source()
         prepared = _transfer(
@@ -503,6 +762,47 @@ class RecipientAndSourceTests(unittest.TestCase):
         args = SimpleNamespace(
             recipient="Other Person",
             recipient_device="Other Phone",
+            confirm_recipient_device="Other Phone",
+        )
+        with ExitStack() as stack:
+            stack.enter_context(mock.patch.object(
+                blip_rpc, "_state_snapshot", side_effect=[initial, final]))
+            dispatch = stack.enter_context(
+                mock.patch.object(blip_rpc, "_dispatch_event"))
+            stack.enter_context(
+                mock.patch.object(blip_rpc, "_wait_until_created"))
+            stack.enter_context(
+                mock.patch.object(blip_rpc, "_wait_until_prepared"))
+            revalidate = stack.enter_context(
+                mock.patch.object(blip_rpc, "_revalidate_sources"))
+            with self.assertRaises(blip_rpc.BlipError) as raised:
+                blip_rpc._run_send_locked(args, TRANSFER_ID, [source])
+
+        self.assertEqual(raised.exception.code, "recipient_identity_changed")
+        self.assertEqual(
+            [call.args[0] for call in dispatch.call_args_list],
+            ["TransferCreateRequested", "TransferAddContentRequested"],
+        )
+        revalidate.assert_not_called()
+
+    def test_account_user_identity_drift_stops_before_invitation(self):
+        source = _source()
+        prepared = _transfer(
+            peer={"user_id": "account-a", "device_id": ""},
+            files=[{"name": source["basename"], "kind": "file",
+                    "size": source["size"]}],
+        )
+        initial = {"devices": [
+            _contact(peer={"user_id": "account-a", "device_id": "device-a"})
+        ], "transfer": None}
+        final = {"devices": [
+            _contact(peer={"user_id": "account-b", "device_id": "device-b"})
+        ], "transfer": prepared}
+        args = SimpleNamespace(
+            recipient="Other Person",
+            recipient_scope="account",
+            recipient_device=None,
+            confirm_recipient_device=None,
         )
         with ExitStack() as stack:
             stack.enter_context(mock.patch.object(
@@ -573,7 +873,7 @@ class DeviceDiscoveryTests(unittest.TestCase):
                 },
                 {
                     "display_name": "Other Person",
-                    "entry_type": "contact",
+                    "entry_type": "device",
                     "ownership": "other_person_confirmed",
                     "requires_identity_confirmation": False,
                     "standing_send_authorization": False,
@@ -594,7 +894,9 @@ class DeviceDiscoveryTests(unittest.TestCase):
         own, contact = result["devices"]
         self.assertEqual(own["live_entry_type"], "device")
         self.assertNotIn("user_id", own)
-        self.assertEqual(contact["live_entry_type"], "contact")
+        self.assertNotIn("live_entry_type", contact)
+        self.assertEqual(contact["entry_type"], "device")
+        self.assertEqual(result["classification_conflicts"], [])
         self.assertNotIn("user_id", contact)
         self.assertEqual(contact["recipient_devices"], [{
             "display_name": "Other Phone",
@@ -607,6 +909,23 @@ class DeviceDiscoveryTests(unittest.TestCase):
 
 
 class TransportAndRedactionTests(unittest.TestCase):
+    def test_account_peer_wire_omits_device_field_only_for_account_scope(self):
+        account_fields = [
+            number for number, _wire_type, _value
+            in blip_rpc._fields(
+                blip_rpc._peer_message(ACCOUNT_PEER, account_scope=True))
+        ]
+        device_fields = [
+            number for number, _wire_type, _value
+            in blip_rpc._fields(blip_rpc._peer_message(PEER))
+        ]
+
+        self.assertEqual(account_fields, [1])
+        self.assertEqual(device_fields, [1, 2])
+        with self.assertRaises(blip_rpc.BlipError) as raised:
+            blip_rpc._peer_message(ACCOUNT_PEER)
+        self.assertEqual(raised.exception.code, "protocol_violation")
+
     def test_socket_reads_share_one_total_deadline(self):
         reader, writer = socket.socketpair()
         try:
