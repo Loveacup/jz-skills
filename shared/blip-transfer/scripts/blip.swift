@@ -544,6 +544,7 @@ private func commandDevices() throws {
     emit([
         "ok": true,
         "command": "devices",
+        "discovery_scope": "visible_devices_and_contacts",
         "statusItemOpened": openedStatusItem,
         "devices": outputRows,
         "note": "Names come from the current Accessibility hierarchy. Email-looking text is redacted; no recipient was selected."

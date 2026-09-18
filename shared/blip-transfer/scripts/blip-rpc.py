@@ -469,10 +469,13 @@ def _parse_device_entry(data):
 
 
 def _parse_user(data):
+    user_name = ""
     user_id = ""
-    same_account = False
+    is_contact = False
+    is_self = False
     devices = []
-    for number, wire_type, value in _fields(data, {7, 8, 10}):
+    seen = set()
+    for number, wire_type, value in _fields(data, {2, 7, 8, 9, 10}):
         if number == 7:
             if wire_type != 2:
                 raise BlipError("Blip returned an invalid device collection",
@@ -480,43 +483,79 @@ def _parse_user(data):
             device = _parse_device_entry(value)
             if device is not None:
                 devices.append(device)
-        elif number == 8:
+            continue
+        if number in seen:
+            raise BlipError("Blip returned duplicate user identity fields",
+                            code="invalid_contact_state", exit_status=3)
+        seen.add(number)
+        if number in (2, 8):
             if wire_type != 2:
-                raise BlipError("Blip returned an invalid user identifier",
+                raise BlipError("Blip returned an invalid user identity",
                                 code="invalid_protobuf", exit_status=3)
-            user_id = _text(value, "user identifier")
-        elif number == 10:
+            text = _text(value, "user identity")
+            if number == 2:
+                user_name = text
+            else:
+                user_id = text
+        else:
             if wire_type != 0:
-                raise BlipError("Blip returned an invalid same-account flag",
+                raise BlipError("Blip returned an invalid user classification",
                                 code="invalid_protobuf", exit_status=3)
-            same_account = bool(value)
-    if not same_account:
+            if number == 9:
+                is_contact = bool(value)
+            else:
+                is_self = bool(value)
+
+    if is_self:
+        for device in devices:
+            device.update({
+                "user_id": user_id,
+                "is_contact": False,
+                "live_entry_type": "device",
+            })
+        return devices
+    if not is_contact:
         return []
-    for device in devices:
-        device["user_id"] = user_id
-    return devices
+    if not user_name or not user_id:
+        raise BlipError("Blip returned an incomplete discovered contact",
+                        code="invalid_contact_state", exit_status=3)
+    device_ids = [device["device_id"] for device in devices if device["device_id"]]
+    if len(device_ids) != len(set(device_ids)):
+        raise BlipError("Blip returned duplicate devices for a discovered contact",
+                        code="invalid_contact_state", exit_status=3)
+    return [{
+        "display_name": user_name,
+        "user_id": user_id,
+        "is_contact": True,
+        "is_self": False,
+        "live_entry_type": "contact",
+        "recipient_devices": devices,
+    }]
 
 
 def _parse_discovered_entry(data):
-    devices = []
+    user = None
     for number, wire_type, value in _fields(data, {2}):
         if number == 2:
             if wire_type != 2:
                 raise BlipError("Blip returned an invalid discovered user",
                                 code="invalid_protobuf", exit_status=3)
-            devices.extend(_parse_user(value))
-    return devices
+            if user is not None:
+                raise BlipError("Blip returned a duplicate discovered user value",
+                                code="invalid_contact_state", exit_status=3)
+            user = _parse_user(value)
+    return user or []
 
 
 def _parse_users(data):
-    devices = []
+    entries = []
     for number, wire_type, value in _fields(data, {1}):
         if number == 1:
             if wire_type != 2:
                 raise BlipError("Blip returned an invalid discovered-user list",
                                 code="invalid_protobuf", exit_status=3)
-            devices.extend(_parse_discovered_entry(value))
-    return devices
+            entries.extend(_parse_discovered_entry(value))
+    return entries
 
 
 def _parse_peer(data):
@@ -651,6 +690,7 @@ def _parse_transfer_entry(data, target_id):
 
 def _decode_state(data, target_id=None, *, include_devices=True):
     devices = []
+    contact_ids = set()
     transfer = None
     wanted = set()
     if include_devices:
@@ -662,7 +702,14 @@ def _decode_state(data, target_id=None, *, include_devices=True):
             raise BlipError("Blip returned an invalid allowlisted state field",
                             code="invalid_protobuf", exit_status=3)
         if number == 500:
-            devices.extend(_parse_users(value))
+            parsed = _parse_users(value)
+            for entry in parsed:
+                if entry["live_entry_type"] == "contact":
+                    if entry["user_id"] in contact_ids:
+                        raise BlipError("Blip returned a duplicate discovered contact",
+                                        code="invalid_contact_state", exit_status=3)
+                    contact_ids.add(entry["user_id"])
+            devices.extend(parsed)
         elif number == 600:
             candidate = _parse_transfer_entry(value, target_id)
             if candidate is not None:
@@ -729,8 +776,11 @@ def _exclusive_send_lock():
 def _annotated_devices(devices):
     inventory = _load_inventory()
     live_for_annotation = {"devices": [
-        {"display_name": device["display_name"]}
-        for device in devices if device["display_name"]
+        {
+            "display_name": entry["display_name"],
+            "live_entry_type": entry["live_entry_type"],
+        }
+        for entry in devices if entry["display_name"]
     ]}
     try:
         annotations = annotate(live_for_annotation, inventory)
@@ -739,54 +789,83 @@ def _annotated_devices(devices):
                         code="invalid_device_annotations", exit_status=2) from error
     by_name = {row["display_name"]: row for row in annotations["devices"]}
     rows = []
-    for device in devices:
-        name = device["display_name"]
+    for entry in devices:
+        name = entry["display_name"]
         if not name:
             continue
         annotation = by_name[name]
-        rows.append({
+        row = {
             "display_name": name,
-            "device_id": device["device_id"],
-            "is_online": device["is_online"],
-            "is_pushable": device["is_pushable"],
-            "live": device["live"],
-            "is_self": device["is_self"],
+            "live_entry_type": entry["live_entry_type"],
             "label": annotation["label"],
             "aliases": annotation["aliases"],
             "notes": annotation["notes"],
+            "entry_type": annotation["entry_type"],
             "ownership": annotation["ownership"],
             "new_device": annotation["new_device"],
             "duplicate_live_name": annotation["duplicate_live_name"],
             "requires_identity_confirmation": annotation["requires_identity_confirmation"],
             "standing_send_authorization": False,
-        })
+        }
+        if "entry_type_conflict" in annotation:
+            row["entry_type_conflict"] = annotation["entry_type_conflict"]
+        if entry["live_entry_type"] == "contact":
+            row.update({
+                "is_contact": True,
+                "is_self": False,
+                "recipient_devices": [{
+                    "display_name": device["display_name"],
+                    "device_id": device["device_id"],
+                    "is_online": device["is_online"],
+                    "is_pushable": device["is_pushable"],
+                    "live": device["live"],
+                    "is_self": device["is_self"],
+                } for device in entry["recipient_devices"]],
+            })
+        else:
+            row.update({
+                "device_id": entry["device_id"],
+                "is_online": entry["is_online"],
+                "is_pushable": entry["is_pushable"],
+                "live": entry["live"],
+                "is_self": entry["is_self"],
+            })
+        rows.append(row)
     return {
         "command": "devices",
+        "discovery_scope": "discovered_devices_and_contacts",
         "devices": rows,
         "ownership_questions": annotations["ownership_questions"],
+        "classification_conflicts": annotations.get("classification_conflicts", []),
         "not_currently_listed": annotations["not_currently_listed"],
         "sending_authorized": False,
         "note": annotations["note"],
     }
 
 
-def _confirmed_inventory_recipient(name):
+def _confirmed_inventory_recipient(name, *, entry_type="device",
+                                   ownership="user_confirmed"):
     inventory = _load_inventory()
     matches = [item for item in inventory["devices"] if item.get("display_name") == name]
     if len(matches) != 1:
         raise BlipError("recipient must exactly match one private inventory record",
                         code="recipient_not_confirmed", exit_status=2)
     record = matches[0]
-    if (record.get("ownership") != "user_confirmed"
+    if (record.get("entry_type") != entry_type
+            or record.get("ownership") != ownership
             or record.get("requires_identity_confirmation") is not False):
-        raise BlipError("recipient is not recorded as a user-confirmed owned device",
+        raise BlipError("recipient inventory kind or ownership is not confirmed for this send mode",
                         code="recipient_not_confirmed", exit_status=2)
     return record
 
 
 def _select_recipient(devices, exact_name):
-    matches = [device for device in devices if device["display_name"] == exact_name]
-    if len(matches) != 1:
+    matches = [
+        entry for entry in devices
+        if entry["display_name"] == exact_name
+    ]
+    if (len(matches) != 1
+            or matches[0].get("live_entry_type", "device") != "device"):
         raise BlipError("recipient name is absent or duplicated in freshly queried Blip state",
                         code="recipient_not_unique", exit_status=2)
     recipient = matches[0]
@@ -800,6 +879,47 @@ def _select_recipient(devices, exact_name):
         raise BlipError("recipient lacks a complete peer identifier",
                         code="recipient_invalid", exit_status=2)
     return {"user_id": recipient["user_id"], "device_id": recipient["device_id"]}
+
+
+def _select_contact_recipient(entries, contact_name, device_name):
+    contacts = [
+        entry for entry in entries
+        if entry["display_name"] == contact_name
+    ]
+    if (len(contacts) != 1
+            or contacts[0].get("live_entry_type") != "contact"):
+        raise BlipError("contact name is absent or duplicated in freshly queried Blip state",
+                        code="recipient_not_unique", exit_status=2)
+    contact = contacts[0]
+    if (contact.get("is_contact") is not True or contact.get("is_self") is not False
+            or not contact.get("user_id")):
+        raise BlipError("contact lacks a complete non-self account identity",
+                        code="recipient_invalid", exit_status=2)
+    matches = [
+        device for device in contact.get("recipient_devices", [])
+        if device.get("display_name") == device_name
+    ]
+    if len(matches) != 1:
+        raise BlipError("contact device name is absent or duplicated in freshly queried Blip state",
+                        code="recipient_device_not_unique", exit_status=2)
+    device = matches[0]
+    if device.get("is_self"):
+        raise BlipError("the local device cannot be selected as a contact device",
+                        code="recipient_is_self", exit_status=2)
+    if not device.get("live"):
+        raise BlipError("contact device is not currently online or push-reachable",
+                        code="recipient_not_reachable", exit_status=2)
+    if not device.get("device_id"):
+        raise BlipError("contact device lacks a complete peer identifier",
+                        code="recipient_invalid", exit_status=2)
+    return {"user_id": contact["user_id"], "device_id": device["device_id"]}
+
+
+def _select_send_recipient(entries, args):
+    device_name = getattr(args, "recipient_device", None)
+    if device_name is None:
+        return _select_recipient(entries, args.recipient)
+    return _select_contact_recipient(entries, args.recipient, device_name)
 
 
 def _source_snapshot(raw_path):
@@ -1090,7 +1210,7 @@ def _run_send_locked(args, transfer_id, sources):
         if initial["transfer"] is not None:
             raise BlipError("transfer id already exists; existing transfers are never resumed or retried",
                             code="transfer_id_exists", exit_status=2)
-        peer = _select_recipient(initial["devices"], args.recipient)
+        peer = _select_send_recipient(initial["devices"], args)
 
         last_mutation = "create_requested"
         _dispatch_event("TransferCreateRequested",
@@ -1104,7 +1224,7 @@ def _run_send_locked(args, transfer_id, sources):
         _wait_until_prepared(transfer_id, peer, sources)
 
         final_snapshot = _state_snapshot(transfer_id)
-        final_peer = _select_recipient(final_snapshot["devices"], args.recipient)
+        final_peer = _select_send_recipient(final_snapshot["devices"], args)
         if final_peer != peer:
             raise BlipError("recipient identity changed before invitation",
                             code="recipient_identity_changed", exit_status=4)
@@ -1129,6 +1249,8 @@ def _run_send_locked(args, transfer_id, sources):
         result.update({
             "command": "send",
             "recipient": args.recipient,
+            **({"recipient_device": args.recipient_device}
+               if getattr(args, "recipient_device", None) is not None else {}),
             "files": [{"name": source["basename"], "size": source["size"]}
                       for source in sources],
             "invite_requested": True,
@@ -1149,14 +1271,37 @@ def _run_send_locked(args, transfer_id, sources):
         raise error
 
 
+def _recipient_mode(args):
+    recipient_device = getattr(args, "recipient_device", None)
+    confirmed_device = getattr(args, "confirm_recipient_device", None)
+    if recipient_device is None and confirmed_device is None:
+        return "device"
+    if (not recipient_device or not confirmed_device
+            or recipient_device != confirmed_device):
+        raise BlipError(
+            "recipient device and confirmation must both be the same nonempty exact display name",
+            code="recipient_device_confirmation_mismatch",
+            exit_status=2,
+        )
+    return "contact"
+
+
 def run_send(args):
     _require_pinned_build()
     transfer_id = _parse_transfer_id(args.transfer_id)
     if not args.recipient or args.recipient != args.confirm_recipient:
         raise BlipError("recipient and confirmation must be the same nonempty exact display name",
                         code="recipient_confirmation_mismatch", exit_status=2)
+    mode = _recipient_mode(args)
     with _exclusive_send_lock():
-        _confirmed_inventory_recipient(args.recipient)
+        if mode == "contact":
+            _confirmed_inventory_recipient(
+                args.recipient,
+                entry_type="contact",
+                ownership="other_person_confirmed",
+            )
+        else:
+            _confirmed_inventory_recipient(args.recipient)
         sources = _validate_sources(args.files)
         return _run_send_locked(args, transfer_id, sources)
 
@@ -1171,6 +1316,8 @@ def build_parser():
     send_parser = commands.add_parser("send", help="create, prepare, and invite one transfer")
     send_parser.add_argument("--recipient", required=True)
     send_parser.add_argument("--confirm-recipient", required=True)
+    send_parser.add_argument("--recipient-device")
+    send_parser.add_argument("--confirm-recipient-device")
     send_parser.add_argument("--transfer-id", required=True)
     send_parser.add_argument("files", nargs="+")
     return parser

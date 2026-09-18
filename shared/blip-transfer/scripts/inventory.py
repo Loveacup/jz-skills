@@ -217,6 +217,7 @@ def run_sync(_args, state_dir):
             if record is None:
                 record = {
                     "display_name": name,
+                    "entry_type": "unknown",
                     "label": name,
                     "aliases": [],
                     "ownership": "unconfirmed",
@@ -229,13 +230,49 @@ def run_sync(_args, state_dir):
                 by_name[name] = record
             record["last_seen"] = seen_date
         replace_json(devices_path, inventory)
+        scope = live.get("discovery_scope")
+        if scope not in (
+            "same_account_devices",
+            "visible_devices_and_contacts",
+            "discovered_devices_and_contacts",
+        ):
+            scope = "unverified"
+        contacts_checked = scope in (
+            "visible_devices_and_contacts",
+            "discovered_devices_and_contacts",
+        )
+        unverified_contacts = [
+            item["display_name"] for item in inventory["devices"]
+            if item.get("entry_type") == "contact"
+            and item["display_name"] in result["not_currently_listed"]
+        ]
+        classification_conflicts = result["classification_conflicts"]
+        conflict_names = set(classification_conflicts)
+        unclassified_entries = [
+            row["display_name"] for row in result["devices"]
+            if row["entry_type"] == "unknown"
+            or row["display_name"] in conflict_names
+        ]
+        status = ("awaiting_ownership_confirmation" if result["ownership_questions"]
+                  else "awaiting_entry_classification" if unclassified_entries
+                  else "awaiting_contact_check" if not contacts_checked or unverified_contacts
+                  else "ready")
+        coverage = {
+            "discovery_scope": scope,
+            "contacts_checked": contacts_checked,
+            "unverified_contacts": unverified_contacts,
+            "unclassified_entries": unclassified_entries,
+            "classification_conflicts": classification_conflicts,
+        }
         initialization.update({
             "last_sync_date": seen_date,
-            "status": "awaiting_ownership_confirmation" if result["ownership_questions"] else "ready",
+            "status": status,
             "unresolved_live_device_count": len(result["ownership_questions"]),
+            **coverage,
         })
         replace_json(state_dir / "initialization.json", initialization)
-    return result, 2 if result["ownership_questions"] else 0
+        result.update(coverage, initialization_status=status)
+    return result, 0 if status == "ready" else 2
 
 
 def run_confirm(args, state_dir):
@@ -243,6 +280,8 @@ def run_confirm(args, state_dir):
         raise ValueError("device and label must be nonempty")
     if args.ownership != "unknown" and not args.confirmed_by_user:
         raise ValueError("--confirmed-by-user is required for non-unknown ownership")
+    if args.entry_type is not None and not args.confirmed_by_user:
+        raise ValueError("--confirmed-by-user is required for entry type confirmation")
     devices_path = state_dir / "devices.json"
     with locked_state(state_dir):
         inventory = validate_inventory(load_json(devices_path))
@@ -251,6 +290,8 @@ def run_confirm(args, state_dir):
         if len(matches) != 1:
             raise ValueError("device must exactly match one previously observed inventory name")
         record = matches[0]
+        if args.entry_type is not None:
+            record["entry_type"] = args.entry_type
         record.update({
             "label": args.label,
             "ownership": OWNERSHIP[args.ownership],
@@ -262,6 +303,7 @@ def run_confirm(args, state_dir):
         replace_json(devices_path, inventory)
     return {"device": args.device, "label": args.label,
             "ownership": OWNERSHIP[args.ownership],
+            "entry_type": record.get("entry_type", "unknown"),
             "requires_identity_confirmation": args.ownership == "unknown",
             "standing_send_authorization": False,
             "sending_authorized": False}, 0
@@ -311,6 +353,7 @@ def parser():
     confirm.add_argument("--ownership", required=True, choices=OWNERSHIP)
     confirm.add_argument("--label", required=True)
     confirm.add_argument("--confirmed-by-user", action="store_true")
+    confirm.add_argument("--entry-type", choices=("device", "contact", "unknown"))
     note = commands.add_parser("note", help="update non-authorizing device annotations")
     note.add_argument("--device", required=True)
     note.add_argument("--label")

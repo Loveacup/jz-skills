@@ -16,38 +16,63 @@ Resolve the canonical managed skill directory first; examples use `$SKILL` for t
 python3 "$SKILL/scripts/blip-rpc.py" doctor
 python3 "$SKILL/scripts/blip-rpc.py" devices
 python3 "$SKILL/scripts/blip-rpc.py" status --transfer-id "UUID"
+
+# Own-device mode
 python3 "$SKILL/scripts/blip-rpc.py" send \
   --recipient "EXACT_LIVE_DEVICE_NAME" \
   --confirm-recipient "EXACT_LIVE_DEVICE_NAME" \
   --transfer-id "UUID" \
   "/absolute/path/to/authorized-file" ["/absolute/path/to/another-file"]
+
+# Contact mode: both exact child-device confirmations are mandatory together
+python3 "$SKILL/scripts/blip-rpc.py" send \
+  --recipient "EXACT_LIVE_CONTACT_NAME" \
+  --confirm-recipient "EXACT_LIVE_CONTACT_NAME" \
+  --recipient-device "EXACT_LIVE_CHILD_DEVICE_NAME" \
+  --confirm-recipient-device "EXACT_LIVE_CHILD_DEVICE_NAME" \
+  --transfer-id "UUID" \
+  "/absolute/path/to/authorized-file" ["/absolute/path/to/another-file"]
 ```
 
-The caller must create and retain a fresh UUID for one intended transfer. The helper does not choose an implicit transfer identity. `--confirm-recipient` is a mechanical exact-match guard, not evidence of consent.
+The caller must create and retain a fresh UUID for one intended transfer. Confirmation arguments are mechanical exact-match guards, not evidence of consent. Own-device mode rejects contact-device flags; contact mode requires both of them and rejects omission or mismatch.
 
-Exit codes: `0` means a successful non-transmitting check or an observed `Completed` transfer; `devices` uses `2` for ownership questions; `send` and `status` use `10` for a valid but not completed transfer. Exit `10` is not a transport failure and must never trigger automatic resend. JSON `code` and the retained transfer UUID explain other failures. CLI sends are serialized with an owner-only nonblocking `.blip-rpc-send.lock`; a busy caller fails rather than racing another runtime.
+Exit codes: `0` means a successful non-transmitting check or an observed `Completed` transfer. The raw RPC `devices` command uses `2` when its valid JSON contains identity or classification questions; capture that JSON rather than treating it as transport failure. Passing the successful snapshot to `inventory.py sync` is the scope-aware readiness step: sync exits `0` only for `initialization_status: "ready"` and exits `2` for every valid non-ready status, including ownership questions, duplicate ambiguity, live entries with unknown/missing/conflicting kind, an unverified contact check, or absent known contacts. `send` and `status` use `10` for a valid but not completed transfer. Exit `10` is not a transport failure and must never trigger automatic resend. JSON `code`, `initialization_status`, and pending arrays are authoritative.
 
 `doctor` is non-transmitting and does not need GUI or Accessibility access. It accepts only Blip version `1.1.16`, build `20260425132215`, and the fixed local socket under `~/Library/Group Containers/AY8UB8KTUX.blip/Library/Caches/sock`. It verifies that the socket is a socket and is owned by the current UID. There is no remote-address or socket override. A different app version/build, missing socket, wrong owner, or wrong filesystem type is a hard failure: do not guess that the wire schema is compatible.
 
-`devices` is read-only. It reports the minimum live device names and identifiers needed to disambiguate recipients, joins them through the adjacent annotation helper, emits every outstanding `ownership_question`, and always reports `sending_authorized: false`. It does not grant permission.
+`devices` is read-only and works without an unlocked GUI. This adapter parses the pinned build's allowlisted full current discovered-user collection and emits `discovery_scope: "discovered_devices_and_contacts"`. The top-level `devices` array contains own physical rows with `live_entry_type: "device"` and discovered non-self contact rows with `live_entry_type: "contact"`. Each contact row has informational `recipient_devices` rows containing only `display_name`, `device_id`, `is_online`, `is_pushable`, `live`, and `is_self`; child rows are not independently enrolled into private inventory. Public contact rows never include `user_id`. The scope documents the full current discovered collection, not an exhaustive address book, permission, permanent connectivity, or delivery.
 
 `status` reads only the transfer named by `--transfer-id` and reports its status code/name and `completed` boolean. It is not a global transfer-history command.
 
 `send` performs create, content attachment, validation, and one invite. Dispatch acknowledgments precede asynchronous state publication: the CLI polls for the newly created object and exact prepared archive without repeating mutations. Before invitation it requires `Created` (`1`), outgoing, the exact peer, no local/remote errors, `content_job_count == 0`, and exact authorized filenames and sizes. It then revalidates the unique live recipient and source-file identity immediately before the single invite. A post-invite read may still report `Created`; that is an observation delay, not delivery. Query the same UUID later.
 
-## Authorization and supported scope
+## Per-session preflight, authorization, and supported scope
 
-Every send requires a current user request naming the exact recipient and exact source files. The currently authorized locked-screen test covered only its user-confirmed iPhone and one 92-byte harmless file; it grants no standing permission for another file, recipient, or future transfer.
+Every transfer session starts with the current RPC `devices` query and synchronization of its successful structured output, even when an exact recipient was used before. Its `discovered_devices_and_contacts` scope is the required current own-device and contact-capable check while locked or unlocked. The GUI is neither required nor permitted as a substitute for a locked contact preflight. If the actual send uses the separate unlocked GUI route, follow `workflow.md` and inspect its current GUI surface too.
 
-The first supported recipient scope is deliberately narrow:
+Each synchronization recomputes coverage from its current snapshot. Live names whose stored kind is unknown/missing or conflicts with observed `live_entry_type` appear in `unclassified_entries`; conflicts also appear in `classification_conflicts` and require renewed identity/type confirmation. Known stored contacts absent from the current collection appear in `unverified_contacts`. Neither condition deletes private annotations. A nameless discovered contact cannot silently count as complete coverage. Status priority is `awaiting_ownership_confirmation`, then `awaiting_entry_classification`, then `awaiting_contact_check`, then `ready`.
 
-- the exact live display name has one and only one match;
-- the private inventory marks that exact device `user_confirmed`;
-- the live peer belongs to the same Blip account and is not this Mac;
-- aliases, similar names, prior receipt, and account resemblance are insufficient;
-- family/shared, other-person, unknown, absent, duplicate, or cross-account/email contacts are unsupported for this path.
+This global coverage state is separate from per-send authorization. Every send requires a current user request naming the exact recipient and exact source files. Contact mode also requires the current request to identify the exact child device. Stored kind/ownership and an earlier name confirmation are never standing permission.
 
-For every new or unregistered live name, present the annotation helper's question to the user: is it the user's own device, family/shared, another person's, or still unknown? Never answer from the name. Confirmation updates ownership evidence only; `standing_send_authorization` and live `sending_authorized` remain false. A separately authorized send to an already confirmed device may proceed, but the new-device questions must still be surfaced.
+Own-device mode preserves the original narrow gates:
+
+- the exact live display name has one and only one top-level match;
+- the private inventory marks that exact entry `entry_type: "device"`, `ownership: "user_confirmed"`, with identity confirmation complete;
+- the live row is an own non-local device and has one complete reachable peer;
+- contact-device flags are absent;
+- aliases, similar names, prior receipt, owner choice, and account resemblance are insufficient.
+
+Contact mode is a separate explicit branch:
+
+- `--recipient` and `--confirm-recipient` exactly match one live non-self row with `is_contact: true` and `live_entry_type: "contact"`;
+- the private record has `entry_type: "contact"`, `ownership: "other_person_confirmed"`, and `requires_identity_confirmation: false`;
+- both child-device flags are present, equal, and exactly match one nested live non-self `recipient_devices` row;
+- the selected contact user ID and child device ID are both complete internally, producing one complete peer;
+- the same unique contact and child device are re-resolved immediately before invitation and the complete peer must remain equal.
+
+The CLI never routes account-only, chooses the first device, broadcasts, falls back to another row, or broadens the own-device ownership gate. It does not invent or persist a stable account binding: each request relies on fresh exact-name confirmation and current complete identifiers. Duplicate contact or child names, incomplete identifiers, offline/unpushable children, an identity/type conflict, or any fresh peer change fails closed.
+
+For every new or unregistered top-level live name, present the annotation helper's questions to the user: who owns it, and is it a device, contact, or still unknown? Also surface every current `classification_conflicts` and `unclassified_entries` item. Never answer from the name, observed type, owner category, alias, child devices, or discovery source. Confirmation updates private ownership and stored kind only; it is not send permission. Nested child devices remain live routing choices and are never separate inventory records.
 
 Only absolute paths to existing readable regular files are supported. Directories and symlinks fail clearly; they are not traversed, followed, archived, or silently transformed. The existing GUI helper's separately documented folder support is unchanged.
 
@@ -67,11 +92,11 @@ Status meanings relevant to reporting are:
 | 8 | `Completed` | Blip reports this exact transfer completed |
 | 9 | `Cancelled` | Cancelled; not delivered |
 
-Delivery is accepted only when the queried exact UUID reaches `Completed` (`8`) or the human confirms receipt of the exact file. Locked-screen acceptance requires the Mac already locked before a new create/invite and completion tied to that file and recipient. On 2026-09-17, the final CLI created and invited its harmless test transfer while locked before and after; a subsequent exact-ID query returned `Completed` (`8`). This is app-reported completion, not a claimed human receipt confirmation. Earlier CLI probes stopped before invitation on asynchronous observation races; the fixed implementation waits for state publication and never resends their events automatically. The two uninvited test drafts were subsequently removed under explicit user authorization, without deleting source files.
+Delivery is accepted only when the queried exact UUID reaches `Completed` (`8`) or the human confirms receipt of the exact file. Locked-screen acceptance requires the Mac already locked before a new create/invite and completion tied to that file and recipient. On 2026-09-17, the original own-device CLI created and invited its harmless test transfer while locked before and after; a subsequent exact-ID query returned `Completed` (`8`). This is app-reported own-device completion, not a claimed human receipt and not contact/friend evidence. The contact-capable discovery and explicit contact-plus-child send path are configured and offline-checked only; no locked cross-account end-to-end send has been performed or accepted. A real contact acceptance requires a new current authorization. Earlier CLI probes stopped before invitation on asynchronous observation races; the fixed implementation waits for state publication and never resends their events automatically.
 
 ## Privacy boundary
 
-`GetState` necessarily transports opaque application state, including sensitive fields. Responses remain in memory and are never written, cached, logged, or printed raw. Parsing allowlists state field `500` (same-account devices for target resolution) and field `600` (the exact requested transfer). Registration field `200`, auth field `201`, email fields, and unrelated state are skipped without interpreting or copying their payloads. Raw RPC errors are not exposed. Mutable response/discard buffers are zeroed without resizing, including when exception tracebacks retain memoryviews.
+`GetState` necessarily transports opaque application state, including sensitive fields. Responses remain in memory and are never written, cached, logged, or printed raw. For this pinned adapter, parsing allowlists only the discovered-user/device fields required for minimized discovery and exact peer resolution plus field `600` for the exact requested transfer. It skips registration field `200`, auth field `201`, email fields, unknown contact-map keys, and unrelated state without interpreting or copying their payloads. No contact user ID is printed or persisted; complete user/device IDs exist only transiently for exact peer validation. Raw RPC errors are not exposed. Mutable response/discard buffers are zeroed without resizing, including when parsing fails.
 
 The helper does not request credentials, read the app database or keychain, invoke host/takeover functionality, or inspect unrelated transfers. Output must remain minimized; device IDs may be shown only when necessary to resolve identity, and full state is never an output format.
 
