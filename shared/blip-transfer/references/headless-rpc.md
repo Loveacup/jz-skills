@@ -16,6 +16,7 @@ Resolve the canonical managed skill directory first; examples use `$SKILL` for t
 python3 "$SKILL/scripts/blip-rpc.py" doctor
 python3 "$SKILL/scripts/blip-rpc.py" devices
 python3 "$SKILL/scripts/blip-rpc.py" status --transfer-id "UUID"
+python3 "$SKILL/scripts/blip-rpc.py" watch --transfer-id "UUID" --timeout 120 --interval 2
 
 # Own-device mode (`--recipient-scope device` is the default)
 python3 "$SKILL/scripts/blip-rpc.py" send \
@@ -44,15 +45,25 @@ python3 "$SKILL/scripts/blip-rpc.py" send \
 
 The caller must create and retain a fresh UUID for one intended transfer. Confirmation arguments are mechanical exact-match guards, not evidence of consent. `--recipient-scope` accepts only `device` or `account` and defaults to `device`. Device scope preserves the two existing branches: no child flags selects the guarded own-device route, while both equal child flags select the guarded external exact-child route; supplying only one child flag is rejected. Explicit account scope rejects either child flag instead of ignoring it. Successful send output identifies `recipient_scope`; only exact-child output includes `recipient_device`.
 
-Exit codes: `0` means a successful non-transmitting check or an observed `Completed` transfer. The raw RPC `devices` command uses `2` when its valid JSON contains identity or classification questions; capture that JSON rather than treating it as transport failure. Passing the successful snapshot to `inventory.py sync` is the scope-aware readiness step: sync exits `0` only for `initialization_status: "ready"` and exits `2` for every valid non-ready status, including ownership questions, duplicate ambiguity, live entries with unknown/missing stored kind, a genuine conflict with a present observed kind, an unverified contact check, or absent known contacts. Missing `live_entry_type` alone is not a conflict. `send` and `status` use `10` for a valid but not completed transfer. Exit `10` is not a transport failure and must never trigger automatic resend. JSON `code`, `initialization_status`, and pending arrays are authoritative.
+Exit codes: `0` means a successful non-transmitting check or an observed `Completed` transfer without reported errors. The raw RPC `devices` command uses `2` when its valid JSON contains identity or classification questions; capture that JSON rather than treating it as transport failure. Passing the successful snapshot to `inventory.py sync` is the scope-aware readiness step: sync exits `0` only for `initialization_status: "ready"` and exits `2` for every valid non-ready status, including ownership questions, duplicate ambiguity, live entries with unknown/missing stored kind, a genuine conflict with a present observed kind, an unverified contact check, or absent known contacts. Missing `live_entry_type` alone is not a conflict. `send` retains its existing pending exit `10`; `status` uses `10` for nonterminal observations without reported errors, and `watch` uses `10` for a clean observation timeout. `status`/`watch` use `4` for cancellation or reported local/remote errors. Argument errors use `2`, transport failures normally use `3`, and a missing exact transfer uses `4`. Exit `10` must never trigger automatic resend. JSON `code`, `initialization_status`, and pending arrays are authoritative.
 
 `doctor` is non-transmitting and does not need GUI or Accessibility access. It accepts only Blip version `1.1.16`, build `20260425132215`, and the fixed local socket under `~/Library/Group Containers/AY8UB8KTUX.blip/Library/Caches/sock`. It verifies that the socket is a socket and is owned by the current UID. There is no remote-address or socket override. A different app version/build, missing socket, wrong owner, or wrong filesystem type is a hard failure: do not guess that the wire schema is compatible.
 
 `devices` is read-only and works without an unlocked GUI. This adapter parses the pinned build's allowlisted full current discovered-user collection and emits `discovery_scope: "discovered_devices_and_contacts"`. The top-level `devices` array contains own physical rows with genuinely observed `live_entry_type: "device"` and non-self external receiver rows identified technically by `is_contact: true`. `is_contact` describes the account relation used for discovery and deduplication; it is not evidence that the human-confirmed inventory `entry_type` is `contact`. External rows therefore omit `live_entry_type` and may validly retain a user-confirmed `device` or `contact` kind. Each external row has informational `recipient_devices` rows containing only `display_name`, `device_id`, `is_online`, `is_pushable`, `live`, and `is_self`; child rows are not independently enrolled into private inventory and need no name for account routing. Public external rows never include `user_id`. The scope documents the full current discovered collection, not an exhaustive address book, permission, permanent connectivity, or proof an absent person is not a Blip contact.
 
-`status` reads only the transfer named by `--transfer-id` and reports its status code/name and `completed` boolean. It is not a global transfer-history command.
+`status` reads only the transfer named by `--transfer-id` and reports its status code/name, raw `completed` boolean (status 8), `terminal` (only statuses 8 and 9), `has_local_error`, `has_remote_error`, `error_scope`, and `reason`. Error scope is `none`, `local`, `remote`, or `local_and_remote`, derived only from opaque error-field presence. Error flags take reason/exit precedence but do not establish an engine-terminal failure; a contradictory Completed-plus-error snapshot keeps its raw status but exits `4`. No raw error text, account/device identifiers, file list, root-cause guess, or global transfer history is returned.
 
 `send` performs create, content attachment, validation, and one invite. Dispatch acknowledgments precede asynchronous state publication: the CLI polls for the newly created object and exact prepared archive without repeating mutations. Before invitation it requires `Created` (`1`), outgoing, the exact peer, no local/remote errors, `content_job_count == 0`, and exact authorized filenames and sizes. It then revalidates the unique live recipient and source-file identity immediately before the single invite. A post-invite read may still report `Created`; that is an observation delay, not delivery. Query the same UUID later.
+
+### Bounded read-only observation
+
+`watch` polls the same exact canonical UUID and returns one final JSON object, not a stream or persistent log. Defaults are `--timeout 120` and `--interval 2`, both finite positive seconds. One monotonic deadline bounds every RPC request and sleep; a poll interval longer than the remaining budget is clipped. Version validation happens before the polling budget starts. No mutating method, automatic retry after a query error, GUI, or alternative transport is used.
+
+Normal output includes the last safe status fields plus `command: "watch"`, `status_available`, `observations` (successful queries), `elapsed_seconds`, `timed_out`, and `stop_reason`. Stop reasons are `completed` (exit 0), `cancelled` or `error` (exit 4), and `timeout` (exit 10). If the budget expires before any snapshot, `status_available` is false and no status code is invented. A timeout never cancels the underlying transfer, proves failure, or authorizes another send.
+
+A query error exits immediately with its original sanitized `code` and exit status, plus the UUID, observation count, elapsed time, `stop_reason: "rpc_error"`, and `last_status` when available. An RPC deadline failure remains an explicit query error rather than masquerading as a clean pending timeout. A missing transfer is also a query error, not an invitation to recreate it.
+
+Reasons are deliberately conservative: `created_invitation_unconfirmed`, `invitation_requested`, `invited_acceptance_unconfirmed`, `pending_reason_unknown`, `transfer_active`, `transfer_paused`, `resume_requested`, `completed`, `cancelled`, or `status_unknown`. Error presence overrides these with `local_error_reported`, `remote_error_reported`, or `local_and_remote_error_reported`. A Created snapshot can lag an already-requested invite; neither it nor Pending establishes that the receiver has not accepted. Unknown enum values are preserved numerically without guessing. Stopping observation because an error is reported does not cancel or label the engine state terminal.
 
 ## Per-session preflight, authorization, and supported scope
 
@@ -101,7 +112,7 @@ Status meanings relevant to reporting are:
 
 | Code | Name | Allowed claim |
 |---:|---|---|
-| 1 | `Created` | Local transfer object exists; not invited or delivered |
+| 1 | `Created` | Local Created observation; invitation unconfirmed, not delivered |
 | 2 | `InviteRequested` | Invitation requested; not delivered |
 | 3 | `Invited` | Recipient invited; pending, not delivered |
 | 4 | `Pending` | Pending, not delivered |

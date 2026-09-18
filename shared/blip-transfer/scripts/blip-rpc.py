@@ -6,6 +6,7 @@ from contextlib import contextmanager
 import ctypes
 import fcntl
 import json
+import math
 import os
 from pathlib import Path
 import plistlib
@@ -43,6 +44,17 @@ STATUS_NAMES = {
     7: "ResumeRequested",
     8: "Completed",
     9: "Cancelled",
+}
+STATUS_REASONS = {
+    1: "created_invitation_unconfirmed",
+    2: "invitation_requested",
+    3: "invited_acceptance_unconfirmed",
+    4: "pending_reason_unknown",
+    5: "transfer_active",
+    6: "transfer_paused",
+    7: "resume_requested",
+    8: "completed",
+    9: "cancelled",
 }
 MAX_RESPONSE = 8 * 1024 * 1024
 MAX_FRAMES = 256
@@ -1141,13 +1153,41 @@ def _wait_until_prepared(transfer_id, peer, sources):
 
 def _status_result(transfer_id, transfer):
     code = transfer["status_code"]
+    local_error = transfer["has_local_error"]
+    remote_error = transfer["has_remote_error"]
+    error_scope = ("local_and_remote" if local_error and remote_error
+                   else "local" if local_error else "remote" if remote_error else "none")
     return {
         "command": "status",
         "transfer_id": transfer_id,
         "status_code": code,
         "status_name": STATUS_NAMES.get(code, "UnrecognizedStatus"),
         "completed": code == 8,
+        "terminal": code in (8, 9),
+        "has_local_error": local_error,
+        "has_remote_error": remote_error,
+        "error_scope": error_scope,
+        "reason": (error_scope + "_error_reported" if error_scope != "none"
+                   else STATUS_REASONS.get(code, "status_unknown")),
     }
+
+
+def _status_exit(result):
+    if result["error_scope"] != "none" or result["status_code"] == 9:
+        return 4
+    return 0 if result["completed"] else PENDING_EXIT
+
+
+def _positive_seconds(value):
+    try:
+        seconds = float(value)
+    except (ValueError, TypeError, OverflowError) as error:
+        raise BlipError("watch durations must be finite positive seconds",
+                        code="invalid_arguments", exit_status=2) from error
+    if not math.isfinite(seconds) or seconds <= 0:
+        raise BlipError("watch durations must be finite positive seconds",
+                        code="invalid_arguments", exit_status=2)
+    return seconds
 
 
 def _parse_transfer_id(value):
@@ -1248,7 +1288,65 @@ def run_status(args):
     transfer = _require_transfer(
         _state_snapshot(transfer_id, include_devices=False), transfer_id)
     result = _status_result(transfer_id, transfer)
-    return result, 0 if result["completed"] else PENDING_EXIT
+    return result, _status_exit(result)
+
+
+def run_watch(args):
+    transfer_id = _parse_transfer_id(args.transfer_id)
+    timeout = _positive_seconds(args.timeout)
+    interval = _positive_seconds(args.interval)
+    _require_pinned_build()
+    started = time.monotonic()
+    deadline = started + timeout
+    last_status = None
+    observations = 0
+
+    def finish(stop_reason):
+        result = last_status if last_status is not None else {
+            "transfer_id": transfer_id, "completed": False,
+        }
+        result.update({
+            "command": "watch",
+            "status_available": last_status is not None,
+            "observations": observations,
+            "elapsed_seconds": round(time.monotonic() - started, 3),
+            "timed_out": stop_reason == "timeout",
+            "stop_reason": stop_reason,
+        })
+        return result, (PENDING_EXIT if stop_reason == "timeout"
+                        else _status_exit(result))
+
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return finish("timeout")
+        try:
+            transfer = _require_transfer(
+                _state_snapshot(transfer_id, min(RPC_TIMEOUT, remaining),
+                                include_devices=False),
+                transfer_id,
+            )
+        except BlipError as error:
+            error.details.update({
+                "command": "watch",
+                "transfer_id": transfer_id,
+                "observations": observations,
+                "elapsed_seconds": round(time.monotonic() - started, 3),
+                "stop_reason": "rpc_error",
+            })
+            if last_status is not None:
+                error.details["last_status"] = last_status
+            raise
+        observations += 1
+        last_status = _status_result(transfer_id, transfer)
+        if last_status["error_scope"] != "none":
+            return finish("error")
+        if last_status["terminal"]:
+            return finish("completed" if last_status["completed"] else "cancelled")
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return finish("timeout")
+        time.sleep(min(interval, remaining))
 
 
 def _post_invite_peer_matches(expected, observed, mode):
@@ -1392,6 +1490,11 @@ def build_parser():
     commands.add_parser("devices", help="query and annotate freshly discovered devices")
     status_parser = commands.add_parser("status", help="query exactly one transfer")
     status_parser.add_argument("--transfer-id", required=True)
+    watch_parser = commands.add_parser(
+        "watch", help="read-only bounded polling of exactly one transfer")
+    watch_parser.add_argument("--transfer-id", required=True)
+    watch_parser.add_argument("--timeout", type=_positive_seconds, default=120.0)
+    watch_parser.add_argument("--interval", type=_positive_seconds, default=2.0)
     send_parser = commands.add_parser("send", help="create, prepare, and invite one transfer")
     send_parser.add_argument("--recipient", required=True)
     send_parser.add_argument("--confirm-recipient", required=True)
@@ -1411,6 +1514,7 @@ def main():
             "doctor": run_doctor,
             "devices": run_devices,
             "status": run_status,
+            "watch": run_watch,
             "send": run_send,
         }
         result, exit_status = handlers[args.command](args)

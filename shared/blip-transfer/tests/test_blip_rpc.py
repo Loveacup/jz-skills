@@ -1032,5 +1032,187 @@ class TransportAndRedactionTests(unittest.TestCase):
                 held.release()
 
 
+class ReadOnlyWatchTests(unittest.TestCase):
+    def setUp(self):
+        self.clock = 0.0
+        self.args = SimpleNamespace(
+            transfer_id=TRANSFER_ID, timeout=5.0, interval=2.0)
+        self.stack = ExitStack()
+        self.addCleanup(self.stack.close)
+        self.stack.enter_context(mock.patch.object(blip_rpc, "_require_pinned_build"))
+        self.stack.enter_context(mock.patch.object(
+            blip_rpc.time, "monotonic", side_effect=lambda: self.clock))
+        self.stack.enter_context(mock.patch.object(
+            blip_rpc.time, "sleep", side_effect=self.advance))
+        self.dispatch = self.stack.enter_context(mock.patch.object(
+            blip_rpc, "_dispatch_event", side_effect=AssertionError("watch mutated state")))
+        self.state = self.stack.enter_context(mock.patch.object(blip_rpc, "_state_snapshot"))
+
+    def advance(self, seconds):
+        self.clock += seconds
+
+    def snapshot(self, **kwargs):
+        return {"devices": [], "transfer": _transfer(**kwargs)}
+
+    def test_pending_active_completed_observations_stop_without_resending(self):
+        self.state.side_effect = [
+            self.snapshot(status_code=4), self.snapshot(status_code=5),
+            self.snapshot(status_code=8),
+        ]
+        result, exit_status = blip_rpc.run_watch(self.args)
+        self.assertEqual(exit_status, 0)
+        self.assertEqual(result["stop_reason"], "completed")
+        self.assertEqual(result["observations"], 3)
+        self.assertEqual(result["elapsed_seconds"], 4.0)
+        self.assertTrue(result["completed"])
+        self.assertTrue(result["terminal"])
+        self.assertFalse(result["timed_out"])
+        self.assertEqual(result["command"], "watch")
+        self.assertEqual(
+            self.state.call_args_list,
+            [mock.call(TRANSFER_ID, budget, include_devices=False)
+             for budget in (5.0, 3.0, 1.0)],
+        )
+        self.dispatch.assert_not_called()
+
+    def test_paused_and_unknown_remain_observable_without_invented_failure(self):
+        for code, reason in ((6, "transfer_paused"), (42, "status_unknown")):
+            with self.subTest(code=code):
+                self.clock = 0.0
+                self.state.reset_mock()
+                self.state.return_value = self.snapshot(status_code=code)
+                result, exit_status = blip_rpc.run_watch(self.args)
+                self.assertEqual(exit_status, blip_rpc.PENDING_EXIT)
+                self.assertEqual(result["stop_reason"], "timeout")
+                self.assertEqual(result["status_code"], code)
+                self.assertEqual(result["reason"], reason)
+                self.assertEqual(result["elapsed_seconds"], 5.0)
+                self.assertEqual(result["observations"], 3)
+                self.assertTrue(result["timed_out"])
+                self.assertFalse(result["terminal"])
+                self.assertFalse(result["completed"])
+
+    def test_cancel_or_error_stops_watching_without_cancelling_engine(self):
+        cases = (
+            (dict(status_code=9), "cancelled", True, "none"),
+            (dict(status_code=5, has_local_error=True), "error", False, "local"),
+            (dict(status_code=4, has_remote_error=True), "error", False, "remote"),
+            (dict(status_code=8, has_local_error=True, has_remote_error=True),
+             "error", True, "local_and_remote"),
+        )
+        for values, stop_reason, terminal, scope in cases:
+            with self.subTest(values=values):
+                self.state.reset_mock()
+                self.state.return_value = self.snapshot(**values)
+                result, exit_status = blip_rpc.run_watch(self.args)
+                self.assertEqual(exit_status, 4)
+                self.assertEqual(result["stop_reason"], stop_reason)
+                self.assertEqual(result["terminal"], terminal)
+                self.assertEqual(result["error_scope"], scope)
+                self.assertEqual(result["observations"], 1)
+                self.assertFalse(result["timed_out"])
+                self.assertEqual(self.state.call_count, 1)
+        self.dispatch.assert_not_called()
+
+    def test_rpc_failure_preserves_last_observation_without_retry(self):
+        self.state.side_effect = [
+            self.snapshot(status_code=5),
+            blip_rpc.BlipError("redacted", code="rpc_unavailable", exit_status=3),
+        ]
+        with self.assertRaises(blip_rpc.BlipError) as raised:
+            blip_rpc.run_watch(self.args)
+        self.assertEqual(raised.exception.exit_status, 3)
+        self.assertEqual(raised.exception.code, "rpc_unavailable")
+        self.assertEqual(raised.exception.details["stop_reason"], "rpc_error")
+        self.assertEqual(raised.exception.details["observations"], 1)
+        self.assertEqual(raised.exception.details["last_status"]["status_code"], 5)
+        self.assertEqual(self.state.call_count, 2)
+        self.dispatch.assert_not_called()
+
+    def test_rpc_deadline_failure_is_not_disguised_as_pending(self):
+        def expire(*_args, **_kwargs):
+            self.advance(5)
+            raise blip_rpc.BlipError("deadline", code="rpc_timeout", exit_status=3)
+        self.state.side_effect = expire
+        with self.assertRaises(blip_rpc.BlipError) as raised:
+            blip_rpc.run_watch(self.args)
+        self.assertEqual(raised.exception.code, "rpc_timeout")
+        self.assertEqual(raised.exception.details["observations"], 0)
+        self.assertNotIn("last_status", raised.exception.details)
+        self.assertEqual(self.state.call_count, 1)
+
+    def test_rpc_and_sleep_consume_the_same_bounded_budget(self):
+        self.args.timeout = 1.0
+        self.args.interval = 100.0
+        def observe(_target, budget, *, include_devices):
+            self.assertEqual(budget, 1.0)
+            self.assertFalse(include_devices)
+            self.advance(0.75)
+            return self.snapshot(status_code=4)
+        self.state.side_effect = observe
+        result, exit_status = blip_rpc.run_watch(self.args)
+        self.assertEqual(exit_status, 10)
+        self.assertEqual(result["elapsed_seconds"], 1.0)
+        self.assertEqual(result["observations"], 1)
+        self.assertEqual(self.state.call_count, 1)
+
+    def test_expired_budget_without_observation_does_not_invent_status(self):
+        with mock.patch.object(blip_rpc.time, "monotonic", side_effect=[0, 6, 6]):
+            result, exit_status = blip_rpc.run_watch(self.args)
+        self.assertEqual(exit_status, 10)
+        self.assertFalse(result["status_available"])
+        self.assertEqual(result["observations"], 0)
+        self.assertNotIn("status_code", result)
+        self.state.assert_not_called()
+
+    def test_invalid_duration_or_uuid_cannot_query_or_mutate(self):
+        for field in ("timeout", "interval"):
+            for value in (0, -1, float("nan"), float("inf"), "invalid"):
+                with self.subTest(field=field, value=value):
+                    args = SimpleNamespace(**vars(self.args))
+                    setattr(args, field, value)
+                    with self.assertRaises(blip_rpc.BlipError) as raised:
+                        blip_rpc.run_watch(args)
+                    self.assertEqual(raised.exception.exit_status, 2)
+        self.args.transfer_id = "not-a-uuid"
+        with self.assertRaises(blip_rpc.BlipError) as raised:
+            blip_rpc.run_watch(self.args)
+        self.assertEqual(raised.exception.code, "invalid_transfer_id")
+        self.state.assert_not_called()
+        self.dispatch.assert_not_called()
+
+    def test_status_distinguishes_cancel_error_and_unknown(self):
+        for values, exit_status, reason in (
+            (dict(status_code=8), 0, "completed"),
+            (dict(status_code=9), 4, "cancelled"),
+            (dict(status_code=5, has_remote_error=True), 4, "remote_error_reported"),
+            (dict(status_code=42), 10, "status_unknown"),
+            (dict(status_code=1), 10, "created_invitation_unconfirmed"),
+            (dict(status_code=4), 10, "pending_reason_unknown"),
+        ):
+            with self.subTest(values=values):
+                self.state.return_value = self.snapshot(**values)
+                result, actual_exit = blip_rpc.run_status(self.args)
+                self.assertEqual(actual_exit, exit_status)
+                self.assertEqual(result["reason"], reason)
+        self.dispatch.assert_not_called()
+
+    def test_error_payloads_and_peer_identifiers_never_reach_status_output(self):
+        raw = (
+            _integer(800, 5)
+            + _field(600, b"PRIVATE_LOCAL_ERROR")
+            + _field(601, b"PRIVATE_REMOTE_ERROR")
+            + _field(200, _field(1, b"PRIVATE_ACCOUNT") + _field(2, b"PRIVATE_DEVICE"))
+        )
+        parsed = blip_rpc._parse_transfer(raw)
+        self.state.return_value = {"devices": [], "transfer": parsed}
+        result, exit_status = blip_rpc.run_status(self.args)
+        self.assertEqual(exit_status, 4)
+        self.assertEqual(result["error_scope"], "local_and_remote")
+        self.assertEqual(result["reason"], "local_and_remote_error_reported")
+        self.assertNotIn("PRIVATE_", repr(result))
+        self.assertNotIn("peer", result)
+
+
 if __name__ == "__main__":
     unittest.main()
