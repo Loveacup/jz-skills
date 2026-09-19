@@ -145,7 +145,7 @@ task:
     enabled: true
 ```
 
-> **OMP 配置写法/密钥/provider/profile 细节** 见 **`/skill:omp-ops`**。本页只列出 STDD 流程所需的最小键。
+> **OMP 配置写法/密钥/provider/profile 细节**以当前安装版本的 `omp --help` 与版本匹配的官方文档为准。本页只列出 STDD 流程所需的最小键。
 > `memory.backend: local` 不支持 `retain`/`recall`，需 `hindsight`/`mnemopi` 才可用。
 
 ## 与 SKILL.md 的对应

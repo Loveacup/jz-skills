@@ -207,7 +207,7 @@ node scripts/setup.mjs --upgrade # 版本升级后刷新过时组件
 | 经验回写 | `memory.backend: local` + `autolearn.enabled: true` | 自动沉淀，读 `memory://root`（`retain`/`recall` 需 `hindsight`/`mnemopi`） |
 | Web 验收 | `browser` | E2E 断言加入 Acceptance checklist |
 
-> **OMP 配置细节**（modelRoles、providers、API keys、search、profiles、`config.yml` 层级等）见 **`/skill:omp-ops`**。stdd-omp 给出推荐值，具体写法/密钥管理让 omp-ops 处理。
+> **OMP 配置细节**（modelRoles、providers、API keys、search、profiles、`config.yml` 层级等）以当前安装版本的 `omp --help` 与版本匹配的官方文档为准。stdd-omp 只给出流程所需的最小推荐值；密钥使用 `/login`、环境变量或凭据存储，不写入配置或文档。
 
 推荐 `~/.omp/agent/config.yml`：
 
@@ -264,8 +264,7 @@ task:
 - 问题陈述：`problem-statement`
 - 调研：`web_search` + `agent-reach`
 - 澄清/对赌：`ask` / `oracle`
-- **OMP 配置/密钥/模型/搜索 provider / profile：调用 `/skill:omp-ops`**
-- 若对应 skill 不可用，降级为自写，不阻塞流程。
+- **OMP 配置/密钥/模型/搜索 provider / profile：查当前安装版本的 `omp --help` 与版本匹配的官方文档；密钥使用 `/login`、环境变量或凭据存储**
 
 ## 经验回写
 

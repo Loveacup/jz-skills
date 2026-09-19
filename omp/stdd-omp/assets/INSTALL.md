@@ -33,7 +33,7 @@ setup 脚本会：
 5. `--apply` 时把缺失的 opt-in 组件复制到 `~/.omp/agent/` 下；**不会覆盖已有文件**（除非加 `--force`）。
 6. 打印人类可读的体检报告和下一步建议。
 
-> setup 脚本本身不会改 `~/.omp/agent/config.yml`。如果检测到你还没配 `memory.backend: local` 等关键项，它会打印一段推荐 YAML，让你手动合并或调用 **`/skill:omp-ops`** 协助配置。
+> setup 脚本本身不会改 `~/.omp/agent/config.yml`。如果检测到你还没配 `memory.backend: local` 等关键项，它会打印一段推荐 YAML；其他配置以当前安装版本的 `omp --help` 与版本匹配的官方文档为准。
 
 ## 自动检测 / 安装模式（推荐先跑）
 
@@ -232,7 +232,7 @@ tools:
     write: allow
 ```
 
-> 对 `config.yml`、modelRoles、API keys、search providers、profiles 等 OMP 配置有疑问，调用 **`/skill:omp-ops`**。stdd-omp 只给出与 STDD 流程相关的最小推荐值，具体 provider/key/profile 配置让 omp-ops 处理。
+> 对 `config.yml`、modelRoles、API keys、search providers、profiles 等 OMP 配置有疑问，以当前安装版本的 `omp --help` 与版本匹配的官方文档为准。stdd-omp 只给出与 STDD 流程相关的最小推荐值；密钥使用 `/login`、环境变量或凭据存储。
 
 ## 如何确认已生效
 

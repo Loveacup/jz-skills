@@ -146,7 +146,7 @@ modelRoles:
 | 3 | 档位&自动度 (L0–L3/full-auto) | 任务强度 L 档？交互 or full-auto？升级触发条件？ |
 | 4 | 技术文档目录/三梁落点 | 梁1/梁2/梁3 落哪个文件？路线图如何派生？ |
 | 5 | 溯源 | 核心数据/API/schema 在哪个权威源？版本号？ |
-| 6 | skill 嵌入 | 需要调用哪些 skill？（prd-development / agent-reach / omp-ops …） |
+| 6 | skill 嵌入 | 需要调用哪些 skill？（prd-development / agent-reach / browser-use …） |
 | 7 | 边界&门 (P4/P6) | regen/slice 硬顶、danger 清单、不可逆操作红线 |
 | 8 | 样板登记 | 是否存在可复用的历史 GOAL/验收模板？ |
 

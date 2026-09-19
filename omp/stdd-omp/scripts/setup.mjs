@@ -8,8 +8,8 @@
  *   - `--apply` installs missing opt-in components (hook/auditor/rules/WATCHDOG).
  *   - Prints a human-readable report + recommended OMP `config.yml` snippet.
  *
- * This script never edits `~/.omp/agent/config.yml` directly; it only prints a
- * snippet and delegates OMP-specific config questions to `/skill:omp-ops`.
+ * This script never edits `~/.omp/agent/config.yml` directly; it prints a
+ * snippet and points other OMP configuration questions to version-matched official docs.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -508,7 +508,7 @@ function formatConfigYamlSnippet(report) {
   lines.push('    enabled: true');
   lines.push('---');
   lines.push('');
-  lines.push('对 OMP 配置细节有疑问，调用 /skill:omp-ops。');
+  lines.push('其他 OMP 配置细节以当前安装版本的 omp --help 与版本匹配的官方文档为准。');
   return lines.join('\n');
 }
 
