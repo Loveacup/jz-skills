@@ -2,6 +2,43 @@
 
 > 本文档从 `SKILL.md` 拆分，用于保存版本历史；`SKILL.md` 仅保留当前使用说明与操作约束。
 
+### v0.9.0（2026-09-21）— 版本化 Capability Grant 与薄型执行适配器
+
+- `call-omp` 从永久只读审计器收敛为一次 OMP attempt 的薄型、角色中立适配器；协调、角色、单 writer 与独立验收仍由上层负责。
+- 新增 `call-omp.capability-grant.v1`：仅 Shell `mode=execute` 可显式授权工具、cwd 与 add_dirs；缺 grant 完全保留旧只读白名单。RPC/ACP 待具备可信单 attempt 终态后再升级合同。
+- grant 经过结构校验、真实路径规范化、scope parity 与完整启动指纹绑定；bundle-only、RPC、ACP、模糊 `--allow-write` 和不可强制的 denied_paths 组合均 fail-closed。
+- execute prompt 不再假装写入永远不可用，也不强制审计 verdict；真实 exit/turn_end/stopReason 与写后独立验收仍是硬要求。
+- 新增 capability 合同 reference、模板示例与回归测试；三平台 manifest 统一升级为 0.9.0。
+- execute 长自由文本摘要改为先完整提取再进程内截断，避免 `pipefail` 下 SIGPIPE/exit 141 将 state 留在 `running`；废弃 `--allow-write` 也在消耗 round 前拒绝。
+
+### 未发布（2026-07-19，post-v0.8.0）— P1 `required_actions` 契约
+
+为 OMP audit verdict 增加**可选、机器可读的 `required_actions` 字段**：单一规范契约 → 生产者双写 → 版本化外层判决 + 严格 gate。详见 `P1-required-actions-evidence.md`。**纯契约/生产者/gate 层改动，未产出任何新的 OMP verdict。**
+
+| 级别 | 新增/修复 | 描述 |
+|:---:|------|------|
+| P1A | 单一规范契约 | 新增 `contracts/required-actions.schema.json` 作为唯一真源；新增 stdlib 验证器 `scripts/required-actions-validate.py`，从 schema 派生 `kind` 枚举与全部上限，不硬编码。 |
+| P1A | 错误信封 | 验证器在 malformed actions、unknown key 内含字面换行、无 CLI 参数、malformed schema override 四种情形下，stdout 恰好输出一个 JSON 错误对象，不泄漏 traceback/usage。 |
+| P1A | 输出 gate | `gate-verify.sh` 加法式校验：兼容 legacy 缺字段，校验已提供字段；`pass` 不得携带非空 actions。 |
+| P1B | 生产者双写 | prompt 索取 actions；`omp-monitor.sh` 持久化 action 列表或 legacy 标记；`omp-finish.sh` 双写 legacy `next_action` 与 schema-valid flow-style YAML/JSON `required_actions`。malformed/legacy 有安全 fallback 映射；资源拒绝路径不合成 actions。 |
+| P1C1 | 版本化外层判决 | 新原始 audit 模板产出 `required_actions_contract: "call-omp.required_actions.v1"`；marker-free 保持 legacy 兼容。 |
+| P1C1 | v1 严格 gate | v1 标记强制外层 allowlist `{severity,summary,evidence,reject_instruction,confidence,required_actions_contract,required_actions}`、schema-valid actions、`pass=[]` 且非 pass ≥1 action；`confidence` 为显式允许字段，非 unknown key。 |
+| P1 | 测试 | `tests/run-all.sh` 纳入 P1A/P1B/P1C1 回归；supervisor 专项 42/42、全量 416/416、`call-omp-check.sh` 0、`git diff --check` 0，均在所有 writer 停止后由 Hermes 复跑。 |
+
+### 未发布（2026-07-19，post-v0.8.0）— P0 资源监督器接入 bundle-only Shell
+
+把 OMP raw 输出从「靠轮询软限制」升级为**硬性、抗逃逸的资源熔断**，并接入 send/monitor 热路径。详见 `P0A-supervisor-evidence.md`。
+
+| 级别 | 新增/修复 | 描述 |
+|:---:|------|------|
+| P0 | 硬 raw cap | 新增 `scripts/omp-resource-supervisor.py`：子进程独立 session/pgrp，流式写 raw，raw_bytes ≤ 20 MiB；child pre-exec 继承 `RLIMIT_FSIZE` 内核级 cap，即使 `setsid` 逃逸后代仍持有 stdout FD 也守得住。`raw_cap`/`rate_fuse`/未回收子进程/pre-exec 错误全部 fail-closed，终态有界原子。 |
+| P0 | 强制异步 supervisor-backed | 真正经 Shell 执行的 bundle-only 审计（直连 Shell 与 RPC→Shell 回退两条路径）一律强制异步 + 受 supervisor 监督，**取消同步回退**。改 `scripts/lib/omp-lib.sh`、`scripts/omp-send.sh`。 |
+| P0 | 认证 + 脱敏 sidecar | `scripts/omp-monitor.sh` 解析 raw/verdict 前先认证资源 sidecar（规范化路径、拒 symlink/非常规文件、精确 v1 task/state/raw/pid 绑定、pid/pgid/session 交叉核对）；`resource_rejected` 先于 verdict 解析转 `rejected`；forensic state 白名单化，不写 argv/prompt/raw/tail，`reason`/`issue` 限长 512 但保留 containment 标记。`--watch` 超时不再盲杀 wrapper。 |
+| P0 | 测试 | 新增 `tests/test-resource-supervisor.sh`，`tests/run-all.sh` 纳入集成回归；`py_compile` 0、supervisor 专项 42/42、全量 342/342、`call-omp-check.sh` 0，均在所有 writer 停止后由 Hermes 复跑。 |
+| P0 | 真实 OMP cap 事件 | 一次真实 bundle-only Shell 审计（task `p0-final-audit-20260719`）raw 精确到达 20 MiB / 3,883 行，supervisor 退出 2，`raw_cap_exceeded`，monitor 在 verdict 解析前 rejected，`omp-finish --reject` 计数 1。**这是熔断生效的证据，不是审计通过**——未产出可信 OMP verdict。 |
+
+**L2 迭代**：独立 L2 审查在 P0B1R、最终 P0B3R2 通过前先抓到真实 blocker（rate-fuse 逃逸后代 raw 增长；陈旧 sidecar 绑定 + argv/prompt 泄漏），逐项修复后收口。
+
 ### v0.8.0（2026-07-14）— Fail-closed 安全加固与主文档重构
 
 - 修复 `govern:clean|deep-clean|sql` 与 danger gate 模式不一致导致的 scope/rollback 绕过。

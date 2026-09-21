@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jz-skills/hermes/call-omp/contracts/required-actions.schema.json",
+  "title": "call-omp required_actions",
+  "description": "Canonical, machine-readable contract for the OPTIONAL `required_actions` field in an OMP audit verdict. This schema is the single source of truth: validators MUST derive permitted kinds and all limits from this document rather than hard-coding them. Semantics: a `pass` severity carries NO required action and MUST map to []; `revise` means bounded, self-contained repair work the producer may loop on; `human_review` requires a human decision before continuing; `stop` prohibits automated loop continuation.",
+  "type": "array",
+  "maxItems": 8,
+  "uniqueItems": true,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["kind", "reason"],
+    "properties": {
+      "kind": {
+        "type": "string",
+        "enum": ["revise", "human_review", "stop"],
+        "description": "revise = bounded repair work; human_review = requires a human decision; stop = prohibits automated loop continuation. (`pass` verdicts have no action and yield an empty array.)"
+      },
+      "reason": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "description": "Non-empty human-readable justification for the action, max 512 characters."
+      },
+      "targets": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 16,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "description": "Optional 1–16 concrete targets (file:line, path, symbol). Each a non-empty string, max 256 characters."
+      }
+    }
+  }
+}

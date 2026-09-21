@@ -93,8 +93,55 @@ fi
 require_task_id "$TASK_ID" || exit 3
 CHANNEL=$(echo "$PKG" | jq -r '.channel // "rpc"')
 PKG_TMP="$OMP_TMPDIR/omp-pkg-${TASK_ID}.json"
-echo "$PKG" | atomic_write "$PKG_TMP"
 STATE="$(state_path "$TASK_ID")"
+
+# ── 每任务原子启动锁（mkdir 目录锁；仅护写 package/state 临界区，绝无全局锁）──
+# trap 在正常退出 / 出错 / 收信号时释放；仅当本进程真正持锁才 rmdir（不误删他人锁）。
+START_LOCK="$(start_lock_path "$TASK_ID")"
+START_LOCK_HELD=""
+release_start_lock() { [[ -n "$START_LOCK_HELD" ]] && rmdir "$START_LOCK" 2>/dev/null || true; }
+trap 'release_start_lock' EXIT INT TERM HUP
+if mkdir "$START_LOCK" 2>/dev/null; then
+  START_LOCK_HELD=1
+else
+  echo "omp-start: 任务 $TASK_ID 启动锁被占用（并发 start 未完成）→ 拒绝" >&2
+  echo "task_id=$TASK_ID status=locked reuse=rejected"
+  exit 3
+fi
+
+# ── 拒绝复用"正在运行"的任务：status=running，或 resource_supervised=true 且 supervisor PID 存活。
+#    绝不覆盖既有 package/state（fail-closed，退出 3）──
+if [[ -f "$STATE" ]]; then
+  EX_STATUS=$(jq -r '.status // empty' "$STATE" 2>/dev/null || true)
+  EX_SUP=$(jq -r '.run.resource_supervised // false' "$STATE" 2>/dev/null || true)
+  EX_PID=$(jq -r '.run.pid // empty' "$STATE" 2>/dev/null || true)
+  LIVE_REUSE=""
+  [[ "$EX_STATUS" == "running" ]] && LIVE_REUSE=1
+  if [[ "$EX_SUP" == "true" && -n "$EX_PID" && "$EX_PID" != "null" ]] && kill -0 "$EX_PID" 2>/dev/null; then
+    LIVE_REUSE=1
+  fi
+  if [[ -n "$LIVE_REUSE" ]]; then
+    echo "omp-start: 任务 $TASK_ID 正在运行（status=$EX_STATUS supervised=$EX_SUP pid=${EX_PID}）→ 拒绝复用，不覆盖 package/state" >&2
+    echo "task_id=$TASK_ID status=${EX_STATUS:-running} reuse=rejected"
+    exit 3
+  fi
+fi
+
+# ── bundle_only 必须全新 task_id：任一残留产物存在即拒绝，绝不覆盖任何产物 ──
+IS_BUNDLE_ONLY=$(echo "$PKG" | jq -r '.auditor.independence_level // empty')
+if [[ "$IS_BUNDLE_ONLY" == "bundle_only" ]]; then
+  for _art in "$STATE" "$PKG_TMP" "$(raw_path "$TASK_ID")" \
+              "$(resource_state_path "$TASK_ID")" "$(pid_store_path "$TASK_ID")" \
+              "$(launch_lock_path "$TASK_ID")"; do
+    if [[ -e "$_art" ]]; then
+      echo "omp-start: bundle_only 需全新 task_id；发现残留产物 $_art → 拒绝，不覆盖" >&2
+      echo "task_id=$TASK_ID status=stale_artifact reuse=rejected"
+      exit 3
+    fi
+  done
+fi
+
+echo "$PKG" | atomic_write "$PKG_TMP"
 
 # write_state <status> <gate_failed_bool> <reason> <verify_json> <danger_json>
 write_state() {

@@ -43,8 +43,12 @@ done
 [[ "$MODE" == "package" || "$MODE" == "output" ]] || { echo "gate-verify: --mode 须 package|output" >&2; exit 3; }
 [[ -n "$FILE" && -r "$FILE" ]] || { echo "gate-verify: 读不到 --file '$FILE'" >&2; exit 3; }
 
-emit() { # <ok> <reason> <missing_json_array>
-  printf '{"ok":%s,"reason":"%s","missing_fields":%s}\n' "$1" "${2//\"/\\\"}" "${3:-[]}"
+emit() { # <ok:true|false> <reason:string> <missing_fields:json-array>
+  # 用 jq 做安全 JSON 编码：reason 可含换行/反斜杠/引号/Unicode，一律正确转义；
+  # 输出恒为「单个合法 JSON 对象 + 换行」。不再用字符串插值拼 JSON（旧版仅转义双引号，
+  # 遇 reason 含换行会产出两行/非法 JSON，违反单行 stdout 契约）。
+  jq -cn --argjson ok "$1" --arg reason "$2" --argjson mf "${3:-[]}" \
+    '{ok:$ok,reason:$reason,missing_fields:$mf}'
 }
 
 # ════ package 模式：委派包字段完整性 ════════════════════════════════
@@ -79,6 +83,16 @@ if [[ "$MODE" == "package" ]]; then
   if [[ -z "$missing" ]]; then emit false "jq 解析委派包失败"; exit 1; fi
   n=$(printf '%s' "$missing" | jq 'length')
   if [[ "$n" -eq 0 ]]; then
+    CAP_VALIDATOR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/resolve-capability-grant.py"
+    if jq -e 'has("capability_grant")' "$FILE" >/dev/null 2>&1; then
+      set +e
+      capout=$(python3 "$CAP_VALIDATOR" --file "$FILE" --phase structure 2>/dev/null); caprc=$?
+      set -e
+      if [[ "$caprc" -ne 0 ]]; then
+        capreason=$(printf '%s' "$capout" | jq -r '.reason // "capability_grant invalid"' 2>/dev/null || echo "capability_grant invalid")
+        emit false "$capreason" '["capability_grant"]'; exit 1
+      fi
+    fi
     emit true "委派包字段齐全" "[]"; exit 0
   else
     emit false "委派包缺必填字段或字段值非法" "$missing"; exit 1
@@ -149,6 +163,60 @@ ev_len=$(printf '%s' "$inner" | jq -rc 'if (.evidence|type)=="array" then (.evid
 if [[ "$ev_len" -le 0 ]]; then
   emit false "evidence 为空或非数组——不采信无证据的完成" '["evidence"]'; exit 10
 fi
+# ── 应用层④0：v1 外层判决契约标记（P1C1 · 仅 marker 出现时生效）───────
+# 显式版本标记 required_actions_contract 收窄"外层判决"歧义，且不误伤历史 raw：
+#   缺标记       → legacy 路径不变（下方 P1A 加性块只在 required_actions 出现时校验，不新增要求）。
+#   标记≠精确 v1 → 结构化 gate 错误 exit 1（未知/坏版本一律拒）。
+#   标记==精确 v1→ 外层键收窄到 allowlist；required_actions 必填；下方 severity 一致性强校验。
+V1_MARKER="call-omp.required_actions.v1"
+is_v1=0
+if printf '%s' "$inner" | jq -e 'has("required_actions_contract")' >/dev/null 2>&1; then
+  marker=$(printf '%s' "$inner" | jq -rc '.required_actions_contract')
+  if [[ "$marker" != "$V1_MARKER" ]]; then
+    emit false "required_actions_contract 非法：须为 '$V1_MARKER'（得 '${marker}'）" '["required_actions_contract"]'; exit 1
+  fi
+  is_v1=1
+  # v1 外层键 allowlist：只允许显式契约字段；任何 allowlist 之外的顶层键即拒
+  # （confidence 属显式字段，放行；不算未知键）。
+  extra=$(printf '%s' "$inner" | jq -c '[keys_unsorted[] | select(. as $k | ["severity","summary","evidence","reject_instruction","confidence","required_actions_contract","required_actions"]|index($k)|not)]')
+  if [[ "$extra" != "[]" ]]; then
+    emit false "v1 外层判决含 allowlist 之外的顶层键：${extra}" "$extra"; exit 1
+  fi
+  # v1 required_actions 必填（区别于 legacy 的"缺字段=豁免"）。
+  if ! printf '%s' "$inner" | jq -e 'has("required_actions")' >/dev/null 2>&1; then
+    emit false "v1 外层判决缺 required_actions（v1 必填）" '["required_actions"]'; exit 1
+  fi
+fi
+
+# ── 应用层④：required_actions 加性契约（P1A · 仅在字段出现时生效）──
+# 缺字段 → 保持既有行为（legacy 兼容，不新增任何要求）。
+# 出现 → 须过 schema 校验（枚举/上限一律由 contracts/required-actions.schema.json 派生）；
+#        且 severity==pass 时不得携带非空动作（pass 无 required action）；
+#        v1 判决额外要求非 pass severity 至少 1 个动作（P1C1）。
+if printf '%s' "$inner" | jq -e 'has("required_actions")' >/dev/null 2>&1; then
+  ra_compact=$(printf '%s' "$inner" | jq -c '.required_actions')
+  # 校验器对畸形输入合法退出 1；在全局 set -e 下 `ra_out=$(...)` 赋值会随之中断，
+  # 使承诺的结构化 emit false 无从执行。故显式局部关 errexit，稳妥捕获 stdout 与退出码；
+  # stderr（含潜在 traceback）丢到 /dev/null，绝不并入 stdout 污染结构化输出。
+  set +e
+  ra_out=$("${PYTHON:-python3}" "$(dirname "$0")/../required-actions-validate.py" --json "$ra_compact" 2>/dev/null)
+  ra_rc=$?
+  set -e
+  if [[ "$ra_rc" -ne 0 ]]; then
+    ra_reason=$(printf '%s' "$ra_out" | jq -rc '.reason // empty' 2>/dev/null)
+    [[ -n "$ra_reason" ]] || ra_reason="校验器拒绝（rc=${ra_rc}）"
+    emit false "required_actions 契约不合法：${ra_reason}" '["required_actions"]'; exit 1
+  fi
+  ra_len=$(printf '%s' "$inner" | jq -rc 'if (.required_actions|type)=="array" then (.required_actions|length) else -1 end')
+  if [[ "$sev" == "pass" && "$ra_len" -gt 0 ]]; then
+    emit false "severity=pass 却携带 ${ra_len} 个 required_actions（pass 无 required action）" '["required_actions"]'; exit 1
+  fi
+  # v1 严格闸：非 pass severity 必须至少 1 个动作（legacy 无此强制）。
+  if [[ "$is_v1" -eq 1 && "$sev" != "pass" && "$ra_len" -lt 1 ]]; then
+    emit false "v1 非 pass severity=$sev 须至少 1 个 required_actions（得 ${ra_len}）" '["required_actions"]'; exit 1
+  fi
+fi
+
 # ── 上下文守恒告警（非阻塞；只告警不拦截）──
 raw_size=$(wc -c < "$FILE" | tr -d ' ')
 raw_mb=$(echo "scale=1; $raw_size / 1048576" | bc)

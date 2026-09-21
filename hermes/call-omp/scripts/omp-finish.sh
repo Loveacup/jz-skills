@@ -69,6 +69,54 @@ if [[ -n "$INNER" ]] && inner_json_valid "$INNER"; then
   EVN=$(printf '%s' "$INNER" | jq -r 'if (.evidence|type)=="array" then (.evidence|length) else 0 end')
 fi
 
+# ── P1B：required_actions 双写（加性、向后兼容；与 legacy next_action 并列）──
+# monitor 已持久化的结构化动作列表（可能为 null / legacy 缺失）。作为“已被 P1A gate 校验过”的候选来源，
+# 但在此仍二次过 P1A 校验器把关，绝不让畸形/缺失数据泄成一条无效 YAML 动作。
+PY="${PYTHON:-python3}"
+VALIDATOR="$SELF_DIR/required-actions-validate.py"
+MON_RA=$(jq -c '.monitor.required_actions // empty' "$STATE" 2>/dev/null || true)
+
+# ra_single <kind> <reason-raw> → 单动作数组 JSON（reason 去控制符、去换行、裁 ≤512、保证非空）
+ra_single() {
+  local kind="$1" reason
+  reason=$(printf '%s' "${2:-}" | jq -Rrs 'gsub("[\\u0000-\\u001f]";" ") | .[0:512]' 2>/dev/null || true)
+  [[ -n "$reason" ]] || reason="需按审计结论处理（未提供具体理由）"
+  jq -cn --arg k "$kind" --arg r "$reason" '[{kind:$k,reason:$r}]'
+}
+
+# build_required_actions <next_action> → 校验通过的 required_actions JSON 数组（flow-style YAML 直用）
+build_required_actions() {
+  local na="$1" ra=""
+  case "$na" in
+    accept)
+      ra='[]' ;;
+    human_review)
+      ra=$(ra_single human_review "$REASON") ;;
+    stop)
+      ra=$(ra_single stop "$REASON") ;;
+    revise|*)
+      # 普通 reject：优先用 monitor 已校验的非空动作列表；否则派生一条 revise。
+      if [[ -n "$MON_RA" && "$MON_RA" != "null" ]] \
+         && printf '%s' "$MON_RA" | jq -e 'type=="array" and length>0' >/dev/null 2>&1 \
+         && "$PY" "$VALIDATOR" --json "$MON_RA" >/dev/null 2>&1; then
+        ra="$MON_RA"
+      else
+        local rr="$REASON"; [[ -n "$rr" ]] || rr="$RINSTR"
+        ra=$(ra_single revise "$rr")
+      fi ;;
+  esac
+  # 终局把关：任何原因不过 P1A 校验 → 退回一条基于当前裁决的安全动作（不采信畸形数据）。
+  if ! "$PY" "$VALIDATOR" --json "$ra" >/dev/null 2>&1; then
+    case "$na" in
+      accept)       ra='[]' ;;
+      stop)         ra=$(ra_single stop "自动循环已达硬终止，须停止并升级人工。") ;;
+      human_review) ra=$(ra_single human_review "需人工复核后再继续。") ;;
+      *)            ra=$(ra_single revise "需按审计结论进行有界修复。") ;;
+    esac
+  fi
+  printf '%s' "$ra"
+}
+
 # ── build_verdict <next_action> → YAML 到 stdout ──
 build_verdict() {
   local na="$1"
@@ -82,6 +130,8 @@ build_verdict() {
   [[ "$EVN" -eq 0 ]] && echo "  []"
   printf 'reject_instruction: %s\n' "$(printf '%s' "$RINSTR" | jq -R -s '.')"
   echo "next_action: $na"
+  # P1B：与 legacy next_action 并列的结构化动作列表（JSON flow-style = 合法 YAML；已过 P1A 校验）。
+  printf 'required_actions: %s\n' "$(build_required_actions "$na")"
   [[ -n "$REASON" ]] && printf 'decision_reason: %s\n' "$(printf '%s' "$REASON" | jq -R -s '.')"
   echo "decided_by: hermes"
   echo "decided_at: $(now_iso)"

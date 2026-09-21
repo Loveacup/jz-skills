@@ -17,7 +17,7 @@ OMP skill 的输入契约。Hermes 据此生成委派包，交 `omp-start.sh` �
 | `scope.allowed_paths` | 危险任务必填 | 允许访问/操作的路径数组 |
 | `scope.denied_paths` | 否 | 明确禁止的路径 |
 | `scope.cwd` | 建议 | omp 工作目录（`--cwd`，scope 的真实抓手） |
-| `criterion` | 是 | 可裁决验收条件数组（≥1，gate-verify 强校验） |
+| `criterion` | audit/govern 必填 | 可裁决验收条件数组；audit/govern 须 ≥1，execute 可为空 |
 | `threshold.round_limit` | 否 | 默认 3 |
 | `threshold.reject_limit` | 否 | 默认 2 |
 | `risk.level` | 否 | `low|medium|high`（默认 low；high 触发 scope 强校验） |
@@ -26,6 +26,7 @@ OMP skill 的输入契约。Hermes 据此生成委派包，交 `omp-start.sh` �
 | `auditor.required` | 否 | 默认 true |
 | `auditor.independence_level` | 否 | `independent_readonly`（默认，现场只读核查）/ `bundle_only`（仅凭离线证据包核查，**须带 `evidence_bundle.path`**）；gate-verify 强校验取值 |
 | `evidence_bundle.path` | `bundle_only` 必填 | `scripts/omp-bundle-code-audit.sh` 产出的 `manifest.json` 路径，供 bundle_only 审计者离线核查 |
+| `capability_grant` | Shell execute 可选 | 版本化单次 attempt 能力合同；缺省保持只读，RPC/ACP v1 不支持。见 `references/capability-grant-v1.md` |
 | `output.format` | 是 | 固定 `json` |
 | `output.evidence_required` | 是 | 固定 `true` |
 
@@ -54,6 +55,14 @@ output: { format: json, evidence_required: true }
 ```json
 {"task_id":"omp-20260628-144500","channel":"shell","mode":"audit","task":"审查 src/auth 模块是否存在 SQL 注入与鉴权绕过","scope":{"allowed_paths":["src/auth"],"denied_paths":["src/auth/secrets"],"cwd":"/path/to/repo"},"criterion":["所有 SQL 走参数化查询，无字符串拼接","每个受保护路由都校验 session"],"threshold":{"round_limit":3,"reject_limit":2},"risk":{"level":"low","dangerous_modes":[]},"auditor":{"required":true,"independence_level":"independent_readonly"},"output":{"format":"json","evidence_required":true}}
 ```
+
+### execute + 显式能力授权
+
+```json
+{"task_id":"omp-execute-001","channel":"shell","mode":"execute","task":"在隔离工作区完成指定修改并运行验证","scope":{"allowed_paths":["/tmp/isolated-workspace"],"denied_paths":[],"cwd":"/tmp/isolated-workspace"},"criterion":["仅修改授权目录","返回真实验证结果"],"threshold":{"round_limit":3,"reject_limit":2},"risk":{"level":"low","dangerous_modes":[]},"auditor":{"required":true,"independence_level":"independent_readonly"},"capability_grant":{"contract":"call-omp.capability-grant.v1","tools":["read","write","edit","bash"],"approval":"non_interactive","cwd":"/tmp/isolated-workspace","add_dirs":[]},"output":{"format":"json","evidence_required":true}}
+```
+
+Grant 只能由协调层明确签发；`--allow-write` 不是兼容别名，仍会拒绝。
 
 ## 审计独立级别（`auditor.independence_level`）
 

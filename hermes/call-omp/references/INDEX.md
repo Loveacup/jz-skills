@@ -10,6 +10,7 @@
 - `audit-scope-real-path-contract.md` — scope 必须使用真实路径。
 - `preimplementation-audit-contracts.md` — 实现前审计合同。
 - `evidence-only-code-audit-contract.md` — evidence-only 审计边界。
+- `capability-grant-v1.md` — Shell execute 的版本化能力授权、路径约束与 OMP 参数映射。
 
 ## Bundle-only 与 runaway
 

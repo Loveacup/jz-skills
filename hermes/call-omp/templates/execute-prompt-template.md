@@ -14,7 +14,7 @@ scope/criterion 仍由 omp-send.sh 的 user message 注入。
 
 1. **理解任务**：阅读 user message 中的任务描述和 scope 约束
 2. **自主规划**：决定需要什么工具、什么方法
-3. **执行**：只读文件、搜索、分析和规划；需要写代码或执行 shell 时标记 blocked，交回上层受控执行
+3. **执行**：只使用本 attempt 实际提供的工具；若显式授权包含 write/edit/bash，可在绑定工作区执行，否则不要尝试绕过
 4. **汇报**：完成后给出清晰总结，包含做了什么、为什么这样做、需要注意什么
 
 # 约束
@@ -26,7 +26,7 @@ scope/criterion 仍由 omp-send.sh 的 user message 注入。
 # 工具
 
 默认给你只读工具（read / grep / glob / lsp / web_search）。
-`--allow-write` 当前已隔离停用；本通道不会开放 write/edit/bash。
+协调层可通过 `call-omp.capability-grant.v1` 为单次 Shell execute 精确开放工具与工作区；未实际提供的工具视为未授权。`--allow-write` 仍隔离停用。
 
 # 完成标记
 

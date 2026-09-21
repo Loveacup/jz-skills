@@ -49,18 +49,41 @@ prompt_path()   { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-prompt-$
 counter_path()  { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-counter-$1.json"; }
 archive_dir()   { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-archive/$1"; }
 
+# ── 资源监督器路径约定（bundle_only Shell 审计专用，单一来源）────────
+# 监督器（omp-resource-supervisor.py）的两份产物路径，全部基于 OMP_TMPDIR
+# 且 task-id 校验。与主任务状态（state_path，call-omp 状态 schema）分离：
+#   resource_state_path ─ 监督器 forensic state（schema=call-omp-resource-supervisor.v1）
+#   pid_store_path      ─ 子进程身份 sidecar（pid/pgid/session_id/argv），供外部核对
+# 禁止在各脚本里手拼这些路径——一律走这里，避免漂移。
+resource_state_path() { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-resource-$1.json"; }
+pid_store_path()      { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-pids-$1.json"; }
+
+# ── 锁路径约定（单一来源；仅每任务粒度，绝无全局锁）────────────────────
+# start_lock  ─ omp-start 写 package/state 前持有的原子启动锁（mkdir 目录锁），
+#               仅护住"生成委派包 + 写状态"这段临界区；任务运行态另由 state.status 守护。
+# launch_lock ─ 发起子进程（send/supervisor 落盘）阶段的启动锁产物（本 slice 不写，
+#               仅作为 bundle_only 全新 task_id 的残留探测目标之一）。
+start_lock_path()  { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-start-$1.lock"; }
+launch_lock_path() { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-launch-$1.lock"; }
+
 # ── omp_available ─ omp CLI 是否可用（0=可用，非 0=不可用）──────────
 # 不假设 omp 已装；channel 降级判断的唯一入口。
 omp_available() { command -v "$OMP_BIN" >/dev/null 2>&1; }
 
-# ── atomic_write <target_file> ─ 从 stdin 原子写入目标文件 ──────────
+# ── atomic_write <target_file> ─ 从 stdin 原子写入目标文件（私有 0600）─
 # 写临时文件再 mv（同分区 mv 原子）——防撕裂读。串行调用足够；
 # 若未来并发复用须补 flock（与 cc-tmux gate-counter 同注脚）。
+# 【私有化】临时文件在 umask 077 下创建（0600），替换前显式 chmod 0600，
+#   替换后再对目标 chmod 0600 —— 三重保证委派包/状态等敏感文件绝不群/他可读。
+#   返回码沿用 mv 的退出码（保持既有错误传播语义）。
 atomic_write() {
-  local target="$1" tmp
+  local target="$1" tmp rc
   tmp="${target}.$$.tmp"
-  cat > "$tmp"
-  mv -f "$tmp" "$target"
+  ( umask 077; cat > "$tmp" )
+  chmod 0600 "$tmp" 2>/dev/null || true
+  mv -f "$tmp" "$target"; rc=$?
+  [[ $rc -eq 0 ]] && chmod 0600 "$target" 2>/dev/null || true
+  return $rc
 }
 
 # ── run_omp_timed <max_seconds> <args...> ─ 带硬超时跑 omp ──────────

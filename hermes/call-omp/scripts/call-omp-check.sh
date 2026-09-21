@@ -54,7 +54,7 @@ for entry in "${MANIFESTS[@]}"; do
 
   manifest_version=$(jq -r '.version // ""' "$path")
   if [[ "$manifest_version" != "$SKILL_VERSION" ]]; then
-    echo "❌ [$platform] version=$manifest_version，与 SKILL.md $SKILL_VERSION 不一致"
+    echo "❌ [$platform] version=${manifest_version}，与 SKILL.md $SKILL_VERSION 不一致"
     rc=1
     continue
   fi

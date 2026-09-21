@@ -17,15 +17,24 @@ audit-prompt-template.md —— omp-send.sh 用 --append-system-prompt 注入的
 
 ```json
 {
+  "required_actions_contract": "call-omp.required_actions.v1",
   "severity": "nit | concern | blocker | pass",
   "summary": "一句话结论（≤120 字）",
   "evidence": [
     {"type": "file|command|log|test|reference", "ref": "真实引用，如 src/auth.ts:42 / `npm test` 末尾输出 / 具体日志行"}
   ],
   "reject_instruction": "若 severity 非 pass：下一轮必须修复的最小具体问题；pass 时留空字符串",
+  "required_actions": [
+    {"kind": "revise | human_review | stop", "reason": "非空理由（≤512 字）", "targets": ["可选：具体 file:line / 路径 / 符号"]}
+  ],
   "confidence": "low | medium | high"
 }
 ```
+
+**外层判决契约版本（`required_actions_contract`）**：本模板产出的是 **v1** 外层判决，标记值恒为
+`call-omp.required_actions.v1`（逐字，不得改写）。v1 判决**只**输出上面列出的这几个字段——
+`required_actions_contract`、`severity`、`summary`、`evidence`、`reject_instruction`、`required_actions`、
+`confidence`（`confidence` 为可选显式字段，可省略但不算未知键）——**不得**再出现任何其它顶层键。
 
 # 硬约束（违反任一条 = 本次审计无效）
 
@@ -37,6 +46,15 @@ audit-prompt-template.md —— omp-send.sh 用 --append-system-prompt 注入的
 4. **严守 scope**：只读取/检查 user message 中 `允许路径` 内的内容；触碰 `禁止路径`、
    或超出工作目录，视为审计失败，应在 summary 中说明并降级。
 5. **逐条核对验收条件**：user message 给出的每条 criterion 都要在 evidence 中有对应核查痕迹。
+6. **`required_actions` 必填且与 severity 一致**：
+   - `severity=pass` ⇒ `required_actions: []`（空数组——pass 无需任何动作）。
+   - 任何非 pass severity ⇒ 至少一个 schema 合法动作，每个动作 `{kind, reason, targets?}`：
+     `kind` 只能是 `revise`（有界代码修复优先）、`human_review`（需人工决策时）、`stop`（必须停止自动循环时）；
+     `reason` 非空且 ≤512 字；`targets`（可选）须为具体真实目标（file:line / 路径 / 符号），不得凑数。
+   - 仍然**只输出一个 JSON 对象**，不要在对象之外增加任何解释段落。
+7. **v1 外层判决只含契约字段**：既已标记 `required_actions_contract: "call-omp.required_actions.v1"`，
+   顶层键必须落在 allowlist 内——`required_actions_contract` / `severity` / `summary` / `evidence` /
+   `reject_instruction` / `required_actions` / `confidence`——多一个任意顶层键即视为违约（gate 会硬拒）。
 
 # 你可用的工具
 

@@ -1,7 +1,7 @@
 ---
 name: call-omp
 description: "通过受 gate 约束的 RPC / Shell / 实验性 ACP 通道调用 OMP，适用于独立代码审计、证据包裁决、受控执行和明确授权的治理任务。默认只读、默认 RPC、失败关闭。不要用于无 scope/rollback 的写入、危险发布、删除、密钥传递或递归 self-call。"
-version: 0.8.0
+version: 0.9.0
 ---
 
 # call-omp
@@ -14,7 +14,7 @@ version: 0.8.0
 
 - `task_id` 含 `/`、`..`、空白、控制字符，或超过 128 字符。
 - `govern:clean|deep-clean|sql` 缺真实 scope、`risk.level=high` 或 rollback。
-- 任何任务要求 `--allow-write`；该能力当前已隔离停用。
+- 任何任务试图用废弃的 `--allow-write` 授权；写入只接受协调层显式签发的版本化 `capability_grant`。
 - OMP 退出码非零、raw 为空、缺 `turn_end`，或最后 `stopReason != stop`。
 - verdict 不是合法 JSON、`evidence=[]`、scope 越界、raw 无界增长。
 - 要求发送密钥、改生产、推送、删除或绕过平台安全策略。
@@ -26,7 +26,7 @@ version: 0.8.0
 |---|---|---|
 | 独立代码/架构/安全审计 | `audit` | 只读 |
 | 基于 evidence bundle 裁决 | `audit` + `bundle_only` | 只读 |
-| 有边界的命令执行 | `execute` | 只读工具；不得把失败当成功 |
+| 有边界的命令执行 | `execute` | 缺 grant 时只读；Shell 显式 grant 精确映射 OMP 原生能力 |
 | 清理/深度清理/SQL 治理 | `govern:clean|deep-clean|sql` | 当前只允许规划/审计；自动写入已隔离停用 |
 
 不使用：普通搜索、简单机械编辑、无验收条件的开放探索、不可逆外部发布。
@@ -74,15 +74,15 @@ START 仅在 `gate-verify` 与 `gate-danger` 都通过后写 `status=gated`。
 scripts/omp-send.sh --state /tmp/omp-state-audit-001.json
 ```
 
-默认工具白名单：`read,grep,glob,lsp,web_search`。
+默认工具白名单：`read,grep,glob,lsp,web_search`。Shell `mode=execute` 可携带 `call-omp.capability-grant.v1`，把明确授权的 tools/cwd/add_dirs/approval 精确映射到 OMP；完整合同见 [Capability Grant v1](references/capability-grant-v1.md)。
 
-三种 govern 写模式仍强制 `risk.level=high`、真实 scope 和 rollback，但当前 OMP 工具层不能硬约束 `allowed_paths`。因此自动写入处于隔离状态：
+`--allow-write` 是废弃且模糊的布尔开关，继续隔离：
 
 ```bash
 scripts/omp-send.sh --state /tmp/omp-state-clean-001.json --allow-write
 ```
 
-所有 `--allow-write` 当前必须 exit 2，不开放 `write/edit/bash`。需要实际写入时，把已审计划交给受控人工或 `cc-tmux`，由当前 agent 独立验收。
+所有 `--allow-write` 必须 exit 2。显式 grant 仅适用于 Shell `execute`，不得用于 audit/govern/bundle-only/RPC/ACP；每个 grant 必须绑定现存绝对 cwd，且 cwd/add_dirs 均被 scope 覆盖、denied_paths 为空。`allowed_paths` 不是 OS 沙箱，强隔离由上层 workspace/container/worktree 提供。任何写入都由当前 agent 独立验收。
 
 ### 3. MONITOR：失败关闭
 
@@ -121,6 +121,26 @@ scripts/omp-bundle-code-audit.sh --repo /abs/repo --out /tmp/bundle --scope src/
 
 必须检查：`manifest.json`、`file-list.txt`、`diff.patch`、命令输出与 exit code。中型 bundle 拆成独立 criterion；raw 快速增长或重复调用即停止。详见 [bundle gates](references/bundle-only-audit-gates.md) 与 [runaway policy](references/bundle-only-runaway-stop-policy.md)。
 
+### P0：受资源监督的 bundle-only Shell
+
+真正经由 Shell 执行的 bundle-only 审计（直连 Shell 与 RPC→Shell 回退两条路径）一律**强制异步且受 `scripts/omp-resource-supervisor.py` 监督**，不再有同步回退。supervisor 把 OMP 放在独立 session/pgrp，硬性执行 raw ≤ 20 MiB（child pre-exec 继承 `RLIMIT_FSIZE`，即使 `setsid` 逃逸后代仍持有 stdout FD 也守得住），并原子写脱敏 forensic state。
+
+monitor 在解析 raw/verdict **之前**先认证资源 sidecar（规范化路径、拒 symlink/非常规文件、精确 v1 task/state/raw/pid 绑定、pid/pgid/session 交叉核对）；一旦 `resource_rejected`，先于任何 verdict 解析转 `rejected`。
+
+**资源 cap 拒绝的正确处理**：保留 bounded 证据 → `omp-finish --reject` → 改用**重新划定范围、体积更小的证据包**，或转**人工复核**。**绝不**把资源 cap 拒绝改写成同步 shell 重跑，也**绝不**手动接受。（历史上「raw > 20MB 改同步重跑」的指引在 P0 后作废。）
+
+## P1：`required_actions` 判决契约
+
+audit verdict 可携带**可选、机器可读的 `required_actions`**（唯一真源 `contracts/required-actions.schema.json`，`kind ∈ revise|human_review|stop`）。操作约束：
+
+- **新 audit prompt 必须产出 v1 标记** `required_actions_contract: "call-omp.required_actions.v1"`（逐字，不得改写）。带此标记即触发严格 gate：外层 allowlist `{severity,summary,evidence,reject_instruction,confidence,required_actions_contract,required_actions}`、schema-valid actions、`pass=[]` 且非 pass ≥1 action。
+- **不要给 legacy 格式的判决贴 v1 标记**。marker-free 判决走 legacy 兼容路径；只有确为 v1 结构时才标记，否则严格 gate 会误判。
+- **monitor legacy 标记**：`required_actions` 缺失时 monitor 持久化一个 legacy 标记，表示该判决未走结构化 action，不代表「无需动作」。
+- **`next_action` 是兼容接口，`required_actions` 才是结构化指令**。finish 双写二者；消费方优先读 `required_actions`。
+- **不要手动提升被拒的 raw-cap 审计**：资源拒绝路径不合成 actions，禁止手动补写 `required_actions` 把 `resource_rejected` 改写成审计通过。
+
+详见 `P1-required-actions-evidence.md`。
+
 ## 错误处理
 
 | 现象 | 动作 |
@@ -129,7 +149,8 @@ scripts/omp-bundle-code-audit.sh --repo /abs/repo --out /tmp/bundle --scope src/
 | RPC 不 ready | bounded Shell fallback；保留降级证据 |
 | `toolUse` 结束、无 `stop` | rejected |
 | execute exit code 非零 | rejected，禁止 finish accept |
-| raw runaway / timeout | kill 精确 PID，保存 compact debug，转 bundle-only 或人工 |
+| `resource_rejected`（raw_cap/rate_fuse） | supervisor 已熔断并 kill；保留 bounded 证据 → `--reject` → 换更小/重划范围的证据包或转人工。**禁止**改同步重跑或手动接受 |
+| raw runaway / timeout | 受监督的 bundle-only 运行归 supervisor 所有，由硬 cap 处理，`--watch` **不得盲杀其 wrapper**；只有**非受监督**的运行才可用精确 PID 干预。保留 bounded 证据，reject，转更小/重划范围的 bundle 或人工 |
 | round/reject 超限 | exit 20，停止自动循环 |
 | gateway 救援 | 先读 [gateway rescue](references/sandbox-escape-gateway-rescue-20260629.md) |
 
@@ -138,8 +159,10 @@ scripts/omp-bundle-code-audit.sh --repo /abs/repo --out /tmp/bundle --scope src/
 零 token、自包含测试：
 
 ```bash
-bash tests/run-all.sh
-bash scripts/call-omp-check.sh
+python3 -m py_compile scripts/omp-resource-supervisor.py   # -> 0
+bash tests/test-resource-supervisor.sh                     # -> PASS=42 FAIL=0
+bash tests/run-all.sh                                       # -> FAIL=0（PASS 数随回归项增长）
+bash scripts/call-omp-check.sh                             # -> 0
 ```
 
 测试必须：
@@ -166,7 +189,7 @@ bash scripts/call-omp-check.sh
 
 - [ ] `task_id` 格式合法，scope 使用真实路径
 - [ ] mode、channel、criterion 与任务匹配
-- [ ] `--allow-write` 保持隔离；实际写入转人工或 `cc-tmux`
+- [ ] `--allow-write` 保持隔离；若有 grant，版本/模式/scope/cwd/add_dirs 与启动指纹均匹配
 - [ ] 最后 `stopReason=stop`，OMP exit code=0
 - [ ] evidence 是当前文件/命令的真实证据
 - [ ] 当前 agent 已独立复跑关键命令

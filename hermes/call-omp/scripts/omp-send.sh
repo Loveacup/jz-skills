@@ -15,7 +15,7 @@
 #          --append-system-prompt <模板> "<任务正文>"
 #   两通道输出同构 JSONL，由 omp-monitor.sh 双层解析（传输层 jq + 应用层内层 JSON）。
 #
-# 安全默认：只读工具白名单 read,grep,glob,lsp,web_search；--allow-write 当前隔离停用。
+# 安全默认：缺 capability_grant 时保持只读白名单；显式 v1 grant 仅由 execute package 提供。
 #
 # 参数：
 #   --state <file>     omp-start.sh 写的状态文件（必填）
@@ -23,7 +23,7 @@
 #   --max-time <N>     超时秒数（shell=omp --max-time；rpc=holder 存活上限）（默认 300）
 #   --async            Shell 通道后台跑（rpc 本就异步，此 flag 对 rpc 无意义）
 #   --advisor          附加 omp --advisor（实测 print/rpc 下不注入额外结构，语义见 references）
-#   --allow-write      已隔离停用；始终 exit 2，不开放 write/edit/bash
+#   --allow-write      废弃的模糊布尔开关；始终 exit 2，改用版本化 capability_grant
 #   --no-auto-approve  关闭 --auto-approve（默认开；只读白名单下安全）
 #   --no-fallback      RPC 失败时不降级 Shell（直接报错，便于诊断）
 #   --auto-skills      自动路由：审计/审查/架构类任务加载 stdd-omp（默认关）
@@ -39,6 +39,15 @@ set -euo pipefail
 SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SELF_DIR/lib/omp-lib.sh"
 GATE="$SELF_DIR/gate"; TPL_DIR="$SELF_DIR/../templates"
+# bundle_only Shell 审计经资源监督器执行（P0B slice）。可注入 OMP_PY 覆盖解释器。
+SUPERVISOR="$SELF_DIR/omp-resource-supervisor.py"
+OMP_PY="${OMP_PY:-python3}"
+# ── P2B S2：监督型 bundle_only Shell 审计固定走 verdict_v1 capture mode（显式上限，
+#   本 slice 不做 env 可控；raw-cap/RLIMIT/async wrapper/sidecars/thinking-control 一律不动）。──
+CAPTURE_MODE="verdict_v1"
+CAPTURE_INGRESS_CAP=134217728   # 128 MiB：从 stdout 管道实际读入的物理字节上限
+CAPTURE_VERDICT_CAP=1048576     # 1 MiB：规范 verdict raw 落盘上限
+CAPTURE_DIAGNOSTIC_CAP=524288   # 512 KiB：.diag.jsonl 落盘上限（触顶只截断）
 
 STATE=""; CH_OVERRIDE=""; MAXTIME=300; ASYNC=false; ADVISOR=false; ALLOW_WRITE=false
 AUTO_APPROVE=true; DRY=false; FALLBACK=true; SKILLS=""; AUTO_SKILLS=false; NO_SKILLS=false
@@ -70,6 +79,63 @@ STATUS=$(jq -r '.status' "$STATE")
 CHANNEL=$(jq -r '.channel // "rpc"' "$STATE")
 [[ -n "$CH_OVERRIDE" ]] && CHANNEL="$CH_OVERRIDE"
 [[ "$STATUS" == "gated" ]] || { echo "omp-send: status=${STATUS}（需 gated 才能发送；先过 omp-start）" >&2; exit 2; }
+if $ALLOW_WRITE; then
+  echo "omp-send: --allow-write 已隔离停用：请由上层协调 skill 在 execute package 中签发显式 capability_grant" >&2
+  exit 2
+fi
+
+# 单次 attempt 能力合同：协调层签发，call-omp 只校验并精确映射，不推断角色或授权。
+CAP_VALIDATOR="$GATE/resolve-capability-grant.py"
+HAS_CAP=$(jq -r '.package | has("capability_grant")' "$STATE")
+if [[ "$HAS_CAP" == true ]]; then
+  set +e
+  CAP_OUT=$(python3 "$CAP_VALIDATOR" --state "$STATE" --phase launch 2>/dev/null); CAP_RC=$?
+  set -e
+  if [[ "$CAP_RC" -ne 0 ]]; then
+    CAP_REASON=$(printf '%s' "$CAP_OUT" | jq -r '.reason // "capability_grant_invalid"' 2>/dev/null || echo capability_grant_invalid)
+    echo "omp-send: capability grant 拒绝：$CAP_REASON" >&2
+    exit 2
+  fi
+  CAP=$(printf '%s' "$CAP_OUT" | jq -c '.resolved')
+else
+  # 旧只读路径不新增 Python 启动依赖，保持原有 supervisor 前置条件与错误合同。
+  _legacy_cwd=$(jq -r '.package.scope.cwd // ""' "$STATE")
+  CAP=$(jq -cn --arg cwd "$_legacy_cwd" \
+    '{present:false,contract:"legacy-readonly",tools:["read","grep","glob","lsp","web_search"],approval:"legacy_auto_approve",cwd:$cwd,add_dirs:[],host_affecting:false}')
+  _legacy_fp=$(printf '%s' "$CAP" | shasum -a 256 | awk '{print $1}')
+  CAP=$(printf '%s' "$CAP" | jq -c --arg fp "$_legacy_fp" '.fingerprint=$fp')
+fi
+CAP_PRESENT=$(printf '%s' "$CAP" | jq -r '.present')
+CAP_CONTRACT=$(printf '%s' "$CAP" | jq -r '.contract')
+CAP_FINGERPRINT=$(printf '%s' "$CAP" | jq -r '.fingerprint')
+CAP_TOOLS=$(printf '%s' "$CAP" | jq -r '.tools | join(",")')
+CAP_CWD=$(printf '%s' "$CAP" | jq -r '.cwd // ""')
+CAP_ADD_DIRS=()
+while IFS= read -r _cap_dir; do [[ -n "$_cap_dir" ]] && CAP_ADD_DIRS+=("$_cap_dir"); done \
+  < <(printf '%s' "$CAP" | jq -r '.add_dirs[]?')
+if [[ "$CAP_PRESENT" == true && "$AUTO_APPROVE" != true ]]; then
+  echo "omp-send: 显式 capability grant 与 --no-auto-approve 冲突；非交互通道不会猜测审批语义" >&2
+  exit 2
+fi
+if [[ "$CAP_PRESENT" == true && "$CHANNEL" != "shell" ]]; then
+  echo "omp-send: capability grant v1 仅支持 Shell；RPC 缺可信的单 attempt exit code，ACP 尚不能保真传递 grant" >&2
+  exit 2
+fi
+# 显式 grant 只使用版本化 approval-mode；legacy --auto-approve 不叠加。
+if [[ "$CAP_PRESENT" == true ]]; then AUTO_APPROVE=false; fi
+
+# ── bundle_only 检测：仅 Shell 通道启用资源监督 + 强制 async 安全默认 ──
+# RPC / ACP 语义保持不变（含 RPC 失败降级 shell 的路径——那属于 RPC 通道行为）。
+INDEP=$(echo "$PKG" | jq -r '.auditor.independence_level // ""')
+BUNDLE_ONLY=false; SUPERVISED=false
+[[ "$INDEP" == "bundle_only" ]] && BUNDLE_ONLY=true
+if $BUNDLE_ONLY && [[ "$CHANNEL" == "shell" ]]; then
+  SUPERVISED=true
+  if ! $ASYNC; then
+    ASYNC=true
+    echo "🛡  omp-send: bundle_only Shell 审计 → 已强制 --async + 资源监督（安全默认已启用，忽略同步调用）" >&2
+  fi
+fi
 
 # ── 智能技能路由（--auto-skills）──
 # 检查指定 OMP skill 是否存在（参数：skill 名，如 stdd-omp）
@@ -109,6 +175,23 @@ fi
 
 update_state() { local f="$1"; local s; s=$(jq "$f | .updated_at=\"$(now_iso)\"" "$STATE"); printf '%s' "$s" | atomic_write "$STATE"; }
 
+# ── P2A-static：显式可信 OMP_BUNDLE_THINKING（无运行时能力探测）───────────────
+# 契约：未设/空/inherit → 继承（永不加 --thinking argv）；off → 仅【监督型 bundle_only Shell】
+#   实际执行时注入精确 `--thinking off` 并持久化 run.thinking_control。
+#   任何其它非空值属 operator 配置错误：在任何子进程 / 资源 sidecar 之前 exit 3 且记录明确原因，
+#   绝不静默纠正。这是可见的运维决策，不做能力发现 / 探测 / 回退。
+BUNDLE_THINKING="${OMP_BUNDLE_THINKING:-inherit}"
+[[ -z "$BUNDLE_THINKING" ]] && BUNDLE_THINKING="inherit"
+case "$BUNDLE_THINKING" in
+  inherit|off) ;;
+  *)
+    _bt_s=$(jq --arg v "$BUNDLE_THINKING" --arg ts "$(now_iso)" \
+      '.status="rejected" | .gate.reason=("channel_error: operator-config OMP_BUNDLE_THINKING 非法值 "+$v+"（仅接受 off｜inherit｜未设）") | .updated_at=$ts' "$STATE")
+    printf '%s' "$_bt_s" | atomic_write "$STATE"
+    echo "🚫 omp-send: OMP_BUNDLE_THINKING='$BUNDLE_THINKING' 非法（operator-config；仅 off|inherit|未设）→ exit 3" >&2
+    exit 3 ;;
+esac
+
 # ── gate-counter：本次 send = 一轮 ──
 set +e
 C_ERR=$(mktemp)
@@ -130,6 +213,7 @@ MODE_FULL=$(echo "$PKG" | jq -r '.mode')
 BASE_MODE="${MODE_FULL%%:*}"; SUBMODE="${MODE_FULL#*:}"; [[ "$SUBMODE" == "$MODE_FULL" ]] && SUBMODE=""
 TASK=$(echo "$PKG" | jq -r '.task')
 CWD=$(echo "$PKG" | jq -r '.scope.cwd // ""')
+[[ "$CAP_PRESENT" == true ]] && CWD="$CAP_CWD"
 ALLOWED=$(echo "$PKG" | jq -rc '.scope.allowed_paths // []')
 DENIED=$(echo "$PKG" | jq -rc '.scope.denied_paths // []')
 CRIT_LIST=$(echo "$PKG" | jq -r '.criterion[] | "  - " + .')
@@ -151,6 +235,24 @@ if [[ -r "$TPL" ]]; then SYS=$(cat "$TPL"); else
   SYS="你是独立审查者。只输出一个 JSON 对象（可包在 \`\`\`json 围栏里），字段：severity(nit|concern|blocker|pass)、summary、evidence(数组，每项 {type,ref} 指真实文件/命令/行号；不得为空)、reject_instruction。不采信无证据的结论。"
 fi
 
+CAPABILITY_DESC=$(printf '%s' "$CAP" | jq -c '{contract,tools,approval,cwd,add_dirs,host_affecting}')
+if [[ "$BASE_MODE" == execute ]]; then
+  OUTPUT_RULES=$(cat <<EOF
+  - 这是通用执行任务，不套审计 verdict schema；按 execute system prompt 自由汇报。
+  - 只能使用启动层实际授予的 capability；grant 不是 OS sandbox，scope 仍是任务合同。
+  - 启动 capability：$CAPABILITY_DESC
+  - 本任务轮次上限 ${RL}、reject 上限 ${JL}；不要绕过 scope。
+EOF
+)
+else
+  OUTPUT_RULES=$(cat <<EOF
+  - 严格按 system 提示的 JSON schema 输出，允许字段仅 required_actions_contract / severity / summary / evidence / reject_instruction / required_actions / confidence。
+  - evidence 必须是真实的文件路径+行号 / 命令+输出 / 测试结果，禁止空数组、禁止只写自然语言总结。
+  - 本任务轮次上限 ${RL}、reject 上限 ${JL}；不要绕过 scope。
+EOF
+)
+fi
+
 USER_MSG=$(cat <<EOF
 [OMP 委派任务 · task_id=$TASK_ID · mode=$MODE_FULL · 第 $ROUND 轮]
 
@@ -167,18 +269,29 @@ $([ -n "$SUBMODE" ] && printf '治理子模式：%s\n' "$SUBMODE")
 $CRIT_LIST
 
 约束：
-  - 严格按 system 提示的 JSON schema 输出（severity / summary / evidence / reject_instruction）。
-  - evidence 必须是真实的文件路径+行号 / 命令+输出 / 测试结果，禁止空数组、禁止只写自然语言总结。
-  - 本任务轮次上限 ${RL}、reject 上限 ${JL}；不要绕过 scope。
+$OUTPUT_RULES
 EOF
 )
 
-# ── 工具白名单 ──
-TOOLS="read,grep,glob,lsp,web_search"
-if $ALLOW_WRITE; then
-  echo "omp-send: --allow-write 已隔离停用：当前 OMP 工具层不能硬约束 allowed_paths，禁止自动开放 write/edit/bash" >&2
-  exit 2
+# ── 版本化 capability grant → OMP 原生工具/审批参数 ──
+TOOLS="$CAP_TOOLS"
+APPROVAL_MODE=""
+if [[ "$CAP_PRESENT" == true ]]; then APPROVAL_MODE="yolo"; fi
+CAP_ADD_DIRS_JSON=$(printf '%s' "$CAP" | jq -c '.add_dirs')
+SYSTEM_HASH=$(printf '%s' "$SYS" | shasum -a 256 | awk '{print $1}')
+OMP_CMD_PATH=$(command -v "$OMP_BIN" 2>/dev/null || true)
+OMP_CMD_CANON=""; OMP_CMD_SHA=""
+if [[ -n "$OMP_CMD_PATH" && -f "$OMP_CMD_PATH" ]]; then
+  OMP_CMD_CANON=$(perl -MCwd=realpath -e 'print realpath($ARGV[0]) // $ARGV[0]' "$OMP_CMD_PATH" 2>/dev/null || printf '%s' "$OMP_CMD_PATH")
+  OMP_CMD_SHA=$(shasum -a 256 "$OMP_CMD_PATH" 2>/dev/null | awk '{print $1}')
 fi
+LAUNCH_SPEC=$(jq -cn \
+  --arg cap "$CAP_FINGERPRINT" --arg tools "$TOOLS" --arg approval "$APPROVAL_MODE" \
+  --arg cwd "$CWD" --argjson add_dirs "$CAP_ADD_DIRS_JSON" --arg skills "$SKILLS" \
+  --argjson advisor "$ADVISOR" --argjson auto_approve "$AUTO_APPROVE" --arg system_hash "$SYSTEM_HASH" \
+  --arg omp_bin_requested "$OMP_BIN" --arg omp_bin_path "$OMP_CMD_CANON" --arg omp_bin_sha256 "$OMP_CMD_SHA" \
+  '{capability_fingerprint:$cap,tools:$tools,approval_mode:$approval,cwd:$cwd,add_dirs:$add_dirs,skills:$skills,advisor:$advisor,auto_approve:$auto_approve,system_hash:$system_hash,omp_bin_requested:$omp_bin_requested,omp_bin_path:$omp_bin_path,omp_bin_sha256:$omp_bin_sha256}')
+LAUNCH_FINGERPRINT=$(printf '%s' "$LAUNCH_SPEC" | shasum -a 256 | awk '{print $1}')
 
 RAW="$(raw_path "$TASK_ID")"; PROMPT="$(prompt_path "$TASK_ID")"
 printf '%s\n' "$USER_MSG" | atomic_write "$PROMPT"
@@ -186,10 +299,16 @@ printf '%s\n' "$USER_MSG" | atomic_write "$PROMPT"
 # ── dry-run：只渲染不发 ──
 if $DRY; then
   echo "===📋 BEGIN omp-send --dry-run (relay verbatim)==="
-  echo "channel=$CHANNEL  task_id=$TASK_ID  mode=$MODE_FULL  round=$ROUND  tools=$TOOLS  max-time=$MAXTIME  skills=${SKILLS:-(none)}"
+  echo "channel=$CHANNEL  task_id=$TASK_ID  mode=$MODE_FULL  round=$ROUND  tools=$TOOLS  approval=${APPROVAL_MODE:-legacy}  max-time=$MAXTIME  skills=${SKILLS:-(none)}"
+  echo "capability_contract=$CAP_CONTRACT  capability_fingerprint=$CAP_FINGERPRINT  launch_fingerprint=$LAUNCH_FINGERPRINT"
   if [[ "$CHANNEL" == "rpc" ]]; then
     echo "rpc daemon: $OMP_BIN --mode rpc --no-session --tools $TOOLS ${SKILLS:+--skills "$SKILLS"} ${CWD:+--cwd "$CWD"} ${AUTO_APPROVE:+--auto-approve}${ADVISOR:+ --advisor} --append-system-prompt <sys>"
     echo "rpc stdin : $(jq -cn --arg m "$USER_MSG" '{type:"prompt",message:$m}' | head -c 160)…"
+  elif $SUPERVISED; then
+    echo "mode      : bundle_only → 强制 --async + 资源监督（omp-resource-supervisor.py，无同步回退）"
+    echo "capture   : verdict_v1（--capture-mode ${CAPTURE_MODE} --ingress-cap ${CAPTURE_INGRESS_CAP} --verdict-cap ${CAPTURE_VERDICT_CAP} --diagnostic-cap ${CAPTURE_DIAGNOSTIC_CAP}）· diag=$RAW.diag.jsonl"
+    echo "supervisor: $OMP_PY $SUPERVISOR --state-file $(resource_state_path "$TASK_ID") --raw-output $RAW --pid-store $(pid_store_path "$TASK_ID") --task-id $TASK_ID --capture-mode $CAPTURE_MODE --ingress-cap $CAPTURE_INGRESS_CAP --verdict-cap $CAPTURE_VERDICT_CAP --diagnostic-cap $CAPTURE_DIAGNOSTIC_CAP -- $OMP_BIN -p --mode json --no-session --max-time $MAXTIME --tools $TOOLS ${SKILLS:+--skills \"$SKILLS\"} ${CWD:+--cwd \"$CWD\"} … --append-system-prompt <sys> <user_msg>"
+    echo "将持久化  : run.resource_supervised=true · run.watch_required=true · run.mode=async · run.capture_mode=verdict_v1 · run.diagnostic_output · run.resource_state · run.pid_store · wrapper pid"
   else
     echo "shell cmd : $OMP_BIN -p --mode json --no-session --max-time $MAXTIME --tools $TOOLS ${SKILLS:+--skills \"$SKILLS\"} ${CWD:+--cwd \"$CWD\"} … --append-system-prompt <sys> <user_msg>"
   fi
@@ -198,18 +317,83 @@ if $DRY; then
   exit 0
 fi
 
+# 发送前持久化解析后的 attempt 合同；启动失败也保留真实 forensic，且不得改写 grant。
+_cap_state=$(jq --argjson cap "$CAP" --arg capfp "$CAP_FINGERPRINT" \
+  --arg launchfp "$LAUNCH_FINGERPRINT" --argjson launch "$LAUNCH_SPEC" \
+  --arg now "$(now_iso)" \
+  '.run.capability=$cap | .run.capability_fingerprint=$capfp |
+   .run.launch_fingerprint=$launchfp | .run.launch_spec=$launch | .updated_at=$now' "$STATE")
+printf '%s\n' "$_cap_state" | atomic_write "$STATE"
+
+# ── P2A-static：无探测。thinking 控制完全来自脚本顶部校验过的 OMP_BUNDLE_THINKING，
+#   仅在【监督型 bundle_only Shell】实际执行边界应用（见 shell_send）。此处不再有任何
+#   --help 能力发现 / tempfile / Python helper——那条 provider 探测路径已按 L2 决策移除。
+
 # ════ Shell 通道（也是 RPC 的降级目标）════════════════════════════
 shell_send() {
   if ! omp_available; then
     update_state ".status=\"rejected\" | .gate.reason=\"channel_error: omp CLI 不存在\""
     echo "🚫 omp-send: omp 不可用 → status=rejected (channel_error)" >&2; return 3
   fi
+  # bundle_only 不变量：在【实际执行边界】强制监督，而非只看初始通道选择。
+  # 无论是直连 Shell 还是 RPC 失败降级到此，只要是 bundle_only 就必须
+  # 资源监督 + 强制 async + watch_required——杜绝降级路径逃逸到无监督同步 Shell。
+  if $BUNDLE_ONLY && ! $SUPERVISED; then
+    SUPERVISED=true; ASYNC=true
+    echo "🛡  omp-send: bundle_only 经 Shell 执行（RPC 降级路径）→ 已强制 --async + 资源监督（安全默认）" >&2
+  fi
+  # ── P2A-static：仅【监督型 bundle_only Shell】按显式 OMP_BUNDLE_THINKING 注入 --thinking ──
+  # 覆盖直连监督 Shell 与 RPC→Shell 降级（降级已在上面重入监督）。非监督路径 THINKING_CTL 恒空 →
+  # 零改动、零 thinking 状态。配置已在脚本顶部校验，此处不做任何探测 / 能力发现。
+  local THINKING_CTL=""
+  $SUPERVISED && THINKING_CTL="$BUNDLE_THINKING"
   local args=(-p --mode json --no-session --max-time "$MAXTIME" --tools "$TOOLS")
+  [[ -n "$APPROVAL_MODE" ]] && args+=(--approval-mode "$APPROVAL_MODE")
+  [[ "$THINKING_CTL" == "off" ]] && args+=(--thinking off)
   [[ -n "$SKILLS" ]] && args+=(--skills "$SKILLS")
   $AUTO_APPROVE && args+=(--auto-approve)
   [[ -n "$CWD" ]] && args+=(--cwd "$CWD")
+  local _add_dir
+  for _add_dir in "${CAP_ADD_DIRS[@]:-}"; do [[ -n "$_add_dir" ]] && args+=(--add-dir "$_add_dir"); done
   $ADVISOR && args+=(--advisor)
   args+=(--append-system-prompt "$SYS" "$USER_MSG")
+
+  # ── bundle_only：只经资源监督器异步跑 OMP（强制 async，杜绝同步回退）──
+  if $SUPERVISED; then
+    if [[ ! -r "$SUPERVISOR" ]] || ! command -v "${OMP_PY%% *}" >/dev/null 2>&1; then
+      update_state ".status=\"rejected\" | .gate.reason=\"channel_error: bundle_only 需资源监督器，但 python3/supervisor 不可用（不回退同步）\""
+      echo "🚫 omp-send: bundle_only 资源监督器不可用（$OMP_PY / ${SUPERVISOR}）→ status=rejected" >&2; return 3
+    fi
+    local rstate pids diag
+    rstate="$(resource_state_path "$TASK_ID")"; pids="$(pid_store_path "$TASK_ID")"
+    # verdict_v1 诊断 sidecar 由监督器派生自 raw_output（raw + ".diag.jsonl"）；此处仅镜像入主状态。
+    diag="$RAW.diag.jsonl"
+    rm -f "$RAW.exit"
+    # wrapper 子壳：跑 supervisor，落其退出码到 .exit sidecar（0 正常 / 2 资源拒绝 / 等）。
+    # supervisor 自行把子进程 stdout 流式分帧分类写入 canonical verdict raw；此处只收 supervisor 自身 stderr。
+    ( set +e
+      "$OMP_PY" "$SUPERVISOR" \
+        --state-file "$rstate" --raw-output "$RAW" --pid-store "$pids" \
+        --task-id "$TASK_ID" --task-id-source call-omp-send \
+        --capture-mode "$CAPTURE_MODE" \
+        --ingress-cap "$CAPTURE_INGRESS_CAP" \
+        --verdict-cap "$CAPTURE_VERDICT_CAP" \
+        --diagnostic-cap "$CAPTURE_DIAGNOSTIC_CAP" \
+        -- "$OMP_BIN" "${args[@]}" >/dev/null 2>"$RAW.err" </dev/null
+      _ec=$?; printf '%s\n' "$_ec" | atomic_write "$RAW.exit" ) &
+    local pid=$!; disown 2>/dev/null || true
+    # 单次原子写：主任务状态仍是 call-omp 状态 schema，补资源监督字段 + verdict_v1 capture 字段。
+    update_state ".status=\"running\" | .run.channel_used=\"shell\" | .run.mode=\"async\" | .run.raw_output=\"$RAW\" | .run.resource_state=\"$rstate\" | .run.pid_store=\"$pids\" | .run.resource_supervised=true | .run.watch_required=true | .run.capture_mode=\"$CAPTURE_MODE\" | .run.diagnostic_output=\"$diag\" | .run.thinking_control=\"$THINKING_CTL\" | .run.pid=$pid | .run.round=$ROUND | .run.started_at=\"$(now_iso)\""
+    echo "===📋 BEGIN omp-send shell bundle_only supervised --async (relay verbatim)==="
+    echo "🛡  bundle_only 安全默认已强制：--async + 资源监督（raw_cap 熔断，无同步回退）"
+    echo "🚀 已后台发起 OMP（第 $ROUND 轮，经 supervisor）· wrapper pid=$pid"
+    echo "   raw           : $RAW"
+    echo "   resource_state: $rstate"
+    echo "   pid_store     : $pids"
+    echo "   监控: omp-monitor.sh --state $STATE   · 干预: kill $pid"
+    echo "===📋 END==="; return 0
+  fi
+
   update_state ".status=\"running\" | .run.channel_used=\"shell\" | .run.raw_output=\"$RAW\" | .run.started_at=\"$(now_iso)\" | .run.round=$ROUND"
   if $ASYNC; then
     rm -f "$RAW.exit"
@@ -244,12 +428,11 @@ rpc_send() {
   fifo="$(fifo_path "$TASK_ID")"
   dpid=$(jq -r '.run.rpc_pid // empty' "$STATE")
   hpid=$(jq -r '.run.holder_pid // empty' "$STATE")
-  # 复用存活 daemon 前校验配置一致性（防权限泄露）
+  # 复用存活 daemon 前校验完整启动指纹（防 cwd/skills/system/binary 漂移）
   if [[ -n "$dpid" ]]; then
-    REC_TOOLS=$(jq -r '.run.rpc_tools // ""' "$STATE")
-    REC_APPROVE=$(jq -r '.run.rpc_auto_approve // ""' "$STATE")
-    if [[ "$REC_TOOLS" != "$TOOLS" ]] || [[ "$REC_APPROVE" != "$AUTO_APPROVE" ]]; then
-      warn "rpc: daemon 配置不匹配（tools/auto-approve 变更），重启"
+    REC_FP=$(jq -r '.run.rpc_launch_fingerprint // ""' "$STATE")
+    if [[ "$REC_FP" != "$LAUNCH_FINGERPRINT" ]]; then
+      warn "rpc: daemon 启动指纹不匹配，重启"
       rpc_stop "$TASK_ID" "$dpid" "$hpid"
       dpid=""; hpid=""
     fi
@@ -266,7 +449,10 @@ rpc_send() {
     local dargs=(--mode rpc --no-session --tools "$TOOLS")
     [[ -n "$SKILLS" ]] && dargs+=(--skills "$SKILLS")
     $AUTO_APPROVE && dargs+=(--auto-approve)
+    [[ -n "$APPROVAL_MODE" ]] && dargs+=(--approval-mode "$APPROVAL_MODE")
     [[ -n "$CWD" ]] && dargs+=(--cwd "$CWD")
+    local _rpc_add_dir
+    for _rpc_add_dir in "${CAP_ADD_DIRS[@]:-}"; do [[ -n "$_rpc_add_dir" ]] && dargs+=(--add-dir "$_rpc_add_dir"); done
     $ADVISOR && dargs+=(--advisor)
     dargs+=(--append-system-prompt "$SYS")
     ( "$OMP_BIN" "${dargs[@]}" < "$fifo" > "$RAW" 2> "$RAW.err" ) & dpid=$!
@@ -281,7 +467,7 @@ rpc_send() {
     if [[ $ready -ne 1 ]]; then
       warn "rpc: daemon 未就绪（超时或早退）"; rpc_stop "$TASK_ID" "$dpid" "$hpid"; return 1
     fi
-    update_state ".run.rpc_pid=$dpid | .run.holder_pid=$hpid | .run.fifo=\"$fifo\" | .run.rpc_tools=\"$TOOLS\" | .run.rpc_auto_approve=\"$AUTO_APPROVE\""
+    update_state ".run.rpc_pid=$dpid | .run.holder_pid=$hpid | .run.fifo=\"$fifo\" | .run.rpc_tools=\"$TOOLS\" | .run.rpc_auto_approve=\"$AUTO_APPROVE\" | .run.rpc_launch_fingerprint=\"$LAUNCH_FINGERPRINT\""
   fi
   # 发 prompt（记 turn 起始行 marker，供 monitor 只看本轮）
   tsl=$(wc -l < "$RAW" | tr -d ' ')
