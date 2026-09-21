@@ -1,176 +1,135 @@
 ---
 name: skill-authoring
-description: Make Agent Skills that actually get FOLLOWED, not just written. Use when creating, auditing, importing, slimming, or fixing a skill — especially when a skill is too long, over ~300 lines, or an agent keeps ignoring it. Adds a compliance layer on top of Anthropic's skill-creator (which teaches basic SKILL.md authoring). Triggers: 制作/写/优化/审查/导入 skill, skill 太长, agent 不遵循 skill, create / improve / audit / import / slim a skill. DO NOT use for general docs or one-off tasks.
-version: 4.0.0
+description: Guides creating, auditing, importing, slimming, and revising reusable Agent Skills. Use when a task changes a skill's trigger, instructions, references, source/canonical relationship, or release path. Applies progressive disclosure, behavior contracts, risk-tier verification, and controlled deployment. Do not use for general documentation, one-off tasks, or automatic publication/deployment.
 type: routine
+version: 4.1.0
+author: Hermes Agent
 license: MIT
 metadata:
   hermes:
-    tags: [skill-authoring, compliance, progressive-disclosure]
+    tags: [skill-authoring, behavior-contracts, progressive-disclosure, governance]
     related_skills: [skill-creator, grill-with-docs]
 ---
 
-# Skill Authoring — make skills that get followed
+# Skill Authoring
 
-> Anthropic's `skill-creator` teaches how to WRITE a SKILL.md. This teaches how to make an agent actually FOLLOW it.
+Build the smallest reusable instruction surface that produces the intended behavior and can be checked against observable evidence.
 
-## The one principle (everything below serves this)
+## Core contract
 
-**A skill that isn't followed is worse than none.** An agent holding `n` live rules follows them all with probability ≈ p^n — at p=0.95, ten rules → ~60%, eighty → ~2%. Adherence is not won by writing more; it's won by making the agent hold **fewer things at once**, each concrete, each where attention lands. Every token competes with the user's real request.
+- **Behavior before ceremony.** Every instruction protects an observable outcome, boundary, or failure mode. Do not require a scorecard, warning table, checklist shape, line position, or fixed test count unless the skill's actual risk calls for it.
+- **Progressive disclosure by need.** Keep the common execution path in `SKILL.md`. Put audience-, environment-, history-, and recovery-specific material in references with an explicit load condition.
+- **One active authority per plane.** Source, canonical pool, runtime entry, and published repository are separate states. Compare them before merging; never treat recency, version text, or file count as authority.
+- **External writes are separate actions.** Preparing a skill does not authorize commit, push, runtime deployment, profile sync, baseline changes, or deletion. Execute only the explicitly authorized named target.
+- **Evidence follows risk.** Small wording edits need focused static checks. Behavior changes need scenario evidence. High-impact changes need a fresh independent verifier and safe execution evidence.
 
-→ **Before adding any rule, delete or merge one.** Net live-rule count must not grow.
+## Decide whether a skill is appropriate
 
-## 🚨 Red Flags — author excuses that kill adherence (fix on sight)
+Create or expand a skill when the capability is reusable, benefits from a stable trigger, and does not already have an owner. Otherwise improve the existing owner, put a narrow rule in the relevant project instructions, or handle the request directly.
 
-| You catch yourself thinking… | Do this instead |
-|---|---|
-| "It's all important, 300+ lines is fine" | Every line past the body budget lowers compliance. Move depth to `references/`. |
-| "I'll add more rules so it complies" | More rules = lower p^n. **Cut n first.** Count live obligations; remove one before adding one. |
-| "I'll just review it myself, I wrote it" | Self-review misses silent-bypass. Run it on a **fresh agent** and watch what it actually does. |
-| "The label 『模板/示例/参考』 makes it clear" | Descriptive labels read as *optional*. Write the command: 「必须按此格式，否则=未完成」。 |
-| "This is a meta/special skill, the rules don't apply here" | Reflexivity trap — meta-skills break their own rules most. **This file is held to its own standard.** |
-| "More detail = more reliable" | Examples beat prose. Show 1–2 input→output pairs; cut the theory. |
+Before asking the user, read the target skill, its owning rules, and available source/canonical records. Ask only for a decision the repository or task context cannot answer.
 
-## Should this be a skill at all?
+## Authoring flow
 
-```
-Reusable capability, used 3+ times?  ──no──▶ Don't. A CLAUDE.md line or a one-off reply is better.
-        │ yes
-Overlaps an existing skill?          ──yes─▶ Improve that one. Don't fork.
-        │ no
-        ▼  build it ↓
-```
+### 1. Define the behavior contract
 
-## The flow
+Write down:
 
-*Creating a skill: all 6. Auditing / slimming an existing one: skip 1–2, start at **Slim**.*
+- the tasks that should and should not trigger the skill;
+- the consumer-visible result;
+- the boundaries and failure states that matter;
+- the files and state planes in scope;
+- the risk tier and proof needed for this change.
 
-1. **Capture** — one sentence: what it does, when it fires, what success looks like. Can't say it in one sentence? Keep asking (one question at a time; read code/docs before asking the user).
-2. **Basics** — first skill? Load `skill-creator` for YAML / description / structure. Then apply this compliance layer.
-3. **Draft** — write the body. Then immediately…
-4. **Slim** — the core craft. Apply *Progressive disclosure* + *Show-not-tell* (below) until the body is under budget.
-5. **Harden** — Red Flags on top, checklist at bottom, imperative + positive phrasing, MUST only on red lines.
-6. **Verify on a fresh agent** — deploy, give it a real task, watch. Did it invoke + follow? Classify any failure (below) *before* touching the skill.
+Descriptions are discovery contracts, not advertising. Use concrete task language and anti-triggers; avoid urgency, hype, and claims that the skill must always load.
 
-## The craft (shown, not told)
+### 2. Inspect ownership and current state
 
-**Progressive disclosure — the body is the only always-paid cost.**
+For an existing skill, compare the relevant source, canonical, and runtime copies before editing. Preserve local or runtime-only material until it is classified as active portable guidance, host-specific operations, historical evidence, generated output, or obsolete content.
 
-| Level | Content | Budget |
+When a runtime copy is richer, perform a component-level semantic merge. Do not whole-copy the richest or newest tree. Back up each changed file, keep unrelated dirty work untouched, and update only the reviewed mirror files.
+
+For centralized SkillHub work, read `references/agent-skillhub-context-map.md` only when a governance/config/ledger decision is actually involved. It is a router, not a mandatory pre-read list.
+
+### 3. Draft the common path
+
+Keep generally applicable decisions in the body:
+
+- when to invoke;
+- the main branch or procedure;
+- non-negotiable safety boundaries;
+- the evidence required before reporting success.
+
+Move conditional depth to references. A body is too large when an ordinary task must hold unrelated modes, environments, history, or recovery procedures at once—not when it crosses an arbitrary line count.
+
+Use examples only where a format, precedence rule, or decision branch would otherwise be ambiguous. Use directive language for required behavior, but reserve `MUST` for genuine safety or correctness boundaries.
+
+### 4. Harden only demonstrated risks
+
+Add a warning, checklist item, script, or example only when it closes a plausible bypass or observed failure. Prefer a positive executable instruction over a prohibition. Merge repeated rules and remove ceremony that does not change behavior.
+
+For format-sensitive output, show the contract. For tool-heavy or security-sensitive work, prefer mechanical checks over prompt-only claims.
+
+### 5. Verify by risk
+
+| Risk tier | Typical change | Required evidence |
 |---|---|---|
-| `description` | when-to-fire trigger | the ONLY discovery signal — make it specific, not generic |
-| SKILL.md body | the 20% needed 80% of the time | **< ~200 lines; lower is better** |
-| `references/*` | depth, one level deep | load on demand; name a load-trigger per file |
+| Low | wording, descriptions, reference pointers, historical clarification with no behavior change | focused reread, link/path resolution, and mirror comparison when applicable |
+| Medium | trigger routing, workflow order, output contract, tool selection, or error handling | realistic changed-path scenarios, including relevant positive and negative cases; use a fresh context when invocation or instruction following is at issue |
+| High | security boundary, destructive action, external publication, runtime mutation, cross-profile behavior, or orchestration policy | isolated safe execution plus a fresh independent agent reviewing the original acceptance contract and current artifact; unresolved evidence blocks acceptance |
 
-**Slimming levers — apply in order, highest yield first:**
-1. **Split by audience** — environment/tool-specific ops (sync, CI, deploy) → `references/<env>-ops.md`. Biggest single win.
-2. **Delete repetition** — a rule stated 5× → stated once, near the action.
-3. **Ceremony → checklist** — scoring matrices / dimension rubrics don't change behavior; replace with one binary checklist.
-4. **Theory → references** — research, citations, "why it works" prose. The rule stands without them.
-5. **Collapse steps** — numbered steps sharing one gate or output are one move; a step that's just "then do the obvious next thing" folds into its neighbor.
+Choose cases from the changed behavior rather than filling a quota. Reuse unaffected evidence; repeat checks only after a new edit, a failure, or an unresolved risk.
 
-**MOVE vs DELETE:** valuable to *some* task but not most → MOVE to `references/`. Redundant / pure ceremony / theory → DELETE. (So "50 pitfalls → 6" = 6 kept in body + ~34 moved + ~10 deleted as dupes.)
+A fresh review is not permission to deploy. Test a candidate in an isolated copy or non-production target unless the user separately authorized a named runtime mutation.
 
-Keep `references/` to a handful the agent will actually load — **30+ ref files = "unfinished consolidation," not disclosure** (the agent loads ~2).
+### 6. Classify failures before revising
 
-**Imperative + positive — the highest-leverage edit.** Negations and descriptive labels are followed worst:
-
-```diff
-- **汇报模板：** …                       # read as "optional reference"
-+ **必须按此模板汇报，自由发挥 = 未汇报：** …   # a command
-- Don't use mock data.
-+ Use real data from the API.
-```
-
-**Positioning.** Red Flags in the top 10%; decision tree in the top 15%; verification checklist as the **last** thing before the agent acts. Restate the single guardrail that matters right before the output step (recency beats the middle).
-
-**MUST budget.** Reserve MUST / ALWAYS / MANDATORY for true non-negotiables. If everything is MUST, nothing is.
-
-**Anti-rationalization template** (top of every skill):
-
-```markdown
-## 🚨 Red Flags
-| Excuse the agent will invent | Why it's wrong / do instead |
-|---|---|
-| "<the shortcut reasoning>" | "<close the loophole>" |
-```
-Generate it by asking: *"What will the agent tell itself to skip this?"*
-
-**Verification checklist template** (bottom, copyable, binary):
-
-```markdown
-## ✅ Before returning
-- [ ] Did I <primary action 1>?
-- [ ] Did I <primary action 2>?
-If any box is empty, go back.
-```
-
-## Before/after — this skill, applied to itself (the proof)
-
-`skill-authoring` v3 *was* the disease it diagnoses: 365 lines, **132 table rows, 6 code blocks, 37 reference files** (agents loaded ~2), a 50-row pitfalls table — while literally containing a red flag against "adding rules to fix compliance."
-
-v4 fix, by its own rules:
-- **Split by audience** — all Hermes deploy / sync / watchdog / repo-import ops (~140 lines, the 50-row table) → `references/deploy-ops.md`, loaded only when deploying in that environment.
-- **Cut n** — 50 pitfalls → 6 universal Red Flags; 11 gated steps → 6 moves; 7-dimension scoring matrix → one binary checklist.
-- **Show not tell** — research-citation prose → this diff + these copyable templates.
-- **Stop always-loading the catalog** — the 40-line, 37-row References table → one pointer + `references/INDEX.md`.
-
-Result: **365 → 138 lines · table rows 132 → 22 · body live-rules ~80 → ~12** — well under the ~200 target.
-
-More before/afters: `references/slimming-case-studies.md` — web-research-router 500→146, strategic-insight-longform 513→130, xhs-crawler 813→124.
-
-## When a skill isn't followed: classify before fixing
-
-| Failure | Symptom | Fix |
+| Failure | Evidence | Response |
 |---|---|---|
-| **Discovery** | skill never loaded | fix the `description` triggers |
-| **Comprehension** | loaded, misread | simplify wording, add an example |
-| **Compliance** | understood, skipped | strengthen positioning + anti-rationalization — **don't add new rules** |
-| **Capability** | followed, couldn't execute | fix the procedure or add a script |
+| Discovery | the skill did not load for an in-scope request | refine trigger and anti-trigger language |
+| Comprehension | it loaded but the contract was misread | simplify the implicated instruction or add one clarifying example |
+| Contract defect | the skill prescribed wrong or incomplete behavior | correct only the affected contract |
+| Execution lapse | the contract was correct but not followed | improve salience or enforcement; do not rewrite unrelated guidance |
+| Capability/environment | the contract was followed but the tool or environment could not perform it | fix the procedure, capability, or declared prerequisite |
 
-Don't rewrite the whole skill for one failure — change only the implicated rule. If the agent ignored a **correct** rule (execution lapse), the skill is right: add emphasis, don't change it. When evolving from deployment telemetry, accumulate 3–5 signals before revising (avoids oscillation) — but a direct user fix request is itself a signal: act on it. Depth: `references/skill-evolution-research.md`.
+Do not turn one failure into a whole-skill rewrite. Direct user correction is evidence and may be acted on immediately; repeated telemetry is useful when the signal is ambiguous.
 
-## ✅ Before you ship (run this on your own skill)
+## Source, privacy, and release boundaries
 
-- [ ] Did I count live rules (n) and cut one before adding one?
-- [ ] Is the body under budget, with depth in `references/`?
-- [ ] Red Flags in top 10%, checklist at the bottom?
-- [ ] Is the `description` specific enough to fire — and to NOT over-fire?
-- [ ] Imperative + positive phrasing; MUST only on red lines?
-- [ ] For any format-sensitive output: at least one input→output example? (none? skip this)
-- [ ] Did I run it on a **fresh agent** and watch it actually invoke + follow?
+- Treat an upstream update as a proposal. Preserve richer local content through semantic review rather than source-blind overwrite.
+- Keep private paths, credentials, personal identifiers, runtime state, caches, and generated evidence out of portable/public skill sources. Scan the complete intended publication set, not only `SKILL.md`.
+- Import/preparation, canonical application, runtime exposure, publication, and retirement are distinct actions. Report which state was actually reached.
+- A dry run or plan does not authorize apply. A request to import, audit, or prepare does not imply commit or push.
+- Deploy only to explicitly named targets. Do not broaden to every profile/platform, use blanket sync, run `rsync --delete`, change a watchdog baseline, or remove an old entry without separate scope and authorization.
+- If required evidence is unavailable, mark the affected claim `BLOCKED`. Independent downstream work may continue only when it does not rely on that claim.
+- A timeout is missing evidence, not proof that a reviewer or writer stopped. Before replacing a worker on the same mutable scope, obtain process-exit or lock/lease-release evidence; never create overlapping writers.
 
-If any box is empty, fix it before shipping.
+Read `references/deployment.md` for preparation/publication/deployment state gates. Use `references/desensitization-audit.md` when material may become public. Use `references/repo-import-profile-local-and-staged-audit.md` for profile-local sources or dirty repositories.
 
----
-> Depth on demand: `references/INDEX.md` (full catalog — load by name when the subtask arises).
-> Most-used: `compliance-research.md` · `anti-rationalization-catalog.md` · `slimming-case-studies.md` · `deploy-ops.md` (Hermes sync / watchdog / import / CQI).
-> Changelog: `references/changelog.md`
+## Conditional reference routing
 
-<!-- ===================== END OF SKILL.md (drop-in replacement above this line) ===================== -->
+| Situation | Read |
+|---|---|
+| Centralized SkillHub config, ledger, pool, runtime exposure, or Obsidian writeback | `references/agent-skillhub-context-map.md`, then the applicable section of `references/agent-skillhub-workflow.md` |
+| Publication or named-target deployment | `references/deployment.md` |
+| Profile-local runtime source or unrelated dirty repository state | `references/repo-import-profile-local-and-staged-audit.md` |
+| Public-source privacy review | `references/desensitization-audit.md` |
+| Runtime/canonical divergence or same-version mismatch | `references/runtime-grounded-cqi-audit.md` |
+| High-impact independent/adversarial review | `references/dual-role-patterns.md` |
+| Failure-driven evolution research | `references/skill-evolution-research.md` |
+| External capability absorption | `references/absorption-analysis.md` |
 
-# Restructure manifest (NOT part of SKILL.md — implementation guide)
+Historical case studies and research references are evidence, not automatically active procedure.
 
-The redesign is a *split*, not a deletion. Nothing valuable is lost; environment-specific mass moves out of the always-loaded body.
+## Before returning
 
-### 1. NEW `references/deploy-ops.md` ← move verbatim from current SKILL.md
-Group the extracted content under these headers:
-- **Repo import** ← current "Repo Import Workflow (Existing Skill → jz-skills)" (14 steps) + the slimming case-study lines.
-- **Sync scripts (both directions)** ← all pitfall rows about `sync-all.sh` / `sync-back.sh` PAIRs, `cp -r` trailing-slash, skill-name=category-name mapping.
-- **Watchdog recovery** ← pitfall rows about `skill-integrity-watchdog`, shadow fixes, runtime syncer drift (+ keep `references/skill-integrity-watchdog-recovery.md`).
-- **Profile / multi-profile gotchas** ← `skill_view` ambiguity, profile-local source, top-level-dir-not-indexed, symlink rules.
-- **CQI writeback** ← the CQI-writeback pitfall + step 14.
-- **Platform / frontmatter gotchas** ← `platforms:` field rows, bundled-skill drift, `.bundled_manifest` trust.
-- **Consolidation / deprecation** ← current "Skill Integration / Deprecation" section.
+- The trigger, anti-trigger, result, boundaries, risk tier, and proof are explicit.
+- The body contains the common path; conditional detail has a load condition.
+- Every reference named by the root exists in the changed mirrors.
+- Source/canonical/runtime states are reported accurately; no unverified consumer claim is presented as passed.
+- No commit, push, deployment, blanket sync, deletion, or baseline mutation was inferred from preparation work.
+- Medium/high behavior changes have the risk-appropriate scenario evidence; high-impact acceptance has a fresh independent verdict.
 
-### 2. NEW `references/INDEX.md` ← move the current 37-row "References" table out of the body
-One line per file: `name — purpose`. The body now points here instead of listing all 37.
+If an item is false, fix it or report the precise blocked claim and evidence gap.
 
-### 3. KEEP in body (already in the v4 above)
-6 universal Red Flags · should-this-be-a-skill tree · the 6-move flow · progressive-disclosure + show-not-tell craft · before/after proof · 4-type failure classification · ship checklist.
-
-### 4. DELETE from body (re-bloat risk)
-7-dimension scoring matrix (→ the binary ship checklist) · 20-row test-case table (→ optional `references/trigger-tests.md`) · all "AAAI 2026 / arXiv …" citation prose (the rule stands without the citation; keep citations in `references/compliance-research.md`).
-
-### 5. Verify the split
-`wc -l SKILL.md` ≤ ~160; grep the body for `dimension|scoring|lane|framework|audit` → near-zero; confirm every `references/*` named in the body exists; run the ship checklist on the new file itself.
+> Change history: `references/changelog.md`

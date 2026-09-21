@@ -4,6 +4,8 @@ enabled: true
 alwaysApply: true
 ---
 
-P6 终止条件：regen max=3，slice max=2。超过硬顶必须升级人工，禁止无限循环。
+P6 终止条件：regen max=3，slice max=2。达到硬顶必须停止自动循环并升级人工。
 
-硬失败 = regen 达 3 → 停升级。软失败 = 超时/崩溃/部分产出 → 降级放行 + 标低置信度 + 不阻塞下游，绝不静默当通过。沉默即失败：约定时间无 turn-done 即异常。
+证据不足、超时、崩溃或部分产出使相关验收项 BLOCKED：无依赖工作可以继续，依赖该项的 Acceptance、合并、发布和交付不得继续。软失败不是低置信度放行。
+
+沉默/timeout 只证明未收到完成证据，不证明 writer 停止；没有 stop proof 时禁止自动重派同一 ownership。

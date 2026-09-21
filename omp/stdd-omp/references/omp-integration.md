@@ -1,154 +1,91 @@
 # STDD-OMP 与 OMP 机制映射
 
-本页把 STDD 的每一步落在 OMP 的具体机制上，便于在编写/调试时直接对应。
+本页只在首次接入、新 session、版本变化、集成报错，或 L2/L3 需要可执行隔离/异步/auditor 时读取。简单 L1 不需要 preflight。
 
-> **认抽象**：下表 OMP 原语列会随版本漂移，过期更新本表即可，核心承重墙不依赖它。
+OMP 原语、agent 名和配置键会随 runtime 漂移；当前 tool schema、agent roster 与 `omp --help` 是事实源，本文示例不是能力保证。
 
-## 当前已利用的 OMP 能力
+## 稳定语义与 runtime 绑定
 
-| STDD 概念 | OMP 机制 | 当前用法 |
+| STDD 语义 | 需要的能力 | 绑定规则 |
 |---|---|---|
-| Spec+Accept 人审 | `resolve` + `ask` | L2/L3 用 plan 文件 + `resolve(apply)`；轻量用 `ask` |
-| Build 执行 | `task` subagent | `agent: task` / `oracle`，batch/`async`/`isolation` |
-| 阶段追踪 | `todo` | 父 agent 维护 phase/task，子代理不继承 |
-| 多 agent 协作 | `irc` | executor turn-done，coordinator `irc wait` |
-| 独立审计 | `reviewer` / `oracle` | 默认 auditor，P4 角色分离 |
-| 客观验证 | `eval` js + `gates.mjs` | 跨 OS 门控 |
-| 危险拦截 | hook (`tool_call`) | `stdd-gate.ts` 预拦截（可选，opt-in） |
-| 版本/安装自检 | `bash`/`node` CLI | `orchestrate.mjs` |
-| 协调者（coordinator） | OMP 主 session | 面向用户唯一入口，路由/收口 |
-| 测试者（tester） | `eval`/`bash`/`browser`/`debug`/`lsp` | 拿运行时证据，需子代理则 bundled `task`/`quick_task` |
-| 发布者（publisher） | 主 agent 手动收口 | danger 门 + approval 拦截（`stdd-gate.hook.ts` 可选） |
-| 经验回写 | `memory.backend: local` + `autolearn` | 自动沉淀，读 `memory://root`（`retain`/`recall` 需 `hindsight`/`mnemopi`） |
+| L1 Build/Verify | 当前主 agent 的读写与相关验证能力 | 内联，不强制 subagent |
+| L2 evaluator | fresh context + 只读被审对象 | 从当前 roster 按能力选择 |
+| L3 auditor | fresh context + 只读 + 高风险模型/视角独立或实态补偿 | 从当前 roster 按能力选择；不可用则 BLOCKED |
+| 客观 gate | 可运行 JS/CLI | `scripts/gates.mjs` 的已导出 API |
+| single-writer | ownership/lock/隔离 | 同一状态不并发写；重派前要 stop proof |
+| danger | 明确授权 + scan/hook | hook 可选，不等于授权 |
 
-## 仍可深挖的高价值能力
+不要假定 `reviewer`、`oracle`、`explore`、`quick_task`、`irc`、`parallel()` 或任何 modelRole 一定存在。只有 runtime 当前列出的名称可写入 Plan/梁3/GOAL。
 
-### 1. Plan 模式 / Plan 工件（Spec+Accept 的正式载体）
+## Acceptance 与用户授权
 
-OMP 的 plan 模式会在存在待审批 plan 文件时切换提示词，强制按章节修订。
+- L1 直接在对话中记录 checklist。
+- L2/L3 可使用当前 runtime 支持的 Plan 工件/审批机制。
+- 用户已经授权且 scope 无歧义时，不重复请求确认 checklist。
+- 只有 scope 分叉、不可逆动作或新权限需求才请求决定。
 
-- L2/L3 的 Spec+Accept 不应只停留在对话，应写成 **plan 工件**（如 `.stdd/plan.md` 或 `beam3-control.md`）。
-- 用 `resolve(apply)` 让人审通过；通过后进入 plan 模式执行。
-- plan 文件建议分节：`Spec` / `Accept` / `Build slices` / `Verify gates` / `Escalation`。
+## Gates
 
-### 2. Task 隔离（Build 的沙箱化）
+`scripts/gates.mjs` 的当前导出：
 
-`task.isolation.mode` 支持 `auto/apfs/btrfs/overlayfs/projfs/...`，让 executor 在 copy-on-write workspace 里跑。
-
-- L2/L3 Build 推荐启用 `task.isolation.mode`。
-- 隔离后 executor 的改动以 patch/branch 形式返回；**Verify 全过再合并**，失败则丢弃 patch。
-- 这与 STDD 的"证据优先、失败回退"天然匹配。
-
-### 3. modelRoles / thinkingLevel（为不同角色选模型）
-
-OMP 内置 model roles：`default`、`smol`、`slow`、`vision`、`plan`、`designer`、`commit`、`title`、`task`、`advisor`、`tiny`（16.2.2+）。
-
-| STDD 角色 | 推荐 modelRole | 说明 |
-|---|---|---|
-| Spec / Plan | `plan` | 长程规划、结构化输出 |
-| Build executor | `task` | 执行导向 |
-| 审计 | `advisor` | 审慎、少改动；审计 agent 可用 `reviewer`/`oracle` |
-| 快速验证/计数 | `smol` | 便宜、低延迟 |
-| 轻量任务 | `tiny`（16.2.2+） | 更轻量、更低成本 |
-| 复杂设计 | `slow` 或 `plan:high` | 深度推理 |
-
-可在 `config.yml` 配置：
-
-各角色能力定向：`plan` 角色需高推理能力与结构化多步规划能力，适合复杂架构设计；`task` 角色需高效代码生成与强指令遵循能力，适合可靠执行；`advisor` 角色需批判性分析与客观判断能力，适合细节审查。
-
-```yaml
-modelRoles:
-  plan: <高推理-规划>
-  task: <代码生成-执行>
-  advisor: <批判审查>
+```js
+const {
+  verifyArtifact,
+  verifyTest,
+  scanDanger,
+  bumpCounter,
+} = await import('./scripts/gates.mjs');
 ```
 
-### 4. `agent://<id>` / `history://<id>`（审计链可追溯）
+CLI counter：
 
-- executor 完成后，输出写入 `agent://<TaskId>`；auditor 直接读取该 artifact 做审计。
-- coordinator 可用 `history://<TaskId>` 查看 executor 完整轨迹，而不必重新询问。
-- 这比让 executor 自报结果更可靠（P3 证据优先）。
-
-### 5. `irc` 的 `await: true` 与 `inbox`
-
-- executor 完成时发 `irc send`；coordinator 用 `irc wait` 或 `send ... await: true` 阻塞等信号。
-- 多 executor 并行时，用 `irc inbox`  drain 所有完成消息再统一 audit。
-- 超时按 `irc.timeoutMs`（默认 120s），超时应视为失败（沉默即失败）。
-
-### 6. Memory / Hindsight（经验闭环）
-
-- 默认路径：`memory.backend: local` + `autolearn.enabled: true`。
-  - 后台自动抽取 → `MEMORY.md`/`memory_summary.md`/`skills/`，停止时自动沉淀。
-  - 启用 `manage_skill`/`learn` 工具，落 `~/.omp/agent/managed-skills`。
-  - 读经验：`read memory://root`（或 `/memory view`）。
-- 可选路径：`memory.backend: hindsight`|`mnemopi` → 可用 `retain`/`recall`/`reflect`。
-  - `local` 后端**不支持** `retain`/`recall`。
-
-### 7. Browser E2E（验收形式扩展）
-
-对 Web 项目，验收项可加入 browser 工具：
-
-- `tab.goto(url)` → 页面可访问
-- `tab.waitForSelector(...)` → 元素出现
-- `tab.evaluate(...)` → 前端状态断言
-
-### 8. eval 工作流 / TTSR / Advisor / LSP / DAP / Browser（高级验证）
-
-详见 `references/advanced-omp-wiring.md`。要点：
-
-- **eval**：把 `gates.mjs` 校验串成可复现脚本；`agent()`/`parallel()`/`pipeline()`/`completion()` 编排多阶段。
-- **TTSR / Rules**：把 STDD 承重墙写成规则文件，`condition`/`astCondition`/`repeatMode` 零税触发。
-- **Advisor + WATCHDOG**：v3 `WATCHDOG.yml` 多 advisor 委员会（16.2.3+），per-advisor 跨模型；单 `WATCHDOG.md` 为 ≤16.2.2 回退。
-- **LSP / DAP / Browser**：把类型检查、调试器状态、浏览器 E2E 作为验收证据，扩展 P3 客观验证面。
-
-### 9. Hook 的 `tool_result` 后处理（可选增强）
-
-当前 hook 只拦截 `tool_call`。可扩展为：
-
-- `tool_result` 阶段自动把 `gates.mjs` 的 verify 结果写入 `.stdd/gate-log.jsonl`。
-- `session_start` 时打印 STDD 状态摘要。
-- 这些属于进阶，保持可选。
-
-## 推荐的最小强化配置
-
-在 `~/.omp/agent/config.yml`：
-
-```yaml
-memory:
-  backend: local
-autolearn:
-  enabled: true
+```bash
+node scripts/gates.mjs counter --key <task> --kind regen --max 3 --incr
+node scripts/gates.mjs counter --key <task> --kind slice --max 2 --incr
 ```
 
-各角色能力定向：`plan` 角色需高推理能力与结构化多步规划能力，适合复杂架构设计；`task` 角色需高效代码生成与强指令遵循能力，适合可靠执行；`advisor` 角色需批判性分析与客观判断能力，适合细节审查。
+不要把 gate 当作通用测试替代物；选择能直接证明 Acceptance 的实际表面。没有新变更、失败或未决风险时不重复跑同一验证。
 
-```yaml
-modelRoles:
-  plan: <高推理-规划>
-  task: <代码生成-执行>
-  advisor: <批判审查>
-```
+## Artifact 与独立审计
 
-```yaml
+若 runtime 提供 `agent://<id>`、history 或等价 artifact，auditor 直接读取产物和证据，不要求 executor 重述。若这些机制不可用，将等价可定位工件路径写进 verdict。
 
-tools:
-  approvalMode: yolo
-  approval:
-    bash: allow
-    edit: allow
-    write: allow
+L2 需要独立上下文 evaluator；L3 需要独立 auditor。实际 agent 名在 dispatch 前从 runtime roster 决定并记录。
 
-task:
-  isolation:
-    mode: auto
-  async:
-    enabled: true
-```
+## 异步、等待与 timeout
 
-> **OMP 配置写法/密钥/provider/profile 细节**以当前安装版本的 `omp --help` 与版本匹配的官方文档为准。本页只列出 STDD 流程所需的最小键。
-> `memory.backend: local` 不支持 `retain`/`recall`，需 `hindsight`/`mnemopi` 才可用。
+使用 runtime 当前提供的消息/等待/监督进程能力。timeout 只表示没有完成证据：
 
-## 与 SKILL.md 的对应
+1. 将相关验收项标为 BLOCKED；
+2. 不把 timeout 当作 writer 已退出；
+3. 取得 stop acknowledgement、进程退出或锁/lease 释放证据后，才可重派同一所有权；
+4. 无依赖且不重叠的 slice 可以继续。
 
-- `SKILL.md` 的"四步微循环"已按上表接线；
-- 本节作为底层机制参考，供调试和扩展时查阅。
+## 隔离
+
+L2/L3 可在 runtime 确认支持时启用 worktree/COW/isolated execution。隔离能力不可用不应被伪装为已启用；若它是验收或风险前提，则 BLOCKED。
+
+## 可选能力
+
+- LSP/编译器：parse 与引用证据；
+- browser：Web 用户路径实态；
+- debug：运行时变量与线程状态；
+- Advisor/WATCHDOG：回合级审查；
+- hook：危险 tool call 的额外拦截；
+- memory：经验回写。
+
+这些都是按需能力，不是简单 L1 的启动税。安装、启用、改配置或认证均需对应明确授权。
+
+## Full-auto 边界
+
+runtime 的 yolo、async、isolated 或 approval 设置都不扩大用户授权。Full-auto 不能隐含执行 commit/push/publish/deploy、安装/升级、runtime config/repoint、登录/认证/凭据/权限或删除。
+
+## 版本校准
+
+发生以下任一情况时才跑只读 preflight：
+
+- 新 session/首次接入且需要上述可执行集成；
+- OMP 或 skill 版本变化；
+- agent、gate、hook、Advisor、artifact 或路径报错。
+
+命令：`node scripts/orchestrate.mjs --text`。检测结果不自动触发安装、升级或配置变更。

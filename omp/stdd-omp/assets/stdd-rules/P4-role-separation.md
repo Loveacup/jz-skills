@@ -4,6 +4,8 @@ enabled: true
 alwaysApply: true
 ---
 
-P4 角色分离：producer ≠ judge。L2 用干净 session / 不同 modelRole，L3 必须起独立 auditor（reviewer / oracle / stdd-auditor）。
+P4 分级独立：L1 由当前 agent 内联执行和验证，不强制委派；L2 的 evaluator 必须使用 fresh context 且只读被审对象；L3 必须由独立 auditor 裁决，高风险判定再叠不同 modelRole/provider/模型视角或更强 P3 实态证据。
 
-独立性两维：①上下文独立（换 session/子 agent，OMP task 子 agent 天然不继承历史）②模型独立（auditor 用不同 modelRole/provider，或 WATCHDOG.yml 委员会 per-advisor 跨模型）。同模型 fresh 子 agent 只买①；高风险判定须叠②或 P3 实态补偿。
+需要委派时先读取当前 runtime 暴露的 agent roster 与能力，不假定 reviewer/oracle/stdd-auditor 等固定名称存在。所需独立能力不可用时，相关验收 BLOCKED。
+
+同一文件/worktree/state 同时只允许一个 writer。timeout 不证明 writer 已停止；取得 stop acknowledgement、进程退出或锁/lease 释放证据前不得重派同一 ownership。

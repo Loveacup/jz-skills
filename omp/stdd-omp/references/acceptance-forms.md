@@ -36,9 +36,11 @@
 
 ## 可叠加原则
 
-- L1：1–2 条即可。
-- L2：至少 1 条客观命令 + 1 条 diff/影响面。
-- L3：必须含独立 auditor + 计数器 + GOAL 退出条件。
+- L1：1–2 条，当前 agent 内联验证。
+- L2：至少 1 条直接行为/命令证据 + 1 条影响面证据，并由 fresh-context evaluator 复核。
+- L3：独立 auditor + counter + GOAL 退出条件；高风险再叠模型/视角独立或更强实态证据。
+- evaluator/auditor 的实际名称从当前 runtime roster 按能力选择，不把示例名称写进契约。
+- 用户已经授权且 scope 无歧义时，记录 checklist 后继续，无需再次确认。
 
 ## 造契约口诀
 
@@ -47,7 +49,7 @@
 ```markdown
 - [ ] `npm test` exit 0，且覆盖率不下降（≥当前基线）。
 - [ ] 变更文件 ≤3 个，且无删除未记录文件。
-- [ ] reviewer/oracle 审计全 PASS。
+- [ ] 当前 runtime 选出的独立 evaluator/auditor 对上述证据逐项 PASS。
 ```
 
 把「用户满意」改成：

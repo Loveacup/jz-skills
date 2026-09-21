@@ -70,15 +70,15 @@ External inspiration found?
 | Core problem | "How to teach agents to use Obsidian" | Same — already solved, gaps in Bases/Canvas/CLI/plugin-dev |
 | Same problem? | ✅ Same domain, different implementation style |
 
-**Pattern: external Agent Skills spec repo → Hermes skill absorption**
+**Pattern: external skill or project → existing skill**
 
-1. **Survey**: L1 GitHub code-explorer (Exa fetch README + `gh api` directory listing)
-2. **Map to existing**: identify gaps, overlaps, partial overlaps
-3. **Integrate via progressive disclosure**: substantial content → `references/*.md`, thin pointers in SKILL.md
-4. **Trim to <300 lines**: move verbose sections (e.g. Best Practices) to references if budget exceeded
-5. **Add compliance**: Red Flags table + Verification Checklist per updated skill
-6. **Score**: 7-dim compliance, all ≥4
-7. **Deploy**: sync to profiles → sanitize → jz-skills → push
+1. **Survey the real artifact and provenance** — use the appropriate repository/research route and record the reviewed revision.
+2. **Map to the existing owner** — identify genuine gaps, overlaps, and architecture mismatches before proposing changes.
+3. **Integrate by attention need** — keep common-path behavior in `SKILL.md`; move conditional depth to a named reference with a load condition.
+4. **Preserve the behavior contract** — remove repetition and unrelated ceremony rather than optimizing for a fixed line ceiling.
+5. **Add safeguards only for demonstrated risk** — do not require a warning table or checklist shape by default.
+6. **Verify by change risk** — use scenarios selected from the changed behavior; high-impact changes need a fresh independent verdict.
+7. **Prepare release state explicitly** — source/canonical update, runtime deployment, and publication are separate; execute only the named actions already authorized.
 
 **What went in where:**
 
@@ -92,12 +92,13 @@ External inspiration found?
 
 **Line budget result:** obsidian 158→228, obsidian-md-ac 276→300 (trimmed Best Practices to pointer).
 
-**Lesson:** Map by domain (vault ops vs content creation), use references/ for substantial content, score before shipping.
+**Lesson:** Map by domain, use references for conditionally needed depth, and verify the changed behavior before reporting acceptance. Publication or deployment remains a separate authorized action.
 
 ## Checklist: Before Absorbing
 
-- [ ] Is the external solution solving the SAME class of problem as the target skill?
-- [ ] Is the architecture compatible? (pipeline vs loop, single vs multi-engine, CLI vs MCP)
-- [ ] If absorbing: does the change fit in <300 lines? Or does it need a new references/ file?
-- [ ] If NOT absorbing: is there a lightweight alternative (references file, one-line pointer)?
-- [ ] Did I ask: "would this actually help, or does it just look clever?"
+- [ ] Does the external solution address the same class of problem as the target skill?
+- [ ] Is the architecture compatible, or are you extracting only a portable principle?
+- [ ] Does the change keep the common path focused and route conditional depth to a reference?
+- [ ] Is there a lighter alternative such as a reference or narrow pointer?
+- [ ] Is verification matched to the actual behavior and risk changed?
+- [ ] Are source/canonical changes separated from runtime deployment and publication?

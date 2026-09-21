@@ -2,6 +2,7 @@
 
 | Version | Date | Changes |
 |:---|:---|:---|
+| **v4.1** | 2026-09-22 | Replaced mandatory scorecards, fixed line/test quotas, pushy discovery wording, and implicit release steps with a behavior contract, risk-tier evidence, conditional SkillHub context routing, and separate preparation/canonical/runtime/publication/retirement gates. Semantically merged richer runtime governance while preserving historical and host-specific references. |
 | **v3.1** | 2026-06-01 | Added log-driven CQI MVP pattern: Phase 1 should use GitHub sync/provenance, per-skill changelogs, read/modify/event checks, append-only issue/evolution logs, CQI Plan Writer consolidation, and fresh CC audit; cron/Kanban/A2A/fleet inspection move to Phase 2. Added `references/log-driven-cqi-mvp.md` and SKILL.md pitfall/pointer. |
 | **v3.0** | 2026-05-27 | 吸收 SkillEvolver + EmbodiSkill (arXiv 2026-05-11)：新增 Step 9 部署驱动审计、Step 9a 四类失败分类（DISCOVERY/OPTIMIZATION/SKILL DEFECT/EXECUTION LAPSE）、Step 10 靶向修订（累积→合并→修订）、第 7 维度 Runtime Invocation（silent-bypass 检测）、Skill Appendix 概念、4 条新 Pitfall、Red Flag #8「self-review 不可靠」。合规记分卡 6→7 维。11 步流程。 |
 | **v2.0** | 2026-05-27 | 吸收 pi/skill-creator v6.0：新增决策树、10 步流程、测试用例生成（8-12 trigger + 8-12 not-trigger）、Pitfalls 7→15 条、验证清单 7→9 项。 |

@@ -11,17 +11,19 @@ Prefer "请检查..." over "这是错的". Prefer mid-process interruption over 
 | Trigger | Severity | Delivery |
 |---|---|---|
 | Skipped Acceptance / no falsifiable checklist | `blocker` | Interrupt immediately |
-| "Probably"/"maybe"/"seems" used to approve a verification | `blocker` | Interrupt |
-| Producer also acts as auditor in 净 session / 独立 auditor 档 | `concern` | Interrupt |
+| Unsupported PASS or BLOCKED treated as PASS | `blocker` | Interrupt |
+| L2 lacks fresh-context evaluator, or L3 lacks independent auditor | `blocker` | Interrupt |
+| L1 is forced into needless delegation/preflight | `concern` | Interrupt |
+| Timeout used as writer-stop proof or automatic reassignment | `blocker` | Interrupt |
 | Regen/slice counter exceeded without escalation | `blocker` | Interrupt |
-| Dangerous command bypassed hook/approval | `blocker` | Interrupt |
-| Same file read repeatedly without need | `nit` | Non-interrupting |
+| Full-auto used to infer publish/install/auth/config permission | `blocker` | Interrupt |
 
 ## STDD-specific checks
 
 1. **P1 Decidable**: Is every conclusion tied to a true/false Acceptance item?
-2. **P2 Acceptance**: Was a checklist produced before Build started?
-3. **P3 Evidence**: Did verification use artifact/test/diff/report rather than guesswork? Does each verdict have a locatable evidence anchor (file:line / exit code / agent://<id>)?
-4. **P4 Separation**: For 净 session / 独立 auditor 档, is there an independent reviewer/oracle/stdd-auditor?
-5. **P6 Hard limit**: Is `gates.mjs bumpCounter` respected (regen ≤3, slice ≤2)?
-6. **Tool choice**: Is the agent using `grep`/`glob`/`lsp` instead of `bash` for listing/searching?
+2. **P2 Acceptance**: Was a checklist produced before Build, without re-confirming already authorized unambiguous scope?
+3. **P3 Evidence**: Does every PASS have a locatable anchor? Are missing evidence, crashes, partial output and timeout marked BLOCKED?
+4. **P4 Separation**: Is L1 inline, L2 evaluated in a fresh context, and L3 audited independently? Was the actual agent chosen from the current runtime roster by capability?
+5. **Single writer**: Before reassignment, is there stop acknowledgement, process exit, or lock/lease release evidence?
+6. **P6 Hard limit**: Is `gates.mjs bumpCounter` respected (regen ≤3, slice ≤2)?
+7. **Authority**: Did full-auto stay inside authorized scope and avoid implicit publish/install/auth/config changes?

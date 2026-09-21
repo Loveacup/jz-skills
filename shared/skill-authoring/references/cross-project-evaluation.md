@@ -20,8 +20,8 @@ External project identified?
 │
 ├── Step 3: ABSORPTION COST
 │   What changes are needed to absorb this?
-│   ├── SKILL.md change (lines added) → check <300 line budget
-│   ├── New reference file (references/) → low cost, good candidate
+│   ├── SKILL.md change → keep the common execution path focused
+│   ├── Conditional reference → appropriate when only some tasks need the depth
 │   └── New dependency (scripts/tools) → high cost, need strong justification
 │
 └── Step 4: PRESENT EVALUATION FIRST

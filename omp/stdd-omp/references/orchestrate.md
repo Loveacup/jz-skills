@@ -1,109 +1,67 @@
 # orchestrate.mjs 使用手册
 
-`scripts/orchestrate.mjs` 是 STDD-OMP 的启动自检脚本，**默认只读**，不会修改用户环境。
+`scripts/orchestrate.mjs` 是按需的 STDD-OMP 集成诊断脚本，不是每个任务的强制入口。
 
-## 设计原则
+## 何时运行
 
-- **先检测，后安装**：默认 `status` 模式只收集信息；`--install` 才写文件。
-- **不覆盖已有文件**：`--install` 默认跳过已存在的 hook/agent；需要覆盖时加 `--force`。
-- **可配置 GitHub 源**：通过 `STDD_OMP_GITHUB_REPO` 或 `--repo` 指定；未配置则跳过版本检查。
-- **本地路径优先**：所有存在性判断使用 `os.homedir()` + `path.join`，不依赖 `skill://` URL 解析。
+仅在以下情况运行只读 status：
 
-## 主路径：CLI
+- 首次接入或新 session 需要 gate/agent/hook/Advisor 等可执行集成；
+- OMP/skill 版本变化；
+- 安装路径、gate、agent 或集成报错；
+- L2/L3 准备启用隔离、异步或独立 auditor。
 
-```bash
-node scripts/orchestrate.mjs                         # status only, read-only
-node scripts/orchestrate.mjs --repo Loveacup/jz-skills       # include version check
-node scripts/orchestrate.mjs --install --dry-run     # preview installs
-node scripts/orchestrate.mjs --install               # install missing only
-node scripts/orchestrate.mjs --install --force       # install + overwrite
-```
+当前 session 内的简单 L1 直接进入四步循环。
 
-## 导出函数（可选，Node 动态导入可用）
-
-在支持本地 `.mjs` 动态导入的环境（如 Node CLI）可用；当前 OMP 内置 Bun eval 对此外部 `.mjs` 动态导入不稳定，因此**主路径应为 CLI**：
-
-```js
-const o = await import('file:///path/to/scripts/orchestrate.mjs');
-const status = await o.run();
-const status = await o.run({ githubRepo: 'Loveacup/jz-skills' });
-```
-
-| 函数 | 用途 |
-|---|---|
-| `detect()` | 检测 hook、auditor、native agent 根目录状态 |
-| `readLocalVersion()` | 读取 `references/VERSION` |
-| `checkRemote(repo)` | 查询 GitHub latest release（未配置 repo 则跳过） |
-| `planActions(status)` | 根据状态生成建议 actions |
-| `installHook({force})` | 拷贝 hook 到 native lane |
-| `installAuditor({force})` | 拷贝 auditor 到 native lane |
-| `run({githubRepo})` | 完整检测 + 版本检查 + actions |
-
-## CLI 用法
+## 只读路径
 
 ```bash
-# 只读检测
+node scripts/orchestrate.mjs --text
 node scripts/orchestrate.mjs
+```
 
-# 包含 GitHub 版本检查
+可选远程版本检查会访问配置的仓库源：
+
+```bash
 node scripts/orchestrate.mjs --repo Loveacup/jz-skills
+```
 
-# 查看会安装什么，但不写文件
+未明确需要版本检查时不要附 `--repo`。
+
+## 写入路径与授权
+
+以下命令会计划或执行安装，不得由 status 结果自动触发：
+
+```bash
 node scripts/orchestrate.mjs --install --dry-run
-
-# 安装缺失项（不覆盖已有）
 node scripts/orchestrate.mjs --install
-
-# 安装并强制覆盖
 node scripts/orchestrate.mjs --install --force
 ```
 
-## 退出码
+- `--install`、`--force`、升级、改配置、登录和凭据操作均需要对应明确授权。
+- Full-auto 或普通任务授权不隐含这些权限。
+- `--force` 可能覆盖现有文件，应作为单独的高风险动作。
 
-| 码 | 含义 | 处理建议 |
-|---|---|---|
-| 0 | 全部正常 / 无需操作 | 直接开始 STDD 微循环 |
-| 1 | 运行时错误 | 查看 stderr |
-| 2 | 缺少 hook 或 auditor | 运行 `--install` 或手动复制 |
-| 3 | 本地版本落后于远程 | 更新 skill 到最新版 |
+## 当前职责
 
-## 配置 GitHub 仓库源
+| 函数 | 用途 |
+|---|---|
+| `detect()` | 检测 opt-in hook、自定义 auditor 与 native agent 根目录 |
+| `readLocalVersion()` | 读取 `references/VERSION` |
+| `checkRemote(repo)` | 检查显式配置的远程版本 |
+| `planActions(status)` | 生成建议，不执行授权 |
+| `installHook({force})` | 安装 hook（写入） |
+| `installAuditor({force})` | 安装自定义 auditor（写入） |
+| `run({githubRepo})` | 汇总检测与可选版本检查 |
 
-```bash
-# 环境变量
-export STDD_OMP_GITHUB_REPO=Loveacup/jz-skills
+动态导入只在当前 runtime 已确认支持时使用；跨版本主路径是 CLI。
 
-# 或完整 URL
-export STDD_OMP_GITHUB_REPO=https://github.com/Loveacup/jz-skills
-```
+## 退出码语义
 
-未配置时，`remote_version` 为 `null`，`sync_status` 为 `unknown`，不会报错。
+退出码描述诊断结果，不是自动安装许可。非零时记录 stderr/状态并按影响处理：
 
-### Native agent 根目录覆盖
+- 与当前 L1 无关：继续 L1，不做安装；
+- L2/L3 所需能力缺失：相关能力 BLOCKED；
+- runtime error/version drift：报告并在获得授权后修复。
 
-orchestrator 按以下优先级定位 native lane：
-
-```text
-PI_CODING_AGENT_DIR
-  -> PI_CONFIG_DIR/agent
-  -> ~/.omp/agent
-```
-
-对应 OMP 的 `PI_CODING_AGENT_DIR` / `PI_CONFIG_DIR` 环境变量，与 profile 隔离一致。
-
-## 典型工作流
-
-```text
-1. 触发 stdd-omp
-2. 运行 orchestrate.mjs status
-3. 解析 actions：
-   - hook（可选）→ `--install --with-hook`
-   - sync-version → 提示更新
-   - warning → native_agent_root 为空，或 `--repo`/`STDD_OMP_GITHUB_REPO` 格式无效（默认 ~/.omp/agent/，可被 PI_CODING_AGENT_DIR / PI_CONFIG_DIR 覆盖）
-4. auditor 默认使用内置 `reviewer`/`oracle`；可选把 `assets/stdd-auditor.agent.md` 复制到 `~/.omp/agent/agents/stdd-auditor.md` 作为自定义增强
-4. 确认安装完成后再进入四步微循环
-```
-
-## 与 SKILL.md 的集成
-
-`SKILL.md` 的「强制入口」要求每次触发先运行 orchestrator，根据 `actions` 决定是否进入安装模式，再执行 STDD 微循环。
+缺少自定义 auditor 不等于没有任何 auditor。先读取当前 runtime roster，按只读审计能力选择；所需 L3 能力确实不存在时才 BLOCKED，不猜固定 agent 名。

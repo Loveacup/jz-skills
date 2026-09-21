@@ -1,129 +1,126 @@
-# L3 / full-auto GOAL 闭环（OMP 等价实现）
+# L3 / full-auto GOAL 闭环
 
-OMP 没有 `/goal` 原语；L3/full-auto 闭环用 `async task` + `todo` + `gates.mjs` + `irc` 等价实现。
+仅在用户明确选择 L3/full-auto 或项目治理文件已采用该模式时使用。Full-auto 是验收循环，不是无限权限。
 
 ## GOAL 最小模板
 
 ```yaml
 GOAL: <一句话目标>
+AUTHORIZED_SCOPE:
+  - <允许的文件/系统/动作>
 ACCEPT:
-  - <可证伪项 1>
-  - <可证伪项 2>
+  - id: A1
+    criterion: <可证伪项>
+    verifier: <相关证据动作>
+    threshold: <PASS 阈值>
 REJECT_IF:
-  - <任何一项触发即失败>
+  - <反例/危险边界>
 STOP_AFTER:
   regen: 3
   slice: 2
-AUDITOR: reviewer   # 或 oracle / 可选 stdd-auditor
-ESCALATE: 升级人工（计数器满、 auditor 无法判定、REJECT_IF 命中）
-VERDICT_SCHEMA: { id, pass, anchor, blocking, next_action }
-MODE: interactive|full-auto
+EXECUTOR:
+  runtime_agent: <从当前 roster 按写入能力选择>
+AUDITOR:
+  runtime_agent: <从当前 roster 按只读审计能力选择>
+  independence: <fresh-context + high-risk model/view requirement>
+FORBIDDEN_UNLESS_SEPARATELY_AUTHORIZED:
+  - commit/push/publish/deploy/external-send
+  - install/upgrade/runtime-config/repoint
+  - login/auth/credential/privilege-change
+  - delete/overwrite/destructive-rollback
+ESCALATE:
+  - counter-limit
+  - blocked-evidence
+  - unknown-writer-state
+  - danger-or-irreversible
+MODE: interactive | full-auto
 ```
 
-## Verdict 结构
+不要把示例 agent 名写死。GOAL 编译时先读取当前 runtime 的 agent 列表和权限；缺少所需独立 auditor 时，L3 为 BLOCKED。
 
-每条验收产出：
+## Verdict
 
-```json
-{
-  "id": "<acceptance item id>",
-  "pass": true,
-  "anchor": "exit 0 [eval js, line 12]",
-  "blocking": false,
-  "next_action": "pass"   // ← rebuild | escalate | pass
-}
+```yaml
+id: A1
+verdict: PASS | FAIL | BLOCKED
+anchor: <file:line | exit code | log line | agent://id>
+blocks: <依赖项/acceptance/release>
+next_action: continue | rebuild | revise-contract | escalate
 ```
 
-`next_action` 路由：
-- `rebuild` → 回 ③Build
-- `escalate` → 上报你（人审）
-- `pass` → 下一项
+- PASS：证据直接覆盖 criterion 与 threshold。
+- FAIL：存在明确反例。
+- BLOCKED：证据缺失、验证崩溃、部分产出、timeout 或能力不可用。
+- coordinator 只能按 verdict 路由，不能自行把 FAIL/BLOCKED 改成 PASS。
 
-Coordinator 读 `next_action` 路由，不自行改判。
-
-## Escalation 预分流表
-
-| 自核放行 (auto) | 上报人审 (escalation) |
-|---|---|
-| 措辞/范围微调、口径降格、可逆低风险 | 证伪某条宏观验收契约 |
-| 单条验收 anchored 通过 | 需求与实现双方有据的直接矛盾 |
-| 证据齐 + 判定可锚 | 命中 danger 清单 / 不可逆 / 发布 / 需外部信息 |
-
-两护栏：
-1. 打标拿不准 → 默认归人审
-2. 审定结论是下游唯一指令源，coordinator 不得绕过自行改判
-
-## Loop 入口 Discover 适配器
+## 循环
 
 ```text
-Discover：识别触发条件（时间/API/事件）
-  |
-  v
-Plan：生成 Spec + Accept，等待 approve
-  |
-  v
-Spawn：async task executor（ Build ）
-  |
-  v
-Gate：gates.mjs 客观验证 + auditor 主观审计
-  |
-  v--- FAIL --- back to Plan/Spawn （计数器 +1）
-  |
-  v--- PASS --- 收尾 + memory 回写
+Plan: Spec + Accept + authorized scope
+  ↓
+Assign: capability-first 选择 executor/auditor；锁定 single-writer 所有权
+  ↓
+Build: executor 仅执行已授权动作
+  ↓
+Verify: 客观证据 + 独立 auditor
+  ├─ PASS    → 下一项；全部 PASS 才可收口
+  ├─ FAIL    → Build/Accept；对应 counter +1
+  └─ BLOCKED → 独立 slice 可继续；依赖链停止并升级
 ```
 
-## 关键约束
+## 独立性
 
-1. **强制独立 auditor**：executor 不能审自己；auditor 无 edit/write。
-2. **计数器硬顶**：regen 满 3 或 slice 满 2 必须停。
-3. **irc turn-done**：executor 完成时发 `irc send`；coordinator 用 `irc wait` 接收。
-4. **沉默即失败**：约定时间内无 irc 完成信号 → 视为失败，升级人工。
-5. **状态外置**：使用 `.stdd/counters/` 和 `.stdd/beam3-control.md`，不依赖 session 内存。
-6. **checkpoint / rewind / handoff**：长循环用 `checkpoint`（标 slice 边界供折叠报告）+ `rewind`（剪枝探索上下文、留精炼报告，缓解 U 型注意力衰减）；跨会话 L3 收尾用 `/handoff`（移交摘要 + 新会话）或 `/compact`；会话级分叉用 `/fork`/`/branch`/`/resume`。**`checkpoint`/`rewind` 默认 off，需 settings 启用**。
+1. executor 不能审自己的 L3 产出；
+2. auditor 使用 fresh context，且对被审对象只读；
+3. 高风险判定叠不同 modelRole/provider/模型视角，或由更强实态证据补偿；
+4. 实际 agent 名来自本次 runtime roster，写入 GOAL 与梁3；
+5. runtime 不提供满足能力的 agent 时，不猜名字，BLOCKED。
 
-## Discover 触发示例
+## Timeout 与重派
 
-- 定时：`async task` 带 delay 或外部 cron 触发 OMP。
-- API：webhook 接收后调用 `task`。
-- 文件：`glob`/`grep` 检测到变更后启动 loop。
+沉默、心跳中断或 timeout 只表示未收到完成证据，不表示 writer 已停止。
 
-## 失败处理
+重派同一所有权前，必须取得至少一种可定位 stop proof：
+
+- executor 明确确认停止并释放所有权；
+- 受监督进程已经退出；
+- 锁/lease/worktree ownership 已释放；
+- runtime 给出等价的终止证明。
+
+缺少 stop proof 时冻结该所有权并升级人工，不自动重派。无依赖且所有权不重叠的 slice 可以继续。
+
+## Full-auto 权限
+
+Full-auto 不隐含 commit、push、publish、deploy、对外发送、安装、升级、运行时配置/repoint、登录、认证、凭据、权限或删除授权。命中这些动作时：
+
+1. 保留当前证据与状态；
+2. 停止相关依赖链；
+3. 请求该具体动作的授权；
+4. 通过 `scanDanger` 或已启用的 hook 留下门控证据。
+
+已有普通任务授权不能自动扩大为上述动作。
+
+## 失败路由
 
 | 情况 | 动作 |
 |---|---|
-| regen ≥ 3 | 停；输出审计报告；升级人工 |
-| slice ≥ 2 | 停；重新拆分 Spec/Accept |
-| auditor REJECTED | 回 Spawn；regen +1 |
-| Accept 本身错误 | 回 Plan；slice +1 |
-| 沉默/超时 | 标记失败；升级人工 |
+| regen 达 3 | BLOCKED；停止自动循环；输出证据；升级人工 |
+| slice 达 2 | BLOCKED；停止继续切分；升级人工 |
+| auditor FAIL | 回 Build；regen +1 |
+| Acceptance 本身错误 | 回 Accept；slice +1 |
+| 证据不足/崩溃/部分产出 | 相关项 BLOCKED；仅独立工作继续 |
+| timeout/沉默 | 相关项 BLOCKED；先取得 stop proof，再决定重派 |
+| danger/不可逆/越授权 | 停止并请求具体授权 |
 
-## eval 编排式 full-auto（确定性更高）
+## Runtime 接线
 
-在 `eval` cell 内用内置助手 `agent()`/`parallel()`/`pipeline()`/`completion()` 编排 verdict 路由：
+需要可执行集成时，使用当前 OMP runtime 实际提供的 `task`/agent orchestration、消息/等待与 artifact 机制。不要假定 `agent()`、`parallel()`、`irc`、某个 agent 名或配置键在所有版本存在；以当前工具 schema/帮助和 roster 为准。
+
+客观 gate 使用 `scripts/gates.mjs`：
 
 ```js
-// 最小骨架（OMP eval js）
-var { bumpCounter } = await import('./scripts/gates.mjs');
-
-// spawn 执行者
-var exec = await agent("<build assignment>", { agent: "task" });
-// agent://<id> 产出自动可读
-
-// spawn 审核者
-var auditVerdict = await agent(
-  `审核以下产出：${exec.output}\n对应契约：${verdict.contract}`,
-  { agent: "reviewer", schema: verdictSchema }
-);
-// 多 slice 用 parallel([...])
-
-// 按 verdict 路由
-if (auditVerdict.next_action === 'rebuild') {
-  // 再 agent() 重试
-} else if (auditVerdict.next_action === 'escalate') {
-  // 停升级
-} else {
-  // pass → 下一项
-}
+const { verifyArtifact, verifyTest, scanDanger, bumpCounter } =
+  await import('./scripts/gates.mjs');
 ```
 
-`agent()` / `parallel()` / `pipeline()` / `completion()` 是 OMP `eval` 内置助手（见 OMP 手册 §5）。
+计数硬顶保持 regen ≤3、slice ≤2。

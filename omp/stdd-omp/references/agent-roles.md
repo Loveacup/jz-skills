@@ -1,153 +1,89 @@
-# STDD-OMP Agent 角色绑定
+# STDD-OMP 角色与独立性
 
-## 6 角色（OMP 单-CLI 映射，优先 bundled）
+本页定义角色能力，不承诺任何固定 agent 名称。实际名称必须来自当前 runtime/tool 暴露的可用 agent 列表。
 
-| 角色 | 职责 | OMP 单-CLI 载体（优先 bundled） |
+## 分级要求
+
+| 档位 | 执行与评估 |
+|---|---|
+| L0 | 默认不启用 STDD。 |
+| L1 | 主 agent 内联 Spec/Accept/Build/Verify；允许自检，不强制委派。 |
+| L2 | executor 与 evaluator 使用独立上下文（fresh session/subagent）；evaluator 只读复核验收与证据。 |
+| L3 | executor 与独立 auditor 分离；高风险判定还必须叠不同 modelRole/provider/模型视角，或用更强的 P3 实态证据补偿。 |
+
+同模型 fresh subagent 只提供上下文独立，不提供模型独立。核心状态权威、并发安全、发布/权限或会静默崩塌的判定属于高风险。
+
+## Capability-first 选择
+
+需要委派时按以下顺序：
+
+1. 读取本次 runtime 的 agent roster、spawn policy、工具权限和隔离能力；
+2. 按任务选择：只读研究、写入执行、动态测试、静态审计或领域专项；
+3. evaluator/auditor 必须能读取契约和证据，且不得写入被审对象；
+4. 将实际选择的 agent 名、上下文/模型独立性和工具权限记录到梁3/GOAL；
+5. 所需能力不可用时标记 BLOCKED，不猜测 `reviewer`、`oracle`、`explore`、`quick_task` 等名字存在。
+
+文档、模板或示例中的名字只表示历史示例；runtime roster 才是当前事实。
+
+## 最小角色
+
+| 角色 | 职责 | 能力要求 |
 |---|---|---|
-| 协调者 coordinator | 面向你的唯一入口：接需求→定角色→grill→编译 GOAL→发出→收口；纯路由 | OMP 主 session（`Main`），你只跟它对话 |
-| 编排者 orchestrator | 拆解、派单、汇总、再规划 | 主 agent + bundled `plan`（规划）；`task` batch fan-out / `eval` `agent()`/`pipeline()`/`parallel()` |
-| 执行者 executor | 工作单元内执行、自验、上抛证据句柄 | bundled `task`/`oracle`（轻量 `quick_task`），`isolated` 返回 patch |
-| 测试者 tester | 动态跑、拿运行时证据（exit code/落盘/日志） | `eval`+`gates.mjs verifyTest` / `bash` / `browser` / `debug` / `lsp diagnostics`（需子代理跑则 bundled `task`/`quick_task`） |
-| 审核者 auditor | 凭证据静态复算、三态裁决、审执分离 | **同步审**：bundled `reviewer`/`oracle`（+可选自定义 `stdd-auditor`），读 `agent://<id>`/`history://<id>`；**回合级审**：v3 `WATCHDOG.yml` 多 advisor 委员会（16.2.3，per-advisor 跨模型=P4 第二维）/ 单 `WATCHDOG.md`（≤16.2.2 回退） |
-| 发布者 publisher | 收口 commit/tag/push（确认≠执行） | 主 agent 手动收口，受 approval 拦截（可选接 `stdd-gate.hook.ts` danger 门） |
+| coordinator | 定档、分配不重叠所有权、汇总 verdict、收口 | 当前主 session；不越过 auditor 改判 |
+| executor | 在单一所有权内 Build 并上抛证据 | 写入能力；遵守 scope 与 single-writer |
+| tester | 运行相关场景并记录 exit/log/state | 对目标表面有真实运行能力 |
+| evaluator | L2 独立上下文复算验收 | fresh context；只读被审对象 |
+| auditor | L3 独立裁决；逐项 PASS/FAIL/BLOCKED | 只读、上下文独立；高风险时再叠模型/视角独立 |
+| publisher | 执行已单独授权的 commit/push/publish/deploy | 不属于 full-auto 默认能力 |
 
-## P4：Producer ≠ Judge（独立性两维）
+L1 不因“角色表存在”而委派。L2/L3 只起完成验收所需的最小角色组。
 
-执行 agent ≠ 评估 agent；L3/无人值守必须独立 auditor。
+## Single-writer 与 timeout
 
-**独立性两维**：
-1. **上下文独立**（换 session/子 agent，OMP task 子 agent 天然不继承历史）
-2. **模型/视角独立**（auditor 用不同 modelRole/provider，或 WATCHDOG.yml 委员会 per-advisor 跨模型）
+- 同一文件、worktree 或不可分割状态同时只有一个 writer。
+- 并行 executor 必须有不重叠的明确所有权。
+- timeout/无心跳只证明“未收到完成证据”，不证明 writer 停止。
+- 重派 writer 前必须有 stop acknowledgement、进程退出、锁/租约释放或其他可定位的终止证据。
+- 没有 stop proof 时，保持该所有权冻结并升级人工；独立且无依赖的 slice 可以继续。
 
-同模型 fresh 子 agent 只买①；碰核心状态权威/并发安全/会静默崩塌的判定须叠②或用 P3 实态兜底。
+## Evidence 与裁决
 
-OMP 手册校准正例：爬 config get → lsp → 真跑 当 ground truth（不是模型记忆/文档声称）。
-
-## 审核独立性三级
-
-| 级别 | 做法 | 适用 | 判据 |
-|---|---|---|---|
-| 自审 | executor 完成后快速自检 | L0/L1 草稿 | 改一行过时文档自审够 |
-| 净 session 审 | 新 session 只读审计 | L2 任务 | 中等复杂度 |
-| 独立 auditor 审 | `task agent:reviewer` / `oracle` / 可选 `stdd-auditor` | L3 / GOAL | 核心状态权威/并发安全须独立 auditor 审 |
-
-## 角色→bundled 子代理映射 + 临时专家 + fork-bomb 控制
-
-**角色优先落到 bundled 子代理**：
-- 调研/只读审 → `explore`
-- 检索/文档 → `librarian`
-- UI → `designer`
-- 复核/审计（同步）→ `reviewer`/`oracle`
-- 执行 → `task`/`oracle`/`quick_task`
-- 规划 → `plan`
-
-**临时专家**（bundled 无覆盖才起）：
-- 自定义 ad-hoc agent 放 `~/.omp/agent/agents/<name>.md`
-- 同 `stdd-auditor` 机制
-- Frontmatter `tools`/`spawns` = 能力声明即契约，声明不出 = 不起
-
-**Fork-bomb 红线**（OMP既有键 enforce）：
-- `task.maxConcurrency` — 并发上限
-- `task.maxRecursionDepth` — 递归 depth 硬顶
-- `task.maxRuntimeMs` — 超时 kill
-- Spawn 策略：`spawns` / `task.disabledAgents` / `PI_BLOCKED_AGENT`
-- 用完即弃：`task.agentIdleTtlMs` idle-park
-
-## 动态发现 + 自定义覆盖
-
-OMP 按名称动态发现 agent。默认 auditor 是内置 `reviewer`/`oracle`。
-
-可选增强：若把 `assets/stdd-auditor.agent.md` 复制到 `~/.omp/agent/agents/stdd-auditor.md`，
-可用 `task agent:stdd-auditor` 替代 reviewer/oracle，获得更聚焦的审计角色。
-
-如果 auditor 缺失：
-- L1/L2：用 `oracle` 或 `reviewer`。
-- L3：必须有独立 auditor（reviewer/oracle 或 stdd-auditor）；缺失则任务不能进入无人值守。
-
-## 隔离防冲突
-
-- 同任务不要让 executor 在完成后立即自审。
-- 多 executor 并行时启用 `task.isolation.mode`。
-- auditor 应在干净上下文或独立 session 中运行。
-
-## Advisor 委员会（v3，审核者回合级载体，16.2.3 已部署）
-
-`WATCHDOG.yml` 双 advisor 架构（详见 `assets/WATCHDOG.yml`）：
-
-| Advisor | Slug | 模型 | 镜头 | STDD 承重墙覆盖 |
-|---|---|---|---|---|
-| Reviewer | `reviewer` | Codex auto-review:medium | 宽镜头：14 条规则全科审查 | P1–P6 全覆盖（scope shrinkage/P3 fake verification/MUST-NEVER/tool audit/delivery） |
-| Claim Verify | `claim-verify` | DeepSeek V4 Flash | 窄镜头：声称核实（交付类+事实类） | P3 claimcheck（声称 vs 证据独立核对，≤2 条/轮 concern only） |
-
-**Per-advisor 跨模型（Codex + DeepSeek，不同家族）= P4 第二维「模型/视角独立」**。Refute-or-Promote 实证跨模型交叉验证多发现 ~3% 同族遗漏。Reviewer: blocker/concern/nit；Claim Verify: concern only，与 reviewer 去重。
-
-`advisor.enabled: true`、`advisor.subagents: false`、`advisor.syncBacklog` 默认 3。`retry.fallbackChains.advisor` 降级链。Chair 不部署（advisor 间不通信）。
-
-单 `WATCHDOG.md` = ≤16.2.2 回退。
-
-## 三级门控
-
-| 级别 | 配置 | 效果 |
-| 只读 | `tools.approvalMode: always-ask` | 每个 tool_call 都问 |
-| 默认 yolo | `tools.approvalMode: yolo` | 工具自由执行，无需逐个确认 |
-| 危险 | hook + approval 双重拦截 | 危险命令 block |
+evaluator/auditor 只根据 Acceptance contract 与可定位证据裁决，不把 executor 自报当成实态。每项输出：
 
 ```yaml
-tools:
-  approvalMode: yolo
-  approval:
-    bash: allow
-    edit: allow
-    write: allow
+id: <acceptance-id>
+verdict: PASS | FAIL | BLOCKED
+anchor: <file:line | exit code | log line | agent://id>
+blocks: <依赖项/acceptance/release>
+next_action: continue | rebuild | revise-contract | escalate
 ```
 
-## modelRoles 映射
+证据不足、验证崩溃、部分产出或 timeout → 相关项 BLOCKED。无依赖工作可继续；依赖该项的合并、Acceptance、发布或交付不能继续。
 
-| STDD 角色 | OMP modelRole | 用途 |
-|---|---|---|
-| Spec / Plan / Accept | `plan` | 结构化规划、长程思考、生成 Plan 工件 |
-| Build executor | `task` | 执行导向、代码/写作产出 |
-| 审计 / 顾问 | `advisor` | 审慎判断、少改动、独立评估；agent 可用 `reviewer`/`oracle` |
-| 快速检查 | `smol` | 轻量、低成本、短延迟 |
-| 轻量任务 | `tiny`（16.2.2+） | 更轻量、更低成本 |
-| 深度难题 | `slow` / `plan:high` | 复杂设计、需要深度推理 |
+## Full-auto 权限边界
 
-示例 `~/.omp/agent/config.yml`：
+Full-auto 只覆盖 GOAL 中已授权的可逆操作。以下动作需要各自明确授权，不能由 full-auto、yolo 或已有普通任务授权推导：
 
-```yaml
-memory:
-  backend: local
-autolearn:
-  enabled: true
+- commit/push/publish/deploy/对外发送；
+- install/upgrade/runtime repoint/config 修改；
+- 登录、认证、密钥/凭据、权限提升；
+- 删除、覆盖、破坏性回滚。
 
-# modelRoles 能力画像：
-#   plan    — 高推理能力、结构化多步规划、复杂架构设计
-#   task    — 高效代码生成、强指令遵循、可靠执行
-#   advisor — 批判性分析、客观判断、细节导向审查
-modelRoles:
-  plan: <高推理-规划>
-  task: <代码生成-执行>
-  advisor: <批判审查>
-```
+## 并发与硬顶
 
-## Profile / modelRoles 隔离
+- regen max=3；slice max=2。
+- 并发上限、递归深度、运行时上限只使用当前 runtime 确认存在的控制项；不要把旧版本配置键当成事实。
+- 达到硬顶停止自动循环并升级人工。
 
-- `omp --profile stdd` 只迁移 native lane；agents lane `~/.agents/skills/` 不动。
-- 可为 auditor 使用 `advisor` 模型角色（即 `modelRoles.advisor`），避免与 executor 同模型/同 session。
+## 启动对齐清单
 
-## 启动对齐清单（协调者 grill 8 维）
+L2/L3 开始前确认：
 
-协调者起手跑此清单，逐维钉死再进四步循环。
+1. Spec 与 Acceptance 是否可证伪；
+2. 每个 slice 的 writer 所有权是否唯一；
+3. evaluator/auditor 的实际 runtime 名称和只读能力；
+4. 上下文独立；L3 高风险时模型/视角独立或实态补偿；
+5. 证据动作、regen/slice 硬顶和 danger 边界；
+6. 哪些 scope 已授权，哪些动作仍需单独授权。
 
-| # | 维度 | 检查项 |
-|---|---|---|
-| 1 | 需求&验收 (P1/P2) | 意图是否可证伪？验收契约是否逐条 true/false？ |
-| 2 | 角色 (P4) | 需要哪些角色？是否独立 auditor？独立性一维或两维？ |
-| 3 | 档位&自动度 (L0–L3/full-auto) | 任务强度 L 档？交互 or full-auto？升级触发条件？ |
-| 4 | 技术文档目录/三梁落点 | 梁1/梁2/梁3 落哪个文件？路线图如何派生？ |
-| 5 | 溯源 | 核心数据/API/schema 在哪个权威源？版本号？ |
-| 6 | skill 嵌入 | 需要调用哪些 skill？（prd-development / agent-reach / browser-use …） |
-| 7 | 边界&门 (P4/P6) | regen/slice 硬顶、danger 清单、不可逆操作红线 |
-| 8 | 样板登记 | 是否存在可复用的历史 GOAL/验收模板？ |
-
-纪律：能查代码库/已有文档自答的不问你，只把真分叉抛你（交互档）或自核留痕（full-auto）。
+能从仓库、runtime roster 或现有授权自答的，不重复询问用户。

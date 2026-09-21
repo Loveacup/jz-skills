@@ -3,16 +3,16 @@
 ## 五步宏循环
 
 ```text
-审查 → 分级 → 委派 → 审核 → 收尾
+审查 → 分级 → 执行 → 审核 → 收尾
 ```
 
-| 步骤 | 问题 | OMP 机制 |
+| 步骤 | 问题 | 做法 |
 |---|---|---|
-| 审查 | 当前状态 vs 目标差多少？ | `explore` 只读调研 + `read`/`grep` |
-| 分级 | 这是 L0/L1/L2/L3 哪一档？ | 对照 SKILL.md 分档表 |
-| 委派 | 谁做 Build？谁审？ | `task` batch；executor + auditor 分离 |
-| 审核 | 验收项全过吗？ | `gates.mjs` + `reviewer`/`oracle`/`stdd-auditor` |
-| 收尾 | 经验回写 + 状态清理 | `memory://root` 读经验 + `autolearn` 自动沉淀 + `todo done` + counter reset |
+| 审查 | 当前状态 vs 目标差多少？ | 使用当前 runtime 提供的只读工具；不假定固定 agent 名。 |
+| 分级 | 这是 L0/L1/L2/L3 哪一档？ | 对照 SKILL.md 分档表。 |
+| 执行 | 是否需要委派？ | L1 内联；L2/L3 仅在能力/独立性需要时按 roster 委派。 |
+| 审核 | 验收项全过吗？ | L1 内联证据；L2 fresh-context evaluator；L3 independent auditor。 |
+| 收尾 | 依赖项是否都有 PASS？ | BLOCKED 不放行；清理状态并保存证据。 |
 
 ## 偏差三形态 + 统一判据
 
@@ -87,10 +87,10 @@ $$\text{落地率} = \frac{\text{满足} + 0.5 \times \text{部分满足}}{N}$$
 ## 五条原则
 
 1. 先审状态，再分级；不越级派任务。
-2. L3 必须拆分 slice；每个 slice 对应一个 micro-loop。
-3. auditor 独立：与 executor 不同 agent / 不同 session。
-4. 计数器满硬顶必须升级人工，不得自动再试。
-5. 全过才收尾；未过先回退到对应步骤。
+2. L1 内联，L2 独立上下文，L3 独立 auditor；agent 名按 runtime capability 选择。
+3. L3 的 slice 必须有不重叠所有权与 single-writer 记录。
+4. regen max=3、slice max=2；到顶停止并升级人工。
+5. 全部依赖验收 PASS 才收尾；FAIL 回退，BLOCKED 停止依赖链。
 
 ## 适用边界
 
@@ -110,9 +110,12 @@ $$\text{落地率} = \frac{\text{满足} + 0.5 \times \text{部分满足}}{N}$$
 | 反模式 | 后果 | 修正 |
 |---|---|---|
 | 跳过 Accept 直接 Build | 反复返工 | 没有 checklist 不 Build |
-| executor 自审 | 偏见放行 | 强制 auditor 角色分离 |
-| 硬顶后继续 regen | 浪费 token、引入风险 | 计数器到顶 → 升级人工 |
-| 路线图独立维护 | 三梁与代码不同步 | 路线图是派生投影，变更回写三梁 |
+| L1 一律委派/独立审 | 增加无意义开销 | L1 当前 agent 内联验证 |
+| L2/L3 使用固定 agent 名 | runtime 不存在或能力不符 | 查询 roster，按 capability 选择 |
+| 软失败低置信度放行 | 依赖结论无证据 | 相关项 BLOCKED；只让无依赖工作继续 |
+| timeout 后自动重派 | 形成双 writer | 先取得 stop proof |
+| 硬顶后继续 regen | 无限循环 | 到顶停止并升级人工 |
+| full-auto 执行发布/安装/认证 | 越权 | 对具体高风险动作另取授权 |
 
 ## 收尾步：自文档化校准
 
@@ -123,13 +126,15 @@ $$\text{落地率} = \frac{\text{满足} + 0.5 \times \text{部分满足}}{N}$$
 3. 重跑最小动作清单（具体命令）
 
 残留留账分两类：
-- **需求残留**：验收项未满足但决定接受（需理由 + 日期 + 批准人）
-- **证据残留**：夹逼放行项（需标注夹逼两端 + 为什么不能直接观察）
+- **需求残留**：验收项未满足但由有权用户明确接受变更后的契约（理由 + 日期 + 批准人）
+- **证据残留**：记录已有证据、缺口和 blocks；相关验收保持 BLOCKED，直到直接证据满足
 
 ## 渐进采纳级别
 
 **校准级别 0–2 与任务强度 L0–L3 是两把正交尺子**：
 
-- **级别 0**（只审不修）：只在关键任务写 Acceptance checklist，发现偏差记日志。
-- **级别 1**（审+修 P0）：所有 L1+ 任务跑 gates.mjs verify，L2+ 强制独立 auditor，发现 P0 偏差必须修正。
-- **级别 2**（全量五步）：L3 全闭环 GOAL + 上游真相校准 + 量化档 + sid 追溯 + 自文档化校准，含计数器与异步 task。
+- **级别 0**（只审不修）：仅记录关键 Acceptance 与偏差。
+- **级别 1**（局部采用）：L1 内联 Verify；L2 使用独立上下文 evaluator。
+- **级别 2**（完整采用）：L3 使用独立 auditor、GOAL、上游真相校准、量化档、sid、regen/slice 硬顶。
+
+STDD 的采用必须来自用户明确选择或项目治理文件，不由泛化关键词自动升级。

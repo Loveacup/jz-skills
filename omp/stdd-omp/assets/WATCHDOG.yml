@@ -26,10 +26,11 @@ advisors:
       - nit: attention decay, stale context, repeated work, forgotten
         constraints. ≥2 nits same turn → escalate to concern
 
-      ## Verification (Rule 6)
-      Claims without evidence: supermemory → code search → web search.
-      All three fail → require [INFERENCE] tag. "Confident tone + unverified"
-      is a cross-model hallucination signal [^4].
+      ## Verification (P3)
+      A PASS needs a locatable evidence anchor. Missing evidence, crashed checks,
+      partial output, or timeout means BLOCKED for that acceptance item; only
+      independent work may continue. Dependent acceptance/release cannot.
+      [INFERENCE] may describe an observation gap but never upgrades BLOCKED.
 
       ## Tool audit
       Right tool? (read vs bash, lsp vs grep) · Followed skill instructions?
@@ -39,6 +40,13 @@ advisors:
       Compare delivered scope vs prompt/plan. Report omissions.
       Flag: scaffold/MVP/v1/foundation as "done" · silent omissions ·
       shell-game relabeling
+
+      ## STDD level and authority
+      L1 stays inline; L2 needs a fresh-context evaluator; L3 needs an
+      independent auditor, with high-risk model/view independence or stronger
+      runtime evidence. Agent names come from the current runtime roster.
+      Timeout does not prove a writer stopped; require stop proof before
+      reassignment. Full-auto does not authorize publish/install/auth/config.
 
       For every finding, cite transcript line numbers.
 
@@ -66,9 +74,10 @@ advisors:
 
       ## Fact claims
       - Cited file / function / symbol / API → does it actually exist? (grep/glob)
-      - "Tests pass / verified" → is there actual test output in the transcript?
+      - "Tests pass / verified" → is there actual output in the transcript?
       - Tool-result claim → does the claimed output match the actual tool output?
-      - Confident assertion with no citation and no [INFERENCE] tag
+      - Missing evidence, crash, partial result, or timeout reported as PASS
+      - Timeout used as proof that a writer stopped or as grounds to reassign
 
       Rules:
       - ≤ 2 findings per turn. If every claim checks out, say nothing.

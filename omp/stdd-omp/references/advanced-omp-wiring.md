@@ -4,25 +4,27 @@
 
 ## eval 工作流 → Verify / Build 编排
 
-OMP `eval` 是持久化代码内核，适合把多步客观校验写成可复现脚本。
+仅在当前 runtime 确认提供 `eval` 及相关 helper 时使用。helper 名称和签名以当前 tool schema 为准，不把历史示例当作保证。
 
 | STDD 步骤 | eval 用法 | 收益 |
 |---|---|---|
-| Verify（客观项） | `eval js` import `scripts/gates.mjs` | 跨 OS、无 PATH 依赖、结果可判定 |
-| Verify（多维度并行） | 并行跑多个 `gates.mjs` 校验 | 缩短验证时间 |
-| Build（多阶段流水线） | 在 `eval` 中用代码编排多阶段（读取→处理→校验） | 数据→处理→产物 可追踪 |
-| full-auto 编排 | `eval` `agent()` / `parallel()` / `pipeline()` / `completion()` | verdict 路由、多 slice 并发 |
+| Verify（客观项） | import `scripts/gates.mjs` | 结果可判定 |
+| Verify（多维度并行） | 并行跑互相独立的 gate | 缩短验证时间 |
+| Build（多阶段） | 仅在每阶段所有权清晰时编排 | 数据→处理→产物可追踪 |
+| full-auto | 仅在已授权 GOAL 内路由 verdict | 不扩大 publish/install/auth 权限 |
 
-**最小兼容路径**：
+**稳定 API**：
 
 ```js
-const g = await import('file:///path/to/scripts/gates.mjs');
-const artifact = g.verifyArtifact('dist/app.js');
-const test = g.verifyTest('node -e "process.exit(0)"');
-const danger = g.scanDanger('git push');
+const {
+  verifyArtifact,
+  verifyTest,
+  scanDanger,
+  bumpCounter,
+} = await import('file:///path/to/scripts/gates.mjs');
 ```
 
-`agent()` / `parallel()` / `pipeline()` / `completion()` 是 OMP `eval` 内置助手（手册 §5）。
+委派/并行 helper 只有在当前 runtime 明确暴露时才使用；agent 名从当前 roster 按 capability 选择。
 
 ## TTSR / Rules → 动态规则墙
 
@@ -135,9 +137,11 @@ advisor:
 
 ## 推荐组合
 
-- L0/L1：`ask` + `gates.mjs` verifyArtifact
-- L2：`resolve(plan)` + `task` isolated + `eval` parallel verify + `lsp diagnostics`
-- L3：`resolve(plan)` + `async task` + `reviewer`/`oracle` auditor + `browser`/DAP + `gates.mjs` counter + `irc` turn-done + Advisor 委员会（WATCHDOG.yml）
+- L1：当前 agent 内联 + 与变更直接相关的最小证据。
+- L2：fresh-context evaluator + 影响面/行为证据；actual agent name 从 runtime roster 选择。
+- L3：独立 auditor + live evidence + counter + single-writer；高风险叠模型/视角独立或实态补偿。
+
+任何档位都不把 timeout 当作 writer 终止证明，也不把 full-auto 当作 publish/install/auth/config 授权。
 
 ## 与 hook 的关系
 

@@ -52,9 +52,9 @@
 
 **Clinical presentation:** A skill's SKILL.md is valid and well-structured, but when deployed to a fresh agent, the agent never invokes it. The skill is loaded (visible in available_skills) but the agent rationalizes: "I can handle this without loading that."
 
-**Root cause:** (1) Description not pushy enough — trigger phrases too generic; (2) Skill name not salient in the task context; (3) Agent overconfidence in its own ability to handle the task.
+**Root cause:** (1) The description does not name the concrete tasks and boundaries it owns; (2) the skill name or trigger overlaps another owner; (3) the runtime discovery surface does not expose the intended entry.
 
-**Fix:** (1) Strengthen description with explicit trigger phrases; (2) Add "load this skill FIRST" in Red Flags; (3) Test with fresh agent (different model) before shipping.
+**Fix:** State precise task-language triggers and anti-triggers without hype, resolve overlapping ownership, then exercise representative in-scope and out-of-scope requests in a fresh context when invocation behavior changed.
 
 **Source:** SkillEvolver paper (2026-05), confirmed in multiple Hermes skills
 
@@ -68,9 +68,9 @@
 
 **Root cause:** Hermes profiles sharing skills via `external_dirs` creates duplicate paths. The `skill_view()` resolver finds both and errors instead of picking one.
 
-**Workaround:** (1) Use `read_file` with absolute path instead of `skill_view`; (2) Pass `cross_profile=True` for `skill_manage`; (3) Use `terminal` for bulk writes to bypass the guard.
+**Safe interim:** Use an explicit absolute path for read-only inspection. Use supported `cross_profile=True` only when the active task authorizes the named target; otherwise treat the write as blocked. Never escape a profile guard through a generic terminal or bulk-write path.
 
-**Root fix candidate:** Categorized path resolution — pass `category/skill-name` format to disambiguate.
+**Root fix candidate:** Remove the duplicate exposure or use categorized path resolution such as `category/skill-name`, then verify the intended consumer without changing unrelated profiles.
 
 **Source skills:** All skills used by cron-worker profile (2026-05-31+)
 
@@ -78,13 +78,13 @@
 
 ## P06 — Progressive Disclosure Drift
 
-**Classification:** ⚡ OPTIMIZATION
+**Classification:** OPTIMIZATION
 
-**Clinical presentation:** A SKILL.md starts at <300 lines but incremental additions push it past the threshold without anyone noticing. Content that should be in `references/` accumulates in the main body.
+**Clinical presentation:** Repeated edits make an ordinary task carry unrelated modes, environments, history, and recovery guidance. Agents miss the common path even though every individual section appears useful.
 
-**Root cause:** No automated line-count check. Each edit adds 5-10 lines; after 20 edits, the file is silently oversized.
+**Root cause:** Conditional material accumulated in the always-loaded body without task-specific load conditions. Line count may reveal growth, but it is not a quality threshold.
 
-**Fix:** (1) `wc -l SKILL.md` after every patch; (2) If >300, move least-critical sections to `references/`; (3) Consider a pre-commit hook.
+**Fix:** Trace the common execution path, keep its decisions in `SKILL.md`, move conditionally needed depth to named references, and verify the affected scenarios. Use size/count changes only as diagnostics, never as pass/fail evidence.
 
 **Source skills:** Multiple (ongoing)
 

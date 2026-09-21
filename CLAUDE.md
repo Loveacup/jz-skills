@@ -65,12 +65,13 @@ Skills in `hermes/` MAY reference Hermes-specific paths and tools.
 
 ---
 
-## ✍️ Skill Authoring · 技能创作
+## Skill Authoring · 技能创作
 
-All skill creation and major edits MUST follow [skill-authoring v3.0](shared/skill-authoring/):
-- 11-step workflow: Capture → Grill → Progressive disclosure → Anti-rationalization → Rule positioning → Checklist → 7-dim scoring → Test cases → Deployment-grounded audit → Failure classification → Revision
-- Any skill that hasn't gone through this pipeline is a draft
-
+Skill creation and behavior-changing edits follow the current [skill-authoring contract](shared/skill-authoring/):
+- Define trigger/anti-trigger, consumer-visible behavior, boundaries, and risk before editing.
+- Use progressive disclosure by task need; there is no fixed line ceiling, scorecard, warning-table shape, or test quota.
+- Verify the changed behavior proportionally: focused checks for text-only edits, realistic scenarios for behavior changes, and a fresh independent verifier for high-impact changes.
+- Treat source/canonical application, named-target runtime deployment, publication, and retirement as separate states. Preparing or reviewing a skill never implies commit, push, broad sync, deletion, or baseline mutation.
 ---
 
 ## 📝 Commit Conventions · 提交规范
@@ -143,7 +144,7 @@ git pull && ./deploy/sync-all.sh <platform>
 
 ## 🧠 When Claude Code Is Operating Here · CC 在此仓库工作时
 
-- **Use `skill-authoring` for any skill work.** Load the skill before making changes.
+- **Use `skill-authoring` for skill behavior, structure, provenance, or release-path changes.** Load only the references selected by its conditional router; do not apply a fixed v3 ritual to small text edits.
 - **Prefer agent team for multi-file changes.** This repo has 60 skills with cross-references — a single-CC session can miss cascading impacts.
 - **Run `deploy/skill-drift-summary.sh` before committing** to catch cross-skill drift, critical deletions, and sensitive additions.
 - **Run `sync-back.sh --dry-run` before scoped runtime writeback** to see what's changed from the live Hermes deployment.

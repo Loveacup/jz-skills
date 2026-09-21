@@ -81,38 +81,18 @@ node scripts/gates.mjs counter --key task-id --kind regen --get
 
 ## Hook 安装（opt-in）
 
-OMP hook 只能放在 **native lane** 的 `~/.omp/agent/hooks/pre/`。
+Hook 安装会写入 native lane，只在用户明确授权安装时执行；preflight、L3 或 full-auto 不隐含该授权。
 
-> 注意：`~/.omp/agent/` 必须**存在且非空**（至少含 `config.yml` 或一个文件），否则 OMP 不会扫描 hooks/agents 子目录。
+安装后不要执行真实 `git push`/publish/deploy 作为验证。用模拟 tool-call 输入、hook 的 dry-run 入口（若当前 runtime 提供）或 `scanDanger` 验证危险文本：
 
-1. 确认目录存在：
-   ```bash
-   # Windows (PowerShell)
-   New-Item -ItemType Directory -Force "$env:USERPROFILE\.omp\agent\hooks\pre"
-   # macOS/Linux
-   mkdir -p ~/.omp/agent/hooks/pre
-   ```
-2. （可选）复制 hook 以启用执行前危险拦截：
-   ```bash
-   cp assets/stdd-gate.hook.ts ~/.omp/agent/hooks/pre/stdd-gate.ts
-   ```
-3. 确保 `~/.omp/agent/` 根目录非空（已有 `config.yml` 即可）。
-4. 新建 OMP session，尝试 `bash` 调用 `git push` → 应被 block，返回 `{block:true, reason:"STDD danger gate: ..."}`。
-
-## 三级门控配置示例
-
-在 `~/.omp/agent/config.yml` 或 `<cwd>/.omp/config.yml`：
-
-```yaml
-tools:
-  approvalMode: yolo         # always-ask | write | yolo
-  approval:
-    bash: allow
-    edit: allow
-    write: allow
+```js
+const result = scanDanger('git push origin example');
+// result.ok === false; result.code === 10
 ```
 
-配合 hook，危险命令在 tool_call 层被拦截，**在任何 OS 都先于 shell 执行**。
+Hook 是额外拦截，不是权限来源。`approvalMode: yolo`、hook 已安装或 danger scan clean 都不能扩大任务 scope；commit/push/publish/deploy、install/upgrade、runtime config/repoint、login/auth/credential/privilege change 仍需各自明确授权。
+
+配置路径和 hook schema 以当前 runtime 的帮助/schema 为准，不把历史路径或配置键当作跨版本保证。
 
 ## Cross-OS notes
 

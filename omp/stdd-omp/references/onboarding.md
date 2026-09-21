@@ -1,104 +1,72 @@
-# STDD-OMP 新用户 Onboarding
+# STDD-OMP Onboarding
 
-从零到第一个 STDD 任务，约 5 分钟。
+STDD 必须由用户明确选择，或由项目治理文件明确采用。仅出现“测试、验收、计划、审计”等泛词不启用。
 
-## 5 分钟快速开始
+## 第一个 L1
 
-### 1. 确认 skill 已加载
+对 agent 明确说：
 
-在 OMP 中输入 `STDD`，如果 agent 引用了 stdd-omp 说明已加载。如果没反应，检查 agents lane 是否启用（见 `assets/INSTALL.md`）。
+> 用 STDD 完成这个低风险小改动：[任务描述]。
 
-### 2. 跑体检
+L1 的最小行为：
+
+1. 内联写一句 Spec；
+2. 内联写 1–2 条可证伪 Acceptance；
+3. scope 已授权且无歧义时直接 Build，不重复要求确认；
+4. 运行直接相关的验证并给出证据锚。
+
+L1 不要求 subagent、独立 auditor、安装体检或配置修改。
+
+## 何时跑 preflight
+
+仅在以下情况运行：
+
+- 首次接入或新 session，需要确认 gate/agent/hook/Advisor 等可执行集成；
+- OMP/skill 版本变化；
+- 集成、路径或 runtime 能力报错；
+- 准备使用 L2/L3 的隔离、异步或独立审计。
+
+只读命令：
 
 ```bash
 node scripts/orchestrate.mjs --text
-```
-
-期望输出：
-```
-✅ All components installed. No action needed.
-```
-
-如果有 `Missing opt-in components`，告诉 agent「帮我装」，agent 会执行 `--install`。
-
-### 3. 跑完整体检
-
-```bash
 node scripts/setup.mjs --status
 ```
 
-期望输出：
-```
-STDD-OMP 0.2.0 | OMP 16.2.3 | compatible
-✅ hook  ✅ rules  ✅ wdog.md  ✅ wdog.yml
-No action needed.
-```
+检测不会授权 `--install`、`--apply`、`--upgrade`、改配置、登录或凭据变更。这些动作都需要对应的明确授权。
 
-如果 config 缺项，agent 会帮你补上（见 `assets/INSTALL.md` 推荐配置）。
+## L2 与 L3
 
-### 4. 发第一个 STDD 任务
+| 档位 | 要求 |
+|---|---|
+| L2 | executor 与 fresh-context evaluator 分离；actual agent name 从当前 runtime roster 按能力选择。 |
+| L3 | 独立 auditor 必需；高风险叠模型/视角独立或更强实态证据；regen ≤3、slice ≤2。 |
 
-选一个不超过 2 个文件的小改动，对 agent 说：
-
-> 「用 STDD 帮我做一件事：[你的任务描述]」
-
-Agent 会自动走 Spec → Accept → Build → Verify 四步。
-
-## 部署检查清单
-
-逐条打勾，缺什么补什么：
-
-- [ ] `node scripts/orchestrate.mjs --text` → `All components installed`
-- [ ] `node scripts/setup.mjs --status` → 全部 ✅
-- [ ] `~/.omp/agent/config.yml` 含 `memory.backend: local` + `approvalMode: yolo` + `task.isolation` + `task.async`
-- [ ] `~/.omp/agent/WATCHDOG.yml` 存在（v3 双 advisor，16.2.3+）
-- [ ] `~/.omp/agent/rules/` 含 P1-P6 规则文件
-- [ ] 重启 OMP session 后 `/advisor status` 显示 Reviewer + Claim Verify
-
-## 第一个 STDD 任务（可直接复制粘贴）
-
-选一个小任务试试水：
-
-> 用 STDD 帮我在项目根目录加一个 `.stdd/` 目录和 `.gitkeep` 文件，确保 `.stdd/` 在 `.gitignore` 里。
-
-这是 L1 任务，agent 会：
-1. 写一句 Spec
-2. 让你确认 Accept checklist
-3. Build（创建文件）
-4. Verify（检查文件存在 + gitignore 正确）
-
-通过后试试 L2 任务：
-
-> 用 STDD 帮我重构 `src/utils/helpers.ts`，把日期处理函数抽到单独文件，保持原有测试通过。
+不要照抄历史 agent 名。若 runtime 没有满足能力的 evaluator/auditor，标记 BLOCKED。
 
 ## 常见坑
 
-| 坑 | 现象 | 解法 |
-|---|---|---|
-| **跳过 Accept 直接 Build** | agent 没让你确认 checklist 就开始改代码 | 说「先给我 Accept checklist」；这是 P2 铁律 |
-| **agent 自审** | executor 改完代码后自己说「通过了」 | 说「起独立 auditor 审」；P4 要求 producer ≠ judge |
-| **推测放行** | agent 说「应该没问题」「大概过了」 | 说「拿证据：gates.mjs verify 或 lsp diagnostics」；P3 禁止推测 |
-| **opt-in 组件没装全** | agent 没拦截危险命令、没回合级审查 | 跑 `setup.mjs --status`，缺的用 `--apply` 补 |
-| **L0 草稿当 L2 交付** | 小改动走了全套流程，浪费时间 | L0 口头确认即可；对照 SKILL.md 分档表选正确的档位 |
-
-## 核心概念速览
-
-| 术语 | 一句话 |
+| 坑 | 正确做法 |
 |---|---|
-| 梁1（需求基准线） | What / Why，不写 How |
-| 梁2（共维实现方式） | 设计决策、接口、风险 |
-| 梁3（agent 执行层） | 任务切片、审计链、退出条件 |
-| P1 可裁决 | 每条验收能判 true/false |
-| P2 验收不可省 | 没有 Accept 契约不 Build |
-| P3 证据优先 | 实态 > 测试 > diff > 报告 |
-| P4 角色分离 | executor ≠ auditor |
-| P6 终止条件 | regen ≤3, slice ≤2 |
+| 泛词触发 STDD | 只接受明确选择或项目 adoption。 |
+| 每个 L1 都跑体检/起 subagent | L1 内联；preflight 只在集成需要时。 |
+| 已授权 scope 仍要求确认 checklist | 记录 checklist 后继续；只对真实分叉提问。 |
+| L2/L3 使用固定 agent 名 | 查询当前 roster，按 capability 选并记录实际名字。 |
+| 软失败低置信度放行 | 相关项 BLOCKED；仅无依赖 slice 继续。 |
+| timeout 后立即重派 | 先拿 stop acknowledgement、进程退出或锁/lease 释放证据。 |
+| full-auto 自动 publish/install/auth | 这些动作需要各自明确授权。 |
+| executor 自报即通过 | L2/L3 由独立上下文/独立 auditor 复算证据。 |
 
-详细定义见 `SKILL.md` 硬规则区。
+## 快速检查
 
-## 下一步
+- [ ] STDD 已被明确选择/采用；
+- [ ] Acceptance 可判真假；
+- [ ] scope 已授权且无歧义时未重复确认；
+- [ ] L1 内联、L2 独立上下文、L3 独立 auditor；
+- [ ] agent 名来自当前 runtime；
+- [ ] BLOCKED 未被当作 PASS；
+- [ ] timeout 后没有在缺少 stop proof 时重派；
+- [ ] full-auto 没有扩大 publish/install/auth/config 权限；
+- [ ] regen ≤3、slice ≤2。
 
-- **日常使用**：对任何 L1+ 任务说「用 STDD 帮我做 X」
-- **无人值守**：L3 任务可配 full-auto 档（见 `references/goal-loop.md`）
-- **自定义角色**：需要专门 auditor 时参考 `references/agent-roles.md`
-- **深入理解**：读 `SKILL.md` 的四步微循环和角色编排
+进一步阅读：`SKILL.md`；L2/L3 读 `agent-roles.md`，失败语义读 `verify-evidence.md`，full-auto 读 `goal-loop.md`。
