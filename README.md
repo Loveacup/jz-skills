@@ -38,7 +38,7 @@ jz-skills/
 
 ```
 shared/                              🧩 26 skills (+1 archived)
-├── audio-transcriber            # 音频转录：降噪+声纹+中文ASR
+│   # audio-transcriber 已迁至 Loveacup/jz-meeting-skills
 ├── bilibili-video-analyzer      # deprecated → video-analysis-engine
 ├── bookmark-organizer           # 书签策展
 ├── china-legal-optimized        # 中国法务（7大领域）
@@ -59,7 +59,7 @@ shared/                              🧩 26 skills (+1 archived)
 ├── unifi-ops                    # UniFi AP/交换机/Controller 运维
 ├── video-analysis-engine        # Bilibili/YouTube/Douyin 单视频证据分析
 ├── vault-keeper                 # Obsidian 知识库生命周期治理
-├── voice-to-markdown-workflow   # 语音/视频→结构化 Markdown
+│   # voice-to-markdown-workflow 已迁至 Loveacup/jz-meeting-skills
 ├── web-research-router          # 多引擎搜索路由+深度研究循环
 ├── xhs-crawler                  # 小红书 CDP 提取（CloakBrowser）
 ├── xhs-tech-writer              # 小红书 AI/科技短图文
@@ -216,8 +216,8 @@ Hermes 通过 RPC / Shell / 实验性 ACP 调用 OMP 做独立审计与证据化
 | ✍️ | [skill-authoring](shared/skill-authoring/) | v4.0.0 11-step, 7-dim scoring / 合规创作 |
 | 🎯 | [goalgen](shared/goalgen/) | Multi-CLI goal instruction generator / 通用 goal 生成器 |
 | 📄 | [2pdf](shared/2pdf/) | OCR, extract, markdown→PDF / PDF 全处理 |
-| 🎙️ | [voice-to-markdown-workflow](shared/voice-to-markdown-workflow/) | Speech→structured markdown / 语音转文稿 |
-| 🔊 | [audio-transcriber](shared/audio-transcriber/) | Denoise+diarization+Chinese ASR / 音频转录 |
+| | [voice-to-markdown-workflow](https://github.com/Loveacup/jz-meeting-skills/tree/main/voice-to-markdown-workflow) | 已迁至独立仓库 jz-meeting-skills，不再由此仓库同步 |
+| | [audio-transcriber](https://github.com/Loveacup/jz-meeting-skills/tree/main/audio-transcriber) | 已迁至独立仓库 jz-meeting-skills，不再由此仓库同步 |
 | 📺 | [video-analysis-engine](shared/video-analysis-engine/) | Bilibili/YouTube/Douyin evidence-grounded analysis / 多平台视频分析 |
 | ↪️ | [bilibili-video-analyzer](shared/bilibili-video-analyzer/) | Deprecated compatibility shim / 旧入口转发 |
 | ⚖️ | [china-legal-optimized](shared/china-legal-optimized/) | 7 legal domains / 中国法务 |
@@ -237,6 +237,9 @@ Hermes 通过 RPC / Shell / 实验性 ACP 调用 OMP 做独立审计与证据化
 | 🌐 | [web-research-router](shared/web-research-router/) | Multi-engine search + deep loop / 检索总控 |
 | 🕷️ | [xhs-crawler](shared/xhs-crawler/) | XHS CDP extraction / 小红书爬虫 |
 | 🔖 | [bookmark-organizer](shared/bookmark-organizer/) | Bookmark curation / 书签策展 |
+
+会议处理技能的维护源已迁至 [Loveacup/jz-meeting-skills](https://github.com/Loveacup/jz-meeting-skills)（私有仓库）。原始快照保留在 `_archived-meeting-skills/`，仅供历史参考，不参与部署或反向同步。现有运行时安装及私人会议数据未作变更。
+
 
 > 🗄️ `shared/_archived-strategic-insight-longform-slim/` — 已归档的战略洞察长文技能
 

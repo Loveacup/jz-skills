@@ -143,7 +143,6 @@ sync_hermes() {
   deploy_shared_multi "$REPO_ROOT/shared/2pdf"   # blocker#2: canonical + 4-runtime symlinks（不再造 legacy pdf shadow）
   deploy_shared_multi "$REPO_ROOT/shared/vault-keeper"   # Obsidian 知识库生命周期治理引擎（多 CLI：cc/codex/cursor/hermes）
   copy_skill_dir "$REPO_ROOT/shared/strategic-insight-longform"  "$base/productivity"
-  copy_skill_dir "$REPO_ROOT/shared/voice-to-markdown-workflow"  "$base/productivity"
   copy_shared_skill "$REPO_ROOT/shared/bookmark-organizer"     "$base"
   copy_skill_dir "$REPO_ROOT/shared/github"                   "$base"
   copy_skill_dir "$REPO_ROOT/shared/xhs-tech-writer"    "$base/hermes"
