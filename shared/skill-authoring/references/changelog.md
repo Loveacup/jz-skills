@@ -2,6 +2,12 @@
 
 Version entries describe changes, not proof that a runtime loaded or correctly used them. Deployment and publication require their own evidence.
 
+## v5.1.0 — 2026-09-22
+
+Added scoped collection governance and agent instruction review/revision, including AGENTS.md and host equivalents. The new workflows distinguish exposed descriptions from installed files, real conflicts from complementary responsibilities, declared host precedence from filename assumptions, and generated entrypoints from their editable authority. Review does not authorize bulk changes or runtime management.
+
+Both original articles remain directly cited in [Research notes](research-notes.md), with a source-to-governance mapping and model-specific evidence limits. Existing author/import/evaluate/release workflows and the wording-only path remain available. This entry describes the prepared content; it does not assert canonical application, deployment or publication.
+
 ## v5.0.0 — 2026-09-22
 
 Rebuilt the family around a minimal task router, an inline wording-only path, and four workflows. Removed obsolete operational duplicates, v3 backup instructions, and unimplemented framework designs from the active payload after preserving them outside runtime discovery. This is a layout and workflow cutover, not an alias layer.

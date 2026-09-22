@@ -1,8 +1,8 @@
 ---
 name: skill-authoring
-description: Create, revise, audit, or import Agent Skills (SKILL.md and bundled files). Not for executing a skill's subject task or editing unrelated documentation.
+description: Create, revise, import, or audit Agent Skills; govern a named skill collection or agent instruction files such as AGENTS.md. Not for ordinary coding or executing a skill's subject task.
 type: routine
-version: 5.0.0
+version: 5.1.0
 author: Hermes Agent
 license: MIT
 metadata:
@@ -13,7 +13,7 @@ metadata:
 
 # Skill Authoring
 
-Produce a skill that is selected for the right task, gives useful guidance, and can be checked through its intended use. Optimize for fewer irrelevant instructions, not a line-count target.
+Produce skills and agent instructions that are selected or applied to the right task, give useful guidance, and can be checked through their intended use. Optimize for fewer irrelevant instructions, not a line-count target.
 
 ## Choose the work
 
@@ -27,6 +27,8 @@ For other work, load the matching workflow, not the whole table:
 |---|---|
 | Create a skill, change its trigger, instructions, or bundled behavior | [Author](references/author.md) |
 | Review quality, diagnose a failure, or restructure an existing skill | [Evaluate](references/evaluate.md) |
+| Audit or revise discovery and responsibility across a named skill collection | [Collection governance](references/collection-governance.md) |
+| Audit or revise AGENTS.md, CLAUDE.md, or equivalent agent instruction files | [Agent instructions](references/agent-instructions.md) |
 | Import upstream content or reconcile source/canonical/runtime differences | [Import](references/import.md) |
 | Apply across planes, deploy, publish, rename, or retire an entry | [Release](references/release.md) |
 
@@ -37,6 +39,7 @@ A workflow may link a reference for a specific decision. Read it only when that 
 - Continue through the requested deliverable and relevant verification within the already authorized scope. Ask only for a material decision that the task, files, or governing rules cannot settle; do not turn guideline interpretation into another approval gate.
 - Preparing, importing, or reviewing does not itself authorize commit/push, runtime deployment, deletion, repointing, credentials, or baseline changes. Honor explicit named-target authorization without asking for it again. If blocked, identify the missing permission or evidence and the exact governing instruction.
 - Preserve unrelated work and legitimate private/runtime-only content. Do not choose an authority by version, recency, apparent richness, or byte equality. Follow the import workflow when those planes disagree.
+- Governance supports review and explicitly authorized revision of named targets. Reviewing a collection does not authorize changing every member, editing generated outputs, or overriding the host's instruction hierarchy. Read-only findings may continue when an affected write is blocked.
 - Missing required evidence is `BLOCKED`, not a low-confidence pass. Only work independent of that missing result may continue. A timeout is not proof a worker stopped: before replacing a writer on the same scope, obtain exit or lock/lease-release evidence.
 
 ## Finish at the requested state

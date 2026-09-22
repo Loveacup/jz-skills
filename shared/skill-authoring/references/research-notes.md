@@ -12,6 +12,21 @@ Eric Provencher's [post on skill files and agent instructions](https://x.com/pvn
 
 That post is practitioner guidance, not an evaluation result. This refactor adopts its testable design ideas—precise discovery, conditional loading, and fewer simultaneous obligations—without treating model-specific observations, popularity signals, or prescriptive size limits as proof.
 
+## Source-to-governance mapping
+
+The two sources above remain direct references for [collection governance](collection-governance.md) and [agent instruction governance](agent-instructions.md). They motivate the following design choices; the workflows specify how to test them. Reading these sources is optional during an ordinary governance run, not a mandatory network preflight.
+
+| Source and section | Source claim | Governance application and limit |
+|---|---|---|
+| OpenAI guide, “Instruction following” | Accessible skill and repository instructions can create conflicts or premature stopping; identify the exact instruction behind a pause. | Quote the implicated rule, its owner and scope. Distinguish an explicit requirement from the agent's interpretation. Do not invent a host-independent precedence order. |
+| Provencher post, “Skill files” | Descriptions compete in shared discovery context; overbroad triggers and elaborate recipes can be counterproductive. | Evaluate a named collection's exposed descriptions together, including rejection cases. A file on disk is not proof it was exposed; character totals are not token counts or measured session cost. |
+| Provencher post, “AGENTS.md” | Always-on preparation can be disproportionate to a small task; contextual references remain useful. | Separate broadly applicable constraints from conditional procedures. Preserve required repository checks and operational knowledge when relocating rules. |
+| Both sources, initiative / decision boundaries / persistence | Ambiguous ask-first and stopping rules can interrupt intended completion. | Clarify the authorized workflow and its completion evidence; retain explicit approvals for consequential actions. Model initiative is not a grant of user permission. |
+| OpenAI guide, “Testing and verification”; Provencher post, “AGENTS.md” | Verification can exceed what a small change needs. | Test the affected behavior and preserve target-required checks; broaden only for a new change, failure or unresolved risk. Do not convert this into “never test.” |
+| Provencher post, cross-model discussion; OpenAI model-specific guidance | Instructions affect models differently. | Keep portable constraints separate from demonstrated host/model adjustments; measure with the named consumer before claiming transfer or improvement. |
+
+The official guide was re-fetched on 2026-09-22 and matched the earlier captured body. The post was re-read from its complete previously captured text; its live content was not re-fetched for this extension. These are provenance observations, not proof of later source freshness or of a universal model behavior.
+
 ## Transferable lessons from historical cases
 
 The prior skill-authoring material recorded useful failures even where its procedures became obsolete:
