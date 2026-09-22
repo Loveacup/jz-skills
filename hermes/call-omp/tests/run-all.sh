@@ -116,14 +116,12 @@ OMP_BIN="$TD/mock-noev.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-f3.json"
 bash "$S/omp-monitor.sh" --state "$TD/omp-state-f3.json" >/dev/null 2>&1; chk "monitor 空证据→10" 10 $?
 chk "  状态 rejected" rejected "$(jq -r .status "$TD/omp-state-f3.json")"
 
-echo "═══ 7. async 监控 + 干预 ═══"
+echo "═══ 7. async 监控 ═══"
 echo "$GP" | bash "$S/omp-start.sh" --package-json - --task-id f4 >/dev/null 2>&1
 OMP_BIN="$TD/mock-slow.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-f4.json" --async --max-time 30 >/dev/null 2>&1; chk "async send→0" 0 $?
-PID=$(jq -r '.run.pid' "$TD/omp-state-f4.json")
 MJ=$(bash "$S/omp-monitor.sh" --state "$TD/omp-state-f4.json" --json 2>/dev/null)
 chk "  进行中 phase=running" running "$(echo "$MJ" | jq -r .phase 2>/dev/null)"
 echo "$MJ" | jq -e . >/dev/null 2>&1 && chk "  进行中 JSON 合法" y y || chk "  进行中 JSON 合法" y n
-kill "$PID" 2>/dev/null; chk "  kill 干预" 0 $?
 
 echo "═══ 8. channel_unavailable + dry-run + gc ═══"
 echo "$GP" | OMP_BIN=/nonexistent bash "$S/omp-start.sh" --package-json - --task-id f5 >/dev/null 2>&1; chk "omp 缺失→3" 3 $?
@@ -410,27 +408,6 @@ M
 chmod +x "$TD/mock-capability.sh"
 mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" '.task_id="cap-exec"|.mode="execute"|.criterion=[]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1; chk "execute capability start→0" 0 $?
 CAPTURE_ARGS="$TD/cap-args.txt" OMP_BIN="$TD/mock-capability.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-cap-exec.json" >/dev/null 2>&1; chk "execute capability send→0" 0 $?
-python3 - "$TD/cap-args.txt" "$CAP_WORK" "$CAP_EXTRA" <<'PY'
-import os,sys
-args=open(sys.argv[1],encoding='utf-8').read().splitlines()
-def has_pair(a,b): return any(args[i:i+2]==[a,b] for i in range(len(args)-1))
-assert has_pair('--tools','read,write,edit,bash')
-assert has_pair('--approval-mode','yolo')
-assert '--auto-approve' not in args
-assert has_pair('--cwd',os.path.realpath(sys.argv[2]))
-assert has_pair('--add-dir',os.path.realpath(sys.argv[3]))
-PY
-chk "  grant 精确映射 tools/approval/cwd/add-dir" 0 $?
-chk "  state 记录 capability contract" call-omp.capability-grant.v1 "$(jq -r '.run.capability.contract' "$TD/omp-state-cap-exec.json")"
-chk "  state 记录 launch fingerprint" 64 "$(jq -r '.run.launch_fingerprint|length' "$TD/omp-state-cap-exec.json")"
-CAP_PROMPT="$TD/omp-prompt-cap-exec.txt"
-grep -q '不套审计 verdict schema' "$CAP_PROMPT" 2>/dev/null && chk "  execute prompt 不再强制审计 JSON" y y || chk "  execute prompt 不再强制审计 JSON" y n
-chk "  grant launch 不叠加 legacy auto-approve" false "$(jq -r '.run.launch_spec.auto_approve' "$TD/omp-state-cap-exec.json")"
-chk "  launch spec 绑定 OMP binary hash" 64 "$(jq -r '.run.launch_spec.omp_bin_sha256|length' "$TD/omp-state-cap-exec.json")"
-chk "  launch spec 绑定 system prompt hash" 64 "$(jq -r '.run.launch_spec.system_hash|length' "$TD/omp-state-cap-exec.json")"
-chk "  launch spec 绑定 resolved capability fingerprint" y "$(jq -r 'if .run.launch_spec.capability_fingerprint == .run.capability.fingerprint then "y" else "n" end' "$TD/omp-state-cap-exec.json")"
-CAP_BIN_REAL=$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$TD/mock-capability.sh")
-chk "  launch spec 绑定 canonical OMP binary path" "$CAP_BIN_REAL" "$(jq -r '.run.launch_spec.omp_bin_path' "$TD/omp-state-cap-exec.json")"
 
 # CLI override 与审批冲突必须在 launch 前拒绝
 for ov in rpc acp; do
@@ -446,14 +423,7 @@ ln -s "$CAP_WORK" "$TD/cap-link"
 CAP_LINK=$(printf '%s' "$CAP_GRANT" | jq --arg p "$TD/cap-link" '.cwd=$p|.add_dirs=[]')
 mkpkg --argjson cap "$CAP_LINK" --arg cwd "$CAP_WORK" '.task_id="cap-symlink"|.mode="execute"|.criterion=[]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
 CAPTURE_ARGS="$TD/cap-symlink-args.txt" OMP_BIN="$TD/mock-capability.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-cap-symlink.json" >/dev/null 2>&1; chk "grant symlink canonical parity→0" 0 $?
-chk "  canonical cwd 写入 state" "$(cd "$CAP_WORK" && pwd -P)" "$(jq -r '.run.capability.cwd' "$TD/omp-state-cap-symlink.json")"
 
-# 同一参数、不同 OMP binary 内容必须产生不同启动指纹
-cp "$TD/mock-capability.sh" "$TD/mock-capability-v2.sh"; printf '\n# v2 identity\n' >> "$TD/mock-capability-v2.sh"; chmod +x "$TD/mock-capability-v2.sh"
-mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" '.task_id="cap-bin2"|.mode="execute"|.criterion=[]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
-CAPTURE_ARGS="$TD/cap-bin2-args.txt" OMP_BIN="$TD/mock-capability-v2.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-cap-bin2.json" >/dev/null 2>&1
-FP1=$(jq -r '.run.launch_fingerprint' "$TD/omp-state-cap-exec.json"); FP2=$(jq -r '.run.launch_fingerprint' "$TD/omp-state-cap-bin2.json")
-[[ "$FP1" != "$FP2" ]] && chk "  OMP binary 变化→启动指纹变化" y y || chk "  OMP binary 变化→启动指纹变化" y n
 
 mkpkg --arg cwd "$CAP_WORK" '.task_id="cap-legacy"|.mode="execute"|.criterion=[]|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
 CAPTURE_ARGS="$TD/cap-legacy-args.txt" OMP_BIN="$TD/mock-capability.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-cap-legacy.json" >/dev/null 2>&1

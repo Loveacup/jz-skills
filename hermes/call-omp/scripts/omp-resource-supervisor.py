@@ -30,9 +30,11 @@ import errno
 import hashlib
 import importlib.util
 import json
+import math
 import os
 import select
 import signal
+import stat
 import subprocess
 import sys
 import time
@@ -677,6 +679,765 @@ def run_verdict_capture(args: argparse.Namespace, argv: list, started_at: str,
     return 0 if rc == 0 else 4
 
 
+class ExecuteControlError(Exception):
+    """The execute_v1 cancellation channel cannot be trusted."""
+
+
+def _validate_private_regular(
+        path: str, *, allow_missing: bool) -> os.stat_result | None:
+    try:
+        st = os.lstat(path)
+    except FileNotFoundError:
+        if allow_missing:
+            return None
+        raise
+    if stat.S_ISLNK(st.st_mode) or not stat.S_ISREG(st.st_mode):
+        raise ExecuteControlError(f"not_private_regular:{path}")
+    if st.st_uid != os.geteuid() or stat.S_IMODE(st.st_mode) & 0o077:
+        raise ExecuteControlError(f"not_private_owned:{path}")
+    return st
+
+
+def atomic_write_private_json(path: str, payload: dict) -> None:
+    """Atomic 0600 JSON publication used only by execute_v1."""
+    _validate_private_regular(path, allow_missing=True)
+    tmp = f"{path}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    fd = -1
+    committed = False
+    try:
+        fd = os.open(tmp, flags, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fd = -1
+            json.dump(payload, fh, sort_keys=True, separators=(",", ":"))
+            fh.write("\n")
+            os.fchmod(fh.fileno(), 0o600)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
+        committed = True
+    finally:
+        if fd >= 0:
+            os.close(fd)
+        # Once replace commits, no fallible housekeeping may invert the
+        # caller's exact publication result. Clean the temp only pre-commit.
+        if not committed:
+            try:
+                os.unlink(tmp)
+            except FileNotFoundError:
+                pass
+
+
+def open_private_output(path: str):
+    existing = _validate_private_regular(path, allow_missing=True)
+    flags = os.O_WRONLY
+    if existing is None:
+        flags |= os.O_CREAT | os.O_EXCL
+    if not hasattr(os, "O_NOFOLLOW"):
+        raise ExecuteControlError("nofollow_unsupported")
+    flags |= os.O_NOFOLLOW
+    fd = os.open(path, flags, 0o600)
+    try:
+        st = os.fstat(fd)
+        if (not stat.S_ISREG(st.st_mode) or st.st_uid != os.geteuid()
+                or stat.S_IMODE(st.st_mode) & 0o077
+                or (existing is not None
+                    and (st.st_dev, st.st_ino) !=
+                    (existing.st_dev, existing.st_ino))):
+            raise ExecuteControlError(f"unsafe_output:{path}")
+        os.fchmod(fd, 0o600)
+        os.ftruncate(fd, 0)
+        fh = os.fdopen(fd, "wb", buffering=0)
+        fd = -1
+        return fh
+    finally:
+        if fd >= 0:
+            os.close(fd)
+
+
+def read_execute_cancel(args: argparse.Namespace) -> str | None:
+    """Read one atomic request without following a symlink.
+
+    A well-formed request for another attempt is stale and ignored. Malformed
+    channel data or any control I/O fault is fail-closed because it makes
+    authenticated cancellation unavailable for the current attempt.
+    """
+    path = args.control_file
+    try:
+        lst = os.lstat(path)
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise ExecuteControlError(
+            f"control_lstat:{exc.errno or -1}") from exc
+    if stat.S_ISLNK(lst.st_mode) or not stat.S_ISREG(lst.st_mode):
+        raise ExecuteControlError("control_not_regular")
+    if not hasattr(os, "O_NOFOLLOW"):
+        raise ExecuteControlError("control_nofollow_unsupported")
+    flags = os.O_RDONLY | os.O_NOFOLLOW
+    fd = -1
+    io_error: ExecuteControlError | None = None
+    try:
+        fd = os.open(path, flags)
+        st = os.fstat(fd)
+        if ((st.st_dev, st.st_ino) != (lst.st_dev, lst.st_ino)):
+            raise ExecuteControlError("control_replaced")
+        if (not stat.S_ISREG(st.st_mode) or st.st_uid != os.geteuid()
+                or stat.S_IMODE(st.st_mode) & 0o077):
+            raise ExecuteControlError("control_not_private")
+        if st.st_size > 4096:
+            raise ExecuteControlError("control_too_large")
+        data = os.read(fd, 4097)
+    except ExecuteControlError as exc:
+        io_error = exc
+    except OSError as exc:
+        io_error = ExecuteControlError(f"control_io:{exc.errno or -1}")
+    if fd >= 0:
+        try:
+            os.close(fd)
+        except OSError as exc:
+            if io_error is None:
+                io_error = ExecuteControlError(
+                    f"control_close:{exc.errno or -1}")
+    if io_error is not None:
+        raise io_error
+    if len(data) > 4096:
+        raise ExecuteControlError("control_too_large")
+    try:
+        request = json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ExecuteControlError("control_invalid_json") from exc
+    required = {
+        "schema", "task_id", "attempt_id", "launch_fingerprint", "reason",
+    }
+    if not isinstance(request, dict) or set(request) != required:
+        raise ExecuteControlError("control_invalid_shape")
+    if request.get("schema") != "call-omp-cancel.v1":
+        raise ExecuteControlError("control_invalid_schema")
+    if not all(isinstance(request.get(key), str) for key in required):
+        raise ExecuteControlError("control_invalid_types")
+    reason = request["reason"]
+    if not reason or len(reason) > 512 or any(ord(ch) < 0x20 for ch in reason):
+        raise ExecuteControlError("control_invalid_reason")
+    if (request["task_id"] != args.task_id
+            or request["attempt_id"] != args.attempt_id
+            or request["launch_fingerprint"] != args.launch_fingerprint):
+        return None
+    return reason
+
+
+def execute_child_identity(args: argparse.Namespace) -> dict:
+    return {
+        "pid": getattr(args, "recorded_pid", None),
+        "pgid": getattr(args, "recorded_pgid", None),
+        "session_id": getattr(args, "recorded_sid", None),
+        "supervisor_pid": os.getpid(),
+        "identity_observed": getattr(args, "identity_observed", False),
+    }
+
+
+def execute_receipt(args: argparse.Namespace, *, status: str,
+                    started_at: str, ended_at: str | None,
+                    worker_exit_code: int | None,
+                    supervisor_exit_code: int | None,
+                    terminal_reason: str, cleanup_confirmed: bool,
+                    stdout_bytes: int, stdout_lines: int, stdout_sha256: str,
+                    stderr_bytes: int, stderr_lines: int, stderr_sha256: str,
+                    stdout_truncated: bool, stderr_truncated: bool,
+                    escaped_evidence: bool) -> dict:
+    return {
+        "schema": "call-omp-resource-supervisor.v2",
+        "capture_mode": "execute_v1",
+        "task_id": args.task_id,
+        "task_id_source": args.task_id_source,
+        "attempt_id": args.attempt_id,
+        "launch_fingerprint": args.launch_fingerprint,
+        "state_file": args.state_file,
+        "raw_output": args.raw_output,
+        "pid_store": args.pid_store,
+        "stderr_output": args.stderr_output,
+        "raw_cap": args.raw_cap,
+        "control_file": args.control_file,
+        "max_seconds": args.max_seconds,
+        "status": status,
+        "reason": terminal_reason,
+        "terminal_reason": terminal_reason,
+        "cleanup_confirmed": cleanup_confirmed,
+        # cleanup_confirmed covers only the observed start_new_session process
+        # group and direct child. It never asserts containment of an unobserved
+        # setsid/double-fork descendant.
+        "process_identity_guard": "unreaped_leader_until_last_group_signal",
+        "cleanup_scope": "observed_process_group",
+        "terminal_decision_cutoff":
+            "post_cleanup_signal_block_then_control_read",
+        "escaped_descendant_evidence": escaped_evidence,
+        "worker_exit_code": worker_exit_code,
+        "worker_signal": -worker_exit_code if (
+            isinstance(worker_exit_code, int) and worker_exit_code < 0) else None,
+        "exit_code": worker_exit_code,
+        "supervisor_exit_code": supervisor_exit_code,
+        "raw_bytes": stdout_bytes,
+        "raw_lines": stdout_lines,
+        "raw_sha256": stdout_sha256,
+        "stdout_truncated": stdout_truncated,
+        "stderr_bytes": stderr_bytes,
+        "stderr_lines": stderr_lines,
+        "stderr_sha256": stderr_sha256,
+        "stderr_truncated": stderr_truncated,
+        "run": {
+            "started_at": started_at,
+            "ended_at": ended_at,
+            "exit_code": worker_exit_code,
+            "worker_exit_code": worker_exit_code,
+            "supervisor_exit_code": supervisor_exit_code,
+            "pid_store": args.pid_store,
+        },
+        "child_identity": execute_child_identity(args),
+    }
+
+
+def execute_identity_payload(args: argparse.Namespace, *, status: str,
+                             cleanup_confirmed: bool) -> dict:
+    child_identity = execute_child_identity(args)
+    return {
+        "schema": "call-omp-execute-identity.v1",
+        "capture_mode": "execute_v1",
+        "task_id": args.task_id,
+        "attempt_id": args.attempt_id,
+        "launch_fingerprint": args.launch_fingerprint,
+        "state_file": args.state_file,
+        "raw_output": args.raw_output,
+        "control_file": args.control_file,
+        "pid_store": args.pid_store,
+        "status": status,
+        "cleanup_confirmed": cleanup_confirmed,
+        "process_identity_guard": "unreaped_leader_until_last_group_signal",
+        # Keep the legacy top-level identity shape for authenticated readers
+        # while also publishing the explicit v1 nested identity.
+        "pid": child_identity["pid"],
+        "pgid": child_identity["pgid"],
+        "session_id": child_identity["session_id"],
+        "supervisor_pid": child_identity["supervisor_pid"],
+        "child_identity": child_identity,
+    }
+
+
+def execute_child_exited_unreaped(child: subprocess.Popen) -> bool:
+    """Observe leader exit without releasing its PID/process-group identity."""
+    result = os.waitid(
+        os.P_PID, child.pid,
+        os.WEXITED | os.WNOHANG | os.WNOWAIT)
+    return result is not None and getattr(result, "si_pid", 0) == child.pid
+
+
+def execute_group_state(child_pid: int, child_pgid: int) -> str:
+    """Return alive, gone, or unknown for the retained owned group."""
+    if not own_pgid(child_pid, child_pgid):
+        return "unknown"
+    try:
+        os.killpg(child_pgid, 0)
+        return "alive"
+    except ProcessLookupError:
+        return "gone"
+    except OSError:
+        return "unknown"
+
+
+def cleanup_execute_group(child: subprocess.Popen, child_pid: int,
+                          child_pgid: int, *, grace: float) -> tuple[bool, bool]:
+    """Stop and verify only the group created by this live Popen owner."""
+    group_state = execute_group_state(child_pid, child_pgid)
+    if child.returncode is not None or not own_pgid(child_pid, child_pgid):
+        # A retained, unreaped Popen authenticates its direct child. Stop only
+        # that child when the group identity is mismatched; never signal an
+        # unknown group. A non-None returncode means somebody already reaped
+        # the leader, so the numeric PGID is no longer safe for signalling.
+        if child.returncode is None:
+            try:
+                child.terminate()
+                child.wait(timeout=grace)
+            except subprocess.TimeoutExpired:
+                try:
+                    child.kill()
+                    child.wait(timeout=max(1.0, grace))
+                except (OSError, subprocess.TimeoutExpired):
+                    pass
+            except OSError:
+                pass
+        return False, child.returncode is not None
+    if group_state != "gone":
+        try:
+            os.killpg(child_pgid, signal.SIGTERM)
+        except ProcessLookupError:
+            group_state = "gone"
+        except OSError:
+            group_state = "unknown"
+        deadline = time.monotonic() + grace
+        while group_state != "gone" and time.monotonic() < deadline:
+            time.sleep(0.025)
+            group_state = execute_group_state(child_pid, child_pgid)
+        if group_state != "gone":
+            try:
+                os.killpg(child_pgid, signal.SIGKILL)
+            except ProcessLookupError:
+                group_state = "gone"
+            except OSError:
+                group_state = "unknown"
+
+    try:
+        child.wait(timeout=max(1.0, grace + 0.5))
+    except subprocess.TimeoutExpired:
+        pass
+    child_reaped = child.returncode is not None
+
+    # No group signal occurs after child.wait(): reaping releases the numeric
+    # identity, so the remaining killpg(..., 0) calls are observation-only. A
+    # coincidental reuse can make cleanup conservatively false but cannot cause
+    # this supervisor to signal the replacement group.
+    verify_deadline = time.monotonic() + max(1.0, grace)
+    while time.monotonic() < verify_deadline:
+        group_state = execute_group_state(child_pid, child_pgid)
+        if group_state == "gone":
+            break
+        time.sleep(0.025)
+    return group_state == "gone", child_reaped
+
+def emergency_cleanup_execute(args: argparse.Namespace) -> None:
+    """Bounded fail-safe for exceptions escaping execute_v1 after spawn."""
+    child = getattr(args, "_execute_child", None)
+    if child is None or child.returncode is not None:
+        return
+    child_pgid = getattr(args, "recorded_pgid", None)
+    if not isinstance(child_pgid, int):
+        # The unreaped Popen identity prevents PID reuse; start_new_session
+        # establishes PID == PGID before exec even if observation raised.
+        child_pgid = child.pid
+    try:
+        cleanup_execute_group(
+            child, child.pid, child_pgid, grace=args.grace_seconds)
+    except Exception as exc:
+        # Never convert an unverified emergency cleanup into a clean receipt.
+        print(f"supervisor: emergency cleanup failed: {type(exc).__name__}",
+              file=sys.stderr)
+
+
+def run_execute_capture(args: argparse.Namespace, argv: list,
+                        started_at: str) -> int:
+    """execute_v1: bounded raw pipes plus authenticated owned-group control."""
+    args.stderr_output = args.raw_output + ".err"
+    args.recorded_pid = None
+    args.recorded_pgid = None
+    args.recorded_sid = None
+    args.identity_observed = False
+    args._execute_child = None
+
+    stdout_bytes = 0
+    stdout_lines = 0
+    stdout_hash = hashlib.sha256()
+    stderr_bytes = 0
+    stderr_lines = 0
+    stderr_hash = hashlib.sha256()
+    stdout_truncated = False
+    stderr_truncated = False
+    escaped_evidence = False
+    child = None
+    stdout_fh = None
+    stderr_fh = None
+    started_mono = time.monotonic()
+    signal_seen = {"number": None}
+    termination_signals = {signal.SIGTERM, signal.SIGINT}
+    if hasattr(signal, "SIGHUP"):
+        termination_signals.add(signal.SIGHUP)
+
+    def on_signal(signum, _frame) -> None:
+        signal_seen["number"] = signum
+
+    for signum in termination_signals:
+        signal.signal(signum, on_signal)
+
+    def receipt(status: str, worker_rc: int | None, supervisor_rc: int | None,
+                terminal_reason: str, cleanup: bool,
+                ended_at: str | None = None) -> dict:
+        return execute_receipt(
+            args, status=status, started_at=started_at, ended_at=ended_at,
+            worker_exit_code=worker_rc, supervisor_exit_code=supervisor_rc,
+            terminal_reason=terminal_reason, cleanup_confirmed=cleanup,
+            stdout_bytes=stdout_bytes, stdout_lines=stdout_lines,
+            stdout_sha256=stdout_hash.hexdigest() if stdout_bytes else "",
+            stderr_bytes=stderr_bytes, stderr_lines=stderr_lines,
+            stderr_sha256=stderr_hash.hexdigest() if stderr_bytes else "",
+            stdout_truncated=stdout_truncated,
+            stderr_truncated=stderr_truncated,
+            escaped_evidence=escaped_evidence)
+
+    def publish_terminal_without_child(reason: str, supervisor_rc: int) -> int:
+        payload = receipt("rejected", None, supervisor_rc, reason, True,
+                          now_iso())
+        try:
+            atomic_write_private_json(
+                args.pid_store,
+                execute_identity_payload(args, status="rejected",
+                                         cleanup_confirmed=True))
+        except (OSError, ExecuteControlError):
+            pass
+        try:
+            atomic_write_private_json(args.state_file, payload)
+        except (OSError, ExecuteControlError) as exc:
+            print(f"supervisor: terminal receipt write failed: {type(exc).__name__}",
+                  file=sys.stderr)
+            return 3
+        return supervisor_rc
+
+    starting = receipt("starting", None, None, "starting", False)
+    try:
+        atomic_write_private_json(args.state_file, starting)
+        atomic_write_private_json(
+            args.pid_store,
+            execute_identity_payload(args, status="starting",
+                                     cleanup_confirmed=False))
+    except (OSError, ExecuteControlError) as exc:
+        return publish_terminal_without_child(
+            f"identity_starting_publish_failed:{type(exc).__name__}", 3)
+
+    waitid_api = ("waitid", "P_PID", "WEXITED", "WNOHANG", "WNOWAIT")
+    signal_fence_api = ("pthread_sigmask", "sigpending", "SIG_BLOCK")
+    if (not all(hasattr(os, name) for name in waitid_api)
+            or not all(hasattr(signal, name) for name in signal_fence_api)):
+        return publish_terminal_without_child(
+            "unreaped_exit_or_signal_fence_unsupported", 3)
+
+    try:
+        pre_cancel = read_execute_cancel(args)
+    except ExecuteControlError as exc:
+        return publish_terminal_without_child(
+            f"control_invalid:{exc}", 3)
+    if pre_cancel is not None:
+        return publish_terminal_without_child(f"cancelled:{pre_cancel}", 2)
+    if signal_seen["number"] is not None:
+        return publish_terminal_without_child(
+            f"supervisor_signal:{signal_seen['number']}", 2)
+
+    try:
+        stdout_fh = open_private_output(args.raw_output)
+        stderr_fh = open_private_output(args.stderr_output)
+    except (OSError, ExecuteControlError) as exc:
+        for fh in (stdout_fh, stderr_fh):
+            if fh is not None:
+                fh.close()
+        return publish_terminal_without_child(
+            f"capture_open_failed:{type(exc).__name__}", 3)
+
+    depth_text = os.environ.get("CALL_OMP_DEPTH", "0")
+    if (not depth_text.isdigit() or len(depth_text) > 9):
+        stdout_fh.close()
+        stderr_fh.close()
+        return publish_terminal_without_child("invalid_call_omp_depth", 3)
+    child_env = os.environ.copy()
+    child_env["CALL_OMP_DEPTH"] = str(int(depth_text) + 1)
+
+    try:
+        child = subprocess.Popen(
+            argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, start_new_session=True, env=child_env,
+            bufsize=0)
+    except (FileNotFoundError, PermissionError, OSError,
+            subprocess.SubprocessError) as exc:
+        stdout_fh.close()
+        stderr_fh.close()
+        return publish_terminal_without_child(
+            f"exec_failed:{type(exc).__name__}", 3)
+    args._execute_child = child
+
+    args.recorded_pid = child.pid
+    try:
+        observed_pgid = os.getpgid(child.pid)
+        observed_sid = os.getsid(child.pid)
+        args.recorded_pgid = observed_pgid
+        args.recorded_sid = observed_sid
+        args.identity_observed = (
+            observed_pgid == child.pid and observed_sid == child.pid)
+    except ProcessLookupError:
+        # start_new_session establishes both identities before exec. A child
+        # may finish before observation; retain the construction identity but
+        # record that it was not observed live.
+        args.recorded_pgid = child.pid
+        args.recorded_sid = child.pid
+        args.identity_observed = False
+    except OSError:
+        args.recorded_pgid = child.pid
+        args.recorded_sid = child.pid
+        args.identity_observed = False
+
+    trigger = None
+    internal_failure = False
+    if (args.recorded_pgid != child.pid
+            or args.recorded_sid != child.pid):
+        trigger = "child_identity_mismatch"
+        internal_failure = True
+
+    try:
+        atomic_write_private_json(
+            args.pid_store,
+            execute_identity_payload(args, status="running",
+                                     cleanup_confirmed=False))
+        atomic_write_private_json(
+            args.state_file,
+            receipt("running", None, None, "running", False))
+    except (OSError, ExecuteControlError) as exc:
+        trigger = f"identity_publish_failed:{type(exc).__name__}"
+        internal_failure = True
+
+    active: dict[int, str] = {}
+    try:
+        if child.stdout is not None:
+            os.set_blocking(child.stdout.fileno(), False)
+            active[child.stdout.fileno()] = "stdout"
+        if child.stderr is not None:
+            os.set_blocking(child.stderr.fileno(), False)
+            active[child.stderr.fileno()] = "stderr"
+    except OSError as exc:
+        if trigger is None:
+            trigger = f"capture_nonblocking_failed:{exc.errno or -1}"
+            internal_failure = True
+
+    def consume_ready(timeout: float) -> str | None:
+        nonlocal stdout_bytes, stdout_lines, stderr_bytes, stderr_lines
+        nonlocal stdout_truncated, stderr_truncated
+        if not active:
+            if timeout > 0:
+                time.sleep(timeout)
+            return None
+        try:
+            ready, _, _ = select.select(list(active), [], [], timeout)
+        except (OSError, ValueError) as exc:
+            return f"capture_select_failed:{type(exc).__name__}"
+        for fd in ready:
+            stream = active.get(fd)
+            if stream is None:
+                continue
+            try:
+                chunk = os.read(fd, READ_CHUNK)
+            except BlockingIOError:
+                continue
+            except OSError as exc:
+                return f"capture_read_failed:{exc.errno or -1}"
+            if not chunk:
+                active.pop(fd, None)
+                continue
+            if stream == "stdout":
+                remaining = max(0, args.raw_cap - stdout_bytes)
+                kept = chunk[:remaining]
+                view = memoryview(kept)
+                while view:
+                    try:
+                        written = os.write(stdout_fh.fileno(), view)
+                    except OSError as exc:
+                        return f"stdout_write_failed:{exc.errno or -1}"
+                    if written <= 0:
+                        return "stdout_write_failed:short"
+                    persisted = view[:written]
+                    stdout_bytes += written
+                    stdout_lines += persisted.tobytes().count(b"\n")
+                    stdout_hash.update(persisted)
+                    view = view[written:]
+                if len(kept) != len(chunk):
+                    stdout_truncated = True
+                    return "stdout_cap_exceeded"
+            else:
+                remaining = max(0, args.raw_cap - stderr_bytes)
+                kept = chunk[:remaining]
+                view = memoryview(kept)
+                while view:
+                    try:
+                        written = os.write(stderr_fh.fileno(), view)
+                    except OSError as exc:
+                        return f"stderr_write_failed:{exc.errno or -1}"
+                    if written <= 0:
+                        return "stderr_write_failed:short"
+                    persisted = view[:written]
+                    stderr_bytes += written
+                    stderr_lines += persisted.tobytes().count(b"\n")
+                    stderr_hash.update(persisted)
+                    view = view[written:]
+                if len(kept) != len(chunk):
+                    stderr_truncated = True
+                    return "stderr_cap_exceeded"
+        return None
+
+    cancel_reason = None
+    while trigger is None:
+        try:
+            cancel_reason = read_execute_cancel(args)
+        except ExecuteControlError as exc:
+            trigger = f"control_invalid:{exc}"
+            internal_failure = True
+            break
+        if cancel_reason is not None:
+            trigger = f"cancelled:{cancel_reason}"
+            break
+        if signal_seen["number"] is not None:
+            trigger = f"supervisor_signal:{signal_seen['number']}"
+            break
+        if time.monotonic() - started_mono >= args.max_seconds:
+            trigger = "deadline_exceeded"
+            break
+        try:
+            leader_exited = execute_child_exited_unreaped(child)
+        except (ChildProcessError, OSError) as exc:
+            trigger = f"child_exit_observation_failed:{type(exc).__name__}"
+            internal_failure = True
+            break
+        if leader_exited:
+            trigger = "worker_exited"
+            break
+        capture_error = consume_ready(0.05)
+        if capture_error is not None:
+            trigger = capture_error
+            internal_failure = not capture_error.endswith("_cap_exceeded")
+            break
+
+    group_gone, child_reaped = cleanup_execute_group(
+        child, args.recorded_pid, args.recorded_pgid,
+        grace=args.grace_seconds)
+
+    # Drain data already committed to the pipes after group cleanup. If a pipe
+    # remains open after the observed group is gone, an escaped descendant is
+    # evidenced; it is not safe to claim cleanup.
+    drain_deadline = time.monotonic() + max(0.5, args.grace_seconds)
+    while active and time.monotonic() < drain_deadline:
+        capture_error = consume_ready(0.05)
+        if capture_error is not None:
+            if capture_error == "stdout_cap_exceeded":
+                stdout_truncated = True
+                if trigger == "worker_exited":
+                    trigger = capture_error
+            elif capture_error == "stderr_cap_exceeded":
+                stderr_truncated = True
+                if trigger == "worker_exited":
+                    trigger = capture_error
+            elif trigger == "worker_exited":
+                trigger = capture_error
+                internal_failure = True
+    if active and group_gone:
+        escaped_evidence = True
+    for pipe in (child.stdout, child.stderr):
+        if pipe is not None:
+            try:
+                pipe.close()
+            except OSError:
+                pass
+
+    try:
+        child.wait(timeout=0)
+    except subprocess.TimeoutExpired:
+        pass
+    worker_rc = child.returncode
+
+    for fh in (stdout_fh, stderr_fh):
+        try:
+            fh.flush()
+            os.fsync(fh.fileno())
+            fh.close()
+        except OSError:
+            if trigger == "worker_exited":
+                trigger = "capture_finalize_failed"
+                internal_failure = True
+
+    # Terminal-decision linearization: after owned cleanup, block all handled
+    # termination signals and include signals delivered or already pending at
+    # the cutoff. The mask intentionally remains in force through process exit.
+    # Signals arriving after this completed cutoff do not undo an already-clean
+    # decision; this does not claim that every pre-receipt signal wins.
+    pending_signals: set[int] = set()
+    try:
+        signal.pthread_sigmask(signal.SIG_BLOCK, termination_signals)
+        pending_signals = set(signal.sigpending()).intersection(
+            termination_signals)
+    except (OSError, ValueError) as exc:
+        trigger = f"terminal_signal_fence_failed:{type(exc).__name__}"
+        internal_failure = True
+
+    terminal_signal = signal_seen["number"]
+    if terminal_signal is None and pending_signals:
+        terminal_signal = min(pending_signals)
+    if terminal_signal is not None and cancel_reason is None:
+        trigger = f"supervisor_signal:{terminal_signal}"
+
+    # The final authenticated control observation is the second half of the
+    # terminal-decision cutoff. Later stop requests are resolved by the public
+    # cancel_requested/identity fence rather than rewriting this receipt.
+    try:
+        final_cancel = read_execute_cancel(args)
+    except ExecuteControlError as exc:
+        final_cancel = None
+        if cancel_reason is None:
+            trigger = f"control_invalid:{exc}"
+            internal_failure = True
+    if final_cancel is not None:
+        cancel_reason = final_cancel
+        trigger = f"cancelled:{final_cancel}"
+
+    cleanup_confirmed = (
+        group_gone and child_reaped and not escaped_evidence)
+    if not cleanup_confirmed:
+        trigger = f"{trigger};containment_unknown"
+
+    if trigger == "worker_exited" and worker_rc == 0 and cleanup_confirmed:
+        status = "reported"
+        supervisor_rc = 0
+        terminal_reason = "normal_completion"
+    else:
+        status = "rejected"
+        terminal_reason = trigger
+        if internal_failure:
+            supervisor_rc = 3
+        elif trigger == "worker_exited":
+            supervisor_rc = 4
+            terminal_reason = (
+                "worker_exit_nonzero" if worker_rc is not None
+                else "worker_exit_unknown")
+        elif not cleanup_confirmed:
+            supervisor_rc = 4
+        else:
+            supervisor_rc = 2
+
+    ended_at = now_iso()
+    terminal_identity = execute_identity_payload(
+        args, status=status, cleanup_confirmed=cleanup_confirmed)
+    try:
+        atomic_write_private_json(args.pid_store, terminal_identity)
+    except (OSError, ExecuteControlError) as exc:
+        status = "rejected"
+        supervisor_rc = 3
+        terminal_reason = (
+            f"{terminal_reason};identity_terminal_publish_failed:"
+            f"{type(exc).__name__}")
+
+    terminal_receipt = receipt(
+        status, worker_rc, supervisor_rc, terminal_reason,
+        cleanup_confirmed, ended_at)
+    try:
+        atomic_write_private_json(args.state_file, terminal_receipt)
+    except (OSError, ExecuteControlError) as exc:
+        # The identity was published first so a failed receipt cannot leave a
+        # durable successful identity. Preserve the real cleanup result while
+        # marking publication failure; never synthesize cleanup success.
+        try:
+            atomic_write_private_json(
+                args.pid_store,
+                execute_identity_payload(
+                    args, status="rejected",
+                    cleanup_confirmed=cleanup_confirmed))
+        except (OSError, ExecuteControlError):
+            pass
+        print(f"supervisor: terminal receipt write failed: {type(exc).__name__}",
+              file=sys.stderr)
+        return 3
+    return supervisor_rc
+
+
 def main() -> int:
     p = argparse.ArgumentParser(prog="omp-resource-supervisor.py",
                                 description="call-omp P0A resource supervisor")
@@ -697,10 +1458,12 @@ def main() -> int:
                    help="TERM→KILL grace period before escalating to KILL")
     p.add_argument("--expected-pgid", type=int, default=None,
                    help="If set, supervisor refuses to terminate any group not equal to this")
-    # ── P2B S1B · opt-in verdict_v1 capture ──
-    p.add_argument("--capture-mode", choices=["legacy", "verdict_v1"],
+    # Additive capture modes. execute_v1 deliberately bypasses the legacy
+    # RLIMIT_FSIZE path and owns bounded stdout/stderr pipes itself.
+    p.add_argument("--capture-mode",
+                   choices=["legacy", "verdict_v1", "execute_v1"],
                    default="legacy",
-                   help="legacy（默认）：stdout 直连 raw；verdict_v1：管道分帧+分类落规范 verdict")
+                   help="legacy（默认）/ verdict_v1 / execute_v1")
     p.add_argument("--ingress-cap", type=int, default=DEFAULT_INGRESS_CAP,
                    help="verdict_v1：从 stdout 管道实际读入的物理字节上限（默认 128 MiB）")
     p.add_argument("--verdict-cap", type=int, default=DEFAULT_VERDICT_CAP,
@@ -709,6 +1472,14 @@ def main() -> int:
                    help="verdict_v1：.diag.jsonl 落盘上限（默认 512 KiB；触顶只截断）")
     p.add_argument("--classifier-module", default=None,
                    help="test-only：从此路径加载 classify_jsonl_line（生产接线绝不传）")
+    p.add_argument("--attempt-id", default=None,
+                   help="execute_v1：不可复用的 UUID attempt identity")
+    p.add_argument("--launch-fingerprint", default=None,
+                   help="execute_v1：64 位 SHA-256 launch fingerprint")
+    p.add_argument("--control-file", default=None,
+                   help="execute_v1：私有原子 cancel request 路径")
+    p.add_argument("--max-seconds", type=float, default=None,
+                   help="execute_v1：监督器自持的正数硬截止时间")
     # The child command is everything after `--` (or after a literal `--`
     # token if `argparse` did not consume it via the nargs handling below).
     p.add_argument("child_argv", nargs=argparse.REMAINDER,
@@ -729,6 +1500,7 @@ def main() -> int:
         return 3
 
     capture = args.capture_mode == "verdict_v1"
+    execute_capture = args.capture_mode == "execute_v1"
     if capture:
         # 正的、带默认值的上限校验；仅 verdict_v1 生效。diagnostic 路径固定派生自
         # raw_output，无 override flag 可注入（契约要求拒绝任何 override）。
@@ -739,11 +1511,58 @@ def main() -> int:
                 print(f"supervisor: {name} must be positive", file=sys.stderr)
                 return 3
         args.diagnostic_output = args.raw_output + ".diag.jsonl"
+    if execute_capture:
+        try:
+            parsed_attempt = uuid.UUID(args.attempt_id or "")
+        except (ValueError, AttributeError):
+            print("supervisor: execute_v1 --attempt-id must be a UUID",
+                  file=sys.stderr)
+            return 3
+        args.attempt_id = str(parsed_attempt)
+        fingerprint = (args.launch_fingerprint or "").lower()
+        if (len(fingerprint) != 64
+                or any(ch not in "0123456789abcdef" for ch in fingerprint)):
+            print("supervisor: execute_v1 --launch-fingerprint must be SHA-256",
+                  file=sys.stderr)
+            return 3
+        args.launch_fingerprint = fingerprint
+        if (args.max_seconds is None or not math.isfinite(args.max_seconds)
+                or args.max_seconds <= 0):
+            print("supervisor: execute_v1 --max-seconds must be positive",
+                  file=sys.stderr)
+            return 3
+        if (not math.isfinite(args.grace_seconds)
+                or args.grace_seconds <= 0):
+            print("supervisor: execute_v1 --grace-seconds must be positive",
+                  file=sys.stderr)
+            return 3
+        if not args.control_file or not os.path.isabs(args.control_file):
+            print("supervisor: execute_v1 --control-file must be absolute",
+                  file=sys.stderr)
+            return 3
+        protected = [
+            args.state_file, args.pid_store, args.raw_output,
+            args.raw_output + ".err", args.control_file,
+        ]
+        if len(set(map(os.path.realpath, protected))) != len(protected):
+            print("supervisor: execute_v1 paths must be distinct",
+                  file=sys.stderr)
+            return 3
 
     args.argv = list(argv)
     started_at = now_iso()
     os.makedirs(os.path.dirname(args.state_file) or ".", exist_ok=True)
     os.makedirs(os.path.dirname(args.pid_store) or ".", exist_ok=True)
+
+    if execute_capture:
+        os.makedirs(os.path.dirname(args.raw_output) or ".", exist_ok=True)
+        try:
+            return run_execute_capture(args, argv, started_at)
+        finally:
+            # This is the outermost post-spawn safety net. Any unexpected
+            # exception, including a publication bug, still gets a bounded
+            # attempt to stop/reap the retained owned child and group.
+            emergency_cleanup_execute(args)
 
     cap0 = zero_capture(args) if capture else None
 

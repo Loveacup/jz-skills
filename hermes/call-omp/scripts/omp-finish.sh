@@ -45,6 +45,14 @@ done
 
 TASK_ID=$(jq -r '.task_id' "$STATE")
 require_task_id "$TASK_ID" || exit 3
+trap 'lifecycle_lock_release 2>/dev/null || true' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+if ! lifecycle_lock_acquire "$TASK_ID"; then
+  echo "omp-finish: 任务 $TASK_ID 生命周期锁被占用；拒绝并发裁决" >&2
+  exit 2
+fi
 STATUS=$(jq -r '.status' "$STATE")
 MON_MODE=$(jq -r '.package.mode // ""' "$STATE"); MON_MODE="${MON_MODE%%:*}"
 RAW=$(jq -r '.run.raw_output // empty' "$STATE")
@@ -55,6 +63,84 @@ RUN_EC=$(jq -r '.run.exit_code // empty' "$STATE")
 RUN_STOP=$(jq -r '.monitor.stop_reason // .run.stop_reason // empty' "$STATE")
 
 update_state() { local f="$1"; local s; s=$(jq "$f | .updated_at=\"$(now_iso)\"" "$STATE"); printf '%s' "$s" | atomic_write "$STATE"; }
+
+execute_receipt_terminal_clean() {
+  local aid fp rs ps cf ci cipid st
+  aid=$(jq -r '.run.attempt_id // empty' "$STATE")
+  fp=$(jq -r '.run.launch_fingerprint // empty' "$STATE")
+  rs="$(resource_state_path "$TASK_ID")"; ps="$(pid_store_path "$TASK_ID")"; cf="$(control_file_path "$TASK_ID")"
+  validate_attempt_id "$aid" && [[ "$fp" =~ ^[0-9a-f]{64}$ ]] || return 1
+  [[ "$(jq -r '.run.resource_state // empty' "$STATE")" == "$rs" \
+     && "$(jq -r '.run.pid_store // empty' "$STATE")" == "$ps" \
+     && "$(jq -r '.run.control_file // empty' "$STATE")" == "$cf" \
+     && -f "$rs" && ! -L "$rs" ]] || return 1
+  jq -e --arg tid "$TASK_ID" --arg aid "$aid" --arg fp "$fp" \
+    --arg sf "$rs" --arg ro "$(raw_path "$TASK_ID")" --arg ps "$ps" --arg cf "$cf" '
+    .schema=="call-omp-resource-supervisor.v2" and .capture_mode=="execute_v1" and
+    .task_id==$tid and .attempt_id==$aid and .launch_fingerprint==$fp and
+    .state_file==$sf and .raw_output==$ro and .control_file==$cf and .run.pid_store==$ps and
+    ((.status=="reported") or (.status=="rejected")) and .cleanup_confirmed==true and
+    (.terminal_reason|type)=="string" and (.child_identity|type)=="object" and
+    .exit_code==.worker_exit_code and
+    ((.worker_exit_code==null) or
+      ((.worker_exit_code|type)=="number" and .worker_exit_code==(.worker_exit_code|floor))) and
+    ((.supervisor_exit_code|type)=="number" and
+      .supervisor_exit_code==(.supervisor_exit_code|floor))' "$rs" >/dev/null 2>&1 || return 1
+  ci=$(jq -c '.child_identity' "$rs")
+  st=$(jq -r '.status' "$rs")
+  [[ -f "$ps" && ! -L "$ps" ]] || return 1
+  jq -e --arg tid "$TASK_ID" --arg aid "$aid" --arg fp "$fp" \
+    --arg sf "$rs" --arg ro "$(raw_path "$TASK_ID")" --arg ps "$ps" --arg cf "$cf" \
+    --arg st "$st" --argjson ci "$ci" '
+    .schema=="call-omp-execute-identity.v1" and .capture_mode=="execute_v1" and
+    .task_id==$tid and .attempt_id==$aid and .launch_fingerprint==$fp and
+    .state_file==$sf and .raw_output==$ro and .pid_store==$ps and .control_file==$cf and
+    .status==$st and .cleanup_confirmed==true and .child_identity==$ci' \
+    "$ps" >/dev/null 2>&1
+}
+
+execute_receipt_accept_ready() {
+  execute_receipt_terminal_clean || return 1
+  [[ "$(jq -r '.run.cancel_requested // false' "$STATE")" != "true" ]] || return 1
+  local rs; rs="$(resource_state_path "$TASK_ID")"
+  jq -e '.status=="reported" and .worker_exit_code==0 and .exit_code==0 and
+         .supervisor_exit_code==0 and .cleanup_confirmed==true' "$rs" >/dev/null 2>&1
+}
+
+# Reject/human-review is also a lifecycle decision: an active execute attempt
+# must first receive the authenticated control request. No PID signal fallback.
+EXECUTION_SUPERVISED=$(jq -r '.run.execution_supervised // false' "$STATE")
+if [[ "$DECISION" != "accept" && "$EXECUTION_SUPERVISED" == "true" ]] \
+   && ! execute_receipt_terminal_clean; then
+  STOP_AID=$(jq -r '.run.attempt_id // empty' "$STATE")
+  STOP_FP=$(jq -r '.run.launch_fingerprint // empty' "$STATE")
+  if validate_attempt_id "$STOP_AID" && [[ "$STOP_FP" =~ ^[0-9a-f]{64}$ ]]; then
+    lifecycle_lock_release
+    set +e
+    "$SELF_DIR/omp-stop.sh" --state "$STATE" --attempt-id "$STOP_AID" \
+      --launch-fingerprint "$STOP_FP" --reason "${REASON:-omp-finish $DECISION}" --timeout 10
+    STOP_RC=$?
+    set -e
+    if ! lifecycle_lock_acquire "$TASK_ID"; then
+      echo "omp-finish: cancel 后无法重新取得生命周期锁" >&2
+      exit 2
+    fi
+    if ! jq -e --arg tid "$TASK_ID" --arg aid "$STOP_AID" --arg fp "$STOP_FP" '
+        .task_id==$tid and .run.execution_supervised==true and
+        .run.capture_mode=="execute_v1" and .run.attempt_id==$aid and
+        .run.launch_fingerprint==$fp' "$STATE" >/dev/null 2>&1; then
+      echo "omp-finish: cancel 等待期间 attempt 已变化；拒绝裁决 successor attempt" >&2
+      exit 2
+    fi
+  else
+    update_state ".status=\"rejected\" | .run.cleanup_confirmed=false |
+      .run.terminal_reason=\"cancel_identity_invalid\" |
+      .monitor={checked_at:\"$(now_iso)\",issues:[\"finish requested rejection but execute identity is invalid; cleanup unknown\"]}"
+  fi
+  STATUS=$(jq -r '.status' "$STATE")
+  RUN_EC=$(jq -r '.run.exit_code // empty' "$STATE")
+  RUN_STOP=$(jq -r '.monitor.stop_reason // .run.stop_reason // empty' "$STATE")
+fi
 
 # ── 取内层审计 JSON（优先 monitor.inner，缺则从 raw 重提）──
 INNER=$(jq -c '.monitor.inner // empty' "$STATE" 2>/dev/null || true)
@@ -140,11 +226,16 @@ build_verdict() {
 cleanup_tmp() {  # 清理 /tmp 工作文件（保留归档）
   $KEEP && { echo "   （--keep：保留所有产物）"; return; }
   rm -f "$(prompt_path "$TASK_ID")" "$OMP_TMPDIR/omp-pkg-${TASK_ID}.json" \
-        "$(counter_path "$TASK_ID")" "$RAW.err" "$RAW.exit" 2>/dev/null || true
+        "$(counter_path "$TASK_ID")" 2>/dev/null || true
+  # execute_v1 receipt authenticates both streams on every later monitor call.
+  [[ "$EXECUTION_SUPERVISED" == "true" ]] || rm -f "$RAW.err" "$RAW.exit" 2>/dev/null || true
 }
 
-# 进入裁决 = RPC daemon 使命结束，关闭（幂等；raw 已落盘，verdict 提取不依赖 daemon）
-rpc_stop "$TASK_ID" "$(jq -r '.run.rpc_pid // empty' "$STATE")" "$(jq -r '.run.holder_pid // empty' "$STATE")"
+# execute_v1 lifecycle is owned exclusively by supervisor/control-file; never
+# route it through legacy rpc_stop PID signaling.
+if [[ "$EXECUTION_SUPERVISED" != "true" ]]; then
+  rpc_stop "$TASK_ID" "$(jq -r '.run.rpc_pid // empty' "$STATE")" "$(jq -r '.run.holder_pid // empty' "$STATE")"
+fi
 
 EXITCODE=0
 echo "===📋 BEGIN omp-finish (relay verbatim)==="
@@ -152,6 +243,11 @@ echo "===📋 BEGIN omp-finish (relay verbatim)==="
 case "$DECISION" in
   accept)
     # ── 红线校验 ──
+    if [[ "$EXECUTION_SUPERVISED" == "true" ]] && ! execute_receipt_accept_ready; then
+      echo "🚫 accept 拒绝：execute_v1 receipt 未匹配 clean reported terminal，或曾请求 cancellation"
+      echo "===📋 END==="
+      exit 2
+    fi
     [[ "$STATUS" == "reported" ]] || { echo "🚫 accept 拒绝：status=${STATUS}（须 reported；先 monitor）"; echo "===📋 END==="; exit 2; }
     [[ -z "$RUN_EC" || "$RUN_EC" == "0" ]] || { echo "🚫 accept 拒绝：OMP exit_code=${RUN_EC}"; echo "===📋 END==="; exit 2; }
     [[ "$RUN_STOP" == "stop" ]] || { echo "🚫 accept 拒绝：stopReason=${RUN_STOP:-unknown}（须 stop）"; echo "===📋 END==="; exit 2; }

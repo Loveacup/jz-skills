@@ -36,6 +36,7 @@ source "$SELF_DIR/lib/omp-lib.sh"
 GATE="$SELF_DIR/gate"
 
 STATE=""; TASK_ID=""; JSON_ONLY=false; WATCH=false; INTERVAL=10; WATCH_TIMEOUT=0; NOTIFY_CHANGE=false; MONITOR_MODE=""
+EXPECTED_ATTEMPT=""; EXPECTED_FP=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --state)   STATE="$2"; shift 2 ;;
@@ -46,6 +47,8 @@ while [[ $# -gt 0 ]]; do
     --interval) INTERVAL="$2"; shift 2 ;;
     --timeout) WATCH_TIMEOUT="$2"; shift 2 ;;
     --notify-on-change) NOTIFY_CHANGE=true; shift ;;
+    --expected-attempt) EXPECTED_ATTEMPT="$2"; shift 2 ;;
+    --expected-launch-fingerprint) EXPECTED_FP="$2"; shift 2 ;;
     -h|--help) sed -n '2,40p' "$0"; exit 0 ;;
     *) echo "omp-monitor: 未知参数 $1" >&2; exit 3 ;;
   esac
@@ -55,6 +58,37 @@ done
 
 TASK_ID=$(jq -r '.task_id' "$STATE")
 require_task_id "$TASK_ID" || exit 3
+# --watch is a read/poll coordinator and releases exclusion before sleeping.
+# Its initial identity snapshot and every single-shot child fence under this lock.
+trap 'lifecycle_lock_release 2>/dev/null || true' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+if ! lifecycle_lock_acquire "$TASK_ID"; then
+  if $JSON_ONLY; then
+    printf '{"task_id":"%s","phase":"busy","reason":"lifecycle_lock_busy"}\n' "$TASK_ID"
+  else
+    echo "omp-monitor: 任务 $TASK_ID 生命周期锁被占用；稍后重试" >&2
+  fi
+  exit 2
+fi
+if [[ -n "$EXPECTED_ATTEMPT" || -n "$EXPECTED_FP" ]]; then
+  if ! validate_attempt_id "$EXPECTED_ATTEMPT" || ! [[ "$EXPECTED_FP" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "omp-monitor: internal expected execute identity 非法" >&2
+    exit 3
+  fi
+  if ! jq -e --arg tid "$TASK_ID" --arg aid "$EXPECTED_ATTEMPT" --arg fp "$EXPECTED_FP" '
+      .task_id==$tid and .run.execution_supervised==true and
+      .run.capture_mode=="execute_v1" and .run.attempt_id==$aid and
+      .run.launch_fingerprint==$fp' "$STATE" >/dev/null 2>&1; then
+    if $JSON_ONLY; then
+      printf '{"task_id":"%s","phase":"stale","reason":"expected_identity_mismatch"}\n' "$TASK_ID"
+    else
+      echo "omp-monitor: expected execute identity 已过期；拒绝监控 successor attempt" >&2
+    fi
+    exit 11
+  fi
+fi
 # 自动检测 mode（用于 execute 跳过 JSON 校验）
 if [[ -z "$MONITOR_MODE" ]]; then
   MONITOR_MODE=$(jq -r '.package.mode // ""' "$STATE")
@@ -71,8 +105,9 @@ RUN_MODE=$(jq -r '.run.mode // empty' "$STATE")
 CHANNEL_USED=$(jq -r '.run.channel_used // ""' "$STATE")
 RPC_PID=$(jq -r '.run.rpc_pid // empty' "$STATE")
 TSL=$(jq -r '.run.turn_start_line // 0' "$STATE")
-# bundle_only Shell 审计经资源监督器运行时 send 落此标记；仅此时才走资源终态检测。
+# Distinct supervisor contracts: bundle_only verdict_v1 and execute_v1.
 RESOURCE_SUPERVISED=$(jq -r '.run.resource_supervised // false' "$STATE")
+EXECUTION_SUPERVISED=$(jq -r '.run.execution_supervised // false' "$STATE")
 
 update_state() { local f="$1"; local s; s=$(jq "$f | .updated_at=\"$(now_iso)\"" "$STATE"); printf '%s' "$s" | atomic_write "$STATE"; }
 report_line() { $JSON_ONLY || echo "$1"; }
@@ -84,20 +119,23 @@ sha256_of() { if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | aw
 
 [[ -n "$RAW" ]] || { echo "omp-monitor: 状态无 raw_output（尚未 send？status=${STATUS}）" >&2; exit 2; }
 
-# ═══ P2B S2r1 · 主状态 = capture 迁移权威（先于资源块 / legacy raw 解析）═══════════
-# main.run.capture_mode 是迁移权威，全流程最先裁决，杜绝「main 已迁移 verdict_v1 却因
-# 资源侧缺失/异常被静默降级为 legacy」的跨状态降级洞：
-#   · nonempty 且非 verdict_v1  → 未知 capture 模式，立即 fail-closed（不静默当 legacy）。
-#   · verdict_v1 但非 resource_supervised → 无监督器无法认证 capture，fail-closed。
-# 消息恒为静态串（不回显 state 内可控值），仅落有界 issue，绝不含 raw/diag 正文/argv。
+# Main state is the capture-mode authority. verdict_v1 and execute_v1 have
+# separate authentication branches; neither may silently fall back to legacy.
 M_CAPTURE_MODE=$(jq -r '.run.capture_mode // ""' "$STATE")
-if [[ -n "$M_CAPTURE_MODE" && "$M_CAPTURE_MODE" != "verdict_v1" ]]; then
-  update_state ".status=\"rejected\" | .monitor={checked_at:\"$(now_iso)\",issues:[\"未知 main.run.capture_mode（仅接受空或 verdict_v1）\"]}"
-  echo "🚫 omp-monitor: 未知 main.run.capture_mode → status=rejected（fail-closed）" >&2; exit 2
+if ! $WATCH && [[ -n "$M_CAPTURE_MODE" && "$M_CAPTURE_MODE" != "verdict_v1" && "$M_CAPTURE_MODE" != "execute_v1" ]]; then
+  update_state ".status=\"rejected\" | .monitor={checked_at:\"$(now_iso)\",issues:[\"未知 main.run.capture_mode\"]}"
+  echo "🚫 omp-monitor: 未知 main.run.capture_mode → status=rejected（fail-closed）" >&2
+  exit 2
 fi
-if [[ "$M_CAPTURE_MODE" == "verdict_v1" && "$RESOURCE_SUPERVISED" != "true" ]]; then
-  update_state ".status=\"rejected\" | .monitor={checked_at:\"$(now_iso)\",issues:[\"main.run.capture_mode=verdict_v1 但非 resource_supervised，无法认证 capture\"]}"
-  echo "🚫 omp-monitor: verdict_v1 需 resource_supervised → status=rejected（fail-closed）" >&2; exit 2
+if ! $WATCH && [[ "$M_CAPTURE_MODE" == "verdict_v1" && "$RESOURCE_SUPERVISED" != "true" ]]; then
+  update_state ".status=\"rejected\" | .monitor={checked_at:\"$(now_iso)\",issues:[\"main.run.capture_mode=verdict_v1 但非 resource_supervised\"]}"
+  echo "🚫 omp-monitor: verdict_v1 需 resource_supervised → status=rejected" >&2
+  exit 2
+fi
+if ! $WATCH && [[ "$M_CAPTURE_MODE" == "execute_v1" && "$EXECUTION_SUPERVISED" != "true" ]]; then
+  update_state ".status=\"rejected\" | .monitor={checked_at:\"$(now_iso)\",issues:[\"main.run.capture_mode=execute_v1 但非 execution_supervised\"]}"
+  echo "🚫 omp-monitor: execute_v1 需 execution_supervised → status=rejected" >&2
+  exit 2
 fi
 
 
@@ -116,6 +154,39 @@ if $WATCH; then
     WATCH_TIMEOUT=$((MT + 60))
   fi
 
+  WATCH_ATTEMPT=""; WATCH_FP=""; WATCH_ID_ARGS=()
+  if [[ "$EXECUTION_SUPERVISED" == "true" ]]; then
+    [[ "$M_CAPTURE_MODE" == "execute_v1" ]] || {
+      echo "omp-monitor: supervised watch capture_mode 非 execute_v1" >&2
+      exit 2
+    }
+    WATCH_ATTEMPT=$(jq -r '.run.attempt_id // empty' "$STATE")
+    WATCH_FP=$(jq -r '.run.launch_fingerprint // empty' "$STATE")
+    validate_attempt_id "$WATCH_ATTEMPT" && [[ "$WATCH_FP" =~ ^[0-9a-f]{64}$ ]] || {
+      echo "omp-monitor: watch execute identity 非法" >&2
+      exit 2
+    }
+    WATCH_ID_ARGS=(--expected-attempt "$WATCH_ATTEMPT" --expected-launch-fingerprint "$WATCH_FP")
+  fi
+  lifecycle_lock_release
+
+  watch_identity_fence() {
+    local rc=0
+    WATCH_CLEAN=""
+    [[ -n "$WATCH_ATTEMPT" ]] || return 0
+    lifecycle_lock_acquire "$TASK_ID" || return 75
+    if jq -e --arg tid "$TASK_ID" --arg aid "$WATCH_ATTEMPT" --arg fp "$WATCH_FP" '
+        .task_id==$tid and .run.execution_supervised==true and
+        .run.capture_mode=="execute_v1" and .run.attempt_id==$aid and
+        .run.launch_fingerprint==$fp' "$STATE" >/dev/null 2>&1; then
+      WATCH_CLEAN=$(jq -r '.run.cleanup_confirmed // false' "$STATE")
+    else
+      rc=11
+    fi
+    lifecycle_lock_release || return 75
+    return "$rc"
+  }
+
   START_TS=$(date +%s); LAST_TS=$START_TS
   LAST_SZ=-1; LAST_LN=-1
   SEQ=0
@@ -128,20 +199,56 @@ if $WATCH; then
     NOW_TS=$(date +%s)
     ELAPSED=$((NOW_TS - START_TS))
     if [[ $ELAPSED -ge $WATCH_TIMEOUT ]]; then
+      if [[ -n "$WATCH_ATTEMPT" ]]; then
+        set +e
+        watch_identity_fence
+        FENCE_RC=$?
+        set -e
+        if [[ "$FENCE_RC" -eq 11 ]]; then
+          echo "omp-monitor: watch identity 已过期；拒绝 timeout 干预 successor attempt" >&2
+          echo "===📡 END==="
+          exit 11
+        elif [[ "$FENCE_RC" -ne 0 ]]; then
+          echo "omp-monitor: timeout 时无法在锁内确认 pinned identity；未发取消请求" >&2
+          echo "===📡 END==="
+          exit 20
+        fi
+      fi
       echo "===📡 BEGIN timeout==="
       echo "⏰ 超时 · ${ELAPSED}s / ${WATCH_TIMEOUT}s"
       echo "===📡 END==="
-      # 主动 kill + reject —— 但资源监督进程组不由 monitor kill：
-      # 监督器（omp-resource-supervisor.py）自持 pgid（pid_store 规范 sidecar）并
-      # 已 enforce raw_cap/rate_fuse 的安全收束，盲 kill wrapper pid 既不干净也越界。
-      # 故 resource_supervised 时只 fail-closed 主状态，不引入 kill $pid（走既有安全路径）。
+      if [[ -n "$WATCH_ATTEMPT" ]]; then
+        set +e
+        "$SELF_DIR/omp-stop.sh" --state "$STATE" --attempt-id "$WATCH_ATTEMPT" \
+          --launch-fingerprint "$WATCH_FP" --reason "omp-monitor watch timeout ${WATCH_TIMEOUT}s" --timeout 10
+        STOP_RC=$?
+        watch_identity_fence
+        FENCE_RC=$?
+        set -e
+        if [[ "$FENCE_RC" -eq 11 ]]; then
+          echo "omp-monitor: timeout stop 后 watch identity 已过期；不读取 successor 状态" >&2
+          echo "===📡 END==="
+          exit 11
+        fi
+        CLEAN="unknown"
+        [[ "$FENCE_RC" -eq 0 ]] && CLEAN="$WATCH_CLEAN"
+        echo "===📡 BEGIN omp-monitor (relay verbatim)==="
+        echo "📡 execute_v1 超时取消 · task_id=$TASK_ID · status=rejected · cleanup_confirmed=$CLEAN"
+        [[ "$CLEAN" == "true" ]] || echo "   ⚠️ cleanup unknown；不得声称已停止，不得复用 task_id"
+        echo "===📡 END==="
+        exit 20
+      fi
+      # Legacy RPC/Shell behavior is retained, but its mutation is serialized.
+      if ! lifecycle_lock_acquire "$TASK_ID"; then
+        echo "omp-monitor: timeout 时生命周期锁被占用；未执行 legacy 干预" >&2
+        exit 20
+      fi
       if [[ "$RESOURCE_SUPERVISED" != "true" ]]; then
         RPID=$(jq -r '.run.rpc_pid // empty' "$STATE"); [[ -n "$RPID" ]] && kill "$RPID" 2>/dev/null
         SPID=$(jq -r '.run.pid // empty' "$STATE"); [[ -n "$SPID" ]] && kill "$SPID" 2>/dev/null
-      else
-        echo "🛡  --watch 超时：resource_supervised 运行由监督器自持 pgroup，monitor 不 kill wrapper pid" >&2
       fi
       update_state ".status=\"rejected\" | .monitor={checked_at:\"$(now_iso)\",issues:[\"--watch timeout ${WATCH_TIMEOUT}s\"]}"
+      lifecycle_lock_release || true
       echo "===📡 BEGIN omp-monitor (relay verbatim)==="
       echo "📡 监控完成 · task_id=$TASK_ID · → status=rejected"
       echo "   ⚠️ 问题: --watch 超时 ${WATCH_TIMEOUT}s"
@@ -151,15 +258,24 @@ if $WATCH; then
     fi
 
     # 单次检查
-    OUT=$("$0" --state "$STATE" --json 2>&1); RC=$?
-    PHASE=$(echo "$OUT" | jq -r '.phase // "unknown"' 2>/dev/null)
-    SZ=$(echo "$OUT" | jq -r '.raw_bytes // 0' 2>/dev/null); [[ "$SZ" =~ ^[0-9]+$ ]] || SZ=0
-    LN=$(echo "$OUT" | jq -r '.raw_lines // 0' 2>/dev/null); [[ "$LN" =~ ^[0-9]+$ ]] || LN=0
+    set +e; OUT=$("$0" --state "$STATE" --json ${WATCH_ID_ARGS[@]+"${WATCH_ID_ARGS[@]}"} 2>&1); RC=$?; set -e
+    PHASE=$(printf '%s\n' "$OUT" | jq -r '.phase // "unknown"' 2>/dev/null || printf 'unknown\n')
+    SZ=$(printf '%s\n' "$OUT" | jq -r '.raw_bytes // 0' 2>/dev/null || printf '0\n'); [[ "$SZ" =~ ^[0-9]+$ ]] || SZ=0
+    LN=$(printf '%s\n' "$OUT" | jq -r '.raw_lines // 0' 2>/dev/null || printf '0\n'); [[ "$LN" =~ ^[0-9]+$ ]] || LN=0
 
+    if [[ "$PHASE" == "busy" ]]; then
+      sleep "$INTERVAL"
+      continue
+    fi
+    if [[ "$PHASE" == "stale" || "$RC" -eq 11 ]]; then
+      echo "omp-monitor: watch identity 已过期；拒绝监控 successor attempt" >&2
+      echo "===📡 END==="
+      exit 11
+    fi
     # 判断阶段
     if [[ "$PHASE" != "running" ]]; then
       # 完成/失败 → 重新输出完整报告（非 --json，人类可读）
-      "$0" --state "$STATE" 2>/dev/null
+      "$0" --state "$STATE" ${WATCH_ID_ARGS[@]+"${WATCH_ID_ARGS[@]}"} 2>/dev/null
       echo "===📡 END==="
       exit $RC
     fi
@@ -172,13 +288,199 @@ if $WATCH; then
       LAST_SZ=$SZ; LAST_LN=$LN
     fi
 
-    # 确定要监控的 pid
-    MPID=""; [[ "$CHANNEL_USED" == "rpc" ]] && MPID=$(jq -r '.run.rpc_pid // empty' "$STATE") || MPID=$(jq -r '.run.pid // empty' "$STATE")
-    echo "   └ 轮询: ${INTERVAL}s 后重查 · 干预: kill ${MPID:-<pid>}"
+    # execute_v1 never advertises kill-wrapper intervention.
+    if [[ "$EXECUTION_SUPERVISED" == "true" ]]; then
+      echo "   └ 轮询: ${INTERVAL}s 后重查 · 干预: omp-stop.sh（须匹配 attempt/fingerprint）"
+    else
+      MPID=""; [[ "$CHANNEL_USED" == "rpc" ]] && MPID=$(jq -r '.run.rpc_pid // empty' "$STATE") || MPID=$(jq -r '.run.pid // empty' "$STATE")
+      echo "   └ 轮询: ${INTERVAL}s 后重查 · 干预: kill ${MPID:-<pid>}"
+    fi
 
     sleep "$INTERVAL"
   done
   # unreachable — watch loop covers all paths
+fi
+
+# ═══ execute_v1 receipt authentication (before legacy resource/JSONL logic) ═══
+if [[ "$EXECUTION_SUPERVISED" == "true" ]]; then
+  X_RSTATE="$(resource_state_path "$TASK_ID")"
+  X_PIDS="$(pid_store_path "$TASK_ID")"
+  X_CONTROL="$(control_file_path "$TASK_ID")"
+  X_ATTEMPT=$(jq -r '.run.attempt_id // empty' "$STATE")
+  X_FP=$(jq -r '.run.launch_fingerprint // empty' "$STATE")
+  X_CANCEL=$(jq -r '.run.cancel_requested // false' "$STATE")
+  X_RAW_CAP=$(jq -r '.run.launch_spec.raw_cap // empty' "$STATE")
+  exec_reject() {
+    local issue="$1" ij
+    ij=$(printf '%s' "$issue" | jq -R -s '.[0:512]')
+    update_state ".status=\"rejected\" | .run.cleanup_confirmed=false |
+      .run.terminal_reason=\"cleanup_unknown\" |
+      .monitor={checked_at:\"$(now_iso)\",issues:[$ij]}"
+    echo "🚫 omp-monitor: $issue → status=rejected（cleanup unknown）" >&2
+  }
+  if ! validate_attempt_id "$X_ATTEMPT" || ! [[ "$X_FP" =~ ^[0-9a-f]{64}$ ]] \
+     || ! [[ "$X_RAW_CAP" =~ ^[1-9][0-9]*$ ]]; then
+    exec_reject "execute_v1 main identity/cap 非法"; exit 2
+  fi
+  if [[ "$(jq -r '.run.resource_state // empty' "$STATE")" != "$X_RSTATE" \
+        || "$(jq -r '.run.pid_store // empty' "$STATE")" != "$X_PIDS" \
+        || "$(jq -r '.run.control_file // empty' "$STATE")" != "$X_CONTROL" ]]; then
+    exec_reject "execute_v1 canonical sidecar 路径绑定失败"; exit 2
+  fi
+  for _f in "$X_RSTATE" "$X_PIDS" "$X_CONTROL" "$RAW" "$RAW.err"; do
+    [[ ! -L "$_f" ]] || { exec_reject "execute_v1 canonical 路径为 symlink"; exit 2; }
+    [[ ! -e "$_f" || -f "$_f" ]] || { exec_reject "execute_v1 canonical 路径非普通文件"; exit 2; }
+  done
+  # A control request, if present, must authenticate to this exact attempt.
+  if [[ -e "$X_CONTROL" ]] && ! jq -e --arg tid "$TASK_ID" --arg aid "$X_ATTEMPT" --arg fp "$X_FP" '
+      .schema=="call-omp-cancel.v1" and .task_id==$tid and
+      .attempt_id==$aid and .launch_fingerprint==$fp and (.reason|type)=="string"' \
+      "$X_CONTROL" >/dev/null 2>&1; then
+    exec_reject "execute_v1 control request 身份/形状非法"; exit 2
+  fi
+  if [[ "$X_CANCEL" == "true" && ! -f "$X_CONTROL" ]]; then
+    exec_reject "main 已记录 cancellation 但 control request 缺失"; exit 2
+  fi
+
+  if [[ ! -f "$X_RSTATE" ]]; then
+    if [[ "$PID" =~ ^[1-9][0-9]*$ ]] && kill -0 "$PID" 2>/dev/null; then
+      report_line "⏳ execute_v1 supervisor 启动中 · task_id=$TASK_ID"
+      printf '{"task_id":"%s","phase":"running","channel":"shell","execution_supervised":true,"raw_bytes":0,"raw_lines":0}\n' "$TASK_ID"
+      exit 0
+    fi
+    exec_reject "execute_v1 receipt 缺失且 supervisor 未观察到存活"; exit 2
+  fi
+  if ! jq -e 'type=="object"' "$X_RSTATE" >/dev/null 2>&1; then
+    exec_reject "execute_v1 receipt 非法 JSON 对象"; exit 2
+  fi
+
+  X_SHAPE=$(jq -r --arg tid "$TASK_ID" --arg aid "$X_ATTEMPT" --arg fp "$X_FP" \
+      --arg sf "$X_RSTATE" --arg ro "$RAW" --arg err "$RAW.err" \
+      --arg ps "$X_PIDS" --arg cf "$X_CONTROL" --argjson cap "$X_RAW_CAP" '
+      def integer: (type=="number" and .==floor);
+      def nnint: (integer and .>=0);
+      (.status // "") as $st |
+      if .schema!="call-omp-resource-supervisor.v2" then "schema"
+      elif .capture_mode!="execute_v1" then "capture_mode"
+      elif .task_id!=$tid or .attempt_id!=$aid or .launch_fingerprint!=$fp then "identity"
+      elif .state_file!=$sf or .raw_output!=$ro or .stderr_output!=$err or
+           .control_file!=$cf or .run.pid_store!=$ps then "paths"
+      elif .raw_cap!=$cap then "raw_cap"
+      elif ((["starting","running","reported","rejected"]|index($st))==null) then "status"
+      elif ((.raw_bytes // 0)|nnint|not) or ((.raw_lines // 0)|nnint|not) or
+           ((.stderr_bytes // 0)|nnint|not) or ((.stderr_lines // 0)|nnint|not) then "stream_accounting"
+      elif (.raw_bytes>$cap or .stderr_bytes>$cap) then "stream_cap"
+      elif ((.worker_exit_code!=null) and ((.worker_exit_code|integer)|not)) then "worker_exit_code"
+      elif .exit_code!=.worker_exit_code then "exit_code_alias"
+      elif ((.supervisor_exit_code!=null) and ((.supervisor_exit_code|integer)|not)) then "supervisor_exit_code"
+      elif (.cleanup_confirmed|type)!="boolean" then "cleanup_confirmed"
+      elif (.terminal_reason|type)!="string" then "terminal_reason"
+      elif (.child_identity|type)!="object" then "child_identity"
+      elif (($st=="starting" or $st=="running") and
+            (.cleanup_confirmed!=false or .worker_exit_code!=null or .supervisor_exit_code!=null)) then "running_terminal_fields"
+      elif (($st=="reported" or $st=="rejected") and .supervisor_exit_code==null) then "terminal_supervisor_exit"
+      else "" end' "$X_RSTATE" 2>/dev/null || echo jq_error)
+  if [[ -n "$X_SHAPE" ]]; then
+    exec_reject "execute_v1 receipt 绑定/形状失败 ($X_SHAPE)"; exit 2
+  fi
+
+  X_STATUS=$(jq -r '.status' "$X_RSTATE")
+  X_RB=$(jq -r '.raw_bytes // 0' "$X_RSTATE")
+  X_RL=$(jq -r '.raw_lines // 0' "$X_RSTATE")
+  X_CI=$(jq -c '.child_identity' "$X_RSTATE")
+  X_CIPID=$(printf '%s' "$X_CI" | jq -r '.pid // empty')
+  # Once a child identity is published, the separately written identity sidecar
+  # must bind every path/attempt and exactly match the receipt object.
+  if [[ -e "$X_PIDS" ]]; then
+    X_CLEAN_JSON=$(jq -c '.cleanup_confirmed' "$X_RSTATE")
+    if [[ ! -f "$X_PIDS" ]] || ! jq -e --arg tid "$TASK_ID" --arg aid "$X_ATTEMPT" \
+        --arg fp "$X_FP" --arg sf "$X_RSTATE" --arg ro "$RAW" \
+        --arg ps "$X_PIDS" --arg cf "$X_CONTROL" --arg st "$X_STATUS" \
+        --argjson clean "$X_CLEAN_JSON" --argjson ci "$X_CI" '
+        .schema=="call-omp-execute-identity.v1" and .capture_mode=="execute_v1" and
+        .task_id==$tid and .attempt_id==$aid and .launch_fingerprint==$fp and
+        .state_file==$sf and .raw_output==$ro and .pid_store==$ps and .control_file==$cf and
+        .status==$st and .cleanup_confirmed==$clean and .child_identity==$ci' \
+        "$X_PIDS" >/dev/null 2>&1; then
+      if [[ "$X_STATUS" == "starting" || "$X_STATUS" == "running" ]]; then
+        report_line "⏳ execute_v1 sidecar 终态发布中 · task_id=$TASK_ID"
+        printf '{"task_id":"%s","phase":"running","channel":"shell","execution_supervised":true,"raw_bytes":%s,"raw_lines":%s}\n' \
+          "$TASK_ID" "$X_RB" "$X_RL"
+        exit 0
+      fi
+      exec_reject "execute_v1 identity sidecar 不匹配"; exit 2
+    fi
+  elif [[ "$X_STATUS" != "starting" || -n "$X_CIPID" ]]; then
+    exec_reject "execute_v1 identity sidecar 缺失"; exit 2
+  fi
+
+  case "$X_STATUS" in
+    starting|running)
+      report_line "===📡 BEGIN omp-monitor (relay verbatim)==="
+      report_line "⏳ execute_v1 监督运行中 · task_id=$TASK_ID · raw ${X_RB}B/${X_RL}行"
+      report_line "   取消须使用 omp-stop.sh + exact attempt/fingerprint；不支持 kill wrapper"
+      report_line "===📡 END==="
+      printf '{"task_id":"%s","phase":"running","channel":"shell","execution_supervised":true,"raw_bytes":%s,"raw_lines":%s}\n' \
+        "$TASK_ID" "$X_RB" "$X_RL"
+      exit 0
+      ;;
+  esac
+
+  # Terminal stream evidence must match the bounded files actually on disk.
+  [[ -f "$RAW" && -f "$RAW.err" ]] || { exec_reject "execute_v1 terminal stream 文件缺失"; exit 2; }
+  X_ARB=$(wc -c <"$RAW" | tr -d ' '); X_ARL=$(wc -l <"$RAW" | tr -d ' ')
+  X_AEB=$(wc -c <"$RAW.err" | tr -d ' '); X_AEL=$(wc -l <"$RAW.err" | tr -d ' ')
+  X_RSHA=$(jq -r '.raw_sha256 // ""' "$X_RSTATE")
+  X_ESHA=$(jq -r '.stderr_sha256 // ""' "$X_RSTATE")
+  if [[ "$X_ARB" != "$X_RB" || "$X_ARL" != "$X_RL" \
+        || "$X_AEB" != "$(jq -r '.stderr_bytes' "$X_RSTATE")" \
+        || "$X_AEL" != "$(jq -r '.stderr_lines' "$X_RSTATE")" ]]; then
+    exec_reject "execute_v1 terminal stream 计量与磁盘不一致"; exit 2
+  fi
+  if [[ "$X_ARB" -gt 0 && "$(sha256_of "$RAW")" != "$X_RSHA" ]] \
+     || [[ "$X_ARB" -eq 0 && -n "$X_RSHA" ]] \
+     || [[ "$X_AEB" -gt 0 && "$(sha256_of "$RAW.err")" != "$X_ESHA" ]] \
+     || [[ "$X_AEB" -eq 0 && -n "$X_ESHA" ]]; then
+    exec_reject "execute_v1 terminal stream digest 不一致"; exit 2
+  fi
+
+  X_WORKER=$(jq -c '.worker_exit_code' "$X_RSTATE")
+  X_SUP=$(jq -c '.supervisor_exit_code' "$X_RSTATE")
+  X_TERM=$(jq -c '.terminal_reason' "$X_RSTATE")
+  X_CLEAN=$(jq -r '.cleanup_confirmed' "$X_RSTATE")
+  X_SUBSET=$(jq -c '{schema,status,task_id,attempt_id,launch_fingerprint,
+    worker_exit_code,supervisor_exit_code,terminal_reason,cleanup_confirmed,
+    child_identity:{pid:.child_identity.pid,pgid:.child_identity.pgid,session_id:.child_identity.session_id}}' "$X_RSTATE")
+  update_state ".run.exit_code=$X_WORKER | .run.worker_exit_code=$X_WORKER |
+    .run.supervisor_exit_code=$X_SUP | .run.terminal_reason=$X_TERM |
+    .run.cleanup_confirmed=$X_CLEAN"
+  EC=$(jq -r '.worker_exit_code // empty' "$X_RSTATE")
+  if [[ "$X_CLEAN" != "true" ]]; then
+    update_state ".status=\"rejected\" |
+      .monitor={checked_at:\"$(now_iso)\",issues:[\"execute_v1 terminal cleanup unknown\"],resource:$X_SUBSET}"
+    echo "🚫 omp-monitor: execute_v1 terminal receipt 未确认 cleanup → rejected" >&2
+    exit 2
+  fi
+  if [[ "$X_CANCEL" == "true" ]]; then
+    update_state ".status=\"rejected\" |
+      .monitor={checked_at:\"$(now_iso)\",issues:[\"execute_v1 cancellation was requested; late terminal receipt cannot become success\"],resource:$X_SUBSET}"
+    echo "🚫 omp-monitor: cancellation 已请求；late receipt 不得转成功" >&2
+    exit 2
+  fi
+  if [[ "$X_STATUS" == "rejected" ]]; then
+    update_state ".status=\"rejected\" |
+      .monitor={checked_at:\"$(now_iso)\",issues:[\"execute_v1 supervisor rejected\"],resource:$X_SUBSET}"
+    echo "🚫 omp-monitor: execute_v1 supervisor rejected（worker_exit=$X_WORKER supervisor_exit=${X_SUP}）" >&2
+    exit 2
+  fi
+  if [[ "$X_WORKER" != "0" || "$X_SUP" != "0" ]]; then
+    update_state ".status=\"rejected\" |
+      .monitor={checked_at:\"$(now_iso)\",issues:[\"execute_v1 inconsistent reported exit status\"],resource:$X_SUBSET}"
+    echo "🚫 omp-monitor: execute_v1 reported 但退出状态不为 0" >&2
+    exit 2
+  fi
+  # Authenticated clean success falls through to the existing execute JSONL
+  # checks. It never consults .exit and preserves actual worker exit separately.
 fi
 
 
@@ -671,6 +973,11 @@ MON=$(jq -n --arg now "$(now_iso)" --arg sev "$SEV" --arg sum "$SUMMARY" \
 if $REJECT; then
   update_state ".status=\"rejected\" | .monitor=$MON"
   NEWSTATUS="rejected"
+elif [[ "$STATUS" == "accepted" && "$EXECUTION_SUPERVISED" == "true" ]]; then
+  # Re-monitoring authenticated execute evidence must not roll accepted history
+  # back to reported. Any authentication failure already took the reject path.
+  update_state ".monitor=$MON"
+  NEWSTATUS="accepted"
 else
   update_state ".status=\"reported\" | .monitor=$MON"
   NEWSTATUS="reported"
@@ -693,6 +1000,8 @@ if ! $JSON_ONLY; then
   if [[ "$NEWSTATUS" == "reported" ]]; then
     echo "   下一步   : omp-finish.sh --state $STATE --accept|--reject|--human-review"
     [[ "$SEV" == "blocker" ]] && echo "   ⛔ severity=blocker → 不应 accept；按 evidence 决定 reject/转 cc-tmux 修复"
+  elif [[ "$NEWSTATUS" == "accepted" ]]; then
+    echo "   下一步   : 已 accepted；terminal evidence 已重新认证"
   else
     echo "   下一步   : 已 rejected。修复委派包后重 start，或转人工/cc-tmux"
     $CDBG_PRESENT && echo "   🔎 诊断   : 紧凑诊断已落 .monitor.compact_debug（failure_stage=${FAILSTAGE:-unknown}，含 final_text 尾部/候选数，未回吐原始 raw）"
