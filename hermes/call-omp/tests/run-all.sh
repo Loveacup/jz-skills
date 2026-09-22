@@ -64,6 +64,17 @@ bash "$S/gate/gate-verify.sh" --mode package --file "$TD/pkg-long-id.json" >/dev
 bash "$S/gate/gate-verify.sh" --mode output --file "$TD/raw-ok.json" >/dev/null 2>&1; chk "output 有 evidence→0" 0 $?
 "$TD/mock-noev.sh" > "$TD/raw-noev.json"
 bash "$S/gate/gate-verify.sh" --mode output --file "$TD/raw-noev.json" >/dev/null 2>&1; chk "output 空 evidence→10" 10 $?
+# 回归（hard3·blocker1）：合法 spaced JSONL（冒号两侧带空白/tab）不得误拒 turn_end
+printf '%s\n' '{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"```json\n{\"severity\":\"concern\",\"summary\":\"spaced 流\",\"evidence\":[{\"type\":\"file\",\"ref\":\"a.ts:1\"}]}\n```"}]}}' '{"type": "turn_end", "message": {"stopReason": "stop"}}' > "$TD/raw-spaced.json"
+bash "$S/gate/gate-verify.sh" --mode output --file "$TD/raw-spaced.json" >/dev/null 2>&1; chk "output spaced turn_end→0" 0 $?
+{ printf '%s\n' '{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"```json\n{\"severity\":\"concern\",\"summary\":\"tab 流\",\"evidence\":[{\"type\":\"file\",\"ref\":\"a.ts:1\"}]}\n```"}]}}'
+  printf '{"type"\t:\t"turn_end","message":{"stopReason":"stop"}}\n'; } > "$TD/raw-tab.json"
+bash "$S/gate/gate-verify.sh" --mode output --file "$TD/raw-tab.json" >/dev/null 2>&1; chk "output tab-spaced turn_end→0" 0 $?
+# 回归：终结事件缺失/非法必须拒绝（exit 1），不得被相邻字段或近似 type 骗过
+printf '%s\n' '{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"no terminal event"}]}}' > "$TD/raw-noterm.json"
+bash "$S/gate/gate-verify.sh" --mode output --file "$TD/raw-noterm.json" >/dev/null 2>&1; chk "output 无 turn_end→1" 1 $?
+printf '%s\n' '{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"x"}]}}' '{"type":"turn_ending","message":{"stopReason":"stop"}}' > "$TD/raw-nearmiss.json"
+bash "$S/gate/gate-verify.sh" --mode output --file "$TD/raw-nearmiss.json" >/dev/null 2>&1; chk "output 近似 type=turn_ending→1" 1 $?
 
 echo "═══ 2. gate-danger ═══"
 bash "$S/gate/gate-danger.sh" --mode package --file "$TD/pkg-ok.json" >/dev/null 2>&1; chk "安全包→0" 0 $?
@@ -899,7 +910,7 @@ bash "$S/omp-monitor.sh" --state "$TD/omp-state-sym1.json" >/dev/null 2>&1; chk 
 mk_sup_state sym2; mk_res sym2 resource_rejected '.child_identity={pid:8,pgid:8,session_id:8,argv:[]} | .run.exit_code=1'; ln -s "$TD/symtarget.json" "$TD/omp-pids-sym2.json"
 bash "$S/omp-monitor.sh" --state "$TD/omp-state-sym2.json" >/dev/null 2>&1; chk "22c-sym pid-store symlink→exit 2" 2 $?
 mk_sup_state sym3; mk_res sym3 resource_rejected '.child_identity={pid:8,pgid:8,session_id:8,argv:[]} | .run.exit_code=1'; mk_pids "$TD/omp-pids-sym3.json" 8 8 8; ln -s "$TD/symtarget.json" "$TD/omp-raw-sym3.json"
-bash "$S/omp-monitor.sh" --state "$TD/omp-state-sym3.json" >/dev/null 2>&1; chk "22c-sym raw symlink→exit 2" 2 $?801|
+bash "$S/omp-monitor.sh" --state "$TD/omp-state-sym3.json" >/dev/null 2>&1; chk "22c-sym raw symlink→exit 2" 2 $?
 # 22d: reported → 进入既有正常判决解析流（severity/evidence 照常产出）
 mk_sup_state rd8
 mk_res rd8 reported '.reason="normal_completion" | .raw_bytes=512 | .raw_lines=3 | .raw_sha256=$hex | .raw_tail_bytes=512 | .run.exit_code=0 | .child_identity={pid:5,pgid:5,session_id:5,argv:["omp"]}'
@@ -1691,6 +1702,26 @@ OKN=$(grep -c 'rc=0' "$TD/sa6-rc.log" 2>/dev/null)
 [[ "${OKN:-0}" -ge 1 ]] && chk "A6 并发 start 至少一个成功" y y || chk "A6 并发 start 至少一个成功" y n
 jq -e 'type=="object" and .task_id=="sa6" and .status=="gated"' "$TD/omp-state-sa6.json" >/dev/null 2>&1 && chk "  并发后 state 合法未撕裂" y y || chk "  并发后 state 合法未撕裂" y n
 [[ ! -d "$TD/omp-start-sa6.lock" ]] && chk "  并发后启动锁已释放" y y || chk "  并发后启动锁已释放" y n
+
+echo "═══ R2. hard3·blocker2 回归：native /bin/bash execute_v1 supervisor-rejected → exit 2 ═══"
+# 真实链路（零 token）：execute grant start → sync send（mock 灌爆 EXECUTE_RAW_CAP，
+# supervisor 熔断 → receipt status=rejected）→ 用系统原生 /bin/bash（macOS 上为 3.2）
+# 跑 omp-monitor：契约 exit 2；stderr 必须含 supervisor rejected 消息，且不得出现
+# set -u 的 unbound variable 崩溃（回归锚：omp-monitor.sh ${X_SUP} 位于全角）前）。
+cat > "$TD/mock-flood.sh" <<'M'
+#!/usr/bin/env bash
+# 超过 EXECUTE_RAW_CAP(8MiB) 的 stdout 触发监督器熔断；随后驻留待收割（确定性 rejected）
+head -c 9437184 /dev/zero | tr '\0' 'x'
+exec sleep 30
+M
+chmod +x "$TD/mock-flood.sh"
+mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" '.task_id="x32"|.mode="execute"|.criterion=[]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1; chk "R2 execute flood start→0" 0 $?
+OMP_BIN="$TD/mock-flood.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-x32.json" >/dev/null 2>&1
+chk "  receipt status=rejected（raw_cap 熔断）" rejected "$(jq -r .status "$TD/omp-resource-x32.json" 2>/dev/null)"
+/bin/bash "$S/omp-monitor.sh" --state "$TD/omp-state-x32.json" >"$TD/x32-mon.out" 2>"$TD/x32-mon.err"; chk "R2 /bin/bash monitor supervisor-rejected→exit 2" 2 $?
+grep -q "supervisor rejected" "$TD/x32-mon.err" && chk "  stderr 含 supervisor rejected 消息" y y || chk "  stderr 含 supervisor rejected 消息" y n
+grep -qi "unbound variable" "$TD/x32-mon.err" && chk "  stderr 无 unbound variable" y n || chk "  stderr 无 unbound variable" y y
+chk "  主状态 rejected" rejected "$(jq -r .status "$TD/omp-state-x32.json")"
 
 echo; echo "════════ PASS=$P  FAIL=$F ════════"
 [[ $F -eq 0 ]] && exit 0 || exit 1
