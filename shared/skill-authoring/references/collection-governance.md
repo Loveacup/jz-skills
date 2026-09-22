@@ -64,9 +64,11 @@ Map each current capability and description clause to one of these evidence-back
 
 Quote the instruction or policy that establishes the classification. When two current sources claim authority, preserve both claims and report an ownership conflict; do not choose the one that appears newer or more complete. Unknown authority blocks only the affected write, not findings whose evidence and owners are settled.
 
-## Compare simultaneously exposed descriptions pairwise
+## Compare the implicated discovery boundaries
 
-Within each consumer, compare every unordered pair of named entries that can be offered to the same selector. Across consumers, compare a pair only to explain a stated cross-consumer difference; entries never offered together cannot collide in one router.
+Match comparison coverage to the requested claim. For a reported collision or a targeted revision, screen the supplied co-exposed descriptions for competitors and handoffs involving that target, then compare the implicated pairs; do not enumerate unrelated-to-unrelated pairs. For a whole-collection audit, screen every named exposed description, then examine pairs whose requested outcomes, actions, exclusions, aliases, or broad claims can overlap. A catch-all such as “all tasks” crosses domain groups; do not filter candidates by shared nouns alone. If exhaustive pair coverage is explicitly requested, provide it.
+
+Record what was screened, why pairs were selected or excluded, and any coverage gap without manufacturing a separate report for each disjoint pair. This is a scoped comparison, not proof that all untested combinations are safe. Across consumers, compare a pair only to explain a stated cross-consumer difference; entries never offered together cannot collide in one router.
 
 Use the exact exposed descriptions, not a summary of their bodies. Quote the clauses that establish the decision and classify the pair:
 
@@ -113,6 +115,8 @@ Each finding must be independently decidable and contain:
 | Verification | Description-only cases or other changed-path evidence to repeat after revision. |
 
 Also produce a capability map from every current useful constraint in the implicated text to its retained destination. This prevents shorter descriptions or consolidation from silently dropping security exclusions, verification requirements, consumer-specific conditions, or handoff boundaries. Length and token count do not decide whether a constraint is useful.
+
+When narrowing a trigger, retain existing prohibitions and approval conditions verbatim unless their wording is itself an authorized revision target. Compare the actual before/after clauses, not the map's claim of preservation: adding an object qualifier, exception, or new condition can weaken a previously unqualified prohibition. Do not infer permission to narrow a safety constraint from the skill's domain.
 
 ## Stage the minimum authorized revision
 

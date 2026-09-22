@@ -2,6 +2,12 @@
 
 Version entries describe changes, not proof that a runtime loaded or correctly used them. Deployment and publication require their own evidence.
 
+## v5.1.1 — 2026-09-22
+
+Scoped collection comparisons to the requested claim instead of always enumerating every pair. Targeted reviews screen co-exposed descriptions for relevant competitors and handoffs; whole-collection audits still screen all named entries, including cross-domain catch-all triggers. Explicit exhaustive coverage remains supported. Report screened and untested scope without inferring runtime behavior, universal safety, or measured efficiency from pair counts.
+
+Require direct before/after comparison of retained prohibitions and approval conditions when narrowing triggers. Preserve their wording unless revision of that constraint is itself authorized; domain-specific qualifiers must not silently weaken a broader restriction.
+
 ## v5.1.0 — 2026-09-22
 
 Added scoped collection governance and agent instruction review/revision, including AGENTS.md and host equivalents. The new workflows distinguish exposed descriptions from installed files, real conflicts from complementary responsibilities, declared host precedence from filename assumptions, and generated entrypoints from their editable authority. Review does not authorize bulk changes or runtime management.

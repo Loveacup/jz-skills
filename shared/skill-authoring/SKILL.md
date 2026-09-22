@@ -2,7 +2,7 @@
 name: skill-authoring
 description: Create, revise, import, or audit Agent Skills; govern a named skill collection or agent instruction files such as AGENTS.md. Not for ordinary coding or executing a skill's subject task.
 type: routine
-version: 5.1.0
+version: 5.1.1
 author: Hermes Agent
 license: MIT
 metadata:
