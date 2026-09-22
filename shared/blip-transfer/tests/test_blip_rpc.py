@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import socket
 import sys
+import stat
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -97,6 +98,87 @@ def _source(name="report.txt", size=7):
         "size": size,
         "identity": (1, 2, size, 3, 4),
     }
+
+
+class UpgradeSafetyTests(unittest.TestCase):
+    def test_build_guard_accepts_only_exact_candidate_version_and_build(self):
+        with mock.patch.object(
+                blip_rpc, "_installed_build",
+                return_value=(blip_rpc.EXPECTED_VERSION, blip_rpc.EXPECTED_BUILD)):
+            self.assertEqual(
+                blip_rpc._require_pinned_build(),
+                (blip_rpc.EXPECTED_VERSION, blip_rpc.EXPECTED_BUILD),
+            )
+        for installed in (
+                ("1.1.16", blip_rpc.EXPECTED_BUILD),
+                (blip_rpc.EXPECTED_VERSION, "20260425132215")):
+            with self.subTest(installed=installed):
+                with mock.patch.object(
+                        blip_rpc, "_installed_build", return_value=installed):
+                    with self.assertRaises(blip_rpc.BlipError) as raised:
+                        blip_rpc._require_pinned_build()
+                self.assertEqual(
+                    raised.exception.code, "unsupported_blip_build")
+
+    def test_socket_path_rejects_non_socket_and_wrong_owner(self):
+        cases = (
+            (SimpleNamespace(st_mode=stat.S_IFREG | 0o600, st_uid=os.getuid()),
+             "invalid_socket"),
+            (SimpleNamespace(st_mode=stat.S_IFSOCK | 0o600, st_uid=os.getuid() + 1),
+             "invalid_socket_owner"),
+        )
+        for metadata, code in cases:
+            with self.subTest(code=code):
+                with mock.patch.object(os, "stat", return_value=metadata):
+                    with self.assertRaises(blip_rpc.BlipError) as raised:
+                        blip_rpc._validated_socket_stat()
+                self.assertEqual(raised.exception.code, code)
+
+    def test_sources_reject_missing_directory_and_symlink(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            regular = root / "regular.txt"
+            regular.write_text("fixture", encoding="utf-8")
+            symlink = root / "link.txt"
+            symlink.symlink_to(regular)
+            for source in (root / "missing.txt", root, symlink):
+                with self.subTest(source=source.name):
+                    with self.assertRaises(blip_rpc.BlipError) as raised:
+                        blip_rpc._validate_sources([os.fspath(source)])
+                    self.assertEqual(raised.exception.code, "invalid_source")
+
+    def test_response_rejects_oversized_and_malformed_frames(self):
+        oversized = b"".join((
+            _varint((2 << 1) | 1), _varint(1), _varint(1),
+            _varint(blip_rpc.MAX_RESPONSE + 1),
+        ))
+        for payload, code in (
+                (oversized, "rpc_response_too_large"),
+                (b"\xff" * 10, "invalid_rpc_frame")):
+            reader, writer = socket.socketpair()
+            try:
+                writer.sendall(payload)
+                with self.assertRaises(blip_rpc.BlipError) as raised:
+                    blip_rpc._receive_message(reader)
+                self.assertEqual(raised.exception.code, code)
+            finally:
+                reader.close()
+                writer.close()
+
+    def test_response_rejects_more_than_bounded_frame_count(self):
+        frame = b"".join((
+            _varint(2 << 1), _varint(1), _varint(1), _varint(0),
+        ))
+        reader, writer = socket.socketpair()
+        try:
+            writer.sendall(frame * blip_rpc.MAX_FRAMES)
+            with self.assertRaises(blip_rpc.BlipError) as raised:
+                blip_rpc._receive_message(reader)
+            self.assertEqual(
+                raised.exception.code, "rpc_response_too_many_frames")
+        finally:
+            reader.close()
+            writer.close()
 
 
 class AsyncPublicationTests(unittest.TestCase):
