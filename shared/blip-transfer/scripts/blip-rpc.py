@@ -21,8 +21,8 @@ from annotate import annotate
 from inventory import DEFAULT_STATE_DIR, load_json, validate_inventory
 
 
-EXPECTED_VERSION = "1.1.16"
-EXPECTED_BUILD = "20260425132215"
+EXPECTED_VERSION = "1.2.0"
+EXPECTED_BUILD = "20260914015615"
 APP_PLIST = Path("/Applications/Blip.app/Contents/Info.plist")
 SOCKET_SUFFIX = Path("Library/Group Containers/AY8UB8KTUX.blip/Library/Caches/sock")
 GET_STATE_METHOD = "/rpc.Service/GetState"
