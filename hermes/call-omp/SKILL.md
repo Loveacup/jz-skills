@@ -33,7 +33,9 @@ version: 0.9.0
 
 ## 兼容基线与通道
 
-候选 Shell `execute` 已在 OMP `18.2.7` 验证真实文件修改、CLI 失败及含 Bash 子进程的取消；这不代表已安装或已通过 Hermes 发起链验收。RPC/ACP 仍只有历史 `16.3.2` 基线。`omp --version` 不证明 provider/model 可用。
+Shell `execute` 当前验收基线：OMP `18.2.11`。2026-09-24 已从默认 Hermes 经 Kanban worker 调用已安装的本 skill，完成真实文件修改（worker exit 0）、超时失败（rejected，未接受）与取消（Kanban archive + `omp-stop.sh`）各一例。RPC/ACP 仍只有历史 `16.3.2` 基线。`omp --version` 不证明 provider/model 可用。
+
+结果汇报的 `execution` 按事实填写：worker 未启动写 `not_started`；monitor 拒绝（非零退出、`stopReason!=stop`、超时）写 `failed`；取消写 `cancelled`；只有 monitor 接受才写 `succeeded`。OMP CLI 自身 exit 0 不等于执行成功。
 
 通道策略：
 
