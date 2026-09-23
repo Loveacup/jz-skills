@@ -377,7 +377,7 @@ for spec in \
   'cap-dupdir|.capability_grant.add_dirs=[$cwd,$cwd]' \
   'cap-nocwd|.capability_grant.cwd=""'; do
   id=${spec%%|*}; filter=${spec#*|}
-  mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" ".task_id=\"$id\"|.mode=\"execute\"|.criterion=["fixture acceptance"]|.capability_grant=\$cap|.scope={allowed_paths:[\$cwd],denied_paths:[],cwd:\$cwd}|$filter" > "$TD/pkg-$id.json"
+  mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" ".task_id=\"$id\"|.mode=\"execute\"|.criterion=[\"fixture acceptance\"]|.capability_grant=\$cap|.scope={allowed_paths:[\$cwd],denied_paths:[],cwd:\$cwd}|$filter" > "$TD/pkg-$id.json"
   bash "$S/gate/gate-verify.sh" --mode package --file "$TD/pkg-$id.json" >/dev/null 2>&1; chk "$id 结构拒绝→1" 1 $?
 done
 for ch in rpc acp; do
