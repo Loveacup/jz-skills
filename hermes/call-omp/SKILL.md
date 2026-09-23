@@ -10,7 +10,7 @@ version: 0.9.0
 
 ## 🚩 Red Flags
 
-出现任一项立即停止自动链路，转人工或 `cc-tmux`：
+出现任一项立即停止自动链路。若已有 attempt，先取得停止证据；cleanup 未知时只能升级人工，不能换通道重跑。
 
 - `task_id` 含 `/`、`..`、空白、控制字符，或超过 128 字符。
 - `govern:clean|deep-clean|sql` 缺真实 scope、`risk.level=high` 或 rollback。
@@ -33,7 +33,7 @@ version: 0.9.0
 
 ## 兼容基线与通道
 
-当前验证基线：OMP `16.3.2`。`omp --version` 只证明 CLI 版本，不证明 provider/model 可用。
+候选 Shell `execute` 已在 OMP `18.2.7` 验证真实文件修改、CLI 失败及含 Bash 子进程的取消；这不代表已安装或已通过 Hermes 发起链验收。RPC/ACP 仍只有历史 `16.3.2` 基线。`omp --version` 不证明 provider/model 可用。
 
 通道策略：
 
@@ -76,13 +76,25 @@ scripts/omp-send.sh --state /tmp/omp-state-audit-001.json
 
 默认工具白名单：`read,grep,glob,lsp,web_search`。Shell `mode=execute` 可携带 `call-omp.capability-grant.v1`，把明确授权的 tools/cwd/add_dirs/approval 精确映射到 OMP；完整合同见 [Capability Grant v1](references/capability-grant-v1.md)。
 
+Shell `execute` 的同步和异步调用均由 `execute_v1` supervisor 持有生命周期；Python 必须支持 `waitid/WNOWAIT`、信号屏蔽及 POSIX process group，否则启动前拒绝。未显式设置 `OMP_PY` 时，SEND 选用 PATH 上第一个具备这些能力的 `python3`（宿主 venv 可能缺 `waitid`），实际解释器写入 `state.run.supervisor_python`。保存 SEND 返回的 `attempt_id` 与 `launch_fingerprint`，不要在稍后的取消操作中重新读取可复用 task 的新身份。
+
 `--allow-write` 是废弃且模糊的布尔开关，继续隔离：
 
 ```bash
 scripts/omp-send.sh --state /tmp/omp-state-clean-001.json --allow-write
 ```
 
-所有 `--allow-write` 必须 exit 2。显式 grant 仅适用于 Shell `execute`，不得用于 audit/govern/bundle-only/RPC/ACP；每个 grant 必须绑定现存绝对 cwd，且 cwd/add_dirs 均被 scope 覆盖、denied_paths 为空。`allowed_paths` 不是 OS 沙箱，强隔离由上层 workspace/container/worktree 提供。任何写入都由当前 agent 独立验收。
+所有 `--allow-write` 必须 exit 2。显式 grant 仅适用于 Shell `execute`，不得用于 audit/govern/bundle-only/RPC/ACP；每个 grant 必须绑定现存绝对 cwd，且 cwd/add_dirs 均被 scope 覆盖、denied_paths 为空。`allowed_paths`、临时目录和 worktree 都不是 OS 沙箱；对恶意同 UID worker 的强隔离需要真正的容器或 OS 沙箱。任何写入都由当前 agent 独立验收。
+
+取消 Shell execute 时，使用当前协调者保存的 SEND 身份：
+
+```bash
+scripts/omp-stop.sh --state "$STATE" \
+  --attempt-id "$ATTEMPT_ID" --launch-fingerprint "$LAUNCH_FINGERPRINT" \
+  --reason "coordinator cancellation" --timeout 10
+```
+
+不要 `kill run.pid`。STOP 只写匹配的取消请求，supervisor 负责停止已观察到的进程组；必须取得匹配终态与 `cleanup_confirmed=true` 后才能替换 attempt。遗留锁、supervisor 丢失或 cleanup 未知均不自动恢复。详见 [执行生命周期与边界](references/capability-grant-v1.md#执行生命周期与取消)。
 
 ### 3. MONITOR：失败关闭
 
@@ -97,7 +109,7 @@ scripts/omp-monitor.sh --state /tmp/omp-state-audit-001.json --json
 - 最后 `stopReason=stop`
 - OMP 退出码为 0
 - audit/govern verdict：`severity ∈ nit|concern|blocker|pass`、summary 非空、evidence 非空
-- execute：允许非 verdict 文本，但退出码/stopReason/完整性规则完全相同
+- execute：允许非 verdict 文本；还要求匹配 task/attempt/fingerprint 的终态 receipt、真实 worker exit 0、完整 stdout/stderr 证据及已确认 cleanup。supervisor exit 与 worker exit 分别保存。
 
 任何一项失败写 `status=rejected`；沉默、超时、截断不是通过。
 
@@ -193,4 +205,4 @@ bash scripts/call-omp-check.sh                             # -> 0
 - [ ] 最后 `stopReason=stop`，OMP exit code=0
 - [ ] evidence 是当前文件/命令的真实证据
 - [ ] 当前 agent 已独立复跑关键命令
-- [ ] `tests/run-all.sh` 与 `call-omp-check.sh` 全绿
+- [ ] `tests/run-all.sh`、`python3 tests/test_execute_lifecycle.py` 与 `scripts/call-omp-check.sh` 全绿

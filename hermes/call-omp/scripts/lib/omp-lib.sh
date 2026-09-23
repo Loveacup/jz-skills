@@ -49,22 +49,44 @@ prompt_path()   { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-prompt-$
 counter_path()  { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-counter-$1.json"; }
 archive_dir()   { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-archive/$1"; }
 
-# ── 资源监督器路径约定（bundle_only Shell 审计专用，单一来源）────────
-# 监督器（omp-resource-supervisor.py）的两份产物路径，全部基于 OMP_TMPDIR
-# 且 task-id 校验。与主任务状态（state_path，call-omp 状态 schema）分离：
-#   resource_state_path ─ 监督器 forensic state（schema=call-omp-resource-supervisor.v1）
-#   pid_store_path      ─ 子进程身份 sidecar（pid/pgid/session_id/argv），供外部核对
-# 禁止在各脚本里手拼这些路径——一律走这里，避免漂移。
+# ── 监督执行路径约定（单一来源）──────────────────────────────────────
+# resource/pid sidecar 由 supervisor 独占写；control file 只由 omp-stop
+# 原子创建。三者都绑定 task_id，禁止调用方从 state 跟随任意路径。
 resource_state_path() { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-resource-$1.json"; }
 pid_store_path()      { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-pids-$1.json"; }
+control_file_path()   { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-control-$1.json"; }
 
-# ── 锁路径约定（单一来源；仅每任务粒度，绝无全局锁）────────────────────
-# start_lock  ─ omp-start 写 package/state 前持有的原子启动锁（mkdir 目录锁），
-#               仅护住"生成委派包 + 写状态"这段临界区；任务运行态另由 state.status 守护。
-# launch_lock ─ 发起子进程（send/supervisor 落盘）阶段的启动锁产物（本 slice 不写，
-#               仅作为 bundle_only 全新 task_id 的残留探测目标之一）。
-start_lock_path()  { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-start-$1.lock"; }
-launch_lock_path() { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-launch-$1.lock"; }
+# ── 每任务生命周期锁（mkdir 原子锁；绝无全局锁）──────────────────────
+# start/send/monitor/finish/stop 的主状态变更共用同一把锁。进程异常遗留目录时
+# fail-closed 为 unknown；绝不凭 PID 猜测并删除锁。launch_lock_path 保留为既有
+# bundle_only 残留命名，task_lifecycle_lock_path 才是所有生命周期写入的锁。
+start_lock_path()          { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-start-$1.lock"; }
+launch_lock_path()         { require_task_id "$1" || return; echo "$OMP_TMPDIR/omp-launch-$1.lock"; }
+task_lifecycle_lock_path() { start_lock_path "$1"; }
+
+CALL_OMP_LIFECYCLE_LOCK=""
+lifecycle_lock_acquire() {
+  local p
+  p="$(task_lifecycle_lock_path "$1")" || return
+  mkdir "$p" 2>/dev/null || return 1
+  CALL_OMP_LIFECYCLE_LOCK="$p"
+}
+lifecycle_lock_release() {
+  [[ -n "${CALL_OMP_LIFECYCLE_LOCK:-}" ]] || return 0
+  rmdir "$CALL_OMP_LIFECYCLE_LOCK" 2>/dev/null || return 1
+  CALL_OMP_LIFECYCLE_LOCK=""
+}
+
+validate_attempt_id() {
+  [[ "${1:-}" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$ ]]
+}
+new_attempt_id() {
+  if command -v uuidgen >/dev/null 2>&1; then
+    uuidgen | tr '[:upper:]' '[:lower:]'
+  else
+    python3 -c 'import uuid; print(uuid.uuid4())'
+  fi
+}
 
 # ── omp_available ─ omp CLI 是否可用（0=可用，非 0=不可用）──────────
 # 不假设 omp 已装；channel 降级判断的唯一入口。

@@ -102,8 +102,10 @@ fi
 # ════ output 模式：OMP JSONL 传输层 + 内层审计 JSON 应用层 ═══════════
 # ── 传输层：非空 + 含终结事件 turn_end（grep 容忍 RPC 流式末尾未写完的行；不强求整文件
 #    每行完整——shell -p raw 本就完整，rpc daemon raw 是流式，末尾可能有半行 agent_end）──
+#    冒号两侧允许 JSON 空白：合法 spaced JSON（"type": "turn_end"）不得误拒；仍保持
+#    grep 子串语义（不整文件 jq），legacy audit/--watch 对坏行的容忍度不变。
 if [[ ! -s "$FILE" ]]; then emit false "OMP 输出为空" "[]"; exit 1; fi
-if ! grep -q '"type":"turn_end"' "$FILE" 2>/dev/null; then
+if ! grep -Eq '"type"[[:space:]]*:[[:space:]]*"turn_end"' "$FILE" 2>/dev/null; then
   emit false "OMP 输出无 turn_end 终结事件（未收尾/截断/超时/非 --mode json）" "[]"; exit 1
 fi
 last_stop=$(jq -r 'select(.type=="turn_end") | (.message.stopReason // .stopReason // "")' "$FILE" 2>/dev/null | tail -1)

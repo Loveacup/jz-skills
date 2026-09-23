@@ -39,15 +39,34 @@ set -euo pipefail
 SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SELF_DIR/lib/omp-lib.sh"
 GATE="$SELF_DIR/gate"; TPL_DIR="$SELF_DIR/../templates"
-# bundle_only Shell 审计经资源监督器执行（P0B slice）。可注入 OMP_PY 覆盖解释器。
+# Shell resource supervisor. Execute uses execute_v1; bundle_only audit retains
+# verdict_v1 unchanged. OMP_PY is injectable for isolated fixtures.
 SUPERVISOR="$SELF_DIR/omp-resource-supervisor.py"
+OMP_PY_EXPLICIT="${OMP_PY:+1}"
 OMP_PY="${OMP_PY:-python3}"
-# ── P2B S2：监督型 bundle_only Shell 审计固定走 verdict_v1 capture mode（显式上限，
-#   本 slice 不做 env 可控；raw-cap/RLIMIT/async wrapper/sidecars/thinking-control 一律不动）。──
-CAPTURE_MODE="verdict_v1"
-CAPTURE_INGRESS_CAP=134217728   # 128 MiB：从 stdout 管道实际读入的物理字节上限
-CAPTURE_VERDICT_CAP=1048576     # 1 MiB：规范 verdict raw 落盘上限
-CAPTURE_DIAGNOSTIC_CAP=524288   # 512 KiB：.diag.jsonl 落盘上限（触顶只截断）
+
+# execute_v1 needs os.waitid/WNOWAIT and a signal fence. A caller-set OMP_PY is
+# used as-is. Otherwise take the first python3 on PATH that has them: a host venv
+# earlier on PATH can lack waitid (CPython 3.11 on macOS inside a Hermes worker).
+# If none qualifies, python3 stays and the supervisor fails closed before launch.
+resolve_execute_py() {
+  [[ -n "$OMP_PY_EXPLICIT" ]] && return 0
+  local cand
+  while IFS= read -r cand; do
+    if "$cand" -c 'import os, signal, sys
+ok = all(hasattr(os, n) for n in ("waitid", "P_PID", "WEXITED", "WNOHANG", "WNOWAIT")) and all(hasattr(signal, n) for n in ("pthread_sigmask", "sigpending", "SIG_BLOCK"))
+sys.exit(0 if ok else 1)' >/dev/null 2>&1; then
+      OMP_PY="$cand"
+      return 0
+    fi
+  done < <(type -aP python3 2>/dev/null || true)
+  return 0
+}
+BUNDLE_CAPTURE_MODE="verdict_v1"
+CAPTURE_INGRESS_CAP=134217728
+CAPTURE_VERDICT_CAP=1048576
+CAPTURE_DIAGNOSTIC_CAP=524288
+EXECUTE_RAW_CAP=8388608
 
 STATE=""; CH_OVERRIDE=""; MAXTIME=300; ASYNC=false; ADVISOR=false; ALLOW_WRITE=false
 AUTO_APPROVE=true; DRY=false; FALLBACK=true; SKILLS=""; AUTO_SKILLS=false; NO_SKILLS=false
@@ -72,13 +91,36 @@ done
 [[ "$MAXTIME" =~ ^[1-9][0-9]*$ ]] || { echo "omp-send: --max-time 须为正整数，当前 $MAXTIME" >&2; exit 3; }
 [[ -n "$STATE" && -r "$STATE" ]] || { echo "omp-send: 读不到 --state '$STATE'" >&2; exit 2; }
 
-PKG=$(jq -c '.package' "$STATE")
+# Recursion guard precedes counter/state mutation and every OMP spawn. Children
+# inherit incremented depth, so an OMP-initiated nested call is rejected here.
+CALL_DEPTH="${CALL_OMP_DEPTH:-0}"
+if ! [[ "$CALL_DEPTH" =~ ^[0-9]+$ ]] || [[ "$CALL_DEPTH" -ge 1 ]]; then
+  echo "omp-send: CALL_OMP_DEPTH=${CALL_DEPTH}，拒绝递归 call-omp" >&2
+  exit 4
+fi
+export CALL_OMP_DEPTH="$((CALL_DEPTH + 1))"
+
 TASK_ID=$(jq -r '.task_id' "$STATE")
 require_task_id "$TASK_ID" || exit 3
+trap 'lifecycle_lock_release 2>/dev/null || true' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+if ! lifecycle_lock_acquire "$TASK_ID"; then
+  echo "omp-send: 任务 $TASK_ID 生命周期锁被占用或遗留（已有 launch/mutation）" >&2
+  exit 2
+fi
+# Re-read only after exclusion; a concurrent start must not swap package/state
+# between authorization and launch identity publication.
+[[ "$(jq -r '.task_id' "$STATE")" == "$TASK_ID" ]] || { echo "omp-send: state task_id 在锁前后漂移" >&2; exit 2; }
+PKG=$(jq -c '.package' "$STATE")
 STATUS=$(jq -r '.status' "$STATE")
 CHANNEL=$(jq -r '.channel // "rpc"' "$STATE")
 [[ -n "$CH_OVERRIDE" ]] && CHANNEL="$CH_OVERRIDE"
 [[ "$STATUS" == "gated" ]] || { echo "omp-send: status=${STATUS}（需 gated 才能发送；先过 omp-start）" >&2; exit 2; }
+MODE_FULL=$(echo "$PKG" | jq -r '.mode')
+BASE_MODE="${MODE_FULL%%:*}"
+EXECUTE_MODE=false; [[ "$BASE_MODE" == "execute" ]] && EXECUTE_MODE=true
 if $ALLOW_WRITE; then
   echo "omp-send: --allow-write 已隔离停用：请由上层协调 skill 在 execute package 中签发显式 capability_grant" >&2
   exit 2
@@ -124,16 +166,21 @@ fi
 # 显式 grant 只使用版本化 approval-mode；legacy --auto-approve 不叠加。
 if [[ "$CAP_PRESENT" == true ]]; then AUTO_APPROVE=false; fi
 
-# ── bundle_only 检测：仅 Shell 通道启用资源监督 + 强制 async 安全默认 ──
-# RPC / ACP 语义保持不变（含 RPC 失败降级 shell 的路径——那属于 RPC 通道行为）。
+# bundle_only audit retains its forced-async verdict_v1 path. Execute is
+# supervised only at an actual Shell boundary (including RPC→Shell fallback)
+# and preserves the caller's sync/async choice.
 INDEP=$(echo "$PKG" | jq -r '.auditor.independence_level // ""')
-BUNDLE_ONLY=false; SUPERVISED=false
+BUNDLE_ONLY=false; SUPERVISED=false; EXECUTE_SUPERVISED=false
 [[ "$INDEP" == "bundle_only" ]] && BUNDLE_ONLY=true
-if $BUNDLE_ONLY && [[ "$CHANNEL" == "shell" ]]; then
-  SUPERVISED=true
-  if ! $ASYNC; then
-    ASYNC=true
-    echo "🛡  omp-send: bundle_only Shell 审计 → 已强制 --async + 资源监督（安全默认已启用，忽略同步调用）" >&2
+if [[ "$CHANNEL" == "shell" ]]; then
+  if $EXECUTE_MODE; then
+    SUPERVISED=true; EXECUTE_SUPERVISED=true
+  elif $BUNDLE_ONLY; then
+    SUPERVISED=true
+    if ! $ASYNC; then
+      ASYNC=true
+      echo "🛡  omp-send: bundle_only Shell 审计 → 已强制 --async + 资源监督（安全默认已启用，忽略同步调用）" >&2
+    fi
   fi
 fi
 
@@ -173,7 +220,12 @@ elif $AUTO_SKILLS && [[ -z "$SKILLS" ]]; then
   [[ -n "$SKILLS" ]] && echo "   🧠 auto-skills → $SKILLS" >&2
 fi
 
-update_state() { local f="$1"; local s; s=$(jq "$f | .updated_at=\"$(now_iso)\"" "$STATE"); printf '%s' "$s" | atomic_write "$STATE"; }
+update_state() {
+  local f="$1" s
+  s=$(jq -e "$f | .updated_at=\"$(now_iso)\"" "$STATE") || return 3
+  [[ -n "$s" ]] || return 3
+  printf '%s' "$s" | atomic_write "$STATE"
+}
 
 # ── P2A-static：显式可信 OMP_BUNDLE_THINKING（无运行时能力探测）───────────────
 # 契约：未设/空/inherit → 继承（永不加 --thinking argv）；off → 仅【监督型 bundle_only Shell】
@@ -304,10 +356,14 @@ if $DRY; then
   if [[ "$CHANNEL" == "rpc" ]]; then
     echo "rpc daemon: $OMP_BIN --mode rpc --no-session --tools $TOOLS ${SKILLS:+--skills "$SKILLS"} ${CWD:+--cwd "$CWD"} ${AUTO_APPROVE:+--auto-approve}${ADVISOR:+ --advisor} --append-system-prompt <sys>"
     echo "rpc stdin : $(jq -cn --arg m "$USER_MSG" '{type:"prompt",message:$m}' | head -c 160)…"
+  elif $EXECUTE_SUPERVISED; then
+    echo "mode      : execute Shell → execute_v1 supervisor（sync/async 均无无监督回退）"
+    echo "capture   : execute_v1（stdout/stderr 各受 --raw-cap ${EXECUTE_RAW_CAP} 约束）"
+    echo "supervisor: $OMP_PY $SUPERVISOR --state-file $(resource_state_path "$TASK_ID") --raw-output $RAW --pid-store $(pid_store_path "$TASK_ID") --task-id $TASK_ID --capture-mode execute_v1 --attempt-id <uuid> --launch-fingerprint <sha256> --control-file $(control_file_path "$TASK_ID") --max-seconds $((MAXTIME + 30)) --raw-cap $EXECUTE_RAW_CAP -- $OMP_BIN …"
   elif $SUPERVISED; then
     echo "mode      : bundle_only → 强制 --async + 资源监督（omp-resource-supervisor.py，无同步回退）"
-    echo "capture   : verdict_v1（--capture-mode ${CAPTURE_MODE} --ingress-cap ${CAPTURE_INGRESS_CAP} --verdict-cap ${CAPTURE_VERDICT_CAP} --diagnostic-cap ${CAPTURE_DIAGNOSTIC_CAP}）· diag=$RAW.diag.jsonl"
-    echo "supervisor: $OMP_PY $SUPERVISOR --state-file $(resource_state_path "$TASK_ID") --raw-output $RAW --pid-store $(pid_store_path "$TASK_ID") --task-id $TASK_ID --capture-mode $CAPTURE_MODE --ingress-cap $CAPTURE_INGRESS_CAP --verdict-cap $CAPTURE_VERDICT_CAP --diagnostic-cap $CAPTURE_DIAGNOSTIC_CAP -- $OMP_BIN -p --mode json --no-session --max-time $MAXTIME --tools $TOOLS ${SKILLS:+--skills \"$SKILLS\"} ${CWD:+--cwd \"$CWD\"} … --append-system-prompt <sys> <user_msg>"
+    echo "capture   : verdict_v1（--capture-mode ${BUNDLE_CAPTURE_MODE} --ingress-cap ${CAPTURE_INGRESS_CAP} --verdict-cap ${CAPTURE_VERDICT_CAP} --diagnostic-cap ${CAPTURE_DIAGNOSTIC_CAP}）· diag=$RAW.diag.jsonl"
+    echo "supervisor: $OMP_PY $SUPERVISOR --state-file $(resource_state_path "$TASK_ID") --raw-output $RAW --pid-store $(pid_store_path "$TASK_ID") --task-id $TASK_ID --capture-mode $BUNDLE_CAPTURE_MODE --ingress-cap $CAPTURE_INGRESS_CAP --verdict-cap $CAPTURE_VERDICT_CAP --diagnostic-cap $CAPTURE_DIAGNOSTIC_CAP -- $OMP_BIN -p --mode json --no-session --max-time $MAXTIME --tools $TOOLS ${SKILLS:+--skills \"$SKILLS\"} ${CWD:+--cwd \"$CWD\"} … --append-system-prompt <sys> <user_msg>"
     echo "将持久化  : run.resource_supervised=true · run.watch_required=true · run.mode=async · run.capture_mode=verdict_v1 · run.diagnostic_output · run.resource_state · run.pid_store · wrapper pid"
   else
     echo "shell cmd : $OMP_BIN -p --mode json --no-session --max-time $MAXTIME --tools $TOOLS ${SKILLS:+--skills \"$SKILLS\"} ${CWD:+--cwd \"$CWD\"} … --append-system-prompt <sys> <user_msg>"
@@ -335,18 +391,18 @@ shell_send() {
     update_state ".status=\"rejected\" | .gate.reason=\"channel_error: omp CLI 不存在\""
     echo "🚫 omp-send: omp 不可用 → status=rejected (channel_error)" >&2; return 3
   fi
-  # bundle_only 不变量：在【实际执行边界】强制监督，而非只看初始通道选择。
-  # 无论是直连 Shell 还是 RPC 失败降级到此，只要是 bundle_only 就必须
-  # 资源监督 + 强制 async + watch_required——杜绝降级路径逃逸到无监督同步 Shell。
-  if $BUNDLE_ONLY && ! $SUPERVISED; then
+  # Re-evaluate supervision at the actual Shell boundary so RPC fallback cannot
+  # bypass execute_v1 or bundle_only resource supervision.
+  if $EXECUTE_MODE; then
+    SUPERVISED=true; EXECUTE_SUPERVISED=true
+  elif $BUNDLE_ONLY && ! $SUPERVISED; then
     SUPERVISED=true; ASYNC=true
     echo "🛡  omp-send: bundle_only 经 Shell 执行（RPC 降级路径）→ 已强制 --async + 资源监督（安全默认）" >&2
   fi
-  # ── P2A-static：仅【监督型 bundle_only Shell】按显式 OMP_BUNDLE_THINKING 注入 --thinking ──
-  # 覆盖直连监督 Shell 与 RPC→Shell 降级（降级已在上面重入监督）。非监督路径 THINKING_CTL 恒空 →
-  # 零改动、零 thinking 状态。配置已在脚本顶部校验，此处不做任何探测 / 能力发现。
+  # OMP_BUNDLE_THINKING is intentionally bundle-only; execute_v1 does not
+  # inherit that audit-specific policy.
   local THINKING_CTL=""
-  $SUPERVISED && THINKING_CTL="$BUNDLE_THINKING"
+  $BUNDLE_ONLY && $SUPERVISED && THINKING_CTL="$BUNDLE_THINKING"
   local args=(-p --mode json --no-session --max-time "$MAXTIME" --tools "$TOOLS")
   [[ -n "$APPROVAL_MODE" ]] && args+=(--approval-mode "$APPROVAL_MODE")
   [[ "$THINKING_CTL" == "off" ]] && args+=(--thinking off)
@@ -358,32 +414,122 @@ shell_send() {
   $ADVISOR && args+=(--advisor)
   args+=(--append-system-prompt "$SYS" "$USER_MSG")
 
-  # ── bundle_only：只经资源监督器异步跑 OMP（强制 async，杜绝同步回退）──
   if $SUPERVISED; then
     if [[ ! -r "$SUPERVISOR" ]] || ! command -v "${OMP_PY%% *}" >/dev/null 2>&1; then
-      update_state ".status=\"rejected\" | .gate.reason=\"channel_error: bundle_only 需资源监督器，但 python3/supervisor 不可用（不回退同步）\""
-      echo "🚫 omp-send: bundle_only 资源监督器不可用（$OMP_PY / ${SUPERVISOR}）→ status=rejected" >&2; return 3
+      update_state ".status=\"rejected\" | .gate.reason=\"channel_error: Shell supervisor/python 不可用（无无监督回退）\""
+      echo "🚫 omp-send: 资源监督器不可用（$OMP_PY / ${SUPERVISOR}）→ status=rejected" >&2
+      return 3
     fi
-    local rstate pids diag
+    local rstate pids
     rstate="$(resource_state_path "$TASK_ID")"; pids="$(pid_store_path "$TASK_ID")"
-    # verdict_v1 诊断 sidecar 由监督器派生自 raw_output（raw + ".diag.jsonl"）；此处仅镜像入主状态。
+
+    if $EXECUTE_SUPERVISED; then
+      resolve_execute_py
+      local control attempt child_argv full_binding public_launch pid sup_ec run_mode
+      control="$(control_file_path "$TASK_ID")"
+      # A pre-existing identity/control artifact with a freshly gated state is
+      # ambiguous. Never delete it here or risk launching over a live attempt.
+      for _art in "$rstate" "$pids" "$control"; do
+        if [[ -e "$_art" ]]; then
+          update_state ".status=\"rejected\" | .gate.reason=\"execute_v1 stale identity artifact; cleanup unknown\""
+          echo "🚫 omp-send: execute_v1 发现残留身份产物 $_art；拒绝覆盖/启动" >&2
+          return 3
+        fi
+      done
+      attempt="$(new_attempt_id)"
+      validate_attempt_id "$attempt" || {
+        update_state ".status=\"rejected\" | .gate.reason=\"execute_v1 attempt UUID generation failed\""
+        echo "🚫 omp-send: 无法生成 UUIDv4 attempt_id" >&2
+        return 3
+      }
+      child_argv=$(jq -cen --args '$ARGS.positional' -- "$OMP_BIN" "${args[@]}") || return 3
+      full_binding=$(jq -cn \
+        --arg schema "call-omp-execute-launch.v1" --arg task_id "$TASK_ID" \
+        --arg attempt_id "$attempt" --arg capability_fingerprint "$CAP_FINGERPRINT" \
+        --arg omp_bin_path "$OMP_CMD_CANON" --arg omp_bin_sha256 "$OMP_CMD_SHA" \
+        --argjson child_argv "$child_argv" --arg raw_output "$RAW" \
+        --arg resource_state "$rstate" --arg pid_store "$pids" --arg control_file "$control" \
+        --argjson max_seconds "$((MAXTIME + 30))" --argjson raw_cap "$EXECUTE_RAW_CAP" \
+        '{schema:$schema,task_id:$task_id,attempt_id:$attempt_id,
+          capability_fingerprint:$capability_fingerprint,
+          omp_bin_path:$omp_bin_path,omp_bin_sha256:$omp_bin_sha256,
+          child_argv:$child_argv,raw_output:$raw_output,resource_state:$resource_state,
+          pid_store:$pid_store,control_file:$control_file,
+          max_seconds:$max_seconds,raw_cap:$raw_cap}') || return 3
+      LAUNCH_FINGERPRINT=$(printf '%s' "$full_binding" | shasum -a 256 | awk '{print $1}') || return 3
+      [[ "$LAUNCH_FINGERPRINT" =~ ^[0-9a-f]{64}$ ]] || return 3
+      local child_argv_sha
+      child_argv_sha=$(printf '%s' "$child_argv" | shasum -a 256 | awk '{print $1}') || return 3
+      public_launch=$(printf '%s' "$full_binding" | jq -ce --arg s "$child_argv_sha" \
+        'del(.child_argv) | .child_argv_sha256=$s') || return 3
+      run_mode="sync"; $ASYNC && run_mode="async"
+      rm -f "$RAW" "$RAW.err" "$RAW.exit" || return 3
+      # Publish immutable identity before spawn, while holding lifecycle lock.
+      # If spawn/publication fails, this remains an unknown attempt and start
+      # cannot replace it without matching cleanup evidence.
+      update_state ".status=\"running\" |
+        .run.channel_used=\"shell\" | .run.mode=\"$run_mode\" |
+        .run.raw_output=\"$RAW\" | .run.execution_supervised=true |
+        .run.capture_mode=\"execute_v1\" | .run.attempt_id=\"$attempt\" |
+        .run.launch_fingerprint=\"$LAUNCH_FINGERPRINT\" | .run.launch_spec=$public_launch |
+        .run.supervisor_python=\"$OMP_PY\" |
+        .run.resource_state=\"$rstate\" | .run.pid_store=\"$pids\" |
+        .run.control_file=\"$control\" | .run.watch_required=true |
+        .run.worker_exit_code=null | .run.supervisor_exit_code=null |
+        .run.cleanup_confirmed=false | .run.cancel_requested=false |
+        .run.pid=null | .run.round=$ROUND | .run.max_time=$MAXTIME |
+        .run.started_at=\"$(now_iso)\"" || return 3
+      "$OMP_PY" "$SUPERVISOR" \
+        --state-file "$rstate" --raw-output "$RAW" --raw-cap "$EXECUTE_RAW_CAP" \
+        --pid-store "$pids" --task-id "$TASK_ID" --task-id-source call-omp-send \
+        --capture-mode execute_v1 --attempt-id "$attempt" \
+        --launch-fingerprint "$LAUNCH_FINGERPRINT" --control-file "$control" \
+        --max-seconds "$((MAXTIME + 30))" \
+        -- "$OMP_BIN" "${args[@]}" >/dev/null 2>/dev/null </dev/null &
+      pid=$!
+      if ! update_state ".run.pid=$pid"; then
+        lifecycle_lock_release
+        bash "$SELF_DIR/omp-stop.sh" --state "$STATE" --attempt-id "$attempt" \
+          --launch-fingerprint "$LAUNCH_FINGERPRINT" \
+          --reason "launch PID publication failed" --timeout 10 >&2
+        return 3
+      fi
+      if $ASYNC; then
+        disown "$pid" 2>/dev/null || true
+        echo "===📋 BEGIN omp-send shell execute_v1 --async (relay verbatim)==="
+        echo "🚀 已后台发起 execute_v1 · attempt_id=$attempt · supervisor pid=$pid"
+        echo "   监控: omp-monitor.sh --state $STATE"
+        echo "   取消: omp-stop.sh --state $STATE --attempt-id $attempt --launch-fingerprint $LAUNCH_FINGERPRINT --reason '<reason>' --timeout 10"
+        echo "===📋 END==="
+        return 0
+      fi
+      # Identity is now published. Release exclusion while synchronous caller
+      # waits so omp-stop can issue an authenticated cancellation request.
+      lifecycle_lock_release
+      set +e; wait "$pid"; sup_ec=$?; set -e
+      echo "===📋 BEGIN omp-send shell execute_v1 (relay verbatim)==="
+      echo "execute_v1 supervisor 已结束 · supervisor_exit=$sup_ec · attempt_id=$attempt"
+      echo "下一步: omp-monitor.sh --state $STATE"
+      echo "===📋 END==="
+      return "$sup_ec"
+    fi
+
+    # Existing bundle_only verdict_v1 path remains forced async.
+    local diag
     diag="$RAW.diag.jsonl"
     rm -f "$RAW.exit"
-    # wrapper 子壳：跑 supervisor，落其退出码到 .exit sidecar（0 正常 / 2 资源拒绝 / 等）。
-    # supervisor 自行把子进程 stdout 流式分帧分类写入 canonical verdict raw；此处只收 supervisor 自身 stderr。
     ( set +e
       "$OMP_PY" "$SUPERVISOR" \
         --state-file "$rstate" --raw-output "$RAW" --pid-store "$pids" \
         --task-id "$TASK_ID" --task-id-source call-omp-send \
-        --capture-mode "$CAPTURE_MODE" \
+        --capture-mode "$BUNDLE_CAPTURE_MODE" \
         --ingress-cap "$CAPTURE_INGRESS_CAP" \
         --verdict-cap "$CAPTURE_VERDICT_CAP" \
         --diagnostic-cap "$CAPTURE_DIAGNOSTIC_CAP" \
         -- "$OMP_BIN" "${args[@]}" >/dev/null 2>"$RAW.err" </dev/null
       _ec=$?; printf '%s\n' "$_ec" | atomic_write "$RAW.exit" ) &
     local pid=$!; disown 2>/dev/null || true
-    # 单次原子写：主任务状态仍是 call-omp 状态 schema，补资源监督字段 + verdict_v1 capture 字段。
-    update_state ".status=\"running\" | .run.channel_used=\"shell\" | .run.mode=\"async\" | .run.raw_output=\"$RAW\" | .run.resource_state=\"$rstate\" | .run.pid_store=\"$pids\" | .run.resource_supervised=true | .run.watch_required=true | .run.capture_mode=\"$CAPTURE_MODE\" | .run.diagnostic_output=\"$diag\" | .run.thinking_control=\"$THINKING_CTL\" | .run.pid=$pid | .run.round=$ROUND | .run.started_at=\"$(now_iso)\""
+    update_state ".status=\"running\" | .run.channel_used=\"shell\" | .run.mode=\"async\" | .run.raw_output=\"$RAW\" | .run.resource_state=\"$rstate\" | .run.pid_store=\"$pids\" | .run.resource_supervised=true | .run.watch_required=true | .run.capture_mode=\"$BUNDLE_CAPTURE_MODE\" | .run.diagnostic_output=\"$diag\" | .run.thinking_control=\"$THINKING_CTL\" | .run.pid=$pid | .run.round=$ROUND | .run.started_at=\"$(now_iso)\""
     echo "===📋 BEGIN omp-send shell bundle_only supervised --async (relay verbatim)==="
     echo "🛡  bundle_only 安全默认已强制：--async + 资源监督（raw_cap 熔断，无同步回退）"
     echo "🚀 已后台发起 OMP（第 $ROUND 轮，经 supervisor）· wrapper pid=$pid"
@@ -391,7 +537,8 @@ shell_send() {
     echo "   resource_state: $rstate"
     echo "   pid_store     : $pids"
     echo "   监控: omp-monitor.sh --state $STATE   · 干预: kill $pid"
-    echo "===📋 END==="; return 0
+    echo "===📋 END==="
+    return 0
   fi
 
   update_state ".status=\"running\" | .run.channel_used=\"shell\" | .run.raw_output=\"$RAW\" | .run.started_at=\"$(now_iso)\" | .run.round=$ROUND"

@@ -58,6 +58,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# OMP self-call recursion is rejected before package/counter/state mutation.
+CALL_DEPTH="${CALL_OMP_DEPTH:-0}"
+if ! [[ "$CALL_DEPTH" =~ ^[0-9]+$ ]] || [[ "$CALL_DEPTH" -ge 1 ]]; then
+  echo "omp-start: CALL_OMP_DEPTH=${CALL_DEPTH}，拒绝递归 call-omp" >&2
+  exit 4
+fi
+
 arr_json() { local a=() x; for x in "$@"; do [[ -n "$x" ]] && a+=("$x"); done
   [[ ${#a[@]} -eq 0 ]] && { echo "[]"; return; }; printf '%s\n' "${a[@]}" | jq -R . | jq -sc .; }
 
@@ -95,50 +102,106 @@ CHANNEL=$(echo "$PKG" | jq -r '.channel // "rpc"')
 PKG_TMP="$OMP_TMPDIR/omp-pkg-${TASK_ID}.json"
 STATE="$(state_path "$TASK_ID")"
 
-# ── 每任务原子启动锁（mkdir 目录锁；仅护写 package/state 临界区，绝无全局锁）──
-# trap 在正常退出 / 出错 / 收信号时释放；仅当本进程真正持锁才 rmdir（不误删他人锁）。
-START_LOCK="$(start_lock_path "$TASK_ID")"
-START_LOCK_HELD=""
-release_start_lock() { [[ -n "$START_LOCK_HELD" ]] && rmdir "$START_LOCK" 2>/dev/null || true; }
-trap 'release_start_lock' EXIT INT TERM HUP
-if mkdir "$START_LOCK" 2>/dev/null; then
-  START_LOCK_HELD=1
-else
-  echo "omp-start: 任务 $TASK_ID 启动锁被占用（并发 start 未完成）→ 拒绝" >&2
+# ── 每任务生命周期锁：所有主状态写入共享同一 mkdir 锁 ───────────────
+trap 'lifecycle_lock_release 2>/dev/null || true' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+if ! lifecycle_lock_acquire "$TASK_ID"; then
+  echo "omp-start: 任务 $TASK_ID 生命周期锁被占用或遗留（live/unknown）→ 拒绝" >&2
   echo "task_id=$TASK_ID status=locked reuse=rejected"
   exit 3
 fi
 
-# ── 拒绝复用"正在运行"的任务：status=running，或 resource_supervised=true 且 supervisor PID 存活。
-#    绝不覆盖既有 package/state（fail-closed，退出 3）──
-if [[ -f "$STATE" ]]; then
-  EX_STATUS=$(jq -r '.status // empty' "$STATE" 2>/dev/null || true)
-  EX_SUP=$(jq -r '.run.resource_supervised // false' "$STATE" 2>/dev/null || true)
-  EX_PID=$(jq -r '.run.pid // empty' "$STATE" 2>/dev/null || true)
-  LIVE_REUSE=""
-  [[ "$EX_STATUS" == "running" ]] && LIVE_REUSE=1
-  if [[ "$EX_SUP" == "true" && -n "$EX_PID" && "$EX_PID" != "null" ]] && kill -0 "$EX_PID" 2>/dev/null; then
-    LIVE_REUSE=1
-  fi
-  if [[ -n "$LIVE_REUSE" ]]; then
-    echo "omp-start: 任务 $TASK_ID 正在运行（status=$EX_STATUS supervised=$EX_SUP pid=${EX_PID}）→ 拒绝复用，不覆盖 package/state" >&2
-    echo "task_id=$TASK_ID status=${EX_STATUS:-running} reuse=rejected"
-    exit 3
-  fi
-fi
-
-# ── bundle_only 必须全新 task_id：任一残留产物存在即拒绝，绝不覆盖任何产物 ──
 IS_BUNDLE_ONLY=$(echo "$PKG" | jq -r '.auditor.independence_level // empty')
+# bundle_only 既有合同：必须全新 task_id，任何残留都不清理、不覆盖。
 if [[ "$IS_BUNDLE_ONLY" == "bundle_only" ]]; then
   for _art in "$STATE" "$PKG_TMP" "$(raw_path "$TASK_ID")" \
               "$(resource_state_path "$TASK_ID")" "$(pid_store_path "$TASK_ID")" \
-              "$(launch_lock_path "$TASK_ID")"; do
+              "$(control_file_path "$TASK_ID")" "$(launch_lock_path "$TASK_ID")"; do
     if [[ -e "$_art" ]]; then
       echo "omp-start: bundle_only 需全新 task_id；发现残留产物 $_art → 拒绝，不覆盖" >&2
       echo "task_id=$TASK_ID status=stale_artifact reuse=rejected"
       exit 3
     fi
   done
+fi
+
+# execute_v1 的 task_id 仅可在上一 attempt 已有匹配且 cleanup_confirmed 的终态后复用。
+# 缺失、畸形、仍运行或收束未知都不依据 PID 猜测，直接 fail-closed。
+if [[ -f "$STATE" ]]; then
+  EX_STATUS=$(jq -r '.status // empty' "$STATE" 2>/dev/null || true)
+  EX_EXEC=$(jq -r '.run.execution_supervised // false' "$STATE" 2>/dev/null || true)
+  EX_SUP=$(jq -r '.run.resource_supervised // false' "$STATE" 2>/dev/null || true)
+  EX_PID=$(jq -r '.run.pid // empty' "$STATE" 2>/dev/null || true)
+  if [[ "$EX_EXEC" == "true" ]]; then
+    EX_ATTEMPT=$(jq -r '.run.attempt_id // empty' "$STATE" 2>/dev/null || true)
+    EX_FP=$(jq -r '.run.launch_fingerprint // empty' "$STATE" 2>/dev/null || true)
+    EX_RSTATE="$(resource_state_path "$TASK_ID")"
+    EX_PIDS="$(pid_store_path "$TASK_ID")"
+    EX_CONTROL="$(control_file_path "$TASK_ID")"
+    EX_BOUND=$(jq -r --arg rs "$EX_RSTATE" --arg ps "$EX_PIDS" --arg cf "$EX_CONTROL" '
+      (.run.resource_state==$rs and .run.pid_store==$ps and .run.control_file==$cf)' "$STATE" 2>/dev/null || echo false)
+    EX_CLEAN=false
+    if [[ "$EX_BOUND" == "true" && -f "$EX_RSTATE" && ! -L "$EX_RSTATE" ]] \
+       && validate_attempt_id "$EX_ATTEMPT" && [[ "$EX_FP" =~ ^[0-9a-f]{64}$ ]]; then
+      if jq -e --arg tid "$TASK_ID" --arg aid "$EX_ATTEMPT" --arg fp "$EX_FP" \
+          --arg sf "$EX_RSTATE" --arg ro "$(raw_path "$TASK_ID")" \
+          --arg ps "$EX_PIDS" --arg cf "$EX_CONTROL" '
+        .schema=="call-omp-resource-supervisor.v2" and .capture_mode=="execute_v1" and
+        .task_id==$tid and .attempt_id==$aid and .launch_fingerprint==$fp and
+        .state_file==$sf and .raw_output==$ro and .control_file==$cf and
+        .run.pid_store==$ps and
+        ((.status=="reported") or (.status=="rejected")) and
+        (.cleanup_confirmed==true) and (.terminal_reason|type)=="string" and
+        (.child_identity|type)=="object" and .exit_code==.worker_exit_code and
+        ((.worker_exit_code==null) or
+          ((.worker_exit_code|type)=="number" and .worker_exit_code==(.worker_exit_code|floor))) and
+        ((.supervisor_exit_code|type)=="number" and
+          .supervisor_exit_code==(.supervisor_exit_code|floor)) and
+        (if .status=="reported" then
+           (.worker_exit_code==0 and .supervisor_exit_code==0)
+         else true end)' "$EX_RSTATE" >/dev/null 2>&1; then
+        EX_CLEAN=true
+      fi
+    if [[ "$EX_CLEAN" == "true" ]]; then
+      EX_CI=$(jq -c '.child_identity' "$EX_RSTATE")
+      EX_RS_STATUS=$(jq -r '.status' "$EX_RSTATE")
+      if [[ ! -f "$EX_PIDS" || -L "$EX_PIDS" ]] || ! jq -e \
+          --arg tid "$TASK_ID" --arg aid "$EX_ATTEMPT" --arg fp "$EX_FP" \
+          --arg sf "$EX_RSTATE" --arg ro "$(raw_path "$TASK_ID")" \
+          --arg ps "$EX_PIDS" --arg cf "$EX_CONTROL" --arg st "$EX_RS_STATUS" \
+          --argjson ci "$EX_CI" '
+          .schema=="call-omp-execute-identity.v1" and .capture_mode=="execute_v1" and
+          .task_id==$tid and .attempt_id==$aid and .launch_fingerprint==$fp and
+          .state_file==$sf and .raw_output==$ro and .pid_store==$ps and .control_file==$cf and
+          .status==$st and .cleanup_confirmed==true and .child_identity==$ci' \
+          "$EX_PIDS" >/dev/null 2>&1; then
+        EX_CLEAN=false
+      fi
+    fi
+    fi
+    if [[ "$EX_CLEAN" != "true" ]]; then
+      echo "omp-start: 任务 $TASK_ID 的 execute_v1 attempt 仍 live/unknown 或 cleanup 未确认 → 拒绝复用" >&2
+      echo "task_id=$TASK_ID status=${EX_STATUS:-unknown} reuse=rejected cleanup=unknown"
+      exit 3
+    fi
+    # 上一 attempt 已认证收束；只删除 attempt 产物。逻辑任务 counter 跨 attempt 保留。
+    rm -f "$EX_RSTATE" "$EX_PIDS" "$EX_CONTROL" \
+      "$(raw_path "$TASK_ID")" "$(raw_path "$TASK_ID").err" "$(raw_path "$TASK_ID").exit" \
+      "$(prompt_path "$TASK_ID")" 2>/dev/null || true
+  else
+    LIVE_REUSE=""
+    [[ "$EX_STATUS" == "running" ]] && LIVE_REUSE=1
+    if [[ "$EX_SUP" == "true" && -n "$EX_PID" && "$EX_PID" != "null" ]] && kill -0 "$EX_PID" 2>/dev/null; then
+      LIVE_REUSE=1
+    fi
+    if [[ -n "$LIVE_REUSE" ]]; then
+      echo "omp-start: 任务 $TASK_ID 正在运行（status=$EX_STATUS supervised=$EX_SUP pid=${EX_PID}）→ 拒绝复用，不覆盖 package/state" >&2
+      echo "task_id=$TASK_ID status=${EX_STATUS:-running} reuse=rejected"
+      exit 3
+    fi
+  fi
 fi
 
 echo "$PKG" | atomic_write "$PKG_TMP"
