@@ -9,6 +9,7 @@
 - 生命周期锁、旧 watcher/FINISH fence、跨 attempt 的 task 计数与 accepted 历史保护避免双启动、取消后继或绕过预算；递归调用在副作用前拒绝。
 - 新增行为回归；删除只验证 wrapper kill、内部字段拷贝和 prompt 文案的旧断言。候选真实 OMP 18.2.7 写入、CLI 失败、Bash 子进程取消已实际执行；不是已安装或 Hermes 发起链的部署通过。
 - 清理证明只覆盖已观察到的进程组；工作目录/worktree 不是 OS 沙箱。没有恢复 RPC/ACP 写入，没有改变协调层或生产部署。
+- 2026-09-24：Hermes Kanban worker 的 PATH 以 Hermes venv（macOS CPython 3.11，无 `os.waitid`）开头，execute supervisor 启动即失败关闭。SEND 在未显式设置 `OMP_PY` 时改选 PATH 上首个具备 `waitid/WNOWAIT` 与信号屏蔽能力的 `python3`，并记录 `run.supervisor_python`；无合格解释器仍失败关闭。
 
 ### v0.9.0（2026-09-21）— 版本化 Capability Grant 与薄型执行适配器
 

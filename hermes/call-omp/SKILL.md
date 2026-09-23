@@ -76,7 +76,7 @@ scripts/omp-send.sh --state /tmp/omp-state-audit-001.json
 
 默认工具白名单：`read,grep,glob,lsp,web_search`。Shell `mode=execute` 可携带 `call-omp.capability-grant.v1`，把明确授权的 tools/cwd/add_dirs/approval 精确映射到 OMP；完整合同见 [Capability Grant v1](references/capability-grant-v1.md)。
 
-Shell `execute` 的同步和异步调用均由 `execute_v1` supervisor 持有生命周期；Python 必须支持 `waitid/WNOWAIT`、信号屏蔽及 POSIX process group，否则启动前拒绝。保存 SEND 返回的 `attempt_id` 与 `launch_fingerprint`，不要在稍后的取消操作中重新读取可复用 task 的新身份。
+Shell `execute` 的同步和异步调用均由 `execute_v1` supervisor 持有生命周期；Python 必须支持 `waitid/WNOWAIT`、信号屏蔽及 POSIX process group，否则启动前拒绝。未显式设置 `OMP_PY` 时，SEND 选用 PATH 上第一个具备这些能力的 `python3`（宿主 venv 可能缺 `waitid`），实际解释器写入 `state.run.supervisor_python`。保存 SEND 返回的 `attempt_id` 与 `launch_fingerprint`，不要在稍后的取消操作中重新读取可复用 task 的新身份。
 
 `--allow-write` 是废弃且模糊的布尔开关，继续隔离：
 

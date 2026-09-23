@@ -42,7 +42,26 @@ GATE="$SELF_DIR/gate"; TPL_DIR="$SELF_DIR/../templates"
 # Shell resource supervisor. Execute uses execute_v1; bundle_only audit retains
 # verdict_v1 unchanged. OMP_PY is injectable for isolated fixtures.
 SUPERVISOR="$SELF_DIR/omp-resource-supervisor.py"
+OMP_PY_EXPLICIT="${OMP_PY:+1}"
 OMP_PY="${OMP_PY:-python3}"
+
+# execute_v1 needs os.waitid/WNOWAIT and a signal fence. A caller-set OMP_PY is
+# used as-is. Otherwise take the first python3 on PATH that has them: a host venv
+# earlier on PATH can lack waitid (CPython 3.11 on macOS inside a Hermes worker).
+# If none qualifies, python3 stays and the supervisor fails closed before launch.
+resolve_execute_py() {
+  [[ -n "$OMP_PY_EXPLICIT" ]] && return 0
+  local cand
+  while IFS= read -r cand; do
+    if "$cand" -c 'import os, signal, sys
+ok = all(hasattr(os, n) for n in ("waitid", "P_PID", "WEXITED", "WNOHANG", "WNOWAIT")) and all(hasattr(signal, n) for n in ("pthread_sigmask", "sigpending", "SIG_BLOCK"))
+sys.exit(0 if ok else 1)' >/dev/null 2>&1; then
+      OMP_PY="$cand"
+      return 0
+    fi
+  done < <(type -aP python3 2>/dev/null || true)
+  return 0
+}
 BUNDLE_CAPTURE_MODE="verdict_v1"
 CAPTURE_INGRESS_CAP=134217728
 CAPTURE_VERDICT_CAP=1048576
@@ -405,6 +424,7 @@ shell_send() {
     rstate="$(resource_state_path "$TASK_ID")"; pids="$(pid_store_path "$TASK_ID")"
 
     if $EXECUTE_SUPERVISED; then
+      resolve_execute_py
       local control attempt child_argv full_binding public_launch pid sup_ec run_mode
       control="$(control_file_path "$TASK_ID")"
       # A pre-existing identity/control artifact with a freshly gated state is
@@ -452,6 +472,7 @@ shell_send() {
         .run.raw_output=\"$RAW\" | .run.execution_supervised=true |
         .run.capture_mode=\"execute_v1\" | .run.attempt_id=\"$attempt\" |
         .run.launch_fingerprint=\"$LAUNCH_FINGERPRINT\" | .run.launch_spec=$public_launch |
+        .run.supervisor_python=\"$OMP_PY\" |
         .run.resource_state=\"$rstate\" | .run.pid_store=\"$pids\" |
         .run.control_file=\"$control\" | .run.watch_required=true |
         .run.worker_exit_code=null | .run.supervisor_exit_code=null |

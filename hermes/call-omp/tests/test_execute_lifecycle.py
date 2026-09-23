@@ -370,6 +370,25 @@ class ExecuteLifecycle(unittest.TestCase):
         self.assertEqual(before, {p.name:p.read_bytes() for p in self.root.glob("omp-*.json")})
         self.assertFalse((self.root / "launches").exists())
 
+    def test_execute_skips_path_python_without_waitid(self):
+        # A host venv python3 earlier on PATH lacks os.waitid (CPython 3.11 on macOS inside a
+        # Hermes worker). Execute must still launch under a capable python3 later on PATH.
+        shim = self.root / "nowaitid"
+        shim.mkdir()
+        (shim / "sitecustomize.py").write_text("import os\ntry:\n    del os.waitid\nexcept AttributeError:\n    pass\n")
+        bad = self.root / "badbin"
+        bad.mkdir()
+        wrapper = bad / "python3"
+        wrapper.write_text(f'#!/bin/bash\nPYTHONPATH="{shim}${{PYTHONPATH:+:$PYTHONPATH}}" exec "{shutil.which("python3")}" "$@"\n')
+        wrapper.chmod(0o755)
+        self.env.pop("OMP_PY", None)
+        self.env["PATH"] = f"{bad}:{self.env['PATH']}"
+        self.start()
+        self.assertEqual(self.send(), 0)
+        self.assertEqual(self.watch(), 0)
+        self.assertEqual(self.receipt()["worker_exit_code"], 0)
+        self.assertNotEqual(self.read_state()["run"]["supervisor_python"], str(wrapper))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
