@@ -389,6 +389,22 @@ class ExecuteLifecycle(unittest.TestCase):
         self.assertEqual(self.receipt()["worker_exit_code"], 0)
         self.assertNotEqual(self.read_state()["run"]["supervisor_python"], str(wrapper))
 
+    def test_granted_execute_without_acceptance_criteria_never_launches(self):
+        # A coordinator that grants capabilities must also state acceptance; an execute
+        # package with a grant and an empty criterion list is rejected before any launch.
+        pkg = {"task_id":"lifecycle", "channel":"shell", "mode":"execute",
+               "task":"Run isolated lifecycle fixture", "scope":{"allowed_paths":[str(self.root)], "denied_paths":[], "cwd":str(self.root)},
+               "criterion":[], "threshold":{"round_limit":3,"reject_limit":2}, "risk":{"level":"low","dangerous_modes":[]},
+               "auditor":{"required":True,"independence_level":"independent_readonly"},
+               "output":{"format":"json","evidence_required":True},
+               "capability_grant":{"contract":"call-omp.capability-grant.v1","tools":["read","bash"],
+                                   "approval":"non_interactive","cwd":str(self.root),"add_dirs":[]}}
+        path = self.root / "package.json"
+        path.write_text(json.dumps(pkg))
+        self.assertNotEqual(self.command("omp-start.sh", "--package-json", path), 0)
+        self.send()
+        self.assertFalse((self.root / "launches").exists())
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

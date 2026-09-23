@@ -10,7 +10,7 @@
 #   package 模式：委派包字段是否齐（task/scope/criterion/threshold/output），且
 #                 channel∈{shell,rpc,acp}、mode∈枚举、auditor.independence_level∈
 #                 {bundle_only,independent_readonly}；bundle_only 须带 evidence_bundle.path。
-#                 execute 模式豁免 criterion（通用执行任务无需可裁决验收条件）。
+#                 execute 模式仅在不带 capability_grant 时豁免 criterion；带 grant 必须有验收条件。
 #   output  模式：OMP 的 --mode json 原始 JSONL 是否完整，且内层审计 JSON 有 severity、
 #                 evidence 非空。evidence 为空是硬红线（不采信无证据的"完成"）。
 #
@@ -58,7 +58,7 @@ if [[ "$MODE" == "package" ]]; then
     emit false "委派包不是合法 JSON 对象"; exit 1
   fi
   # 一次性算出缺失/非法字段数组：
-  #   - criterion 须为非空数组（execute 模式豁免——通用执行任务无需可裁决 criterion）
+  #   - criterion 须为非空数组（仅无 capability_grant 的 execute 豁免；授权写入必须带验收条件）
   #   - channel（可选）须 shell|rpc|acp；mode 须在枚举内；
   #     auditor.independence_level（可选）须 bundle_only|independent_readonly；
   #     bundle_only 必须带 .evidence_bundle.path（否则审计者无离线证据基座）。
@@ -69,7 +69,7 @@ if [[ "$MODE" == "package" ]]; then
       (if (.mode // "")        =="" then "mode" else empty end),
       (if (.task // "")        =="" then "task" else empty end),
       (if (.scope|type)        !="object" then "scope" else empty end),
-      (if (.mode // "audit" | test("^execute")) then empty elif (.criterion|type)!="array" or (.criterion|length)==0 then "criterion" else empty end),
+      (if ((.mode // "audit" | test("^execute")) and (has("capability_grant")|not)) then empty elif (.criterion|type)!="array" or (.criterion|length)==0 then "criterion" else empty end),
       (if ((.channel // "shell") | test("^(shell|rpc|acp)$")|not) then "channel(invalid)" else empty end),
       (if (.mode // "")=="" then empty elif (.mode | test("^(audit|execute|govern:(inspect|clean|deep-clean|evidence|sql))$")) then empty else "mode(invalid)" end),
       (if ((.auditor.independence_level // "independent_readonly") | test("^(bundle_only|independent_readonly)$")|not) then "auditor.independence_level(invalid)" else empty end),

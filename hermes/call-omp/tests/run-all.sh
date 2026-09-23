@@ -364,9 +364,9 @@ CAP_WORK="$TD/cap-work"; CAP_EXTRA="$CAP_WORK/extra"; mkdir -p "$CAP_EXTRA"
 CAP_GRANT=$(jq -cn --arg cwd "$CAP_WORK" --arg extra "$CAP_EXTRA" '{contract:"call-omp.capability-grant.v1",tools:["read","write","edit","bash"],approval:"non_interactive",cwd:$cwd,add_dirs:[$extra]}')
 mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" '.task_id="cap-audit"|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' > "$TD/pkg-cap-audit.json"
 bash "$S/gate/gate-verify.sh" --mode package --file "$TD/pkg-cap-audit.json" >/dev/null 2>&1; chk "audit capability grant→1" 1 $?
-mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" '.task_id="cap-unknown"|.mode="execute"|.criterion=[]|.capability_grant=($cap|.tools=["read","warp_drive"])|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' > "$TD/pkg-cap-unknown.json"
+mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" '.task_id="cap-unknown"|.mode="execute"|.criterion=["fixture acceptance"]|.capability_grant=($cap|.tools=["read","warp_drive"])|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' > "$TD/pkg-cap-unknown.json"
 bash "$S/gate/gate-verify.sh" --mode package --file "$TD/pkg-cap-unknown.json" >/dev/null 2>&1; chk "未知 capability tool→1" 1 $?
-mkpkg --arg cwd "$CAP_WORK" '.task_id="cap-null"|.mode="execute"|.criterion=[]|.capability_grant=null|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' > "$TD/pkg-cap-null.json"
+mkpkg --arg cwd "$CAP_WORK" '.task_id="cap-null"|.mode="execute"|.criterion=["fixture acceptance"]|.capability_grant=null|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' > "$TD/pkg-cap-null.json"
 bash "$S/gate/gate-verify.sh" --mode package --file "$TD/pkg-cap-null.json" >/dev/null 2>&1; chk "显式 null capability grant→1" 1 $?
 # 结构负例：版本/审批/字段/重复项/缺 cwd/不支持通道均 fail-closed
 for spec in \
@@ -377,37 +377,37 @@ for spec in \
   'cap-dupdir|.capability_grant.add_dirs=[$cwd,$cwd]' \
   'cap-nocwd|.capability_grant.cwd=""'; do
   id=${spec%%|*}; filter=${spec#*|}
-  mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" ".task_id=\"$id\"|.mode=\"execute\"|.criterion=[]|.capability_grant=\$cap|.scope={allowed_paths:[\$cwd],denied_paths:[],cwd:\$cwd}|$filter" > "$TD/pkg-$id.json"
+  mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" ".task_id=\"$id\"|.mode=\"execute\"|.criterion=["fixture acceptance"]|.capability_grant=\$cap|.scope={allowed_paths:[\$cwd],denied_paths:[],cwd:\$cwd}|$filter" > "$TD/pkg-$id.json"
   bash "$S/gate/gate-verify.sh" --mode package --file "$TD/pkg-$id.json" >/dev/null 2>&1; chk "$id 结构拒绝→1" 1 $?
 done
 for ch in rpc acp; do
-  mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" --arg ch "$ch" '.task_id=("cap-channel-"+$ch)|.channel=$ch|.mode="execute"|.criterion=[]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' > "$TD/pkg-cap-channel-$ch.json"
+  mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" --arg ch "$ch" '.task_id=("cap-channel-"+$ch)|.channel=$ch|.mode="execute"|.criterion=["fixture acceptance"]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' > "$TD/pkg-cap-channel-$ch.json"
   bash "$S/gate/gate-verify.sh" --mode package --file "$TD/pkg-cap-channel-$ch.json" >/dev/null 2>&1; chk "capability channel=$ch 拒绝→1" 1 $?
 done
-mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" --arg bnd "$BND/manifest.json" '.task_id="cap-bundle"|.mode="execute"|.criterion=[]|.auditor.independence_level="bundle_only"|.evidence_bundle.path=$bnd|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' > "$TD/pkg-cap-bundle.json"
+mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" --arg bnd "$BND/manifest.json" '.task_id="cap-bundle"|.mode="execute"|.criterion=["fixture acceptance"]|.auditor.independence_level="bundle_only"|.evidence_bundle.path=$bnd|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' > "$TD/pkg-cap-bundle.json"
 bash "$S/gate/gate-verify.sh" --mode package --file "$TD/pkg-cap-bundle.json" >/dev/null 2>&1; chk "bundle_only + capability 拒绝→1" 1 $?
 
 # launch 负例：只读 grant 的 cwd/add_dirs 也必须被 scope 覆盖；路径必须真实
 CAP_OUT="$TD/cap-out"; mkdir -p "$CAP_OUT"
 CAP_RO=$(jq -cn --arg cwd "$CAP_WORK" --arg out "$CAP_OUT" '{contract:"call-omp.capability-grant.v1",tools:["read"],approval:"non_interactive",cwd:$cwd,add_dirs:[$out]}')
 CAP_READ_NOCWD=$(printf '%s' "$CAP_RO" | jq '.cwd=""|.add_dirs=[]')
-mkpkg --argjson cap "$CAP_READ_NOCWD" --arg cwd "$CAP_WORK" '.task_id="cap-read-nocwd"|.mode="execute"|.criterion=[]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[]}' > "$TD/pkg-cap-read-nocwd.json"
+mkpkg --argjson cap "$CAP_READ_NOCWD" --arg cwd "$CAP_WORK" '.task_id="cap-read-nocwd"|.mode="execute"|.criterion=["fixture acceptance"]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[]}' > "$TD/pkg-cap-read-nocwd.json"
 bash "$S/gate/gate-verify.sh" --mode package --file "$TD/pkg-cap-read-nocwd.json" >/dev/null 2>&1; chk "只读 grant 缺 cwd→1" 1 $?
 CAP_READ_DENIED=$(printf '%s' "$CAP_RO" | jq --arg cwd "$CAP_WORK" '.cwd=$cwd|.add_dirs=[]')
-mkpkg --argjson cap "$CAP_READ_DENIED" --arg cwd "$CAP_WORK" '.task_id="cap-read-denied"|.mode="execute"|.criterion=[]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[($cwd+"/secret")],cwd:$cwd}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
+mkpkg --argjson cap "$CAP_READ_DENIED" --arg cwd "$CAP_WORK" '.task_id="cap-read-denied"|.mode="execute"|.criterion=["fixture acceptance"]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[($cwd+"/secret")],cwd:$cwd}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
 OMP_BIN="$TD/mock-omp.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-cap-read-denied.json" >/dev/null 2>&1; chk "只读 grant + denied_paths→2" 2 $?
-mkpkg --argjson cap "$CAP_READ_DENIED" --arg cwd "$CAP_WORK" '.task_id="cap-scope-cwd-type"|.mode="execute"|.criterion=[]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:false}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
+mkpkg --argjson cap "$CAP_READ_DENIED" --arg cwd "$CAP_WORK" '.task_id="cap-scope-cwd-type"|.mode="execute"|.criterion=["fixture acceptance"]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:false}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
 OMP_BIN="$TD/mock-omp.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-cap-scope-cwd-type.json" >/dev/null 2>&1; chk "scope.cwd 非字符串→2" 2 $?
-mkpkg --argjson cap "$CAP_RO" --arg cwd "$CAP_WORK" '.task_id="cap-ro-out"|.mode="execute"|.criterion=[]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
+mkpkg --argjson cap "$CAP_RO" --arg cwd "$CAP_WORK" '.task_id="cap-ro-out"|.mode="execute"|.criterion=["fixture acceptance"]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
 OMP_BIN="$TD/mock-omp.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-cap-ro-out.json" >/dev/null 2>&1; chk "只读 grant add_dir 越 scope→2" 2 $?
 CAP_REL=$(printf '%s' "$CAP_GRANT" | jq '.cwd="relative"|.add_dirs=[]')
-mkpkg --argjson cap "$CAP_REL" --arg cwd "$CAP_WORK" '.task_id="cap-relative"|.mode="execute"|.criterion=[]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[]}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
+mkpkg --argjson cap "$CAP_REL" --arg cwd "$CAP_WORK" '.task_id="cap-relative"|.mode="execute"|.criterion=["fixture acceptance"]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[]}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
 OMP_BIN="$TD/mock-omp.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-cap-relative.json" >/dev/null 2>&1; chk "capability 相对 cwd→2" 2 $?
 CAP_MISSING=$(printf '%s' "$CAP_GRANT" | jq --arg p "$TD/does-not-exist" '.cwd=$p|.add_dirs=[]')
-mkpkg --argjson cap "$CAP_MISSING" --arg cwd "$CAP_WORK" '.task_id="cap-missing"|.mode="execute"|.criterion=[]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[]}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
+mkpkg --argjson cap "$CAP_MISSING" --arg cwd "$CAP_WORK" '.task_id="cap-missing"|.mode="execute"|.criterion=["fixture acceptance"]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[]}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
 OMP_BIN="$TD/mock-omp.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-cap-missing.json" >/dev/null 2>&1; chk "capability 不存在 cwd→2" 2 $?
 
-mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" '.task_id="cap-denied"|.mode="execute"|.criterion=[]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:["/tmp/no"],cwd:$cwd}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
+mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" '.task_id="cap-denied"|.mode="execute"|.criterion=["fixture acceptance"]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:["/tmp/no"],cwd:$cwd}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
 OMP_BIN="$TD/mock-omp.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-cap-denied.json" >/dev/null 2>&1; chk "mutable grant + denied_paths 启动前拒绝→2" 2 $?
 
 cat > "$TD/mock-capability.sh" <<'M'
@@ -417,22 +417,22 @@ printf '%s\n' "$@" > "$CAPTURE_ARGS"
 printf '%s\n' '{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"STATUS: completed"}]}}' '{"type":"turn_end","message":{"stopReason":"stop"}}'
 M
 chmod +x "$TD/mock-capability.sh"
-mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" '.task_id="cap-exec"|.mode="execute"|.criterion=[]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1; chk "execute capability start→0" 0 $?
+mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" '.task_id="cap-exec"|.mode="execute"|.criterion=["fixture acceptance"]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1; chk "execute capability start→0" 0 $?
 CAPTURE_ARGS="$TD/cap-args.txt" OMP_BIN="$TD/mock-capability.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-cap-exec.json" >/dev/null 2>&1; chk "execute capability send→0" 0 $?
 
 # CLI override 与审批冲突必须在 launch 前拒绝
 for ov in rpc acp; do
   id="cap-override-$ov"
-  mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" --arg id "$id" '.task_id=$id|.mode="execute"|.criterion=[]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
+  mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" --arg id "$id" '.task_id=$id|.mode="execute"|.criterion=["fixture acceptance"]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
   OMP_BIN="$TD/mock-capability.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-$id.json" --channel "$ov" --dry-run >/dev/null 2>&1; chk "grant --channel $ov override→2" 2 $?
 done
-mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" '.task_id="cap-noapprove"|.mode="execute"|.criterion=[]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
+mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" '.task_id="cap-noapprove"|.mode="execute"|.criterion=["fixture acceptance"]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
 OMP_BIN="$TD/mock-capability.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-cap-noapprove.json" --no-auto-approve --dry-run >/dev/null 2>&1; chk "grant --no-auto-approve 冲突→2" 2 $?
 
 # symlink 经 realpath 后应与 scope parity，并把规范路径传给 OMP
 ln -s "$CAP_WORK" "$TD/cap-link"
 CAP_LINK=$(printf '%s' "$CAP_GRANT" | jq --arg p "$TD/cap-link" '.cwd=$p|.add_dirs=[]')
-mkpkg --argjson cap "$CAP_LINK" --arg cwd "$CAP_WORK" '.task_id="cap-symlink"|.mode="execute"|.criterion=[]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
+mkpkg --argjson cap "$CAP_LINK" --arg cwd "$CAP_WORK" '.task_id="cap-symlink"|.mode="execute"|.criterion=["fixture acceptance"]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1
 CAPTURE_ARGS="$TD/cap-symlink-args.txt" OMP_BIN="$TD/mock-capability.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-cap-symlink.json" >/dev/null 2>&1; chk "grant symlink canonical parity→0" 0 $?
 
 
@@ -1715,7 +1715,7 @@ head -c 9437184 /dev/zero | tr '\0' 'x'
 exec sleep 30
 M
 chmod +x "$TD/mock-flood.sh"
-mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" '.task_id="x32"|.mode="execute"|.criterion=[]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1; chk "R2 execute flood start→0" 0 $?
+mkpkg --argjson cap "$CAP_GRANT" --arg cwd "$CAP_WORK" '.task_id="x32"|.mode="execute"|.criterion=["fixture acceptance"]|.capability_grant=$cap|.scope={allowed_paths:[$cwd],denied_paths:[],cwd:$cwd}' | bash "$S/omp-start.sh" --package-json - >/dev/null 2>&1; chk "R2 execute flood start→0" 0 $?
 OMP_BIN="$TD/mock-flood.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-x32.json" >/dev/null 2>&1
 chk "  receipt status=rejected（raw_cap 熔断）" rejected "$(jq -r .status "$TD/omp-resource-x32.json" 2>/dev/null)"
 /bin/bash "$S/omp-monitor.sh" --state "$TD/omp-state-x32.json" >"$TD/x32-mon.out" 2>"$TD/x32-mon.err"; chk "R2 /bin/bash monitor supervisor-rejected→exit 2" 2 $?
