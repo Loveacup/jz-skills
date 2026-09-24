@@ -13,7 +13,7 @@
 - 2026-09-24（合同变更）：带 `capability_grant` 的 `execute` 包必须有非空 `criterion`，否则 START 的 gate 拒绝、OMP 启动 0 次；不带 grant 的 execute 仍豁免。原先 `.mode="execute"|.criterion=[]` 加 grant 可通过的行为被移除；run-all 中相关 fixture 改为带 criterion，各负例的拒绝原因不变。
 - 2026-09-24：supervisor 在启动 OMP 前拒绝（如解释器缺 `waitid`）时，monitor 不再因缺少 stream 文件而写 `cleanup_unknown`；改为校验 receipt（无 child、零字节、cleanup_confirmed）后报告 `rejected`、`run.execution=not_started`、`cleanup_confirmed=true`。该情形由 R04 真实验收和 Hermes 新会话恢复检查（F01）发现。
 - 2026-09-24：流分类器识别 OMP 18.2.11 新增的非判决事件（`agent_end`、`thinking_level_changed`、`advisor_yielded`、`tool_execution_update`、`message_update` 的 `text_start`/`text_end`），一律 deny，判决仍只取 `message_end`/`text_delta`；其它未知类型继续按 terminal-unknown 失败关闭。此前 bundle-only 审计在 18.2.11 上全部被判 `classification_untrusted`（O04）。回归：`tests/test_stream_classifier_omp18.py` + 真实流夹具。
-- 2026-09-24（合同变更）：证据包 manifest 升为 v2，记录 `artifact_sha256`（summary/file-list/git-status/diff）；bundle_only SEND 在启动 OMP 前逐个复核，manifest 缺失或非 v2、文件缺失/为 symlink、哈希不符均 `rejected`（`gate.reason=bundle_integrity: …`），零启动。旧的无哈希 manifest 不再被接受，须用 `omp-bundle-code-audit.sh` 重新生成。回归：`tests/test_bundle_integrity.py`。
+- 2026-09-24（合同变更）：证据包 manifest 升为 v2，记录 `artifact_sha256`（summary/file-list/git-status/diff）；bundle_only SEND 在启动 OMP 前逐个复核，manifest 缺失或非 v2、哈希表不是恰好四个文件、文件缺失/为 symlink、哈希不符均 `rejected`（`gate.reason=bundle_integrity: …`），零启动。旧的无哈希 manifest 不再被接受，须用 `omp-bundle-code-audit.sh` 重新生成。回归：`tests/test_bundle_integrity.py`。
 
 ### v0.9.0（2026-09-21）— 版本化 Capability Grant 与薄型执行适配器
 

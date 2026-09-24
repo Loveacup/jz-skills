@@ -76,6 +76,15 @@ class BundleIntegrity(unittest.TestCase):
         rc, state, launched = self.run_audit()
         self.assertEqual((rc, launched), (2, False))
 
+    def test_pruned_manifest_entry_never_launches(self):
+        # Dropping an artifact from both disk and the hash map must not bypass the check.
+        m = json.loads((self.bundle / "manifest.json").read_text())
+        del m["artifact_sha256"]["git-status.txt"]
+        (self.bundle / "manifest.json").write_text(json.dumps(m))
+        (self.bundle / "git-status.txt").unlink()
+        rc, state, launched = self.run_audit()
+        self.assertEqual((rc, launched), (2, False))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

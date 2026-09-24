@@ -234,8 +234,10 @@ if $BUNDLE_ONLY; then
   _bundle_fail=""
   if [[ -z "$_BM" || ! -f "$_BM" || -L "$_BM" ]]; then
     _bundle_fail="manifest missing"
-  elif ! jq -e '.version==2 and (.artifact_sha256|type)=="object" and (.artifact_sha256|length)>0' "$_BM" >/dev/null 2>&1; then
-    _bundle_fail="manifest lacks artifact_sha256 (v2)"
+  elif ! jq -e '.version==2 and (.artifact_sha256|type)=="object"
+      and ((.artifact_sha256|keys) == ["diff.patch","file-list.txt","git-status.txt","summary.md"])
+      and ([.artifact_sha256[]|type=="string" and test("^[0-9a-f]{64}$")]|all)' "$_BM" >/dev/null 2>&1; then
+    _bundle_fail="manifest lacks exact artifact_sha256 set (v2)"
   else
     _BD=$(dirname "$_BM")
     while IFS=$'\t' read -r _bf _bh; do
