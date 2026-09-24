@@ -150,31 +150,10 @@ else
 fi
 
 # ── manifest.json ──
+# version 2：记录每个被复制证据文件的 sha256，SEND 在启动 OMP 前逐个复核；缺失或不一致即拒绝。
 _scopes_json="$(printf '%s\n' "${SCOPE_ARGS[@]}" | jq -R . | jq -sc .)"
 diff_lines=$(wc -l < "$OUT/diff.patch" | tr -d ' ')
-jq -nc \
-  --arg repo "$REPO" \
-  --arg out "$OUT" \
-  --argjson scopes "$_scopes_json" \
-  --arg base "$DIFF_BASE" \
-  --argjson is_git "$IS_GIT" \
-  --argjson included "$INCLUDED" \
-  --argjson excluded "$EXCLUDED" \
-  --argjson diff_lines "$diff_lines" \
-  '{
-    kind: "omp-code-audit-evidence-bundle",
-    version: 1,
-    repo: $repo,
-    out: $out,
-    scopes: $scopes,
-    diff_base: $base,
-    is_git: $is_git,
-    files_included: $included,
-    sensitive_excluded: $excluded,
-    diff_lines: $diff_lines,
-    artifacts: ["manifest.json","summary.md","file-list.txt","git-status.txt","diff.patch"]
-  }' > "$OUT/manifest.json"
-
+_bundle_sha() { shasum -a 256 "$1" | cut -c1-64; }
 # ── summary.md ──
 {
   echo "# OMP Code-Audit Evidence Bundle"
@@ -188,13 +167,42 @@ jq -nc \
   echo "- diff lines: $diff_lines"
   echo
   echo "## Artifacts"
-  echo "- \`manifest.json\` — 结构化元数据（供 gate 的 evidence_bundle.path 引用）"
+  echo "- \`manifest.json\` — 结构化元数据（供 gate 的 evidence_bundle.path 引用；含 artifact_sha256）"
   echo "- \`file-list.txt\` — 纳入证据包的文件清单（已剔除敏感路径）"
   echo "- \`git-status.txt\` — 工作区状态"
   echo "- \`diff.patch\` — 相对 base 的差异（敏感路径不入 diff）"
   echo
   echo "> 只读证据包：本脚本不改动 repo，供 bundle_only 审计者离线核查。"
 } > "$OUT/summary.md"
+_hashes=$(jq -nc \
+  --arg s "$(_bundle_sha "$OUT/summary.md")" --arg f "$(_bundle_sha "$OUT/file-list.txt")" \
+  --arg g "$(_bundle_sha "$OUT/git-status.txt")" --arg d "$(_bundle_sha "$OUT/diff.patch")" \
+  '{"summary.md":$s,"file-list.txt":$f,"git-status.txt":$g,"diff.patch":$d}')
+jq -nc \
+  --arg repo "$REPO" \
+  --arg out "$OUT" \
+  --argjson scopes "$_scopes_json" \
+  --arg base "$DIFF_BASE" \
+  --argjson is_git "$IS_GIT" \
+  --argjson included "$INCLUDED" \
+  --argjson excluded "$EXCLUDED" \
+  --argjson diff_lines "$diff_lines" \
+  --argjson hashes "$_hashes" \
+  '{
+    kind: "omp-code-audit-evidence-bundle",
+    version: 2,
+    repo: $repo,
+    out: $out,
+    scopes: $scopes,
+    diff_base: $base,
+    is_git: $is_git,
+    files_included: $included,
+    sensitive_excluded: $excluded,
+    diff_lines: $diff_lines,
+    artifacts: ["manifest.json","summary.md","file-list.txt","git-status.txt","diff.patch"],
+    artifact_sha256: $hashes
+  }' > "$OUT/manifest.json"
+
 
 echo "omp-bundle-code-audit: 证据包已生成 → ${OUT} （files=${INCLUDED}, excluded=${EXCLUDED}, diff_lines=${diff_lines}, git=${IS_GIT}）"
 exit 0

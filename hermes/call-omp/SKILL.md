@@ -135,6 +135,8 @@ scripts/omp-bundle-code-audit.sh --repo /abs/repo --out /tmp/bundle --scope src/
 
 必须检查：`manifest.json`、`file-list.txt`、`diff.patch`、命令输出与 exit code。中型 bundle 拆成独立 criterion；raw 快速增长或重复调用即停止。详见 [bundle gates](references/bundle-only-audit-gates.md) 与 [runaway policy](references/bundle-only-runaway-stop-policy.md)。
 
+证据包 manifest v2 带 `artifact_sha256`；SEND 在启动 OMP 前逐个复核，缺失、symlink、哈希不符或无哈希的旧 manifest 一律 `rejected` 且零启动。生成证据包后不要再改其中任何文件；需要改就重新生成。
+
 ### P0：受资源监督的 bundle-only Shell
 
 真正经由 Shell 执行的 bundle-only 审计（直连 Shell 与 RPC→Shell 回退两条路径）一律**强制异步且受 `scripts/omp-resource-supervisor.py` 监督**，不再有同步回退。supervisor 把 OMP 放在独立 session/pgrp，硬性执行 raw ≤ 20 MiB（child pre-exec 继承 `RLIMIT_FSIZE`，即使 `setsid` 逃逸后代仍持有 stdout FD 也守得住），并原子写脱敏 forensic state。

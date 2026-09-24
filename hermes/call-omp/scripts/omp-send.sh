@@ -227,6 +227,29 @@ update_state() {
   printf '%s' "$s" | atomic_write "$STATE"
 }
 
+# bundle_only：启动 OMP 前逐个复核证据包文件的 sha256（manifest v2 artifact_sha256）。
+# manifest 缺失/非 v2、任一文件缺失、是 symlink 或哈希不符 → rejected，零启动。
+if $BUNDLE_ONLY; then
+  _BM=$(echo "$PKG" | jq -r '.evidence_bundle.path // ""')
+  _bundle_fail=""
+  if [[ -z "$_BM" || ! -f "$_BM" || -L "$_BM" ]]; then
+    _bundle_fail="manifest missing"
+  elif ! jq -e '.version==2 and (.artifact_sha256|type)=="object" and (.artifact_sha256|length)>0' "$_BM" >/dev/null 2>&1; then
+    _bundle_fail="manifest lacks artifact_sha256 (v2)"
+  else
+    _BD=$(dirname "$_BM")
+    while IFS=$'\t' read -r _bf _bh; do
+      if [[ "$_bf" == */* || ! -f "$_BD/$_bf" || -L "$_BD/$_bf" ]]; then _bundle_fail="artifact missing: $_bf"; break; fi
+      if [[ "$(shasum -a 256 "$_BD/$_bf" | cut -c1-64)" != "$_bh" ]]; then _bundle_fail="artifact tampered: $_bf"; break; fi
+    done < <(jq -r '.artifact_sha256|to_entries[]|"\(.key)\t\(.value)"' "$_BM")
+  fi
+  if [[ -n "$_bundle_fail" ]]; then
+    update_state ".status=\"rejected\" | .gate.reason=\"bundle_integrity: $_bundle_fail\""
+    echo "🚫 omp-send: bundle_only 证据包完整性校验失败（${_bundle_fail}）→ status=rejected，未启动 OMP" >&2
+    exit 2
+  fi
+fi
+
 # ── P2A-static：显式可信 OMP_BUNDLE_THINKING（无运行时能力探测）───────────────
 # 契约：未设/空/inherit → 继承（永不加 --thinking argv）；off → 仅【监督型 bundle_only Shell】
 #   实际执行时注入精确 `--thinking off` 并持久化 run.thinking_control。

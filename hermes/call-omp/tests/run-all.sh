@@ -748,8 +748,8 @@ echo invoked >> "${OMP_TMPDIR:-/tmp}/omp-witness.log"
 printf '%s\n' '{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"```json\n{\"severity\":\"concern\",\"summary\":\"bundle_only 审计\",\"evidence\":[{\"type\":\"file\",\"ref\":\"x:1\"}]}\n```"}]}}' '{"type":"turn_end","message":{"role":"assistant","stopReason":"stop"}}'
 M
 chmod +x "$TD/mock-omp-witness.sh"
-echo '{}' > "$TD/bo-manifest.json"
-BOP=$(echo "$GP" | jq '.auditor.independence_level="bundle_only" | .evidence_bundle={path:"'"$TD/bo-manifest.json"'"}')
+cp -R "$BND" "$TD/bo-bundle"  # real manifest v2 with artifact_sha256 (bundle integrity is checked before launch)
+BOP=$(echo "$GP" | jq '.auditor.independence_level="bundle_only" | .evidence_bundle={path:"'"$TD/bo-bundle/manifest.json"'"}')
 
 # 21a: bundle_only shell send 不带 --async → 0，主状态含 async/supervised/watch + 规范资源路径，
 #      且 OMP mock 经 supervisor 实际调用
