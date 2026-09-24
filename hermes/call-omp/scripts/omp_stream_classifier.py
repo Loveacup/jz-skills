@@ -51,6 +51,11 @@ DENY_TYPES = frozenset(
         "tool_execution_end",
         "usage",
         "heartbeat",
+        # OMP 18.2.x：会话级 envelope，均不承载 verdict（verdict 只从 message_end /
+        # text_delta 取）。agent_end 带 messages 副本，按非 verdict 处理，绝不从中取判决。
+        "agent_end",
+        "thinking_level_changed",
+        "advisor_yielded",
     }
 )
 
@@ -91,6 +96,7 @@ STRUCTURE_CODES = frozenset(
         "message_update.ame_non_object",
         "message_update.text_delta",
         "message_update.reasoning_stream",
+        "message_update.text_boundary",
         "message_update.ame_unknown_kind",
         # S3C：message_update 未知 kind 下的潜在 verdict 承载形状细分。
         "message_update.ame_unknown_kind.delta_string",
@@ -396,6 +402,10 @@ def classify_jsonl_line(line_bytes: bytes, sequence: int) -> Classification:
                 ame_type.startswith("thinking") or ame_type.startswith("toolcall")
             ):
                 return deny("message_update.reasoning_stream", "message_update.reasoning_stream")
+            if ame_type in ("text_start", "text_end"):
+                # OMP 18.2.x 文本块边界；text_end 带整块副本，但判决只认 text_delta /
+                # message_end，故 deny（不 preserve、不计 terminal-unknown）。
+                return deny("message_update.text_boundary", "message_update.text_boundary")
             if ame_type == "text_delta":
                 val = ame.get("delta")
                 if not isinstance(val, str):
