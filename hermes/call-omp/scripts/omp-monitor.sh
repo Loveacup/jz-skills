@@ -426,6 +426,24 @@ if [[ "$EXECUTION_SUPERVISED" == "true" ]]; then
       ;;
   esac
 
+  # Pre-spawn refusal: the supervisor rejected before creating any child (e.g. missing
+  # waitid/signal-fence capability), so no stream files exist. Report the authenticated
+  # receipt (cleanup confirmed, execution not started) instead of cleanup_unknown.
+  if [[ "$X_STATUS" == "rejected" && ! -e "$RAW" && ! -e "$RAW.err" ]] && jq -e '
+      .cleanup_confirmed==true and .worker_exit_code==null and
+      .child_identity.identity_observed==false and .child_identity.pid==null and
+      (.raw_bytes // 0)==0 and (.stderr_bytes // 0)==0' "$X_RSTATE" >/dev/null 2>&1; then
+    X_SUBSET=$(jq -c '{schema,status,task_id,attempt_id,launch_fingerprint,
+      worker_exit_code,supervisor_exit_code,terminal_reason,cleanup_confirmed,
+      child_identity:{pid:.child_identity.pid,pgid:.child_identity.pgid,session_id:.child_identity.session_id}}' "$X_RSTATE")
+    update_state ".status=\"rejected\" | .run.exit_code=null | .run.worker_exit_code=null |
+      .run.supervisor_exit_code=$(jq -c '.supervisor_exit_code' "$X_RSTATE") |
+      .run.terminal_reason=$(jq -c '.terminal_reason' "$X_RSTATE") | .run.cleanup_confirmed=true |
+      .run.execution=\"not_started\" |
+      .monitor={checked_at:\"$(now_iso)\",issues:[\"execute_v1 supervisor refused before spawn\"],resource:$X_SUBSET}"
+    echo "🚫 omp-monitor: execute_v1 supervisor 启动前拒绝（$(jq -r '.terminal_reason' "$X_RSTATE")）；未启动 OMP，cleanup 已确认 → rejected" >&2
+    exit 2
+  fi
   # Terminal stream evidence must match the bounded files actually on disk.
   [[ -f "$RAW" && -f "$RAW.err" ]] || { exec_reject "execute_v1 terminal stream 文件缺失"; exit 2; }
   X_ARB=$(wc -c <"$RAW" | tr -d ' '); X_ARL=$(wc -l <"$RAW" | tr -d ' ')

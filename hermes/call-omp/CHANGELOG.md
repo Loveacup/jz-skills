@@ -11,6 +11,7 @@
 - 清理证明只覆盖已观察到的进程组；工作目录/worktree 不是 OS 沙箱。没有恢复 RPC/ACP 写入，没有改变协调层或生产部署。
 - 2026-09-24：Hermes Kanban worker 的 PATH 以 Hermes venv（macOS CPython 3.11，无 `os.waitid`）开头，execute supervisor 启动即失败关闭。SEND 在未显式设置 `OMP_PY` 时改选 PATH 上首个具备 `waitid/WNOWAIT` 与信号屏蔽能力的 `python3`，并记录 `run.supervisor_python`；无合格解释器仍失败关闭。
 - 2026-09-24（合同变更）：带 `capability_grant` 的 `execute` 包必须有非空 `criterion`，否则 START 的 gate 拒绝、OMP 启动 0 次；不带 grant 的 execute 仍豁免。原先 `.mode="execute"|.criterion=[]` 加 grant 可通过的行为被移除；run-all 中相关 fixture 改为带 criterion，各负例的拒绝原因不变。
+- 2026-09-24：supervisor 在启动 OMP 前拒绝（如解释器缺 `waitid`）时，monitor 不再因缺少 stream 文件而写 `cleanup_unknown`；改为校验 receipt（无 child、零字节、cleanup_confirmed）后报告 `rejected`、`run.execution=not_started`、`cleanup_confirmed=true`。该情形由 R04 真实验收和 Hermes 新会话恢复检查（F01）发现。
 
 ### v0.9.0（2026-09-21）— 版本化 Capability Grant 与薄型执行适配器
 

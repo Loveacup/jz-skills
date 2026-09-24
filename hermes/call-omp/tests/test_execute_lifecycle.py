@@ -405,6 +405,26 @@ class ExecuteLifecycle(unittest.TestCase):
         self.send()
         self.assertFalse((self.root / "launches").exists())
 
+    def test_prespawn_capability_refusal_reports_confirmed_cleanup(self):
+        # Supervisor forced onto a python without os.waitid refuses before spawning OMP;
+        # monitor must report not_started with confirmed cleanup, not cleanup_unknown.
+        shim = self.root / "nowaitid"
+        shim.mkdir()
+        (shim / "sitecustomize.py").write_text("import os\ntry:\n    del os.waitid\nexcept AttributeError:\n    pass\n")
+        wrapper = self.root / "py-nowaitid"
+        wrapper.write_text(f'#!/bin/bash\nPYTHONPATH="{shim}" exec "{shutil.which("python3")}" "$@"\n')
+        wrapper.chmod(0o755)
+        self.env["OMP_PY"] = str(wrapper)
+        self.start()
+        self.assertEqual(self.send(), 0)
+        self.assertNotEqual(self.watch(), 0)
+        run = self.read_state()["run"]
+        self.assertFalse((self.root / "launches").exists())
+        self.assertTrue(run["cleanup_confirmed"])
+        self.assertEqual(run["terminal_reason"], "unreaped_exit_or_signal_fence_unsupported")
+        self.assertEqual(run["execution"], "not_started")
+        self.assertNotEqual(self.command("omp-finish.sh", "--state", self.state, "--accept"), 0)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
