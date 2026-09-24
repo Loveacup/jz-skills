@@ -46,7 +46,12 @@ python scripts/md2pdf_chrome.py report.md output.pdf "报告标题"
 
 # 智能排版：密集章节缩小字号，尾部变更记录用更小字号
 python scripts/md2pdf_chrome.py doc.md --sm "开发路线图" --xs-after "变更历史"
+
+# 报告 frontmatter 属性卡、署名块与首页/图表页预览
+python scripts/md2pdf_chrome.py report.md output.pdf "报告标题" \
+  --properties --byline --preview ./preview --verify
 ```
+完整 CLI 参数及行为说明以 [SKILL.md 的 Markdown 参数表](SKILL.md#output-formats--resilience) 为准。
 
 ## 环境要求
 

@@ -12,8 +12,10 @@ import json
 import importlib.util
 import mimetypes
 import subprocess
+import unicodedata
 from pathlib import Path
 
+from html import escape as html_escape
 try:
     import markdown
 except ImportError:  # 允许在缺依赖的解释器上仍能跑 --preflight 给出友好提示
@@ -95,7 +97,84 @@ CALLOUT_NAMES = {
     "meta": "元信息",
     "multi-column": "多列",
 }
+MERMAID_THEME_COLORS = {
+    "academic": ("#2563eb", "#dc2626", "#16a34a", "#6b7280", "#f59e0b"),
+    "blue": ("#2563eb", "#dc2626", "#16a34a", "#6b7280", "#f59e0b"),
+    "sepia": ("#8b5e34", "#b45309", "#4d7c0f", "#78716c", "#d97706"),
+    "nord": ("#5e81ac", "#bf616a", "#a3be8c", "#4c566a", "#ebcb8b"),
+    "gruvbox-dark": ("#fabd2f", "#fb4934", "#b8bb26", "#a89984", "#fe8019"),
+    "gruvbox-light": ("#458588", "#cc241d", "#98971a", "#7c6f64", "#d79921"),
+    "solarized-light": ("#268bd2", "#dc322f", "#859900", "#657b83", "#b58900"),
+    "solarized-dark": ("#268bd2", "#dc322f", "#859900", "#839496", "#b58900"),
+    "editorial": ("#2563eb", "#dc2626", "#16a34a", "#6b7280", "#f59e0b"),
+    "kami": ("#2563eb", "#dc2626", "#16a34a", "#6b7280", "#f59e0b"),
+    "minimalist": ("#2563eb", "#dc2626", "#16a34a", "#6b7280", "#f59e0b"),
+    "newsletter": ("#2563eb", "#dc2626", "#16a34a", "#6b7280", "#f59e0b"),
+    "social-card": ("#2563eb", "#dc2626", "#16a34a", "#6b7280", "#f59e0b"),
+    "swiss": ("#2563eb", "#dc2626", "#16a34a", "#6b7280", "#f59e0b"),
+    "warm-academic": ("#2563eb", "#dc2626", "#16a34a", "#6b7280", "#f59e0b"),
+    "wechat-article": ("#2563eb", "#dc2626", "#16a34a", "#6b7280", "#f59e0b"),
+    "dracula": ("#bd93f9", "#ff5555", "#50fa7b", "#f8f8f2", "#ffb86c"),
+}
 
+
+def _mermaid_theme_variables(theme):
+    colors = MERMAID_THEME_COLORS.get(theme, MERMAID_THEME_COLORS["blue"])
+    blue, red, green, gray, amber = colors
+    palette = [blue, red, green, gray, amber, "#8b5cf6"]
+    return {
+        "primaryColor": blue,
+        "primaryTextColor": "#1f2937",
+        "primaryBorderColor": blue,
+        "lineColor": gray,
+        "textColor": "#1f2937",
+        "xyChart": {"plotColorPalette": ", ".join(palette)},
+        **{f"pie{i + 1}": color for i, color in enumerate(palette)},
+    }
+
+
+def _display_value(value):
+    if isinstance(value, (list, tuple)):
+        return " · ".join(str(item) for item in value)
+    if isinstance(value, dict):
+        return " · ".join(f"{key}: {val}" for key, val in value.items())
+    if isinstance(value, bool):
+        return "是" if value else "否"
+    return str(value)
+
+
+def _frontmatter_display_html(frontmatter, properties=False, byline=False):
+    """Build escaped display-only frontmatter blocks beneath the document title."""
+    if not frontmatter:
+        return ""
+    byline_rows = []
+    if byline:
+        if frontmatter.get("author"):
+            byline_rows.append(("撰写", frontmatter["author"]))
+        for key, label in (("cli", "协作 CLI"), ("models", "参与模型")):
+            if frontmatter.get(key):
+                byline_rows.append((label, frontmatter[key]))
+    html = ""
+    if byline_rows:
+        rows = "".join(
+            f'<p><strong>{html_escape(label)}：</strong>{html_escape(_display_value(value))}</p>'
+            for label, value in byline_rows
+        )
+        html += f'<div class="doc-byline">{rows}</div>'
+    if properties:
+        hidden = {"author", "cli", "models"}
+        rows = [
+            (key, value) for key, value in frontmatter.items()
+            if key not in hidden and value is not None and value != ""
+        ]
+        if rows:
+            cells = "".join(
+                f'<div class="doc-property"><span>{html_escape(str(key))}</span>'
+                f'<strong>{html_escape(_display_value(value))}</strong></div>'
+                for key, value in rows
+            )
+            html += f'<div class="doc-properties">{cells}</div>'
+    return html
 
 def embed_local_images(md_text, md_dir):
     """Convert local image paths to base64 data URIs for reliable Chrome rendering."""
@@ -308,6 +387,11 @@ def convert_callouts(md_text):
                 content_md,
                 extensions=["tables", "fenced_code", "sane_lists", "md_in_html"],
             )
+            title_text = re.sub(r"^(?:\uFE0F|\u200D|\s)+", "", title)
+            title_has_emoji = bool(re.match(
+                r"[\U0001F300-\U0001FAFF\u2600-\u27BF]", title_text
+            ))
+            title_html = title if title_has_emoji else f'{s["emoji"]} {title}'
 
             # For foldable callouts collapsed by default, use <details>
             if fold == "-":
@@ -316,7 +400,7 @@ def convert_callouts(md_text):
                     f'<details open class="callout" style="background:{s["bg"]};border-left:4px solid {s["color"]};padding:4px 12px;margin:10px 0;border-radius:6px;">'
                 )
                 result.append(
-                    f'<summary style="color:{s["color"]};font-weight:700;padding:8px 0;cursor:pointer;list-style:none;">{s["emoji"]} {title}</summary>'
+                    f'<summary style="color:{s["color"]};font-weight:700;padding:8px 0;cursor:pointer;list-style:none;">{title_html}</summary>'
                 )
                 result.append(f'<div style="padding:4px 0 8px 0;">{content_html}</div>')
                 result.append("</details>")
@@ -335,7 +419,7 @@ def convert_callouts(md_text):
                         f'<div class="callout" style="background:{s["bg"]};border-left:4px solid {s["color"]};padding:8px 12px;margin:10px 0;border-radius:6px;">'
                     )
                     result.append(
-                        f'<p class="callout-title" style="color:{s["color"]};font-weight:700;margin:0 0 6px 0;">{s["emoji"]} {title}</p>'
+                        f'<p class="callout-title" style="color:{s["color"]};font-weight:700;margin:0 0 6px 0;">{title_html}</p>'
                     )
                     result.append(content_html)
                     result.append("</div>")
@@ -426,7 +510,8 @@ def _page_margin(page_size):
     return "12mm 10mm 12mm 10mm"
 
 
-def build_html(md_path, header_text, directives=None, theme="auto", page_size="A4"):
+def build_html(md_path, header_text, directives=None, theme="auto", page_size="A4",
+               properties=False, byline=False):
     md_path = Path(md_path)
     with open(md_path, "r", encoding="utf-8") as f:
         md_text = f.read()
@@ -470,6 +555,18 @@ def build_html(md_path, header_text, directives=None, theme="auto", page_size="A
         flags=re.DOTALL,
     )
     has_mermaid = 'class="mermaid"' in body
+    if has_mermaid:
+        body = re.sub(
+            r'<p>(\s*<strong>(?:📊\s*)?图[^<]*</strong>\s*</p>\s*)(<div class="mermaid">)',
+            r'<p class="mermaid-title">\1\2',
+            body,
+            flags=re.DOTALL,
+        )
+    metadata_html = _frontmatter_display_html(
+        _parse_frontmatter(md_path), properties=properties, byline=byline
+    )
+    if metadata_html:
+        body = re.sub(r"</h1>", lambda match: match.group(0) + metadata_html, body, count=1)
 
     # Wrap h2 sections for smart page breaking
     body = wrap_sections(body)
@@ -484,10 +581,10 @@ def build_html(md_path, header_text, directives=None, theme="auto", page_size="A
   mermaid.initialize({
     startOnLoad: false,
     theme: 'default',
-    themeVariables: {
+    themeVariables: Object.assign(__THEME_VARIABLES__, {
       fontSize: '12px',
       fontFamily: '-apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif'
-    },
+    }),
     flowchart: {
       htmlLabels: true,
       curve: 'basis',
@@ -540,7 +637,8 @@ def build_html(md_path, header_text, directives=None, theme="auto", page_size="A
     var maxH = 650;  // ~65% of A4 page height, leave room for text
     var pageBreakH = 750;
 
-    blocks.forEach(function(el) {
+    var scaleWarnings = [];
+    blocks.forEach(function(el, index) {
       var svg = el.querySelector('svg');
       if (!svg) return;
 
@@ -559,6 +657,7 @@ def build_html(md_path, header_text, directives=None, theme="auto", page_size="A
       var scale = 1;
       if (w > maxW) scale = Math.min(scale, maxW / w);
       if (h > maxH) scale = Math.min(scale, maxH / h);
+      if (scale < 0.60) scaleWarnings.push({ index: index + 1, scale: scale });
 
       var newW = Math.round(w * scale);
       var newH = Math.round(h * scale);
@@ -578,9 +677,12 @@ def build_html(md_path, header_text, directives=None, theme="auto", page_size="A
         el.classList.add('mermaid-large');
       }
     });
+    if (scaleWarnings.length) console.log('MERMAID_SCALE_WARNINGS:' + JSON.stringify(scaleWarnings));
     st.finished = true;
   });
-</script>""".replace("__MERMAID_SRC__", mermaid_src)
+        </script>""".replace("__MERMAID_SRC__", mermaid_src).replace(
+            "__THEME_VARIABLES__", json.dumps(_mermaid_theme_variables(effective_theme))
+        )
 
     # Convert page_size to CSS @page size value
     palette_css = load_theme(effective_theme).css if is_palette(effective_theme) else ""
@@ -826,6 +928,32 @@ def build_html(md_path, header_text, directives=None, theme="auto", page_size="A
     border-bottom: 1px solid var(--pdf-hr);
     line-height: 1.5;
   }}
+  .doc-byline {{
+    margin: -8px 0 14px;
+    padding: 4px 0 8px;
+    border-bottom: 1px solid var(--pdf-hr);
+    color: var(--pdf-text);
+    font-size: 11px;
+  }}
+  .doc-byline p {{ margin: 2px 0; text-align: left; }}
+  .doc-properties {{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 6px;
+    margin: 10px 0 18px;
+  }}
+  .doc-property {{
+    border: 1px solid var(--pdf-table-border);
+    border-radius: 5px;
+    background: var(--pdf-table-stripe);
+    padding: 6px 9px;
+    font-size: 10px;
+    overflow-wrap: anywhere;
+  }}
+  .doc-property span {{ display: block; color: var(--pdf-meta); margin-bottom: 2px; }}
+  .doc-property strong {{ display: block; }}
+  .mermaid-title {{ break-after: avoid; page-break-after: avoid; }}
+  .mermaid {{ break-inside: avoid; page-break-inside: avoid; }}
 
   /* ===== Changelog (auto-detected) ===== */
   .changelog-header {{ font-size: 11px; color: var(--pdf-blockquote-border); }}
@@ -1244,6 +1372,10 @@ const {{ chromium }} = require('playwright');
         if result.returncode == 3:
             raise MermaidRenderError(_format_mermaid_errors(result.stderr))
         if pdf_path.exists() and pdf_path.stat().st_size >= 1024:
+            scale_match = re.search(r"MERMAID_SCALE_WARNINGS:(\[[^\n]*\])", result.stdout)
+            if scale_match:
+                for item in json.loads(scale_match.group(1)):
+                    print(f"  ⚠️  Mermaid 图 #{item['index']} 缩放至 {item['scale']:.0%}（低于 60%）")
             return _parse_mermaid_stat(result.stdout)
         last_err = result.stderr
         if idx < len(plan) - 1:
@@ -1257,12 +1389,14 @@ const {{ chromium }} = require('playwright');
 
 def md_to_pdf(md_path, pdf_path=None, header_text=None, directives=None,
               theme="blue", page_size="A4", browser="playwright",
-              fallback=None, write_metadata=True, allow_diagram_errors=False):
+              fallback=None, write_metadata=True, allow_diagram_errors=False,
+              properties=False, byline=False):
     md_path = Path(md_path)
     pdf_path = Path(pdf_path) if pdf_path else md_path.with_suffix(".pdf")
     header_text = header_text or md_path.stem
 
-    html = build_html(md_path, header_text, directives, theme=theme, page_size=page_size)
+    html = build_html(md_path, header_text, directives, theme=theme, page_size=page_size,
+                      properties=properties, byline=byline)
 
     # Localize Mermaid JS for file:// rendering
     if 'class="mermaid"' in html:
@@ -1514,6 +1648,52 @@ def add_pdf_metadata(pdf_path, md_path, extra=None):
     except Exception as e:
         print(f"  ⚠️  metadata 写入跳过: {e}", file=sys.stderr)
 
+
+def export_preview_pages(pdf_path, md_path, output_dir):
+    """Render page one and pages containing named Mermaid charts as 72dpi PNGs."""
+    from pypdf import PdfReader
+
+    pdf_path, md_path, output_dir = Path(pdf_path), Path(md_path), Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    source = md_path.read_text(encoding="utf-8")
+    chart_numbers = [
+        match.group(1)
+        for match in re.finditer(r"^\*\*(?:📊\s*)?图\s*(\d+)", source, re.M)
+    ]
+    reader = PdfReader(str(pdf_path))
+    wanted = {1}
+    for page_number, page in enumerate(reader.pages, 1):
+        page_text = re.sub(r"\W", "", unicodedata.normalize("NFKC", page.extract_text() or ""))
+        resources = page.get("/Resources") or {}
+        xobjects = resources.get("/XObject") if hasattr(resources, "get") else None
+        has_vector_graphic = False
+        if xobjects:
+            for ref in xobjects.values():
+                try:
+                    if ref.get_object().get("/Subtype") == "/Form":
+                        has_vector_graphic = True
+                        break
+                except AttributeError:
+                    continue
+        chart_title_found = any(
+            re.search(r"图" + number + r"(?!\d)", page_text) for number in chart_numbers
+        )
+        if has_vector_graphic or chart_title_found:
+            wanted.add(page_number)
+    pdftoppm = shutil.which("pdftoppm")
+    if not pdftoppm:
+        raise RuntimeError("--preview requires pdftoppm (Poppler) on PATH")
+    outputs = []
+    for page_number in sorted(wanted):
+        prefix = output_dir / f"page-{page_number:03d}"
+        subprocess.run(
+            [pdftoppm, "-f", str(page_number), "-l", str(page_number), "-r", "72",
+             "-png", "-singlefile", str(pdf_path), str(prefix)],
+            check=True, capture_output=True, text=True,
+        )
+        outputs.append(str(prefix.with_suffix(".png")))
+    print("Preview PNGs: " + ", ".join(outputs))
+    return outputs
 
 # ===== pandoc 救生艇（第三路 fallback） =====
 
@@ -1812,16 +1992,31 @@ def run_preflight(md_path=None, want_format="pdf", as_json=False):
     return 1 if fatal else 0
 
 
+CLI_USAGE = (
+    "Usage: python md2pdf_chrome.py <md_file> [out_file] [header_text] "
+    "[--format pdf|png|html|wechat] [--browser playwright|chrome|auto] "
+    "[--fallback pandoc] [--setup] [--preflight [--json] [--fix]] "
+    "[--verify] [--allow-diagram-errors] [--no-bootstrap] [--no-metadata] "
+    "[--properties] [--byline] [--preview DIR] "
+    "[--theme NAME] [--page-size A4|430x932] [--sm PATTERN] [--xs PATTERN] "
+    "[--sm-after PATTERN] [--xs-after PATTERN]"
+)
+
+
 def parse_cli_args(argv):
     """解析命令行参数（argv 不含程序名），返回 dict。
 
     复用已有的 --sm/--xs/--sm-after/--xs-after、--theme、--page-size 解析逻辑，
     并新增 --format。无效 format 抛 ValueError（便于单元测试），由 __main__ 捕获退出。
     """
+    help_requested = False
     directives = []
     positional = []
     theme = "auto"
     page_size = "A4"
+    properties = False
+    byline = False
+    preview = None
     fmt = "pdf"
     browser = "playwright"
     preflight = False
@@ -1835,7 +2030,10 @@ def parse_cli_args(argv):
     i = 0
     while i < len(argv):
         arg = argv[i]
-        if arg in ("--sm", "--xs", "--sm-after", "--xs-after") and i + 1 < len(argv):
+        if arg in ("-h", "--help"):
+            help_requested = True
+            i += 1
+        elif arg in ("--sm", "--xs", "--sm-after", "--xs-after") and i + 1 < len(argv):
             css = "text-sm" if "sm" in arg else "text-xs"
             mode = "after" if arg.endswith("-after") else "heading"
             directives.append((argv[i + 1], css, mode))
@@ -1879,6 +2077,15 @@ def parse_cli_args(argv):
         elif arg == "--no-metadata":
             write_metadata = False
             i += 1
+        elif arg == "--properties":
+            properties = True
+            i += 1
+        elif arg == "--byline":
+            byline = True
+            i += 1
+        elif arg == "--preview" and i + 1 < len(argv):
+            preview = argv[i + 1]
+            i += 2
         elif arg == "--json":
             as_json = True
             i += 1
@@ -1913,6 +2120,10 @@ def parse_cli_args(argv):
         "allow_diagram_errors": allow_diagram_errors,
         "setup": setup,
         "no_bootstrap": no_bootstrap,
+        "properties": properties,
+        "byline": byline,
+        "preview": preview,
+        "help": help_requested,
     }
 
 
@@ -2010,23 +2221,23 @@ const {{ chromium }} = require('playwright');
             print(f"  ⚠️  {engine} 渲染失败，降级下一引擎", file=sys.stderr)
 
     raise RuntimeError(f"Playwright {fmt} generation failed: {last_err}")
-
-
 def md_to_output(md_path, out_path=None, fmt="pdf", header_text=None,
                  directives=None, theme="blue", page_size="A4",
                  browser="playwright", fallback=None, write_metadata=True,
-                 allow_diagram_errors=False):
+                 allow_diagram_errors=False, properties=False, byline=False):
     """按格式分发。pdf 走原有 md_to_pdf 路径，其余渲染 png/html/wechat。"""
     md_path = Path(md_path)
     if fmt == "pdf":
         md_to_pdf(md_path, out_path, header_text, directives,
                   theme=theme, page_size=page_size, browser=browser,
                   fallback=fallback, write_metadata=write_metadata,
-                  allow_diagram_errors=allow_diagram_errors)
+                  allow_diagram_errors=allow_diagram_errors,
+                  properties=properties, byline=byline)
         return
 
     header_text = header_text or md_path.stem
-    html = build_html(md_path, header_text, directives, theme=theme, page_size=page_size)
+    html = build_html(md_path, header_text, directives, theme=theme, page_size=page_size,
+                      properties=properties, byline=byline)
 
     # 本地化 Mermaid JS 以支持 file:// 渲染
     if 'class="mermaid"' in html:
@@ -2050,6 +2261,9 @@ if __name__ == "__main__":
         print(e)
         sys.exit(1)
 
+    if args["help"]:
+        print(CLI_USAGE)
+        sys.exit(0)
     positional = args["positional"]
 
     # --setup：一键引导（venv+浏览器+vendor+smoke），幂等；--preflight --fix 同义
@@ -2065,15 +2279,7 @@ if __name__ == "__main__":
         ))
 
     if not positional:
-        print(
-            "Usage: python md2pdf_chrome.py <md_file> [out_file] [header_text] "
-            "[--format pdf|png|html|wechat] [--browser playwright|chrome|auto] "
-            "[--fallback pandoc] [--setup] [--preflight [--json] [--fix]] "
-            "[--verify] [--allow-diagram-errors] [--no-bootstrap] [--no-metadata] "
-            "[--theme NAME (auto-discovered from scripts/themes/*.css)] "
-            "[--page-size A4|430x932] [--sm PATTERN] [--xs PATTERN] "
-            "[--sm-after PATTERN] [--xs-after PATTERN]"
-        )
+        print(CLI_USAGE)
         sys.exit(1)
 
     if markdown is None:
@@ -2099,10 +2305,18 @@ if __name__ == "__main__":
             fallback=args["fallback"],
             write_metadata=args["write_metadata"],
             allow_diagram_errors=args["allow_diagram_errors"],
+            properties=args["properties"],
+            byline=args["byline"],
         )
     except MermaidRenderError as e:
         print(f"❌ {e}", file=sys.stderr)
         sys.exit(3)
+    if args["preview"]:
+        out_resolved = output_path_for(
+            positional[0], args["format"],
+            positional[1] if len(positional) > 1 else None,
+        )
+        export_preview_pages(out_resolved, positional[0], args["preview"])
 
     if args["verify"] and args["format"] == "pdf":
         try:

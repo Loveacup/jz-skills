@@ -46,7 +46,8 @@ Convert Obsidian Flavored Markdown to styled PDF with perfect Chinese/Japanese/K
 python scripts/md2pdf_chrome.py <md_file> [pdf_file] [header_text] \
   [--format pdf|png|html|wechat] [--browser playwright|chrome|auto] \
   [--theme NAME] [--page-size A4|430x932] \
-  [--verify] [--allow-diagram-errors] [--no-metadata] [--fallback pandoc] \
+  [--verify] [--properties] [--byline] [--preview DIR] \
+  [--allow-diagram-errors] [--no-metadata] [--fallback pandoc] \
   [--sm PATTERN] [--xs PATTERN] [--sm-after PATTERN] [--xs-after PATTERN]
 
 # One-time environment bootstrap (idempotent; also: --preflight --fix)
@@ -77,8 +78,11 @@ python scripts/md2pdf_chrome.py report.md output.pdf --theme academic --sm "开�
 | `--no-bootstrap` | Disable the automatic venv self-healing re-exec |
 | `--fallback pandoc` | Force the pandoc lifeboat (pandoc → HTML+CSS → system Chrome print-to-pdf). Style NOT faithful, no Mermaid, A4 only. Also auto-triggered by `--browser auto` when no Chromium can launch |
 | `--no-metadata` | Skip writing source frontmatter into PDF metadata (including diagram-count keys) |
+| `--properties` | Render YAML frontmatter as a title-adjacent property card; list values use `·`, while `author`, `cli`, and `models` remain in the byline |
+| `--byline` | Render frontmatter `author`, `cli`, and `models` beneath H1 as 撰写 / 协作 CLI / 参与模型 rows; missing fields are omitted |
+| `--preview DIR` | Export page 1 and pages containing named Mermaid charts as 72-dpi PNGs; print their paths |
 
-**Themes** auto-discover from `scripts/themes/*.css` (currently 18: academic, blue, dark, dracula, editorial, gruvbox-dark, gruvbox-light, kami, minimalist, newsletter, nord, sepia, social-card, solarized-dark, solarized-light, swiss, warm-academic, wechat-article). Use `--theme auto` to let the content-aware router pick a palette based on keywords, code density, and frontmatter.
+**Themes** auto-discover from `scripts/themes/*.css` (currently 18; names are listed by the renderer). `--theme auto` routes on visible prose: URLs, code spans/blocks, and Markdown table rows do not add keyword signals; code length is CJK-aware and Mermaid markup does not count as executable-code density. Low-code A4 documents route among light palettes.
 
 **Source frontmatter → PDF metadata**: `title` / `author` / `description` / `tags` / `aliases` / `created` / `modified` map to `/Title /Author /Subject /Keywords /CreationDate /ModDate`. `/Author` is written only when frontmatter explicitly declares `author` (privacy guard); `--no-metadata` disables the whole step.
 

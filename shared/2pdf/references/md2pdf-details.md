@@ -132,6 +132,22 @@ Mermaid diagrams in fenced code blocks are automatically rendered:
 - **ViewBox preservation**: Ensures crisp rendering at any scale via SVG viewBox
 - **Chrome timing**: `--virtual-time-budget=20000` gives Chrome enough virtual time for CDN load + render + post-processing
 
+
+## Frontmatter display and preview
+
+The CLI options `--properties`, `--byline`, and `--preview DIR` are defined in the
+parameter reference in `SKILL.md`. The display blocks are derived from the source
+YAML without changing the Markdown file. Byline rows use `author`, `cli`, and
+`models`; the property card omits those fields. `--preview` writes the first page
+and each page containing a named Mermaid chart as 72-dpi PNG files.
+
+## Mermaid theme colors and chart pagination
+
+Each available theme selects Mermaid colors globally, including flowchart lines,
+pie slices, and XY-chart palettes. A diagram-level `%%{init}%%` directive retains
+precedence. An adjacent bold chart-title paragraph receives `break-after: avoid`,
+and its Mermaid container stays together when it fits on a page. Diagrams scaled
+below 60% of their natural size produce a render-stage warning naming the block.
 ## Environment Self-Healing
 
 - **Persistent venv**: `~/.venvs/pdf-skill`, shared by all CLI runtimes (they symlink the same canonical skill). Dependency-less interpreters auto re-exec into it (`JZ2PDF_REEXEC` guards loops; `--no-bootstrap` disables)

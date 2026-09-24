@@ -78,26 +78,47 @@ def _extract_frontmatter(md_text: str) -> tuple[str, dict[str, Any]]:
         return md_text, {}
 
 
+def _visible_content(text: str) -> str:
+    """Remove metadata and formatting regions that should not influence routing."""
+    text = re.sub(r"```[\s\S]*?```|~~~[\s\S]*?~~~", " ", text)
+    text = re.sub(r"`+[^`\n]*`+", " ", text)
+    lines = []
+    for line in text.splitlines():
+        if re.match(r"^\s*\|.*\|\s*$", line):
+            continue
+        lines.append(line)
+    text = "\n".join(lines)
+    text = re.sub(r"https?://\S+", " ", text, flags=re.IGNORECASE)
+    return text
+
+
 def _domain_guess(text: str) -> str | None:
-    text_lower = text.lower()
+    words = set(re.findall(r"[a-z]+(?:[-'][a-z]+)*", text.lower()))
     counts = {
-        "tech": sum(1 for w in TECH_WORDS if w in text_lower),
-        "academic": sum(1 for w in ACADEMIC_WORDS if w in text_lower),
-        "business": sum(1 for w in BUSINESS_WORDS if w in text_lower),
-        "creative": sum(1 for w in CREATIVE_WORDS if w in text_lower),
-        "lifestyle": sum(1 for w in LIFESTYLE_WORDS if w in text_lower),
+        "tech": len(TECH_WORDS & words),
+        "academic": len(ACADEMIC_WORDS & words),
+        "business": len(BUSINESS_WORDS & words),
+        "creative": len(CREATIVE_WORDS & words),
+        "lifestyle": len(LIFESTYLE_WORDS & words),
     }
     best = max(counts, key=counts.get)
     return best if counts[best] > 2 else None
 
 
+def _content_length(text: str) -> int:
+    return len(re.findall(r"[\u3400-\u9fff]", text)) + len(
+        re.findall(r"[a-zA-Z]+(?:[-'][a-zA-Z]+)*", text)
+    )
+
+
 def _code_ratio(text: str) -> float:
-    fence_chars = 0
-    for match in re.findall(r"```[\s\S]*?```", text):
-        fence_chars += len(match)
+    # Mermaid source is declarative chart markup, not executable-code density.
+    text = re.sub(
+        r"```mermaid[\s\S]*?```|~~~mermaid[\s\S]*?~~~", " ", text, flags=re.IGNORECASE
+    )
+    fence_chars = sum(len(match) for match in re.findall(r"```[\s\S]*?```", text))
     inline_chars = len(re.findall(r"`[^`]+`", text)) * 8
-    total = max(len(text), 1)
-    return (fence_chars + inline_chars) / total
+    return (fence_chars + inline_chars) / max(len(text), 1)
 
 
 def _has_mermaid(text: str) -> bool:
@@ -132,8 +153,8 @@ def _hour_bucket(hour: int | None) -> str | None:
 
 
 def _contains_any(text: str, words: set[str]) -> bool:
-    text_lower = text.lower()
-    return any(w in text_lower for w in words)
+    words_found = set(re.findall(r"[a-z]+(?:[-'][a-z]+)*", text.lower()))
+    return bool(words_found & words)
 
 
 def route(md_text: str, page_size: str = "A4", hour: int | None = None) -> str:
@@ -143,19 +164,20 @@ def route(md_text: str, page_size: str = "A4", hour: int | None = None) -> str:
     one of the built-in palettes.
     """
     body, fm = _extract_frontmatter(md_text)
-    text = body.lower()
+    visible = _visible_content(body)
+    text = visible.lower()
 
     # Explicit frontmatter theme hint wins immediately (legacy or palette).
     fm_theme = fm.get("theme")
     if fm_theme and isinstance(fm_theme, str):
         return fm_theme.strip()
 
-    word_count = len(text.split())
+    word_count = _content_length(visible)
     code_ratio = _code_ratio(md_text)
     domain = _domain_guess(text)
     has_mermaid = _has_mermaid(md_text)
     has_math = _has_math(md_text)
-    emojis = _emoji_counts(md_text)
+    emojis = _emoji_counts(visible)
     bucket = _hour_bucket(hour)
     is_mobile = page_size != "A4"
 
@@ -249,6 +271,11 @@ def route(md_text: str, page_size: str = "A4", hour: int | None = None) -> str:
             scores["solarized-dark"] += 5
             scores["dracula"] += 5
 
+    # Light palettes stay eligible for low-code A4 documents.
+    if page_size == "A4" and code_ratio <= 0.15:
+        for dark_theme in ("gruvbox-dark", "solarized-dark", "dracula"):
+            scores.pop(dark_theme, None)
+
     # Fallback tie-breaker order (blue first, then calm, then dark).
     tie_order = [
         "blue", "nord", "sepia", "solarized-light",
@@ -276,3 +303,5 @@ def is_legacy_theme(name: str) -> bool:
     # Avoid importing to keep dependency-free; check filesystem directly.
     themes_dir = Path(__file__).parent
     return (themes_dir / f"{name}.css").exists()
+
+
