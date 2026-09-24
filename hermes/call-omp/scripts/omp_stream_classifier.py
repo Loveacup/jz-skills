@@ -56,6 +56,8 @@ DENY_TYPES = frozenset(
         "agent_end",
         "thinking_level_changed",
         "advisor_yielded",
+        # 工具执行中间进度，与 tool_execution_start/end 同类，不承载判决。
+        "tool_execution_update",
     }
 )
 
