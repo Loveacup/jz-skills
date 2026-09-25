@@ -18,11 +18,19 @@ import time
 import uuid
 
 from annotate import annotate
-from inventory import DEFAULT_STATE_DIR, load_json, validate_inventory
+from inventory import DEFAULT_STATE_DIR, load_json, replace_json, validate_inventory
 
 
-EXPECTED_VERSION = "1.2.0"
-EXPECTED_BUILD = "20260914015615"
+VERIFIED_BUILDS_PATH = Path(__file__).resolve().with_name("verified-builds.json")
+UNVERIFIED_SENDS_NAME = "unverified-build-sends.json"
+OUTGOING_DIRECTION = 2
+# Schema/protocol-level errors mean the installed build speaks a different contract
+# (adapt the adapter); socket, timeout and early-EOF errors stay transport failures.
+PROBE_FAILURE_CODES = frozenset((
+    "invalid_protobuf", "invalid_contact_state", "invalid_transfer_state",
+    "invalid_state_envelope", "invalid_rpc_frame", "rpc_response_too_many_frames",
+    "rpc_server_error", "protocol_violation", "compatibility_probe_failed",
+))
 APP_PLIST = Path("/Applications/Blip.app/Contents/Info.plist")
 SOCKET_SUFFIX = Path("Library/Group Containers/AY8UB8KTUX.blip/Library/Caches/sock")
 GET_STATE_METHOD = "/rpc.Service/GetState"
@@ -93,17 +101,66 @@ def _installed_build():
     return version, build
 
 
-def _require_pinned_build():
+def _verified_builds():
+    try:
+        with VERIFIED_BUILDS_PATH.open("r", encoding="utf-8") as stream:
+            entries = json.load(stream)
+    except (OSError, ValueError) as error:
+        raise BlipError("the verified Blip build list is missing or invalid",
+                        code="verified_builds_unavailable", exit_status=3) from error
+    if not isinstance(entries, list) or not entries:
+        raise BlipError("the verified Blip build list is missing or invalid",
+                        code="verified_builds_unavailable", exit_status=3)
+    builds = set()
+    for entry in entries:
+        if (not isinstance(entry, dict)
+                or not isinstance(entry.get("version"), str) or not entry["version"]
+                or not isinstance(entry.get("build"), str) or not entry["build"]):
+            raise BlipError("the verified Blip build list is missing or invalid",
+                            code="verified_builds_unavailable", exit_status=3)
+        builds.add((entry["version"], entry["build"]))
+    return entries, builds
+
+
+def _build_identity():
     version, build = _installed_build()
-    if version != EXPECTED_VERSION or build != EXPECTED_BUILD:
+    _, builds = _verified_builds()
+    return {"installed_version": version, "installed_build": build,
+            "build_verified": (version, build) in builds}
+
+
+def _compatibility_probe(snapshot):
+    own = [entry for entry in snapshot["devices"] if entry.get("is_contact") is not True]
+    if (not own
+            or sum(1 for entry in own if entry.get("is_self")) != 1
+            or len({entry.get("user_id") for entry in own}) != 1
+            or not all(entry.get("user_id") and entry.get("device_id")
+                       and entry.get("display_name") for entry in own)):
         raise BlipError(
-            "installed Blip build is not supported by this verified protocol",
-            code="unsupported_blip_build",
-            exit_status=3,
-            details={"installed_version": version, "installed_build": build,
-                     "expected_version": EXPECTED_VERSION, "expected_build": EXPECTED_BUILD},
-        )
-    return version, build
+            "the installed Blip build failed the read-only compatibility probe",
+            code="compatibility_probe_failed", exit_status=3)
+    return snapshot
+
+
+def _probe_unverified_build(build):
+    try:
+        return _compatibility_probe(_state_snapshot())
+    except BlipError as error:
+        if error.code not in PROBE_FAILURE_CODES:
+            raise
+        raise BlipError(
+            "the installed unverified Blip build is incompatible with this adapter; adapt it before use",
+            code="compatibility_probe_failed", exit_status=3,
+            details={**build, "probe_error": error.code},
+        ) from error
+
+
+def _require_usable_build():
+    """Verified builds pass directly; any other build must pass the read-only probe."""
+    build = _build_identity()
+    if not build["build_verified"]:
+        _probe_unverified_build(build)
+    return build
 
 
 def _validated_socket_stat():
@@ -1093,7 +1150,7 @@ def _verify_created(transfer, peer):
     if transfer["status_code"] != 1:
         raise BlipError("transfer is not in the required Created state",
                         code="unexpected_transfer_state", exit_status=4)
-    if transfer["direction"] != 2:
+    if transfer["direction"] != OUTGOING_DIRECTION:
         raise BlipError("transfer is not outgoing",
                         code="unexpected_transfer_direction", exit_status=4)
     if transfer["peer"] != peer:
@@ -1229,14 +1286,38 @@ def _screen_locked():
         core_foundation.CFRelease(dictionary)
 
 
+def _doctor_rpc_check(build, result, failures, warnings):
+    if build["build_verified"]:
+        _with_state(lambda _state: True)
+        result["rpc_reachable"] = True
+        result["compatibility_probe"] = "not_needed"
+        return
+    warnings.append("unverified_blip_build")
+    try:
+        snapshot = _state_snapshot()
+        result["rpc_reachable"] = True
+        _compatibility_probe(snapshot)
+    except BlipError as error:
+        if error.code not in PROBE_FAILURE_CODES:
+            raise
+        result["rpc_reachable"] = True
+        result["compatibility_probe"] = "failed"
+        result["probe_error"] = error.code
+        result["next_step"] = "adapt the RPC adapter per references/upgrade-validation.md"
+        failures.append("compatibility_probe_failed")
+        return
+    result["compatibility_probe"] = "passed"
+    result["next_step"] = ("send once with current user authorization, watch that UUID "
+                           "to Completed, then run record-verified --transfer-id UUID")
+
+
 def run_doctor(_args):
     result = {
         "command": "doctor",
-        "expected_version": EXPECTED_VERSION,
-        "expected_build": EXPECTED_BUILD,
         "installed_version": None,
         "installed_build": None,
-        "build_supported": False,
+        "build_verified": False,
+        "compatibility_probe": "not_run",
         "socket_valid": False,
         "rpc_reachable": False,
         "screen_locked": None,
@@ -1244,13 +1325,11 @@ def run_doctor(_args):
         "gui_or_accessibility_required": False,
     }
     failures = []
+    warnings = []
+    build = None
     try:
-        version, build = _installed_build()
-        result["installed_version"] = version
-        result["installed_build"] = build
-        result["build_supported"] = version == EXPECTED_VERSION and build == EXPECTED_BUILD
-        if not result["build_supported"]:
-            failures.append("unsupported_blip_build")
+        build = _build_identity()
+        result.update(build)
     except BlipError as error:
         failures.append(error.code)
     try:
@@ -1258,10 +1337,9 @@ def run_doctor(_args):
         result["socket_valid"] = True
     except BlipError as error:
         failures.append(error.code)
-    if result["build_supported"] and result["socket_valid"]:
+    if build is not None and result["socket_valid"]:
         try:
-            _with_state(lambda _state: True)
-            result["rpc_reachable"] = True
+            _doctor_rpc_check(build, result, failures, warnings)
         except BlipError as error:
             failures.append(error.code)
     try:
@@ -1270,20 +1348,24 @@ def run_doctor(_args):
     except (OSError, AttributeError):
         failures.append("screen_lock_unavailable")
     result["ok"] = not failures
+    if warnings:
+        result["warnings"] = warnings
     if failures:
         result["failures"] = list(dict.fromkeys(failures))
     return result, 0 if result["ok"] else 3
 
 
 def run_devices(_args):
-    _require_pinned_build()
-    snapshot = _state_snapshot()
+    build = _build_identity()
+    snapshot = (_state_snapshot() if build["build_verified"]
+                else _probe_unverified_build(build))
     result = _annotated_devices(snapshot["devices"])
+    result.update(build)
     return result, 2 if result["ownership_questions"] else 0
 
 
 def run_status(args):
-    _require_pinned_build()
+    _require_usable_build()
     transfer_id = _parse_transfer_id(args.transfer_id)
     transfer = _require_transfer(
         _state_snapshot(transfer_id, include_devices=False), transfer_id)
@@ -1295,7 +1377,7 @@ def run_watch(args):
     transfer_id = _parse_transfer_id(args.transfer_id)
     timeout = _positive_seconds(args.timeout)
     interval = _positive_seconds(args.interval)
-    _require_pinned_build()
+    _require_usable_build()
     started = time.monotonic()
     deadline = started + timeout
     last_status = None
@@ -1355,7 +1437,7 @@ def _post_invite_peer_matches(expected, observed, mode):
     return observed == expected
 
 
-def _run_send_locked(args, transfer_id, sources):
+def _run_send_locked(args, transfer_id, sources, before_create=None):
     last_mutation = None
     try:
         mode = _recipient_mode(args)
@@ -1365,6 +1447,8 @@ def _run_send_locked(args, transfer_id, sources):
             raise BlipError("transfer id already exists; existing transfers are never resumed or retried",
                             code="transfer_id_exists", exit_status=2)
         peer = _select_send_recipient(initial["devices"], args, mode)
+        if before_create is not None:
+            before_create()
 
         last_mutation = "create_requested"
         _dispatch_event(
@@ -1463,8 +1547,53 @@ def _recipient_mode(args):
     return "child"
 
 
+def _unverified_sends_path():
+    return DEFAULT_STATE_DIR / UNVERIFIED_SENDS_NAME
+
+
+def _load_unverified_sends():
+    path = _unverified_sends_path()
+    if not os.path.lexists(path):
+        return {"schema_version": 1, "entries": []}
+    try:
+        value = load_json(path)
+    except ValueError as error:
+        raise BlipError("the private unverified-build send ledger is invalid",
+                        code="invalid_private_state", exit_status=2) from error
+    entries = value.get("entries") if isinstance(value, dict) else None
+    if (not isinstance(entries, list) or value.get("schema_version") != 1
+            or not all(isinstance(entry, dict)
+                       and all(isinstance(entry.get(key), str) and entry[key]
+                               for key in ("version", "build", "transfer_id"))
+                       for entry in entries)):
+        raise BlipError("the private unverified-build send ledger is invalid",
+                        code="invalid_private_state", exit_status=2)
+    return value
+
+
+def _write_private_json(path, value):
+    try:
+        replace_json(path, value)
+    except (OSError, ValueError) as error:
+        raise BlipError("cannot write private Blip adapter state",
+                        code="private_state_write_failed", exit_status=3) from error
+
+
+def _ledger_entry(build, transfer_id):
+    return {"version": build["installed_version"], "build": build["installed_build"],
+            "transfer_id": transfer_id}
+
+
+def _record_unverified_send(build, transfer_id):
+    ledger = _load_unverified_sends()
+    entry = _ledger_entry(build, transfer_id)
+    if entry not in ledger["entries"]:
+        ledger["entries"].append(entry)
+        _write_private_json(_unverified_sends_path(), ledger)
+
+
 def run_send(args):
-    _require_pinned_build()
+    build = _require_usable_build()
     transfer_id = _parse_transfer_id(args.transfer_id)
     if not args.recipient or args.recipient != args.confirm_recipient:
         raise BlipError("recipient and confirmation must be the same nonempty exact display name",
@@ -1480,13 +1609,75 @@ def run_send(args):
         else:
             _confirmed_inventory_recipient(args.recipient)
         sources = _validate_sources(args.files)
-        return _run_send_locked(args, transfer_id, sources)
+        # An unverified build's first real send is its acceptance evidence; bind the
+        # UUID to this build before any mutation so record-verified cannot reuse
+        # an unrelated or pre-upgrade transfer.
+        before_create = (None if build["build_verified"]
+                         else lambda: _record_unverified_send(build, transfer_id))
+        try:
+            result, exit_status = _run_send_locked(
+                args, transfer_id, sources, before_create=before_create)
+        except BlipError as error:
+            error.details.update(build)
+            raise
+        result.update(build)
+        return result, exit_status
+
+
+def run_record_verified(args):
+    transfer_id = _parse_transfer_id(args.transfer_id)
+    build = _build_identity()
+    result = {"command": "record-verified", **build, "recorded": False,
+              "sending_authorized": False}
+    if build["build_verified"]:
+        result["already_verified"] = True
+        return result, 0
+    with _exclusive_send_lock():
+        ledger = _load_unverified_sends()
+        if _ledger_entry(build, transfer_id) not in ledger["entries"]:
+            raise BlipError(
+                "only a transfer sent by this adapter on the installed build can verify it",
+                code="verification_evidence_mismatch", exit_status=2)
+        transfer = _require_transfer(
+            _state_snapshot(transfer_id, include_devices=False), transfer_id)
+        status = _status_result(transfer_id, transfer)
+        outgoing = transfer["direction"] == OUTGOING_DIRECTION
+        if not outgoing or not status["completed"] or status["error_scope"] != "none":
+            raise BlipError(
+                "only an outgoing Completed transfer without reported errors verifies a build",
+                code="verification_not_completed",
+                exit_status=_status_exit(status) if outgoing else 4,
+                details={"status_name": status["status_name"],
+                         "error_scope": status["error_scope"], "outgoing": outgoing},
+            )
+        entries, _ = _verified_builds()
+        entries.append({
+            "version": build["installed_version"],
+            "build": build["installed_build"],
+            "verified_on": time.strftime("%Y-%m-%d"),
+            "evidence": "outgoing exact-UUID Completed (8) RPC send by this adapter",
+        })
+        _write_private_json(VERIFIED_BUILDS_PATH, entries)
+        try:
+            VERIFIED_BUILDS_PATH.chmod(0o644)
+        except OSError as error:
+            raise BlipError("cannot set verified build list permissions",
+                            code="private_state_write_failed", exit_status=3) from error
+        ledger["entries"] = [
+            entry for entry in ledger["entries"]
+            if (entry["version"], entry["build"])
+            != (build["installed_version"], build["installed_build"])
+        ]
+        _write_private_json(_unverified_sends_path(), ledger)
+    result.update({"recorded": True, "build_verified": True})
+    return result, 0
 
 
 def build_parser():
     parser = JsonArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("doctor", help="check pinned app, local socket, RPC, and lock state")
+    commands.add_parser(
+        "doctor", help="check app build, local socket, RPC, compatibility probe, and lock state")
     commands.add_parser("devices", help="query and annotate freshly discovered devices")
     status_parser = commands.add_parser("status", help="query exactly one transfer")
     status_parser.add_argument("--transfer-id", required=True)
@@ -1504,6 +1695,10 @@ def build_parser():
     send_parser.add_argument("--confirm-recipient-device")
     send_parser.add_argument("--transfer-id", required=True)
     send_parser.add_argument("files", nargs="+")
+    record_parser = commands.add_parser(
+        "record-verified",
+        help="mark the installed build verified after this adapter's Completed send on it")
+    record_parser.add_argument("--transfer-id", required=True)
     return parser
 
 
@@ -1516,6 +1711,7 @@ def main():
             "status": run_status,
             "watch": run_watch,
             "send": run_send,
+            "record-verified": run_record_verified,
         }
         result, exit_status = handlers[args.command](args)
     except BlipError as error:

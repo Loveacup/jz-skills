@@ -20,6 +20,7 @@ sys.path.insert(0, os.fspath(SCRIPTS))
 SPEC = importlib.util.spec_from_file_location("blip_rpc", SCRIPTS / "blip-rpc.py")
 blip_rpc = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(blip_rpc)
+REAL_STATE_SNAPSHOT = blip_rpc._state_snapshot
 
 TRANSFER_ID = "00000000-0000-4000-8000-000000000001"
 PEER = {"user_id": "user-1", "device_id": "device-1"}
@@ -100,26 +101,209 @@ def _source(name="report.txt", size=7):
     }
 
 
-class UpgradeSafetyTests(unittest.TestCase):
-    def test_build_guard_accepts_only_exact_candidate_version_and_build(self):
-        with mock.patch.object(
-                blip_rpc, "_installed_build",
-                return_value=(blip_rpc.EXPECTED_VERSION, blip_rpc.EXPECTED_BUILD)):
-            self.assertEqual(
-                blip_rpc._require_pinned_build(),
-                (blip_rpc.EXPECTED_VERSION, blip_rpc.EXPECTED_BUILD),
-            )
-        for installed in (
-                ("1.1.16", blip_rpc.EXPECTED_BUILD),
-                (blip_rpc.EXPECTED_VERSION, "20260425132215")):
-            with self.subTest(installed=installed):
-                with mock.patch.object(
-                        blip_rpc, "_installed_build", return_value=installed):
-                    with self.assertRaises(blip_rpc.BlipError) as raised:
-                        blip_rpc._require_pinned_build()
-                self.assertEqual(
-                    raised.exception.code, "unsupported_blip_build")
+VERIFIED_BUILD = {"installed_version": "1.2.0", "installed_build": "B1",
+                  "build_verified": True}
+UNVERIFIED_BUILD = {"installed_version": "1.2.2", "installed_build": "B2",
+                    "build_verified": False}
 
+
+class BuildVerificationTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)
+        self.verified_path = root / "verified-builds.json"
+        self.verified_path.write_text(
+            '[{"version": "1.2.0", "build": "B1"}]', encoding="utf-8")
+        self.state_dir = root / "state"
+        self.state_dir.mkdir(mode=0o700)
+        self.stack = ExitStack()
+        self.addCleanup(self.stack.close)
+        self.stack.enter_context(mock.patch.object(
+            blip_rpc, "VERIFIED_BUILDS_PATH", self.verified_path))
+        self.stack.enter_context(mock.patch.object(
+            blip_rpc, "DEFAULT_STATE_DIR", self.state_dir))
+        self.installed = self.stack.enter_context(mock.patch.object(
+            blip_rpc, "_installed_build", return_value=("1.2.2", "B2")))
+        self.state = self.stack.enter_context(
+            mock.patch.object(blip_rpc, "_state_snapshot"))
+
+    def own_rows(self):
+        return [
+            _device("This Mac", is_self=True),
+            _device("Owned Phone", peer={"user_id": "user-1", "device_id": "device-2"}),
+        ]
+
+    def ledger(self):
+        path = self.state_dir / blip_rpc.UNVERIFIED_SENDS_NAME
+        return blip_rpc.load_json(path)["entries"] if path.exists() else []
+
+    def test_verified_build_is_accepted_without_a_probe(self):
+        self.installed.return_value = ("1.2.0", "B1")
+        self.assertEqual(blip_rpc._require_usable_build(), VERIFIED_BUILD)
+        self.state.assert_not_called()
+
+    def test_unverified_build_requires_a_consistent_own_device_snapshot(self):
+        self.state.return_value = {"devices": self.own_rows() + [_contact()],
+                                   "transfer": None}
+        self.assertEqual(blip_rpc._require_usable_build(), UNVERIFIED_BUILD)
+
+        no_self = [_device("Owned Phone")]
+        two_users = self.own_rows() + [
+            _device("Foreign", peer={"user_id": "user-2", "device_id": "device-3"})]
+        missing_id = [_device("This Mac", is_self=True),
+                      _device("Owned Phone", peer={"user_id": "user-1", "device_id": ""})]
+        for devices in ([], no_self, two_users, missing_id, [_contact()]):
+            with self.subTest(devices=[row["display_name"] for row in devices]):
+                self.state.return_value = {"devices": devices, "transfer": None}
+                with self.assertRaises(blip_rpc.BlipError) as raised:
+                    blip_rpc._require_usable_build()
+                self.assertEqual(raised.exception.code, "compatibility_probe_failed")
+                self.assertFalse(raised.exception.details["build_verified"])
+
+    def test_schema_errors_become_probe_failures_but_transport_errors_do_not(self):
+        self.state.side_effect = blip_rpc.BlipError(
+            "bad", code="invalid_protobuf", exit_status=3)
+        with self.assertRaises(blip_rpc.BlipError) as raised:
+            blip_rpc._require_usable_build()
+        self.assertEqual(raised.exception.code, "compatibility_probe_failed")
+        self.assertEqual(raised.exception.details["probe_error"], "invalid_protobuf")
+
+        for transport_code in ("rpc_unavailable", "rpc_timeout", "incomplete_rpc_response"):
+            with self.subTest(code=transport_code):
+                self.state.side_effect = blip_rpc.BlipError(
+                    "down", code=transport_code, exit_status=3)
+                with self.assertRaises(blip_rpc.BlipError) as raised:
+                    blip_rpc._require_usable_build()
+                self.assertEqual(raised.exception.code, transport_code)
+
+    def test_changed_getstate_envelope_is_reported_as_probe_failure(self):
+        # No state field in the real GetState envelope, as a renumbered field would look.
+        self.state.side_effect = REAL_STATE_SNAPSHOT
+        self.stack.enter_context(mock.patch.object(
+            blip_rpc, "_rpc", side_effect=lambda *_args: bytearray(_integer(1, 7))))
+        with self.assertRaises(blip_rpc.BlipError) as raised:
+            blip_rpc._require_usable_build()
+        self.assertEqual(raised.exception.code, "compatibility_probe_failed")
+        self.assertEqual(raised.exception.details["probe_error"], "invalid_state_envelope")
+
+        self.stack.enter_context(mock.patch.object(blip_rpc, "_validated_socket_stat"))
+        self.stack.enter_context(mock.patch.object(
+            blip_rpc, "_screen_locked", return_value=True))
+        result, exit_status = blip_rpc.run_doctor(None)
+        self.assertEqual(exit_status, 3)
+        self.assertTrue(result["rpc_reachable"])
+        self.assertEqual(result["compatibility_probe"], "failed")
+        self.assertEqual(result["probe_error"], "invalid_state_envelope")
+
+    def test_invalid_verified_build_list_fails_closed(self):
+        for content in ("", "[]", "{}", '[{"version": "1.2.0"}]',
+                        '[{"version": "", "build": "B1"}]'):
+            with self.subTest(content=content):
+                self.verified_path.write_text(content, encoding="utf-8")
+                with self.assertRaises(blip_rpc.BlipError) as raised:
+                    blip_rpc._require_usable_build()
+                self.assertEqual(raised.exception.code, "verified_builds_unavailable")
+        self.state.assert_not_called()
+
+    def test_doctor_passes_unverified_build_only_after_probe(self):
+        self.stack.enter_context(mock.patch.object(blip_rpc, "_validated_socket_stat"))
+        self.stack.enter_context(mock.patch.object(
+            blip_rpc, "_screen_locked", return_value=True))
+        self.state.return_value = {"devices": self.own_rows(), "transfer": None}
+        result, exit_status = blip_rpc.run_doctor(None)
+        self.assertEqual(exit_status, 0)
+        self.assertEqual(result["compatibility_probe"], "passed")
+        self.assertEqual(result["warnings"], ["unverified_blip_build"])
+
+        self.state.return_value = {"devices": [], "transfer": None}
+        result, exit_status = blip_rpc.run_doctor(None)
+        self.assertEqual(exit_status, 3)
+        self.assertTrue(result["rpc_reachable"])
+        self.assertEqual(result["compatibility_probe"], "failed")
+        self.assertEqual(result["failures"], ["compatibility_probe_failed"])
+
+    def test_record_verified_rejects_transfers_not_sent_on_the_installed_build(self):
+        args = SimpleNamespace(transfer_id=TRANSFER_ID)
+        blip_rpc._record_unverified_send(
+            {"installed_version": "1.2.1", "installed_build": "B0"}, TRANSFER_ID)
+        with self.assertRaises(blip_rpc.BlipError) as raised:
+            blip_rpc.run_record_verified(args)
+        self.assertEqual(raised.exception.code, "verification_evidence_mismatch")
+        self.state.assert_not_called()
+
+    def test_record_verified_requires_outgoing_completed_without_errors(self):
+        args = SimpleNamespace(transfer_id=TRANSFER_ID)
+        blip_rpc._record_unverified_send(UNVERIFIED_BUILD, TRANSFER_ID)
+        before = self.verified_path.read_text(encoding="utf-8")
+        cases = (
+            (_transfer(status_code=5), blip_rpc.PENDING_EXIT),
+            (_transfer(status_code=9), 4),
+            (_transfer(status_code=8, has_remote_error=True), 4),
+            (_transfer(status_code=8, direction=1), 4),
+        )
+        for transfer, exit_status in cases:
+            with self.subTest(transfer=transfer):
+                self.state.return_value = {"devices": [], "transfer": transfer}
+                with self.assertRaises(blip_rpc.BlipError) as raised:
+                    blip_rpc.run_record_verified(args)
+                self.assertEqual(raised.exception.code, "verification_not_completed")
+                self.assertEqual(raised.exception.exit_status, exit_status)
+        self.assertEqual(self.verified_path.read_text(encoding="utf-8"), before)
+        self.assertEqual(len(self.ledger()), 1)
+
+    def test_record_verified_promotes_build_and_clears_its_ledger(self):
+        args = SimpleNamespace(transfer_id=TRANSFER_ID)
+        blip_rpc._record_unverified_send(UNVERIFIED_BUILD, TRANSFER_ID)
+        self.state.return_value = {"devices": [], "transfer": _transfer(status_code=8)}
+        result, exit_status = blip_rpc.run_record_verified(args)
+        self.assertEqual(exit_status, 0)
+        self.assertTrue(result["recorded"])
+        self.assertEqual(self.ledger(), [])
+        self.assertTrue(blip_rpc._build_identity()["build_verified"])
+        self.installed.return_value = ("1.2.0", "B1")
+        self.assertTrue(blip_rpc._build_identity()["build_verified"])
+
+        repeat, exit_status = blip_rpc.run_record_verified(args)
+        self.assertEqual(exit_status, 0)
+        self.assertTrue(repeat["already_verified"])
+        self.assertFalse(repeat["recorded"])
+
+    def test_unverified_send_binds_uuid_before_create_but_not_on_rejection(self):
+        args = SimpleNamespace(
+            transfer_id=TRANSFER_ID, recipient="Owned Phone",
+            confirm_recipient="Owned Phone", files=["/synthetic-source"])
+        self.stack.enter_context(mock.patch.object(
+            blip_rpc, "_require_usable_build", return_value=dict(UNVERIFIED_BUILD)))
+        self.stack.enter_context(mock.patch.object(
+            blip_rpc, "_confirmed_inventory_recipient"))
+        self.stack.enter_context(mock.patch.object(
+            blip_rpc, "_validate_sources", return_value=[_source()]))
+
+        self.state.return_value = {"devices": [_device()], "transfer": _transfer()}
+        with self.assertRaises(blip_rpc.BlipError) as raised:
+            blip_rpc.run_send(args)
+        self.assertEqual(raised.exception.code, "transfer_id_exists")
+        self.assertFalse(raised.exception.details["build_verified"])
+        self.assertEqual(self.ledger(), [])
+
+        ledger_at_create = []
+
+        def dispatch(event_name, _payload):
+            ledger_at_create.extend(self.ledger())
+            raise blip_rpc.BlipError("stop", code="dispatch_failed", exit_status=3)
+
+        self.state.return_value = {"devices": [_device()], "transfer": None}
+        self.stack.enter_context(mock.patch.object(
+            blip_rpc, "_dispatch_event", side_effect=dispatch))
+        with self.assertRaises(blip_rpc.BlipError) as raised:
+            blip_rpc.run_send(args)
+        self.assertEqual(raised.exception.details["last_mutation"], "create_requested")
+        self.assertEqual(ledger_at_create, [blip_rpc._ledger_entry(
+            UNVERIFIED_BUILD, TRANSFER_ID)])
+
+
+class UpgradeSafetyTests(unittest.TestCase):
     def test_socket_path_rejects_non_socket_and_wrong_owner(self):
         cases = (
             (SimpleNamespace(st_mode=stat.S_IFREG | 0o600, st_uid=os.getuid()),
@@ -527,7 +711,8 @@ class RecipientAndSourceTests(unittest.TestCase):
             confirm_recipient="owned phone",
             files=[],
         )
-        with mock.patch.object(blip_rpc, "_require_pinned_build"):
+        with mock.patch.object(blip_rpc, "_require_usable_build",
+                return_value=dict(VERIFIED_BUILD)):
             with mock.patch.object(blip_rpc, "_exclusive_send_lock") as lock:
                 with self.assertRaises(blip_rpc.BlipError) as raised:
                     blip_rpc.run_send(args)
@@ -771,7 +956,8 @@ class RecipientAndSourceTests(unittest.TestCase):
         expected = ({"command": "send"}, blip_rpc.PENDING_EXIT)
         with ExitStack() as stack:
             stack.enter_context(
-                mock.patch.object(blip_rpc, "_require_pinned_build"))
+                mock.patch.object(blip_rpc, "_require_usable_build",
+                return_value=dict(VERIFIED_BUILD)))
             stack.enter_context(mock.patch.object(
                 blip_rpc, "_load_inventory",
                 return_value={"devices": [stored_device]}))
@@ -786,7 +972,8 @@ class RecipientAndSourceTests(unittest.TestCase):
 
         self.assertEqual(result, expected)
         validate.assert_called_once_with(args.files)
-        send.assert_called_once_with(args, TRANSFER_ID, sources)
+        send.assert_called_once_with(
+            args, TRANSFER_ID, sources, before_create=None)
 
     def test_contact_device_flags_must_be_present_and_confirmed_as_a_pair(self):
         args = SimpleNamespace(
@@ -797,7 +984,8 @@ class RecipientAndSourceTests(unittest.TestCase):
             confirm_recipient_device=None,
             files=[],
         )
-        with mock.patch.object(blip_rpc, "_require_pinned_build"):
+        with mock.patch.object(blip_rpc, "_require_usable_build",
+                return_value=dict(VERIFIED_BUILD)):
             with mock.patch.object(blip_rpc, "_exclusive_send_lock") as lock:
                 with self.assertRaises(blip_rpc.BlipError) as raised:
                     blip_rpc.run_send(args)
@@ -821,7 +1009,8 @@ class RecipientAndSourceTests(unittest.TestCase):
                 **values,
             )
             with self.subTest(field=field):
-                with mock.patch.object(blip_rpc, "_require_pinned_build"):
+                with mock.patch.object(blip_rpc, "_require_usable_build",
+                return_value=dict(VERIFIED_BUILD)):
                     with mock.patch.object(
                             blip_rpc, "_exclusive_send_lock") as lock:
                         with self.assertRaises(blip_rpc.BlipError) as raised:
@@ -1121,7 +1310,8 @@ class ReadOnlyWatchTests(unittest.TestCase):
             transfer_id=TRANSFER_ID, timeout=5.0, interval=2.0)
         self.stack = ExitStack()
         self.addCleanup(self.stack.close)
-        self.stack.enter_context(mock.patch.object(blip_rpc, "_require_pinned_build"))
+        self.stack.enter_context(mock.patch.object(blip_rpc, "_require_usable_build",
+                return_value=dict(VERIFIED_BUILD)))
         self.stack.enter_context(mock.patch.object(
             blip_rpc.time, "monotonic", side_effect=lambda: self.clock))
         self.stack.enter_context(mock.patch.object(

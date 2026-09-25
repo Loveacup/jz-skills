@@ -1,0 +1,14 @@
+[
+  {
+    "version": "1.2.0",
+    "build": "20260914015615",
+    "verified_on": "2026-09-22",
+    "evidence": "U1-U18 upgrade gates; locked account-scope exact-UUID Completed (8); independent audit PASS"
+  },
+  {
+    "version": "1.2.2",
+    "build": "20260923163338",
+    "verified_on": "2026-09-25",
+    "evidence": "outgoing exact-UUID Completed (8) RPC send by this adapter"
+  }
+]

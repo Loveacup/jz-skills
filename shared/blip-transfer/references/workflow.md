@@ -1,6 +1,6 @@
 # macOS Blip GUI operating procedure
 
-This reference applies to the unlocked GUI helper `blip.swift`. For new sends while already locked, use the version-pinned local RPC CLI described in `headless-rpc.md`; it verifies live peer identity and prepared archive state rather than GUI rows. Do not remove the GUI helper's lock guard or treat it as a limitation of the RPC route.
+This reference applies to the unlocked GUI helper `blip.swift`. For new sends while already locked, use the version-checked local RPC CLI described in `headless-rpc.md`; it verifies live peer identity and prepared archive state rather than GUI rows. Do not remove the GUI helper's lock guard or treat it as a limitation of the RPC route.
 
 Although this is the GUI send procedure, every transfer session starts with the RPC `devices` query and inventory synchronization. Its contact-capable discovered collection works locked or unlocked. An unlocked GUI send then performs the GUI `devices` query and synchronizes that current visible surface before selecting a row. A locked session must not invoke this GUI workflow; use the explicit RPC mode instead.
 
@@ -31,7 +31,7 @@ python3 "$SKILL/scripts/blip-rpc.py" devices
 python3 "$SKILL/scripts/inventory.py" sync < successful-current-rpc-devices.json
 ```
 
-The RPC producer emits `discovery_scope: "discovered_devices_and_contacts"` for the pinned build's full current discovered-user collection: own top-level physical device rows and non-self top-level external receiver rows identified by technical `is_contact: true`. That relation is used for account discovery and is not a human `entry_type`. External rows contain informational nested `recipient_devices`; named or nameless children are not separate inventory records. The scope is current contact-capable coverage without an unlocked GUI, not send authorization or an exhaustive address book. Valid pending sync output exits `2`; inspect `ownership_questions`, `classification_conflicts`, `unclassified_entries`, `unverified_contacts`, and `initialization_status` rather than calling it transport failure.
+The RPC producer emits `discovery_scope: "discovered_devices_and_contacts"` for the installed (verified or probe-passing) build's full current discovered-user collection: own top-level physical device rows and non-self top-level external receiver rows identified by technical `is_contact: true`. That relation is used for account discovery and is not a human `entry_type`. External rows contain informational nested `recipient_devices`; named or nameless children are not separate inventory records. The scope is current contact-capable coverage without an unlocked GUI, not send authorization or an exhaustive address book. Valid pending sync output exits `2`; inspect `ownership_questions`, `classification_conflicts`, `unclassified_entries`, `unverified_contacts`, and `initialization_status` rather than calling it transport failure.
 
 Only while unlocked, inspect the actual GUI surface used by this GUI procedure:
 
