@@ -1241,6 +1241,43 @@ chk "B4i raw digest matches file" "$(sha "$RAW")" "$(jq -r .raw_sha256 "$ST")"
 B4I_PID=$(jq -r .child_identity.pid "$ST")
 if kill -0 "$B4I_PID" 2>/dev/null; then chk "B4i child reaped" gone alive; else chk "B4i child reaped" gone gone; fi
 
+# ── S1B-4d: verdict_v1 hard deadline stops a silent, still-running child ──
+echo "── S1B-4d: verdict_v1 --max-seconds deadline stops the owned child group ──"
+cat > "$TD/prodHang.py" <<'PY'
+import subprocess, sys, time
+sys.stdout.write('{"type":"text_delta","text":"working"}\n'); sys.stdout.flush()
+grandchild = subprocess.Popen(["/bin/sleep", "60"])
+print('{"type":"heartbeat","grandchild":%d}' % grandchild.pid, flush=True)
+time.sleep(60)
+PY
+RAW="$TD/raw-b4d.json"; ST="$TD/state-b4d.json"; PIDS="$TD/pids-b4d.json"
+T0=$(date +%s)
+set +e
+"$PY" "$SUP" --state-file "$ST" --raw-output "$RAW" \
+  --raw-cap $((20*MIB)) --pid-store "$PIDS" \
+  --capture-mode verdict_v1 --ingress-cap $((30*MIB)) \
+  --max-seconds 2 --grace-seconds 1 \
+  --task-id sup-b4d --task-id-source test \
+  -- "$PY" "$TD/prodHang.py" >/dev/null 2>&1
+RC=$?
+set -e
+ELAPSED=$(( $(date +%s) - T0 ))
+chk "B4d status=resource_rejected" "resource_rejected" "$(jq -r .status "$ST")"
+chk "B4d supervisor exit=2" "2" "$RC"
+chk "B4d reason has deadline_exceeded" "y" "$(jq -r .reason "$ST" | grep -q deadline_exceeded && echo y || echo n)"
+chk "B4d returned well before child's 60s sleep" "y" "$([[ $ELAPSED -le 15 ]] && echo y || echo n)"
+B4D_PID=$(jq -r .child_identity.pid "$ST")
+if kill -0 "$B4D_PID" 2>/dev/null; then chk "B4d child stopped" gone alive; else chk "B4d child stopped" gone gone; fi
+B4D_GC=$(pgrep -g "$(jq -r .child_identity.pgid "$ST")" 2>/dev/null || true)
+chk "B4d owned process group empty (grandchild stopped)" "" "$B4D_GC"
+set +e
+"$PY" "$SUP" --state-file "$TD/state-b4d-bad.json" --raw-output "$TD/raw-b4d-bad.json" \
+  --raw-cap $((20*MIB)) --pid-store "$TD/pids-b4d-bad.json" \
+  --capture-mode verdict_v1 --max-seconds 0 \
+  --task-id sup-b4d-bad --task-id-source test -- "$PY" "$TD/prodOne.py" >/dev/null 2>&1
+chk "B4d non-positive --max-seconds rejected before launch" "3" "$?"
+set -e
+
 # ── S1B-5: malformed/oversize line + classifier exception injection each fail closed ──
 echo "── S1B-5: overlong line + classifier exception each fail closed ──"
 cat > "$TD/prodBig.py" <<'PY'

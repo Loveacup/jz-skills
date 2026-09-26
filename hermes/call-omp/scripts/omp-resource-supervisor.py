@@ -541,7 +541,15 @@ def run_verdict_capture(args: argparse.Namespace, argv: list, started_at: str,
     # ── read/frame/classify loop（tick 化：每个 tick 先排空当前可读数据，再做一次
     #    rate 评估）。select/read 故障一律 fail-closed（capture_io_error），绝不当
     #    成 EOF 静默上报成功。──
+    # Hard wall-clock deadline (optional; SEND passes max_time + 30). OMP's own
+    # --max-time is not trusted to bound the child: a rejected-but-running audit
+    # would outlive its verdict.
+    deadline = (time.monotonic() + args.max_seconds) if args.max_seconds is not None else None
     while resource_status is None:
+        if deadline is not None and time.monotonic() >= deadline:
+            do_trip("deadline_exceeded",
+                    f"resource_rejected:deadline_exceeded:{args.max_seconds:g}s")
+            break
         try:
             rlist, _, _ = select.select([stdout_fd], [], [], poll_timeout)
         except (OSError, ValueError) as exc:
@@ -1510,6 +1518,10 @@ def main() -> int:
             if val <= 0:
                 print(f"supervisor: {name} must be positive", file=sys.stderr)
                 return 3
+        if args.max_seconds is not None and (not math.isfinite(args.max_seconds)
+                                             or args.max_seconds <= 0):
+            print("supervisor: verdict_v1 --max-seconds must be positive", file=sys.stderr)
+            return 3
         args.diagnostic_output = args.raw_output + ".diag.jsonl"
     if execute_capture:
         try:

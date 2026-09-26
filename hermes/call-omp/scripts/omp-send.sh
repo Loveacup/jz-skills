@@ -388,7 +388,7 @@ if $DRY; then
   elif $SUPERVISED; then
     echo "mode      : bundle_only → 强制 --async + 资源监督（omp-resource-supervisor.py，无同步回退）"
     echo "capture   : verdict_v1（--capture-mode ${BUNDLE_CAPTURE_MODE} --ingress-cap ${CAPTURE_INGRESS_CAP} --verdict-cap ${CAPTURE_VERDICT_CAP} --diagnostic-cap ${CAPTURE_DIAGNOSTIC_CAP}）· diag=$RAW.diag.jsonl"
-    echo "supervisor: $OMP_PY $SUPERVISOR --state-file $(resource_state_path "$TASK_ID") --raw-output $RAW --pid-store $(pid_store_path "$TASK_ID") --task-id $TASK_ID --capture-mode $BUNDLE_CAPTURE_MODE --ingress-cap $CAPTURE_INGRESS_CAP --verdict-cap $CAPTURE_VERDICT_CAP --diagnostic-cap $CAPTURE_DIAGNOSTIC_CAP -- $OMP_BIN -p --mode json --no-session --max-time $MAXTIME --tools $TOOLS ${SKILLS:+--skills \"$SKILLS\"} ${CWD:+--cwd \"$CWD\"} … --append-system-prompt <sys> <user_msg>"
+    echo "supervisor: $OMP_PY $SUPERVISOR --state-file $(resource_state_path "$TASK_ID") --raw-output $RAW --pid-store $(pid_store_path "$TASK_ID") --task-id $TASK_ID --capture-mode $BUNDLE_CAPTURE_MODE --max-seconds $((MAXTIME + 30)) --ingress-cap $CAPTURE_INGRESS_CAP --verdict-cap $CAPTURE_VERDICT_CAP --diagnostic-cap $CAPTURE_DIAGNOSTIC_CAP -- $OMP_BIN -p --mode json --no-session --max-time $MAXTIME --tools $TOOLS ${SKILLS:+--skills \"$SKILLS\"} ${CWD:+--cwd \"$CWD\"} … --append-system-prompt <sys> <user_msg>"
     echo "将持久化  : run.resource_supervised=true · run.watch_required=true · run.mode=async · run.capture_mode=verdict_v1 · run.diagnostic_output · run.resource_state · run.pid_store · wrapper pid"
   else
     echo "shell cmd : $OMP_BIN -p --mode json --no-session --max-time $MAXTIME --tools $TOOLS ${SKILLS:+--skills \"$SKILLS\"} ${CWD:+--cwd \"$CWD\"} … --append-system-prompt <sys> <user_msg>"
@@ -548,6 +548,7 @@ shell_send() {
         --state-file "$rstate" --raw-output "$RAW" --pid-store "$pids" \
         --task-id "$TASK_ID" --task-id-source call-omp-send \
         --capture-mode "$BUNDLE_CAPTURE_MODE" \
+        --max-seconds "$((MAXTIME + 30))" \
         --ingress-cap "$CAPTURE_INGRESS_CAP" \
         --verdict-cap "$CAPTURE_VERDICT_CAP" \
         --diagnostic-cap "$CAPTURE_DIAGNOSTIC_CAP" \
