@@ -17,6 +17,11 @@
 - 2026-09-26（合同变更）：Shell execute 的 `omp-finish.sh`（accept/reject/human-review）必须带 `--attempt-id` 与 `--launch-fingerprint`，且须等于 state 当前 attempt：缺身份 exit 3，不符 exit 2，state 不变。此前 FINISH 只核对 receipt 与当前 state，已被替换的旧 attempt 迟到的 FINISH 会落到接替它的新 attempt 上（accept 会直接接受新 attempt；reject 会经 STOP 停掉它）。由 R03 迟到回执检查发现。audit/govern/bundle-only 不受影响。回归：`tests/test_execute_lifecycle.py` 中的 `test_execute_finish_requires_current_attempt_identity`、`test_late_accept_from_replaced_attempt_cannot_accept_successor`、`test_late_reject_from_replaced_attempt_cannot_stop_successor`。
 - 2026-09-26（合同变更）：`omp-start.sh` 复用 execute task_id 时，上一 attempt 为 `reported`（效果可能已落地、未裁决）或 `accepted` 一律 exit 3 拒绝（`reason=effect_replay_guard`），只有 `rejected` 可复用。此前只要上一 receipt 是干净终态就允许重新执行，Kanban worker 在 FINISH 前崩溃、dispatcher 按 `--max-retries` 重试时会重放同一效果。由 R05 效果重放检查发现。回归：`test_undecided_reported_attempt_is_not_replayed`、`test_accepted_attempt_is_never_replayed`。
 - 2026-09-26：bundle_only 审计（verdict_v1）增加 supervisor 硬截止：SEND 传 `--max-seconds $((max_time+30))`（与 execute_v1 相同），到期即按既有熔断路径停止整个子进程组并写 `resource_rejected:deadline_exceeded`；非正值启动前 exit 3。此前该路径只依赖 OMP 自身的 `--max-time`；实测 monitor `--watch` 超时把 state 置为 rejected 后，OMP 仍又运行约 35 秒（O04 超时检查）。monitor 自定义的 `--timeout` 短于截止时，rejected 之后进程最多存活到该截止。回归：`tests/test-resource-supervisor.sh` S1B-4d。
+- 2026-09-26（独立审查 Batch6JudgeA 反例的修复）：
+  - `omp-start.sh` 的重放闸改为 allowlist：只有 `rejected` 可复用 execute task_id。此前的 denylist 漏掉"receipt 已终态、MONITOR 回执丢失、主 state 仍 running"，START 会删除 receipt 重新执行，效果重复。回归 `test_unmonitored_finished_attempt_is_not_replayed`。
+  - `omp-finish.sh`：state 没有已发起的 execute attempt（如 START 之后、SEND 之前的 gated 接替者）时，带任何 attempt 身份的裁决都 exit 2。此前旧 attempt 的迟到 `--human-review` 能把 gated 接替者置为 rejected。回归 `test_late_decision_cannot_touch_gated_successor`。
+  - SEND（同步与异步）与 MONITOR 的输出改为给出带 `--attempt-id`/`--launch-fingerprint` 的 FINISH 命令；同步 SEND 补充输出 `launch_fingerprint`。
+  - verdict_v1 supervisor：子进程关闭 stdout 后仍存活时，等待只到截止（无截止时为宽限期），仍存活即按既有路径停止进程组并写 `resource_rejected:deadline_exceeded` 或 `child_alive_after_eof`。此前会被记为 `normal_completion`、exit 0。回归 `tests/test-resource-supervisor.sh` S1B-4e。
 
 ### v0.9.0（2026-09-21）— 版本化 Capability Grant 与薄型执行适配器
 

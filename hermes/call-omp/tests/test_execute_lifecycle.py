@@ -417,6 +417,41 @@ class ExecuteLifecycle(unittest.TestCase):
         self.assertEqual(len((self.root / "launches").read_text().splitlines()), 1)
         self.assertEqual(self.read_state()["status"], "accepted")
 
+    def test_unmonitored_finished_attempt_is_not_replayed(self):
+        # Effect committed and the receipt is terminal, but MONITOR never ran (its
+        # acknowledgement was lost): the main state is still running. A retry must not
+        # delete the receipt and execute again.
+        self.start()
+        self.assertEqual(self.send(), 0)
+        receipt = Path(self.read_state()["run"]["resource_state"])
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            if receipt.exists() and json.loads(receipt.read_text()).get("status") == "reported":
+                break
+            time.sleep(.1)
+        self.assertEqual(json.loads(receipt.read_text())["status"], "reported")
+        self.assertEqual(self.read_state()["status"], "running")
+        self.start(expect=3)
+        self.assertTrue(receipt.exists(), "retry deleted the unreconciled receipt")
+        self.assertEqual(len((self.root / "launches").read_text().splitlines()), 1)
+        self.assertEqual(self.watch(), 0)
+        self.assertEqual(self.finish("accept"), 0)
+
+    def test_late_decision_cannot_touch_gated_successor(self):
+        self.start()
+        self.assertEqual(self.send(), 0)
+        self.assertEqual(self.watch(), 0)
+        old = self.read_state()["run"]
+        self.assertEqual(self.finish("reject"), 0)
+        self.start()
+        self.assertEqual(self.read_state()["status"], "gated")
+        for decision in ("human-review", "reject", "accept"):
+            self.assertEqual(self.finish(decision, old["attempt_id"], old["launch_fingerprint"]), 2)
+            self.assertEqual(self.read_state()["status"], "gated")
+        self.assertEqual(self.send(), 0)
+        self.assertEqual(self.watch(), 0)
+        self.assertEqual(self.finish("accept"), 0)
+
     def test_late_reject_from_replaced_attempt_cannot_stop_successor(self):
         self.start("slow")
         self.assertEqual(self.send(), 0)

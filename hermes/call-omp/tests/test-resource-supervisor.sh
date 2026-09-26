@@ -1278,6 +1278,37 @@ set +e
 chk "B4d non-positive --max-seconds rejected before launch" "3" "$?"
 set -e
 
+# ── S1B-4e: child closes stdout early but keeps running: never normal_completion ──
+echo "── S1B-4e: EOF with live child is bounded and never reported as success ──"
+cat > "$TD/prodEofHang.py" <<'PY'
+import os, sys, time
+sys.stdout.write('{"type":"text_delta","text":"{\\"severity\\":\\"pass\\",\\"summary\\":\\"s\\",\\"evidence\\":[\\"e\\"]}"}\n')
+sys.stdout.write('{"type":"turn_end","message":{"stopReason":"stop"}}\n')
+sys.stdout.flush(); os.close(1)
+time.sleep(60)
+PY
+for variant in deadline nodeadline; do
+  RAW="$TD/raw-b4e-$variant.json"; ST="$TD/state-b4e-$variant.json"; PIDS="$TD/pids-b4e-$variant.json"
+  EXTRA=(); [[ $variant == deadline ]] && EXTRA=(--max-seconds 3)
+  T0=$(date +%s)
+  set +e
+  "$PY" "$SUP" --state-file "$ST" --raw-output "$RAW" \
+    --raw-cap $((20*MIB)) --pid-store "$PIDS" \
+    --capture-mode verdict_v1 --ingress-cap $((30*MIB)) --grace-seconds 1 "${EXTRA[@]}" \
+    --task-id "sup-b4e-$variant" --task-id-source test \
+    -- "$PY" "$TD/prodEofHang.py" >/dev/null 2>&1
+  RC=$?
+  set -e
+  ELAPSED=$(( $(date +%s) - T0 ))
+  chk "B4e[$variant] status=resource_rejected" "resource_rejected" "$(jq -r .status "$ST")"
+  chk "B4e[$variant] supervisor exit=2" "2" "$RC"
+  want=$([[ $variant == deadline ]] && echo deadline_exceeded || echo child_alive_after_eof)
+  chk "B4e[$variant] reason has $want" "y" "$(jq -r .reason "$ST" | grep -q "$want" && echo y || echo n)"
+  chk "B4e[$variant] bounded return" "y" "$([[ $ELAPSED -le 15 ]] && echo y || echo n)"
+  B4E_PID=$(jq -r .child_identity.pid "$ST")
+  if kill -0 "$B4E_PID" 2>/dev/null; then chk "B4e[$variant] child stopped" gone alive; else chk "B4e[$variant] child stopped" gone gone; fi
+done
+
 # ── S1B-5: malformed/oversize line + classifier exception injection each fail closed ──
 echo "── S1B-5: overlong line + classifier exception each fail closed ──"
 cat > "$TD/prodBig.py" <<'PY'

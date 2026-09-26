@@ -1016,7 +1016,11 @@ if ! $JSON_ONLY; then
     echo "   ⚠️ 问题:"; for i in "${ISSUES[@]}"; do [[ -n "$i" ]] && echo "     - $i"; done
   fi
   if [[ "$NEWSTATUS" == "reported" ]]; then
-    echo "   下一步   : omp-finish.sh --state $STATE --accept|--reject|--human-review"
+    if [[ "$(jq -r '.run.execution_supervised // false' "$STATE")" == "true" ]]; then
+      echo "   下一步   : omp-finish.sh --state $STATE --accept|--reject|--human-review --attempt-id $(jq -r '.run.attempt_id' "$STATE") --launch-fingerprint $(jq -r '.run.launch_fingerprint' "$STATE")"
+    else
+      echo "   下一步   : omp-finish.sh --state $STATE --accept|--reject|--human-review"
+    fi
     [[ "$SEV" == "blocker" ]] && echo "   ⛔ severity=blocker → 不应 accept；按 evidence 决定 reject/转 cc-tmux 修复"
   elif [[ "$NEWSTATUS" == "accepted" ]]; then
     echo "   下一步   : 已 accepted；terminal evidence 已重新认证"

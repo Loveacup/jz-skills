@@ -629,6 +629,23 @@ def run_verdict_capture(args: argparse.Namespace, argv: list, started_at: str,
         resource_status = "classification_untrusted"
         reason = "resource_rejected:classification_untrusted"
 
+    # EOF does not mean the child exited: a child may close stdout and keep running.
+    # Wait for it only until the deadline (or the grace period without one); a child
+    # still alive then is stopped through the same owned-group trip path and is never
+    # recorded as normal_completion.
+    if resource_status is None:
+        wait_s = max(2.0, args.grace_seconds + 1.0)
+        if deadline is not None:
+            wait_s = max(0.0, deadline - time.monotonic())
+        try:
+            child.wait(timeout=wait_s)
+        except subprocess.TimeoutExpired:
+            if deadline is not None:
+                do_trip("deadline_exceeded",
+                        f"resource_rejected:deadline_exceeded:{args.max_seconds:g}s")
+            else:
+                do_trip("child_alive_after_eof", "resource_rejected:child_alive_after_eof")
+
     # ── finalize：关我方句柄，reap 子进程，用磁盘文件作为权威 digest 源 ──
     close_reader()
     for fh in (raw_fh, diag_fh):

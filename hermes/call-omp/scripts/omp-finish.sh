@@ -126,6 +126,11 @@ if [[ "$EXECUTION_SUPERVISED" == "true" ]]; then
     echo "omp-finish: attempt 身份与当前 state 不符（迟到或已被替换的 attempt）；拒绝裁决，state 未改" >&2
     exit 2
   fi
+elif [[ -n "$EXPECT_AID" || -n "$EXPECT_FP" ]]; then
+  # No supervised attempt owns this state (e.g. a gated successor after START):
+  # an attempt identity can only belong to a replaced attempt.
+  echo "omp-finish: state 当前没有已发起的 execute attempt，所给身份属于已被替换的 attempt；拒绝裁决，state 未改" >&2
+  exit 2
 fi
 
 # Reject/human-review is also a lifecycle decision: an active execute attempt

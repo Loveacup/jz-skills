@@ -525,6 +525,7 @@ shell_send() {
         echo "🚀 已后台发起 execute_v1 · attempt_id=$attempt · supervisor pid=$pid"
         echo "   监控: omp-monitor.sh --state $STATE"
         echo "   取消: omp-stop.sh --state $STATE --attempt-id $attempt --launch-fingerprint $LAUNCH_FINGERPRINT --reason '<reason>' --timeout 10"
+        echo "   裁决: omp-finish.sh --state $STATE --accept|--reject|--human-review --attempt-id $attempt --launch-fingerprint $LAUNCH_FINGERPRINT"
         echo "===📋 END==="
         return 0
       fi
@@ -533,8 +534,9 @@ shell_send() {
       lifecycle_lock_release
       set +e; wait "$pid"; sup_ec=$?; set -e
       echo "===📋 BEGIN omp-send shell execute_v1 (relay verbatim)==="
-      echo "execute_v1 supervisor 已结束 · supervisor_exit=$sup_ec · attempt_id=$attempt"
+      echo "execute_v1 supervisor 已结束 · supervisor_exit=$sup_ec · attempt_id=$attempt · launch_fingerprint=$LAUNCH_FINGERPRINT"
       echo "下一步: omp-monitor.sh --state $STATE"
+      echo "裁决: omp-finish.sh --state $STATE --accept|--reject|--human-review --attempt-id $attempt --launch-fingerprint $LAUNCH_FINGERPRINT"
       echo "===📋 END==="
       return "$sup_ec"
     fi

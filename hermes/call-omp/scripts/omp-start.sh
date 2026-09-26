@@ -186,11 +186,12 @@ if [[ -f "$STATE" ]]; then
       echo "task_id=$TASK_ID status=${EX_STATUS:-unknown} reuse=rejected cleanup=unknown"
       exit 3
     fi
-    # 效果重放闸：reported 表示效果可能已落地但尚未裁决（丢失 ack 的典型形态），
-    # accepted 表示效果已被接受。两者都不得重新执行；只有 rejected 可复用 task_id。
-    if [[ "$EX_STATUS" == "reported" || "$EX_STATUS" == "accepted" ]]; then
-      echo "omp-start: 任务 $TASK_ID 上一 attempt 为 $EX_STATUS，效果可能已落地 → 拒绝重放；先用 omp-finish（带 attempt 身份）裁决，或换新 task_id" >&2
-      echo "task_id=$TASK_ID status=$EX_STATUS reuse=rejected reason=effect_replay_guard attempt_id=$EX_ATTEMPT"
+    # 效果重放闸（allowlist）：只有明确裁决为 rejected 的 attempt 可复用 task_id。
+    # reported（未裁决）、accepted（已接受）、running（receipt 已终态但 MONITOR 回执丢失）
+    # 或其它状态都表示效果可能已落地且未对账，一律不得删除 receipt 重新执行。
+    if [[ "$EX_STATUS" != "rejected" ]]; then
+      echo "omp-start: 任务 $TASK_ID 上一 attempt 为 ${EX_STATUS:-unknown}，效果可能已落地且未对账 → 拒绝重放；先 omp-monitor 再用 omp-finish（带 attempt 身份）裁决，或换新 task_id" >&2
+      echo "task_id=$TASK_ID status=${EX_STATUS:-unknown} reuse=rejected reason=effect_replay_guard attempt_id=$EX_ATTEMPT"
       exit 3
     fi
     # 上一 attempt 已认证收束；只删除 attempt 产物。逻辑任务 counter 跨 attempt 保留。
