@@ -474,25 +474,25 @@ if [[ "$EXECUTION_SUPERVISED" == "true" ]]; then
     .run.cleanup_confirmed=$X_CLEAN"
   EC=$(jq -r '.worker_exit_code // empty' "$X_RSTATE")
   if [[ "$X_CLEAN" != "true" ]]; then
-    update_state ".status=\"rejected\" |
+    update_state ".status=\"rejected\" | .run.execution=\"failed\" |
       .monitor={checked_at:\"$(now_iso)\",issues:[\"execute_v1 terminal cleanup unknown\"],resource:$X_SUBSET}"
     echo "🚫 omp-monitor: execute_v1 terminal receipt 未确认 cleanup → rejected" >&2
     exit 2
   fi
   if [[ "$X_CANCEL" == "true" ]]; then
-    update_state ".status=\"rejected\" |
+    update_state ".status=\"rejected\" | .run.execution=\"cancelled\" |
       .monitor={checked_at:\"$(now_iso)\",issues:[\"execute_v1 cancellation was requested; late terminal receipt cannot become success\"],resource:$X_SUBSET}"
     echo "🚫 omp-monitor: cancellation 已请求；late receipt 不得转成功" >&2
     exit 2
   fi
   if [[ "$X_STATUS" == "rejected" ]]; then
-    update_state ".status=\"rejected\" |
+    update_state ".status=\"rejected\" | .run.execution=\"failed\" |
       .monitor={checked_at:\"$(now_iso)\",issues:[\"execute_v1 supervisor rejected\"],resource:$X_SUBSET}"
     echo "🚫 omp-monitor: execute_v1 supervisor rejected（worker_exit=$X_WORKER supervisor_exit=${X_SUP}）" >&2
     exit 2
   fi
   if [[ "$X_WORKER" != "0" || "$X_SUP" != "0" ]]; then
-    update_state ".status=\"rejected\" |
+    update_state ".status=\"rejected\" | .run.execution=\"failed\" |
       .monitor={checked_at:\"$(now_iso)\",issues:[\"execute_v1 inconsistent reported exit status\"],resource:$X_SUBSET}"
     echo "🚫 omp-monitor: execute_v1 reported 但退出状态不为 0" >&2
     exit 2
@@ -991,6 +991,9 @@ MON=$(jq -n --arg now "$(now_iso)" --arg sev "$SEV" --arg sum "$SUMMARY" \
 if $REJECT; then
   update_state ".status=\"rejected\" | .monitor=$MON"
   NEWSTATUS="rejected"
+  # A launched execute attempt the monitor rejects failed as an execution, whatever
+  # the worker exit code was (e.g. OMP exits 0 when --max-time aborts a tool).
+  [[ "$EXECUTION_SUPERVISED" == "true" ]] && update_state ".run.execution=\"failed\""
 elif [[ "$STATUS" == "accepted" && "$EXECUTION_SUPERVISED" == "true" ]]; then
   # Re-monitoring authenticated execute evidence must not roll accepted history
   # back to reported. Any authentication failure already took the reject path.
@@ -999,6 +1002,7 @@ elif [[ "$STATUS" == "accepted" && "$EXECUTION_SUPERVISED" == "true" ]]; then
 else
   update_state ".status=\"reported\" | .monitor=$MON"
   NEWSTATUS="reported"
+  [[ "$EXECUTION_SUPERVISED" == "true" ]] && update_state ".run.execution=\"succeeded\""
 fi
 # P2B S2：已认证 verdict_v1 capture → 附加有界 capture 元数据到 .monitor（数值/布尔/hash 子集，
 # 无 raw 正文/argv/tail/prompt）。仅 authenticated reported 路径非空；legacy/非监督恒空 → 无副作用。

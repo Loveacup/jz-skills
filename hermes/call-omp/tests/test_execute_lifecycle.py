@@ -39,7 +39,7 @@ if mode == "business_file":
         f.write(b"x" * (21 * 1024 * 1024))
 text = json.dumps({"severity":"pass", "summary":"fixture audit complete", "evidence":[{"type":"file","ref":"fixture.py:1"}]}) if mode == "audit" else "fixture complete"
 print(json.dumps({"type":"message_end", "message":{"role":"assistant", "content":[{"type":"text", "text":text}]}}), flush=True)
-print(json.dumps({"type":"turn_end", "message":{"stopReason":"stop"}}), flush=True)
+print(json.dumps({"type":"turn_end", "message":{"stopReason":"toolUse" if mode == "tooluse" else "stop"}}), flush=True)
 if mode == "failure":
     sys.exit(42)
 '''
@@ -162,6 +162,8 @@ class ExecuteLifecycle(unittest.TestCase):
             self.assertIsNone(unrelated.poll(), "unrelated process was signalled")
             self.assertTrue(self.receipt()["cleanup_confirmed"])
             self.assertEqual(self.receipt()["worker_exit_code"], -9)
+            self.assertNotEqual(self.watch(), 0)
+            self.assertEqual(self.read_state()["run"]["execution"], "cancelled")
             self.assertNotEqual(self.finish("accept"), 0)
         finally:
             unrelated.terminate()
@@ -288,8 +290,18 @@ class ExecuteLifecycle(unittest.TestCase):
         self.start()
         self.assertEqual(self.send(), 0)
         self.assertEqual(self.watch(), 0)
+        self.assertEqual(self.read_state()["run"]["execution"], "succeeded")
         self.assertEqual(self.finish("accept"), 0)
         self.assertEqual(self.read_state()["status"], "accepted")
+
+    def test_tool_use_stop_with_exit_zero_is_recorded_as_failed(self):
+        self.start("tooluse")
+        self.assertEqual(self.send(), 0)
+        self.assertNotEqual(self.watch(), 0)
+        state = self.read_state()
+        self.assertEqual(state["status"], "rejected")
+        self.assertEqual(state["run"]["worker_exit_code"], 0)
+        self.assertEqual(state["run"]["execution"], "failed")
 
     def test_native_bash_legacy_watch_accepts_zero_optional_identity_arguments(self):
         self.start("audit", task_mode="audit")
@@ -316,9 +328,49 @@ class ExecuteLifecycle(unittest.TestCase):
             self.start("failure")
             self.assertEqual(self.send(), 0)
             self.assertNotEqual(self.watch(), 0)
+            self.finish("reject")
         self.start("failure")
         self.assertEqual(self.send(), 20)
         self.assertEqual(len((self.root / "launches").read_text().splitlines()), 3)
+
+    def test_auto_rejected_attempt_needs_reconciled_reject_before_reuse(self):
+        # The effect may have landed before the failure; the monitor's automatic
+        # rejection is not a coordinator decision, so the task id is not reusable yet.
+        self.start("failure")
+        self.assertEqual(self.send(), 0)
+        self.assertNotEqual(self.watch(), 0)
+        self.assertEqual(self.read_state()["status"], "rejected")
+        self.start(expect=3)
+        self.assertEqual(len((self.root / "launches").read_text().splitlines()), 1)
+        self.assertEqual(self.finish("reject"), 0)
+        self.start()
+        self.assertEqual(self.send(), 0)
+        self.assertEqual(self.watch(), 0)
+        self.assertEqual(len((self.root / "launches").read_text().splitlines()), 2)
+
+    def test_human_review_attempt_is_not_replayed(self):
+        self.start()
+        self.assertEqual(self.send(), 0)
+        self.assertEqual(self.watch(), 0)
+        self.assertEqual(self.finish("human-review"), 0)
+        self.start(expect=3)
+        self.assertEqual(len((self.root / "launches").read_text().splitlines()), 1)
+        self.assertEqual(self.finish("reject"), 0)
+        self.start()
+
+    def test_finish_without_identity_cannot_touch_gated_successor(self):
+        self.start()
+        self.assertEqual(self.send(), 0)
+        self.assertEqual(self.watch(), 0)
+        self.assertEqual(self.finish("reject"), 0)
+        self.start()
+        self.assertEqual(self.read_state()["status"], "gated")
+        for decision in ("human-review", "reject"):
+            self.assertEqual(self.finish(decision, identity=False), 3)
+            self.assertEqual(self.read_state()["status"], "gated")
+        self.assertEqual(self.send(), 0)
+        self.assertEqual(self.watch(), 0)
+        self.assertEqual(self.finish("accept"), 0)
 
     def test_old_watcher_cannot_cancel_successor_attempt(self):
         self.start("slow")
@@ -354,6 +406,7 @@ class ExecuteLifecycle(unittest.TestCase):
                 old_attempt = self.read_state()["run"]["attempt_id"]
                 self.assertEqual(self.stop(), 0)
                 self.assertFalse(any(live(pid) for pid in previous.values()))
+                self.assertEqual(self.finish("reject"), 0)
                 (self.root / "identity.json").unlink()
                 self.start("slow")
                 self.assertEqual(self.send(), 0)
@@ -459,6 +512,7 @@ class ExecuteLifecycle(unittest.TestCase):
         old = self.read_state()["run"]
         self.assertEqual(self.stop(), 0)
         self.assertFalse(any(live(pid) for pid in previous.values()))
+        self.assertEqual(self.finish("reject"), 0)
         (self.root / "identity.json").unlink()
         self.start("slow")
         self.assertEqual(self.send(), 0)

@@ -1309,6 +1309,59 @@ for variant in deadline nodeadline; do
   if kill -0 "$B4E_PID" 2>/dev/null; then chk "B4e[$variant] child stopped" gone alive; else chk "B4e[$variant] child stopped" gone gone; fi
 done
 
+# ── S1B-4f: leader exits 0 after a valid verdict but leaves a same-group survivor ──
+echo "── S1B-4f: same-group survivor after leader exit is never reported as success ──"
+cat > "$TD/prodGroupSurvivor.py" <<'PY'
+import json, subprocess, sys
+survivor = subprocess.Popen(["/bin/sleep", "60"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+open(sys.argv[1], "w").write(str(survivor.pid))
+sys.stdout.write('{"type":"text_delta","text":"{\\"severity\\":\\"pass\\",\\"summary\\":\\"s\\",\\"evidence\\":[\\"e\\"]}"}\n')
+sys.stdout.write('{"type":"turn_end","message":{"stopReason":"stop"}}\n')
+sys.stdout.flush()
+PY
+RAW="$TD/raw-b4f.json"; ST="$TD/state-b4f.json"; PIDS="$TD/pids-b4f.json"
+T0=$(date +%s)
+set +e
+"$PY" "$SUP" --state-file "$ST" --raw-output "$RAW" \
+  --raw-cap $((20*MIB)) --pid-store "$PIDS" \
+  --capture-mode verdict_v1 --ingress-cap $((30*MIB)) --grace-seconds 1 --max-seconds 30 \
+  --task-id sup-b4f --task-id-source test \
+  -- "$PY" "$TD/prodGroupSurvivor.py" "$TD/b4f-survivor.pid" >/dev/null 2>&1
+RC=$?
+set -e
+ELAPSED=$(( $(date +%s) - T0 ))
+chk "B4f status=resource_rejected" "resource_rejected" "$(jq -r .status "$ST")"
+chk "B4f supervisor exit=2" "2" "$RC"
+chk "B4f reason has owned_group_alive_after_exit" "y" "$(jq -r .reason "$ST" | grep -q owned_group_alive_after_exit && echo y || echo n)"
+chk "B4f bounded return" "y" "$([[ $ELAPSED -le 15 ]] && echo y || echo n)"
+B4F_SURV=$(cat "$TD/b4f-survivor.pid" 2>/dev/null)
+if [[ -n "$B4F_SURV" ]] && kill -0 "$B4F_SURV" 2>/dev/null; then chk "B4f survivor stopped" gone alive; kill "$B4F_SURV" 2>/dev/null || true; else chk "B4f survivor stopped" gone gone; fi
+
+# ── S1B-4g: untrusted terminal-capable record, then stdout closed while the child lives ──
+echo "── S1B-4g: classification_untrusted branch still stops a live child ──"
+cat > "$TD/prodUntrustedHang.py" <<'PY'
+import os, sys, time
+sys.stdout.write('{"type":"weird_envelope","payload":{"deep":[{"required_actions":[]}]}}\n')
+sys.stdout.flush(); os.close(1)
+time.sleep(60)
+PY
+RAW="$TD/raw-b4g.json"; ST="$TD/state-b4g.json"; PIDS="$TD/pids-b4g.json"
+T0=$(date +%s)
+set +e
+"$PY" "$SUP" --state-file "$ST" --raw-output "$RAW" \
+  --raw-cap $((20*MIB)) --pid-store "$PIDS" \
+  --capture-mode verdict_v1 --ingress-cap $((30*MIB)) --grace-seconds 1 \
+  --task-id sup-b4g --task-id-source test \
+  -- "$PY" "$TD/prodUntrustedHang.py" >/dev/null 2>&1
+RC=$?
+set -e
+ELAPSED=$(( $(date +%s) - T0 ))
+chk "B4g status=resource_rejected" "resource_rejected" "$(jq -r .status "$ST")"
+chk "B4g reason keeps classification_untrusted" "y" "$(jq -r .reason "$ST" | grep -q classification_untrusted && echo y || echo n)"
+chk "B4g bounded return" "y" "$([[ $ELAPSED -le 15 ]] && echo y || echo n)"
+B4G_PID=$(jq -r .child_identity.pid "$ST")
+if kill -0 "$B4G_PID" 2>/dev/null; then chk "B4g child stopped" gone alive; kill "$B4G_PID" 2>/dev/null || true; else chk "B4g child stopped" gone gone; fi
+
 # ── S1B-5: malformed/oversize line + classifier exception injection each fail closed ──
 echo "── S1B-5: overlong line + classifier exception each fail closed ──"
 cat > "$TD/prodBig.py" <<'PY'

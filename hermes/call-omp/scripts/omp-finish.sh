@@ -131,6 +131,13 @@ elif [[ -n "$EXPECT_AID" || -n "$EXPECT_FP" ]]; then
   # an attempt identity can only belong to a replaced attempt.
   echo "omp-finish: state 当前没有已发起的 execute attempt，所给身份属于已被替换的 attempt；拒绝裁决，state 未改" >&2
   exit 2
+elif [[ "$MON_MODE" == "execute" && "$STATUS" != "rejected" ]]; then
+  # An execute state with no launched attempt (gated/created successor) has
+  # nothing to decide; an identity-less decision here can only be a late write
+  # meant for a replaced attempt. A state SEND already rejected pre-launch may
+  # still be re-affirmed without identity.
+  echo "omp-finish: execute state（status=${STATUS}）没有已发起的 attempt，无可裁决对象；拒绝，state 未改" >&2
+  exit 3
 fi
 
 # Reject/human-review is also a lifecycle decision: an active execute attempt
@@ -279,7 +286,7 @@ case "$DECISION" in
     [[ "$SEV" != "blocker" ]]     || { echo "🚫 accept 拒绝：severity=blocker 是红线，不可接受。改用 --reject / --human-review"; echo "===📋 END==="; exit 2; }
     [[ "$MON_MODE" == "execute" || "$EVN" -gt 0 ]] || { echo "🚫 accept 拒绝：evidence 为空，不采信无证据的完成"; echo "===📋 END==="; exit 2; }
     VERDICT=$(build_verdict accept)
-    update_state ".status=\"accepted\" | .verdict=$(printf '%s' "$VERDICT" | jq -R -s '{yaml:.}')"
+    update_state ".status=\"accepted\" | .decision={kind:\"accept\",attempt_id:.run.attempt_id,launch_fingerprint:.run.launch_fingerprint,at:\"$(now_iso)\"} | .verdict=$(printf '%s' "$VERDICT" | jq -R -s '{yaml:.}')"
     # 归档
     AD="$(archive_dir "$TASK_ID")"; mkdir -p "$AD"
     cp -f "$STATE" "$AD/state.json" 2>/dev/null || true
@@ -297,7 +304,7 @@ case "$DECISION" in
     REJN=$(echo "$C_OUT" | jq -r '.reject_count' 2>/dev/null || echo "?")
     if [[ $C_RC -eq 20 ]]; then NA="stop"; EXITCODE=20; else NA="revise"; fi
     VERDICT=$(build_verdict "$NA")
-    update_state ".status=\"rejected\" | .verdict=$(printf '%s' "$VERDICT" | jq -R -s '{yaml:.}')"
+    update_state ".status=\"rejected\" | .decision={kind:\"reject\",attempt_id:.run.attempt_id,launch_fingerprint:.run.launch_fingerprint,at:\"$(now_iso)\"} | .verdict=$(printf '%s' "$VERDICT" | jq -R -s '{yaml:.}')"
     printf '%s\n' "$VERDICT" > "$OMP_TMPDIR/omp-verdict-${TASK_ID}.yaml"
     echo "↩️  REJECTED · task_id=$TASK_ID · reject_count=$REJN · next_action=$NA"
     [[ "$NA" == "stop" ]] && echo "   ⛔ reject 超限，硬终止：停循环，升级人工 / 转 cc-tmux"
@@ -306,7 +313,7 @@ case "$DECISION" in
   human_review)
     NA="human_review"
     VERDICT=$(build_verdict "$NA")
-    update_state ".status=\"rejected\" | .human_review=true | .verdict=$(printf '%s' "$VERDICT" | jq -R -s '{yaml:.}')"
+    update_state ".status=\"rejected\" | .human_review=true | .decision={kind:\"human_review\",attempt_id:.run.attempt_id,launch_fingerprint:.run.launch_fingerprint,at:\"$(now_iso)\"} | .verdict=$(printf '%s' "$VERDICT" | jq -R -s '{yaml:.}')"
     printf '%s\n' "$VERDICT" > "$OMP_TMPDIR/omp-verdict-${TASK_ID}.yaml"
     echo "🧑‍⚖️ HUMAN_REVIEW · task_id=$TASK_ID · 升级人工复核（不占 reject 配额）"
     echo "   产物保留: $RAW"

@@ -212,6 +212,54 @@ def resource_trip_shutdown(child: subprocess.Popen, child_pgid: int,
     return child.returncode
 
 
+def owned_group_members(child_pgid: int, exclude_pid: int) -> list[int] | None:
+    """Live (non-zombie) members of the owned process group other than
+    exclude_pid, from a `ps` census. None means the census failed; callers
+    treat that as unknown and never as an empty group."""
+    try:
+        out = subprocess.run(["ps", "-A", "-o", "pid=,pgid=,stat="], capture_output=True,
+                             text=True, timeout=5, check=True).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    members = []
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) < 3:
+            continue
+        try:
+            pid, pgid = int(parts[0]), int(parts[1])
+        except ValueError:
+            continue
+        if pgid == child_pgid and pid != exclude_pid and not parts[2].startswith("Z"):
+            members.append(pid)
+    return members
+
+
+def wait_leader_exit(child: subprocess.Popen, timeout: float) -> bool:
+    """Wait up to timeout for the leader to exit, leaving it unreaped so its PID
+    keeps the owned group identity and the group can still be signalled safely.
+    Uses os.waitid(WNOWAIT) when available, otherwise polls `ps` for the zombie
+    state; neither path reaps."""
+    end = time.monotonic() + timeout
+    while True:
+        if child.returncode is not None:
+            return True
+        if hasattr(os, "waitid"):
+            if execute_child_exited_unreaped(child):
+                return True
+        else:
+            try:
+                st = subprocess.run(["ps", "-o", "stat=", "-p", str(child.pid)], capture_output=True,
+                                    text=True, timeout=5).stdout.strip()
+            except (OSError, subprocess.SubprocessError):
+                st = ""
+            if st.startswith("Z"):
+                return True
+        if time.monotonic() >= end:
+            return False
+        time.sleep(0.05 if hasattr(os, "waitid") else 0.2)
+
+
 def build_state_payload(args: argparse.Namespace, *, status: str,
                        exit_code: int | None, started_at: str,
                        ended_at: str, raw_bytes: int, raw_lines: int,
@@ -426,6 +474,7 @@ def run_verdict_capture(args: argparse.Namespace, argv: list, started_at: str,
     resource_status: str | None = None
     reason = ""
     untrusted = False
+    tripped = False  # set once the owned group went through resource_trip_shutdown
 
     # ── P0 rate fuse, applied to PHYSICAL ingress byte deltas (not raw-file
     # polling). Same options/semantics as legacy: 滑动时间窗内累计 ingress ≥
@@ -452,9 +501,10 @@ def run_verdict_capture(args: argparse.Namespace, argv: list, started_at: str,
             pass
 
     def do_trip(status: str, rsn: str) -> None:
-        nonlocal resource_status, reason
+        nonlocal resource_status, reason, tripped
         resource_status = status
         reason = rsn
+        tripped = True
         close_reader()
         resource_trip_shutdown(child, args.recorded_pgid, args.recorded_pid,
                                grace=args.grace_seconds)
@@ -631,20 +681,47 @@ def run_verdict_capture(args: argparse.Namespace, argv: list, started_at: str,
 
     # EOF does not mean the child exited: a child may close stdout and keep running.
     # Wait for it only until the deadline (or the grace period without one); a child
-    # still alive then is stopped through the same owned-group trip path and is never
-    # recorded as normal_completion.
-    if resource_status is None:
+    # still alive then is stopped through the owned-group trip path and is never
+    # recorded as normal_completion. An already-rejected run (classification_untrusted)
+    # keeps its reason but its live child is stopped the same way.
+    if not tripped:
         wait_s = max(2.0, args.grace_seconds + 1.0)
         if deadline is not None:
             wait_s = max(0.0, deadline - time.monotonic())
-        try:
-            child.wait(timeout=wait_s)
-        except subprocess.TimeoutExpired:
-            if deadline is not None:
+        if not wait_leader_exit(child, wait_s):
+            if resource_status is not None:
+                prior_status, prior_reason = resource_status, reason
+                do_trip(prior_status, prior_reason)
+            elif deadline is not None:
                 do_trip("deadline_exceeded",
                         f"resource_rejected:deadline_exceeded:{args.max_seconds:g}s")
             else:
                 do_trip("child_alive_after_eof", "resource_rejected:child_alive_after_eof")
+
+    # A leader exit must not leave same-group survivors behind the receipt. While
+    # the leader is still unreaped (waitid path) the group identity is retained and
+    # the survivors are stopped; after a reap it is only observed, never signalled.
+    if not tripped:
+        survivors = owned_group_members(args.recorded_pgid, args.recorded_pid)
+        if survivors is None or survivors:
+            marker = ("owned_group_state_unknown" if survivors is None
+                      else "owned_group_alive_after_exit")
+            if resource_status is None:
+                resource_status, reason = marker, f"resource_rejected:{marker}"
+            else:
+                reason = f"{reason}; {marker}"
+            if child.returncode is None:
+                terminate_owned_pg(args.recorded_pgid, args.recorded_pid,
+                                   grace=args.grace_seconds)
+            else:
+                reason = f"{reason}; containment_failure:group_not_signalled_after_reap"
+            try:
+                child.wait(timeout=max(2.0, args.grace_seconds + 1.0))
+            except subprocess.TimeoutExpired:
+                pass
+            left = owned_group_members(args.recorded_pgid, args.recorded_pid)
+            if left is None or left:
+                reason = f"{reason}; containment_failure:owned_group_alive"
 
     # ── finalize：关我方句柄，reap 子进程，用磁盘文件作为权威 digest 源 ──
     close_reader()

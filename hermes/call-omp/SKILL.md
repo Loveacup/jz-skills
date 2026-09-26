@@ -35,7 +35,7 @@ version: 0.9.0
 
 Shell `execute` 当前验收基线：OMP `18.3.2`（2026-09-26；此前 `18.2.11`，2026-09-24）。两个版本上都已从默认 Hermes 经 Kanban worker 调用已安装的本 skill，完成真实文件修改（worker exit 0）、超时失败（rejected，未接受）与取消（Kanban archive + `omp-stop.sh`）各一例；bundle-only 审计在 `18.3.2` 上的真实流无未知事件。OMP 升级后须在新版本上重跑这组验收再沿用。RPC/ACP 仍只有历史 `16.3.2` 基线。`omp --version` 不证明 provider/model 可用。
 
-结果汇报的 `execution` 按事实填写：worker 未启动写 `not_started`；monitor 拒绝（非零退出、`stopReason!=stop`、超时）写 `failed`；取消写 `cancelled`；只有 monitor 接受才写 `succeeded`。OMP CLI 自身 exit 0 不等于执行成功。
+结果汇报的 `execution` 按事实填写，MONITOR 也把它写进 `state.run.execution`：worker 未启动写 `not_started`；monitor 拒绝（非零退出、`stopReason!=stop`、超时、cleanup 未确认）写 `failed`；取消写 `cancelled`；只有 monitor 接受才写 `succeeded`。`run.worker_exit_code` 始终是 worker 的真实退出码：OMP 被 `--max-time` 中止时 exit 0、`terminal_reason=normal_completion`，这只说明进程正常退出，执行结果仍是 `failed`。OMP CLI 自身 exit 0 不等于执行成功。
 
 通道策略：
 
@@ -132,7 +132,7 @@ scripts/omp-finish.sh --state "$STATE" --accept \
 
 缺身份 exit 3，身份与 state 当前 attempt 不符 exit 2，两者都不改 state。这样，已被替换的旧 attempt 迟到的 FINISH 不能接受、拒绝或停止接替它的新 attempt。
 
-Shell `execute` 的 task_id 只能在上一 attempt 明确裁决为 `rejected` 时复用。其他任何状态都拒绝复用（START exit 3，`effect_replay_guard`），包括：`reported`（效果可能已落地、尚未裁决）、`running`（receipt 已是终态但 MONITOR 回执丢失）、`accepted`（永不重放，新工作须换新 task_id）。遇到前两种，先 MONITOR，再用带该 attempt 身份的 FINISH 裁决。SEND 与 MONITOR 的输出会给出带身份的 FINISH 命令；START 之后、SEND 之前的 state 没有 attempt，此时任何带身份的 FINISH 都 exit 2。
+Shell `execute` 的 task_id 只能在上一 attempt 经协调者用带该 attempt 身份的 `omp-finish --reject` 明确裁决后复用。其他情况一律拒绝复用（START exit 3，`effect_replay_guard`），包括 `reported`（未裁决）、`running`（receipt 已终态但 MONITOR 回执丢失）、`accepted`（永不重放）、MONITOR 自动拒绝、取消、`--human-review`，因为效果可能已落地而未对账。需要重试时，先 MONITOR，确认效果状态后用带身份的 `--reject` 对账；新工作换新 task_id。SEND 与 MONITOR 的输出会给出带身份的 FINISH 命令。尚未发起 attempt 的 execute state（START 之后、SEND 之前）不接受任何 FINISH：带身份 exit 2，不带身份 exit 3。
 
 `--accept` 只允许 `status=reported`；`blocker`、rejected、非零退出不得接受。客观命令与 exit code 由当前 agent 重新运行验证，不采信 OMP 自报。
 

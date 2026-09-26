@@ -22,6 +22,11 @@
   - `omp-finish.sh`：state 没有已发起的 execute attempt（如 START 之后、SEND 之前的 gated 接替者）时，带任何 attempt 身份的裁决都 exit 2。此前旧 attempt 的迟到 `--human-review` 能把 gated 接替者置为 rejected。回归 `test_late_decision_cannot_touch_gated_successor`。
   - SEND（同步与异步）与 MONITOR 的输出改为给出带 `--attempt-id`/`--launch-fingerprint` 的 FINISH 命令；同步 SEND 补充输出 `launch_fingerprint`。
   - verdict_v1 supervisor：子进程关闭 stdout 后仍存活时，等待只到截止（无截止时为宽限期），仍存活即按既有路径停止进程组并写 `resource_rejected:deadline_exceeded` 或 `child_alive_after_eof`。此前会被记为 `normal_completion`、exit 0。回归 `tests/test-resource-supervisor.sh` S1B-4e。
+- 2026-09-26（第 4 轮，Batch7JudgeA 静态反例的修复，合同变更）：
+  - 重放闸改为"只认对账"：只有经协调者用带本 attempt 身份的 `omp-finish --reject` 裁决过的 attempt 可复用 execute task_id。FINISH 现在把裁决写入 `state.decision`（kind/attempt_id/launch_fingerprint/at），START 核对它与当前 attempt 一致。此前 MONITOR 自动拒绝（效果已落地后失败）或 `--human-review` 后都能直接复用并重放。回归 `test_auto_rejected_attempt_needs_reconciled_reject_before_reuse`、`test_human_review_attempt_is_not_replayed`；取消后复用的既有用例改为先带身份 `--reject`。
+  - `omp-finish.sh`：没有已发起 attempt 且未被拒绝的 execute state（如 gated 接替者），不带身份的裁决也 exit 3。回归 `test_finish_without_identity_cannot_touch_gated_successor`。
+  - MONITOR 把执行结果写入 `state.run.execution`（`failed`/`cancelled`/`succeeded`；`not_started` 保持原样），不再只有 worker 退出码与 `terminal_reason`；OMP 被 `--max-time` 中止时 exit 0，这类失败此前在 state 里只能从 monitor issues 看出。回归 `test_tool_use_stop_with_exit_zero_is_recorded_as_failed` 及取消、成功用例的断言。
+  - verdict_v1 supervisor：leader 退出后在未回收状态下（`waitid(WNOWAIT)`，无 waitid 时以 `ps` 观察僵尸态）清点自有进程组，仍有成员即停止整组并写 `resource_rejected:owned_group_alive_after_exit`，清点失败写 `owned_group_state_unknown`；`classification_untrusted` 等已拒绝分支在 EOF 后子进程仍存活时也会停止它。此前这两种情况分别被记为 `normal_completion`/exit 0，或留下仍在运行的子进程。回归 S1B-4f、S1B-4g（在有、无 `os.waitid` 的解释器上都通过）。
 
 ### v0.9.0（2026-09-21）— 版本化 Capability Grant 与薄型执行适配器
 
