@@ -186,6 +186,13 @@ if [[ -f "$STATE" ]]; then
       echo "task_id=$TASK_ID status=${EX_STATUS:-unknown} reuse=rejected cleanup=unknown"
       exit 3
     fi
+    # 效果重放闸：reported 表示效果可能已落地但尚未裁决（丢失 ack 的典型形态），
+    # accepted 表示效果已被接受。两者都不得重新执行；只有 rejected 可复用 task_id。
+    if [[ "$EX_STATUS" == "reported" || "$EX_STATUS" == "accepted" ]]; then
+      echo "omp-start: 任务 $TASK_ID 上一 attempt 为 $EX_STATUS，效果可能已落地 → 拒绝重放；先用 omp-finish（带 attempt 身份）裁决，或换新 task_id" >&2
+      echo "task_id=$TASK_ID status=$EX_STATUS reuse=rejected reason=effect_replay_guard attempt_id=$EX_ATTEMPT"
+      exit 3
+    fi
     # 上一 attempt 已认证收束；只删除 attempt 产物。逻辑任务 counter 跨 attempt 保留。
     rm -f "$EX_RSTATE" "$EX_PIDS" "$EX_CONTROL" \
       "$(raw_path "$TASK_ID")" "$(raw_path "$TASK_ID").err" "$(raw_path "$TASK_ID").exit" \

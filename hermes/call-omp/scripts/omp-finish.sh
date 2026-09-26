@@ -13,6 +13,8 @@
 #   --state <file> / --task-id <id>   状态文件（二选一）
 #   --accept | --reject | --human-review   裁决（三选一，必填）
 #   --reason "<文本>"   人工决策理由（记入 verdict，可选）
+#   --attempt-id <uuid> --launch-fingerprint <hex64>
+#                      execute attempt 必填：须等于 state 当前 attempt；缺失 exit 3，不符 exit 2（state 不变）
 #   --keep             不清理 /tmp 工作文件（调试用；accept 默认清理、保留归档）
 #   -h|--help
 #
@@ -25,7 +27,7 @@ SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SELF_DIR/lib/omp-lib.sh"
 GATE="$SELF_DIR/gate"
 
-STATE=""; TASK_ID=""; DECISION=""; REASON=""; KEEP=false
+STATE=""; TASK_ID=""; DECISION=""; REASON=""; KEEP=false; EXPECT_AID=""; EXPECT_FP=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --state)        STATE="$2"; shift 2 ;;
@@ -34,6 +36,8 @@ while [[ $# -gt 0 ]]; do
     --reject)       DECISION="reject"; shift ;;
     --human-review) DECISION="human_review"; shift ;;
     --reason)       REASON="$2"; shift 2 ;;
+    --attempt-id)   EXPECT_AID="$2"; shift 2 ;;
+    --launch-fingerprint) EXPECT_FP="$2"; shift 2 ;;
     --keep)         KEEP=true; shift ;;
     -h|--help)      sed -n '2,32p' "$0"; exit 0 ;;
     *) echo "omp-finish: 未知参数 $1" >&2; exit 3 ;;
@@ -107,9 +111,25 @@ execute_receipt_accept_ready() {
          .supervisor_exit_code==0 and .cleanup_confirmed==true' "$rs" >/dev/null 2>&1
 }
 
+EXECUTION_SUPERVISED=$(jq -r '.run.execution_supervised // false' "$STATE")
+
+# Caller attempt fence: an execute decision names the attempt it is about.
+# A late FINISH from a replaced attempt must never accept, reject or stop
+# the successor that now owns the same task state.
+if [[ "$EXECUTION_SUPERVISED" == "true" ]]; then
+  if [[ -z "$EXPECT_AID" || -z "$EXPECT_FP" ]]; then
+    echo "omp-finish: execute 裁决必须带 --attempt-id 与 --launch-fingerprint（当前 attempt 身份）" >&2
+    exit 3
+  fi
+  if ! jq -e --arg aid "$EXPECT_AID" --arg fp "$EXPECT_FP" \
+      '.run.attempt_id==$aid and .run.launch_fingerprint==$fp' "$STATE" >/dev/null 2>&1; then
+    echo "omp-finish: attempt 身份与当前 state 不符（迟到或已被替换的 attempt）；拒绝裁决，state 未改" >&2
+    exit 2
+  fi
+fi
+
 # Reject/human-review is also a lifecycle decision: an active execute attempt
 # must first receive the authenticated control request. No PID signal fallback.
-EXECUTION_SUPERVISED=$(jq -r '.run.execution_supervised // false' "$STATE")
 if [[ "$DECISION" != "accept" && "$EXECUTION_SUPERVISED" == "true" ]] \
    && ! execute_receipt_terminal_clean; then
   STOP_AID=$(jq -r '.run.attempt_id // empty' "$STATE")

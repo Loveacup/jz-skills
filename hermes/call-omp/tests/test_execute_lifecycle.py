@@ -101,7 +101,7 @@ class ExecuteLifecycle(unittest.TestCase):
     def read_state(self):
         return json.loads(self.state.read_text())
 
-    def start(self, mode="success", task_mode="execute"):
+    def start(self, mode="success", task_mode="execute", expect=0):
         self.env["FIXTURE_MODE"] = mode
         pkg = {"task_id":"lifecycle", "channel":"shell", "mode":task_mode,
                "task":"Run isolated lifecycle fixture", "scope":{"allowed_paths":[str(self.root)], "denied_paths":[], "cwd":str(self.root)},
@@ -115,7 +115,7 @@ class ExecuteLifecycle(unittest.TestCase):
             del pkg["capability_grant"]
         path = self.root / "package.json"
         path.write_text(json.dumps(pkg))
-        self.assertEqual(self.command("omp-start.sh", "--package-json", path), 0)
+        self.assertEqual(self.command("omp-start.sh", "--package-json", path), expect)
 
     def send(self):
         return self.command("omp-send.sh", "--state", self.state, "--async", "--max-time", "30")
@@ -139,6 +139,14 @@ class ExecuteLifecycle(unittest.TestCase):
         run = self.read_state()["run"]
         return json.loads(Path(run["resource_state"]).read_text())
 
+    def finish(self, decision, attempt=None, fingerprint=None, identity=True):
+        args = ["--state", self.state, f"--{decision}"]
+        if identity:
+            run = self.read_state()["run"]
+            args += ["--attempt-id", attempt or run["attempt_id"],
+                     "--launch-fingerprint", fingerprint or run["launch_fingerprint"]]
+        return self.command("omp-finish.sh", *args, timeout=30)
+
     def watch(self, timeout=8):
         return self.command("omp-monitor.sh", "--state", self.state, "--watch", "--interval", "1",
                             "--timeout", str(timeout), timeout=timeout+12)
@@ -154,7 +162,7 @@ class ExecuteLifecycle(unittest.TestCase):
             self.assertIsNone(unrelated.poll(), "unrelated process was signalled")
             self.assertTrue(self.receipt()["cleanup_confirmed"])
             self.assertEqual(self.receipt()["worker_exit_code"], -9)
-            self.assertNotEqual(self.command("omp-finish.sh", "--state", self.state, "--accept"), 0)
+            self.assertNotEqual(self.finish("accept"), 0)
         finally:
             unrelated.terminate()
             unrelated.wait(timeout=5)
@@ -183,7 +191,7 @@ class ExecuteLifecycle(unittest.TestCase):
         self.assertNotEqual(self.watch(), 0)
         self.assertEqual(self.receipt()["worker_exit_code"], 42)
         self.assertEqual(self.read_state()["run"]["exit_code"], 42)
-        self.assertNotEqual(self.command("omp-finish.sh", "--state", self.state, "--accept"), 0)
+        self.assertNotEqual(self.finish("accept"), 0)
 
     def test_leader_exit_does_not_leave_descendant(self):
         self.start("leader_exit")
@@ -280,7 +288,7 @@ class ExecuteLifecycle(unittest.TestCase):
         self.start()
         self.assertEqual(self.send(), 0)
         self.assertEqual(self.watch(), 0)
-        self.assertEqual(self.command("omp-finish.sh", "--state", self.state, "--accept"), 0)
+        self.assertEqual(self.finish("accept"), 0)
         self.assertEqual(self.read_state()["status"], "accepted")
 
     def test_native_bash_legacy_watch_accepts_zero_optional_identity_arguments(self):
@@ -297,7 +305,7 @@ class ExecuteLifecycle(unittest.TestCase):
         self.start()
         self.assertEqual(self.send(), 0)
         self.assertEqual(self.watch(), 0)
-        self.assertEqual(self.command("omp-finish.sh", "--state", self.state, "--accept"), 0)
+        self.assertEqual(self.finish("accept"), 0)
         self.assertEqual(self.command("omp-monitor.sh", "--state", self.state, "--json"), 0)
         self.assertEqual(self.read_state()["status"], "accepted")
         self.assertEqual(self.stop(), 0)
@@ -362,6 +370,69 @@ class ExecuteLifecycle(unittest.TestCase):
                     watcher.terminate()
                     watcher.wait(timeout=5)
 
+    def test_execute_finish_requires_current_attempt_identity(self):
+        self.start()
+        self.assertEqual(self.send(), 0)
+        self.assertEqual(self.watch(), 0)
+        self.assertEqual(self.finish("accept", identity=False), 3)
+        self.assertEqual(self.read_state()["status"], "reported")
+        self.assertEqual(self.finish("accept"), 0)
+        self.assertEqual(self.read_state()["status"], "accepted")
+
+    def test_late_accept_from_replaced_attempt_cannot_accept_successor(self):
+        self.start()
+        self.assertEqual(self.send(), 0)
+        self.assertEqual(self.watch(), 0)
+        old = self.read_state()["run"]
+        self.assertEqual(self.finish("reject"), 0)
+        (self.root / "identity.json").unlink()
+        self.start()
+        self.assertEqual(self.send(), 0)
+        self.assertEqual(self.watch(), 0)
+        successor = self.read_state()["run"]
+        self.assertNotEqual(old["attempt_id"], successor["attempt_id"])
+        self.assertNotEqual(self.finish("accept", old["attempt_id"], old["launch_fingerprint"]), 0)
+        self.assertEqual(self.read_state()["status"], "reported")
+        self.assertEqual(self.read_state()["run"]["attempt_id"], successor["attempt_id"])
+        self.assertEqual(self.finish("accept"), 0)
+
+    def test_undecided_reported_attempt_is_not_replayed(self):
+        # Effect committed, decision (ack) lost: a retry must reconcile, not re-execute.
+        self.start()
+        self.assertEqual(self.send(), 0)
+        self.assertEqual(self.watch(), 0)
+        first = self.read_state()["run"]
+        self.start(expect=3)
+        self.assertEqual(len((self.root / "launches").read_text().splitlines()), 1)
+        self.assertEqual(self.read_state()["status"], "reported")
+        self.assertEqual(self.read_state()["run"]["attempt_id"], first["attempt_id"])
+        self.assertEqual(self.finish("accept"), 0)
+
+    def test_accepted_attempt_is_never_replayed(self):
+        self.start()
+        self.assertEqual(self.send(), 0)
+        self.assertEqual(self.watch(), 0)
+        self.assertEqual(self.finish("accept"), 0)
+        self.start(expect=3)
+        self.assertEqual(len((self.root / "launches").read_text().splitlines()), 1)
+        self.assertEqual(self.read_state()["status"], "accepted")
+
+    def test_late_reject_from_replaced_attempt_cannot_stop_successor(self):
+        self.start("slow")
+        self.assertEqual(self.send(), 0)
+        previous = self.identity()
+        old = self.read_state()["run"]
+        self.assertEqual(self.stop(), 0)
+        self.assertFalse(any(live(pid) for pid in previous.values()))
+        (self.root / "identity.json").unlink()
+        self.start("slow")
+        self.assertEqual(self.send(), 0)
+        successor = self.identity()
+        self.assertNotEqual(self.finish("reject", old["attempt_id"], old["launch_fingerprint"]), 0)
+        self.assertTrue(live(successor["pid"]), "late reject stopped the successor attempt")
+        self.assertEqual(self.read_state()["status"], "running")
+        self.assertEqual(self.stop(), 0)
+
     def test_recursion_refused_before_state_or_counter_changes(self):
         self.start()
         before = {p.name:p.read_bytes() for p in self.root.glob("omp-*.json")}
@@ -423,7 +494,7 @@ class ExecuteLifecycle(unittest.TestCase):
         self.assertTrue(run["cleanup_confirmed"])
         self.assertEqual(run["terminal_reason"], "unreaped_exit_or_signal_fence_unsupported")
         self.assertEqual(run["execution"], "not_started")
-        self.assertNotEqual(self.command("omp-finish.sh", "--state", self.state, "--accept"), 0)
+        self.assertNotEqual(self.finish("accept"), 0)
 
 
 if __name__ == "__main__":

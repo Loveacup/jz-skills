@@ -123,6 +123,17 @@ scripts/omp-finish.sh --state /tmp/omp-state-audit-001.json --reject --reason "�
 scripts/omp-finish.sh --state /tmp/omp-state-audit-001.json --human-review
 ```
 
+Shell `execute` 的 FINISH 必须带 SEND 返回的当前 attempt 身份，accept、reject、human-review 都一样：
+
+```bash
+scripts/omp-finish.sh --state "$STATE" --accept \
+  --attempt-id "$ATTEMPT_ID" --launch-fingerprint "$LAUNCH_FINGERPRINT"
+```
+
+缺身份 exit 3，身份与 state 当前 attempt 不符 exit 2，两者都不改 state。这样，已被替换的旧 attempt 迟到的 FINISH 不能接受、拒绝或停止接替它的新 attempt。
+
+Shell `execute` 的 task_id 只能在上一 attempt 为 `rejected` 时复用。上一 attempt 为 `reported`（效果可能已落地、尚未裁决，例如 worker 在 FINISH 前崩溃后被重试）时，START 以 exit 3 拒绝，需先用上面的 FINISH（带该 attempt 身份）裁决；为 `accepted` 时永不重放，新工作须换新 task_id。
+
 `--accept` 只允许 `status=reported`；`blocker`、rejected、非零退出不得接受。客观命令与 exit code 由当前 agent 重新运行验证，不采信 OMP 自报。
 
 ## Bundle-only 审计

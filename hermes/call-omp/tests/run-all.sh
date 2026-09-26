@@ -477,13 +477,14 @@ bash "$S/omp-monitor.sh" --state "$TD/omp-state-exlong.json" >/dev/null 2>&1; ch
 chk "  execute 长输出状态 reported" reported "$(jq -r .status "$TD/omp-state-exlong.json")"
 chk "  execute 摘要截为 160 字符" 160 "$(jq -r '.monitor.summary|length' "$TD/omp-state-exlong.json")"
 jq '.run.exit_code=7' "$TD/omp-state-ex1.json" > "$TD/ex1-tmp.json" && mv "$TD/ex1-tmp.json" "$TD/omp-state-ex1.json"
-bash "$S/omp-finish.sh" --state "$TD/omp-state-ex1.json" --accept >/dev/null 2>&1; chk "finish 防御：reported+exit7→2" 2 $?
+EX1_ID=(--attempt-id "$(jq -r .run.attempt_id "$TD/omp-state-ex1.json")" --launch-fingerprint "$(jq -r .run.launch_fingerprint "$TD/omp-state-ex1.json")")
+bash "$S/omp-finish.sh" --state "$TD/omp-state-ex1.json" --accept "${EX1_ID[@]}" >/dev/null 2>&1; chk "finish 防御：reported+exit7→2" 2 $?
 jq '.run.exit_code=0' "$TD/omp-state-ex1.json" > "$TD/ex1-tmp.json" && mv "$TD/ex1-tmp.json" "$TD/omp-state-ex1.json"
-bash "$S/omp-finish.sh" --state "$TD/omp-state-ex1.json" --accept >/dev/null 2>&1; chk "execute accept 空证据→0" 0 $?
+bash "$S/omp-finish.sh" --state "$TD/omp-state-ex1.json" --accept "${EX1_ID[@]}" >/dev/null 2>&1; chk "execute accept 空证据→0" 0 $?
 chk "  状态 accepted" accepted "$(jq -r .status "$TD/omp-state-ex1.json")"
 printf 'keep\n' > "$TD/victim.err"; printf 'keep\n' > "$TD/victim.exit"
 jq --arg raw "$TD/victim" '.status="reported"|.run.raw_output=$raw' "$TD/omp-state-ex1.json" > "$TD/omp-state-spoof.json"
-bash "$S/omp-finish.sh" --state "$TD/omp-state-spoof.json" --accept >/dev/null 2>&1; chk "finish 拒绝非规范 raw 路径→3" 3 $?
+bash "$S/omp-finish.sh" --state "$TD/omp-state-spoof.json" --accept "${EX1_ID[@]}" >/dev/null 2>&1; chk "finish 拒绝非规范 raw 路径→3" 3 $?
 [[ -f "$TD/victim.err" && -f "$TD/victim.exit" ]] && chk "  spoof 路径未删除" y y || chk "  spoof 路径未删除" y n
 
 # 15e: 非终态 stopReason 与 execute 非零退出必须 fail-closed
@@ -503,7 +504,7 @@ echo "$GP" | jq '.mode="execute"|.criterion=[]' | bash "$S/omp-start.sh" --packa
 OMP_BIN="$TD/mock-exec-fail.sh" bash "$S/omp-send.sh" --state "$TD/omp-state-exfail.json" >/dev/null 2>&1
 bash "$S/omp-monitor.sh" --state "$TD/omp-state-exfail.json" >/dev/null 2>&1; chk "execute exit7 monitor→2" 2 $?
 chk "  execute exit7 rejected" rejected "$(jq -r .status "$TD/omp-state-exfail.json")"
-bash "$S/omp-finish.sh" --state "$TD/omp-state-exfail.json" --accept >/dev/null 2>&1; chk "execute exit7 accept→2" 2 $?
+bash "$S/omp-finish.sh" --state "$TD/omp-state-exfail.json" --accept --attempt-id "$(jq -r .run.attempt_id "$TD/omp-state-exfail.json")" --launch-fingerprint "$(jq -r .run.launch_fingerprint "$TD/omp-state-exfail.json")" >/dev/null 2>&1; chk "execute exit7 accept→2" 2 $?
 
 cat > "$TD/mock-exec-async-fail.sh" <<'M'
 #!/usr/bin/env bash
