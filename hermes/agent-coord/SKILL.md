@@ -57,7 +57,7 @@ description: Use when 需要组织多 agent/多 CLI 协作、选择工作方法�
 - **一个业务任务同一时刻只有一个决策控制者；一次执行尝试只有一个生命周期控制通道。**
 - 准入五维核对：原生支持、目标宿主安装、认证可用、实际投递/执行、产物与生命周期闭环；再按任务需要核对问答、停止、接续、证据、权限/资源限制。
 - Orca 为「优先验证底座」，但非唯一通道；缺口标「未验证/受限」，不用文档承诺补齐。
-- Hermes Kanban 派工必设 `--max-runtime`/`--max-retries`；运行中的卡不用 `block`，协调者也不用 `reclaim`：取消或换新 attempt 都先 `archive` 旧卡、停掉子执行、用 `ps` 取得停写证据，换新 attempt 再新建卡。细则见 channel-selection.md。
+- Hermes Kanban 派工必设 `--max-runtime`/`--max-retries`；卡片正文要求 worker 只经 `kanban_show`/`hermes kanban show` 读看板、不直接打开任何 Hermes 数据库；运行中的卡不用 `block`，协调者也不用 `reclaim`：取消或换新 attempt 都先 `archive` 旧卡、停掉子执行、用 `ps` 取得停写证据，换新 attempt 再新建卡。细则见 channel-selection.md。
 - 角色与 CLI/通道解耦：任何「角色 X 必须由品牌 Y 承担」的说法都不是本层规则。
 
 ## 5. 工作区与交接

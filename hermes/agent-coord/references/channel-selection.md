@@ -29,6 +29,7 @@
 - **Hermes Kanban（持久任务通道）**：派工与生命周期以 `hermes kanban` 原生命令为准。硬规则：
   - **派工必设上限**：每张会启动 worker 的卡都带 `--max-runtime` 或 `--max-retries`，让超时/失败走原生计数与熔断，不靠 stale 阈值兜底。需要取消留证的卡用 `dir:` 或 worktree 工作区（`archive` 会删除 scratch 工作区）。
   - **运行中的卡不得 `block`**，也不在 Dashboard 拖动运行中卡片。
+  - **worker 只经原生接口读看板**：卡片正文写明，worker 只用 `kanban_show` 工具或 `hermes kanban show <id>` 读取任务、事件、run 与评论，不得直接打开 `~/.hermes/kanban.db` 或任何 Hermes 数据库文件（不用 `sqlite3`、Python `sqlite3` 或直接读 `*.db`）。实测 worker 在正文只要求用 `hermes kanban show` 判断角色时，仍会自行用可写连接打开生产看板查询事件。协调者需要回读时，只用 SQLite URI `mode=ro` 加 `PRAGMA query_only=ON`。
   - **取消且不替换：用 `hermes kanban archive <id>`**。archive 在同一事务里把卡置为终态 `archived` 并释放 claim，之后才终止 worker，dispatcher 不会再派发它；`dir:` 工作区保留，worktree 只在干净且提交已推送时删除。不要用 `reclaim` 或 `reassign … none --reclaim` 做取消：reclaim 先提交 `ready`（审阅 run 为 `review`），`reassign` 再用第二个事务取消指派，中间可被 dispatcher 重新认领；`kanban.default_assignee` 非空时未指派的卡也会被自动派发。
   - **需要换新 attempt 时，也先 archive 旧卡**：协调者不用 `reclaim` 做重派。worker 退出后 dispatcher 会在同一 tick 回收并重新派发 `ready`/`review` 卡，而 worker 另起会话的子执行可能仍在写。顺序固定为：archive 旧卡 → 停掉子执行 → 确认下两条的停写证据全部成立 → 新建一张卡承接（在正文或评论里引用旧卡 id 与旧 attempt 身份）。任何一步证据不全就不建新卡，停止并升级人工。
   - **子执行另行停止**：archive/reclaim 只向记录的 worker PID 发信号，不覆盖 worker 另起会话的子执行（实测 call-omp 受监督的 OMP 进程树在 reclaim 和 archive 后都仍在运行）。这类子执行须用其通道自身的停止命令（call-omp 用 `omp-stop.sh` 加 SEND 身份），并用 `ps` 回读确认已退出。
