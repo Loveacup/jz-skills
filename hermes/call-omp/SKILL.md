@@ -33,7 +33,7 @@ version: 0.9.0
 
 ## 兼容基线与通道
 
-Shell `execute` 当前验收基线：OMP `18.2.11`。2026-09-24 已从默认 Hermes 经 Kanban worker 调用已安装的本 skill，完成真实文件修改（worker exit 0）、超时失败（rejected，未接受）与取消（Kanban archive + `omp-stop.sh`）各一例。RPC/ACP 仍只有历史 `16.3.2` 基线。`omp --version` 不证明 provider/model 可用。
+Shell `execute` 当前验收基线：OMP `18.3.2`（2026-09-26；此前 `18.2.11`，2026-09-24）。两个版本上都已从默认 Hermes 经 Kanban worker 调用已安装的本 skill，完成真实文件修改（worker exit 0）、超时失败（rejected，未接受）与取消（Kanban archive + `omp-stop.sh`）各一例；bundle-only 审计在 `18.3.2` 上的真实流无未知事件。OMP 升级后须在新版本上重跑这组验收再沿用。RPC/ACP 仍只有历史 `16.3.2` 基线。`omp --version` 不证明 provider/model 可用。
 
 结果汇报的 `execution` 按事实填写：worker 未启动写 `not_started`；monitor 拒绝（非零退出、`stopReason!=stop`、超时）写 `failed`；取消写 `cancelled`；只有 monitor 接受才写 `succeeded`。OMP CLI 自身 exit 0 不等于执行成功。
 
@@ -177,7 +177,7 @@ audit verdict 可携带**可选、机器可读的 `required_actions`**（唯一�
 | `toolUse` 结束、无 `stop` | rejected |
 | execute exit code 非零 | rejected，禁止 finish accept |
 | `resource_rejected`（raw_cap/rate_fuse） | supervisor 已熔断并 kill；保留 bounded 证据 → `--reject` → 换更小/重划范围的证据包或转人工。**禁止**改同步重跑或手动接受 |
-| raw runaway / timeout | 受监督的 bundle-only 运行归 supervisor 所有，由硬 cap 处理，`--watch` **不得盲杀其 wrapper**；只有**非受监督**的运行才可用精确 PID 干预。保留 bounded 证据，reject，转更小/重划范围的 bundle 或人工 |
+| raw runaway / timeout | 受监督的 bundle-only 运行归 supervisor 所有，由硬 cap 与硬截止（`max_time+30` 秒，停止整个进程组）处理，`--watch` **不得盲杀其 wrapper**；`--watch` 自定义超时短于截止时，state 已 rejected 的进程最多存活到截止。只有**非受监督**的运行才可用精确 PID 干预。保留 bounded 证据，reject，转更小/重划范围的 bundle 或人工 |
 | round/reject 超限 | exit 20，停止自动循环 |
 | gateway 救援 | 先读 [gateway rescue](references/sandbox-escape-gateway-rescue-20260629.md) |
 
@@ -187,7 +187,7 @@ audit verdict 可携带**可选、机器可读的 `required_actions`**（唯一�
 
 ```bash
 python3 -m py_compile scripts/omp-resource-supervisor.py   # -> 0
-bash tests/test-resource-supervisor.sh                     # -> PASS=42 FAIL=0
+bash tests/test-resource-supervisor.sh                     # -> FAIL=0
 bash tests/run-all.sh                                       # -> FAIL=0（PASS 数随回归项增长）
 bash scripts/call-omp-check.sh                             # -> 0
 ```
