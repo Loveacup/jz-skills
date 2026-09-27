@@ -17,6 +17,9 @@
   # 模式 1C：位置参数（最便捷）
   python3 jung_calc.py Se=4.5 Si=2.1 Ne=6.8 Ni=8.5 Te=7.2 Ti=3.2 Fe=2.4 Fi=5.3 --age=32
 
+  # 量程：判定阈值按 0-10 设计；JUNGUS 第二代为 0-30，须 --scale=30（缺省时按最高分推断：>10 视为 30）
+  python3 jung_calc.py --scores Se=12,Si=9,... --scale=30 --age=19
+
   # 模式 2：仅 MBTI 类型代号（无分数）
   python3 jung_calc.py --type INTJ --age=32
 
@@ -532,6 +535,10 @@ def infer_from_mystic(bazi_path: Optional[str],
     bazi = _safe_load_json(bazi_path)
     ziwei = _safe_load_json(ziwei_path)
     astro = _safe_load_json(astro_path)
+    loaded = ((bazi_path, bazi), (ziwei_path, ziwei), (astro_path, astro))
+    for path, data in loaded:
+        if path and isinstance(data, dict) and '_load_error' in data:
+            _die(f'无法加载 {path}: {data["_load_error"]}')
 
     if bazi and isinstance(bazi, dict):
         try:
@@ -589,9 +596,26 @@ def _safe_load_json(path: Optional[str]):
 # 三种主流程
 # ============================================================
 
-def run_scores_mode(scores: Dict[str, float], age: int) -> Dict:
-    """模式 1：完整分数。"""
-    sorted_stack = build_stack_from_scores(scores)
+def resolve_scale(scores: Dict[str, float], scale: Optional[float]) -> Tuple[float, str]:
+    """返回 (满分, 来源)。显式 --scale 优先；否则最高分 >10 推断为 JUNGUS 0-30 量程。"""
+    if scale is not None:
+        if scale <= 0:
+            _die(f'--scale 必须为正数，收到 {scale}')
+        top = max(scores.values())
+        if top > scale:
+            _die(f'最高分 {top} 超出声明量程 {scale}')
+        return float(scale), '显式声明'
+    if max(scores.values()) > 10:
+        return 30.0, '推断（最高分 >10，按 JUNGUS 0-30 处理；如不符请显式 --scale）'
+    return 10.0, '推断（最高分 ≤10，按 0-10 处理）'
+
+
+def run_scores_mode(scores: Dict[str, float], age: int,
+                    scale: Optional[float] = None) -> Dict:
+    """模式 1：完整分数。判定一律用归一到 0-10 的分数；功能栈「分数」保留原始值。"""
+    full, scale_src = resolve_scale(scores, scale)
+    norm = {k: v * 10.0 / full for k, v in scores.items()}
+    sorted_stack = build_stack_from_scores(norm)
     top1, top2 = sorted_stack[0][0], sorted_stack[1][0]
     type_code, infer_warnings = infer_type_from_top_two(top1, top2)
 
@@ -602,18 +626,23 @@ def run_scores_mode(scores: Dict[str, float], age: int) -> Dict:
         top4 = [s[0] for s in sorted_stack[:4]]
 
     confidence, conf_note = confidence_rating(sorted_stack)
-    anomalies = detect_anomalies(scores, sorted_stack) + infer_warnings
+    anomalies = detect_anomalies(norm, sorted_stack) + infer_warnings
     if not anomalies:
         anomalies = ['无预警']
 
     stack = build_beebe_stack(top4, scores)
     dominant, inferior = top4[0], top4[3]
-    grip = assess_grip(dominant, inferior, scores)
+    grip = assess_grip(dominant, inferior, norm)
     stage = diagnose_stage(age, top4)
-    signature = build_signature(type_code, top4, age, scores)
+    signature = build_signature(type_code, top4, age, norm)
 
     return {
         '输入模式': 'scores',
+        '量程': {
+            '满分': full,
+            '来源': scale_src,
+            '说明': '置信度/非标准栈预警/Grip/可塑性按 0-10 归一后判定，文中引用的分数为归一值；功能栈「分数」为原始值',
+        },
         '类型推断': type_code,
         '类型置信度': confidence,
         '置信度说明': conf_note,
@@ -696,6 +725,8 @@ def main():
     parser.add_argument('--astro', help='占星 JSON 路径')
     parser.add_argument('--age', type=int, default=30,
                         help='命主年龄（默认 30）')
+    parser.add_argument('--scale', type=float, default=None,
+                        help='分数满分（JUNGUS 第二代=30；缺省按最高分推断）')
 
     args = parser.parse_args()
 
@@ -713,10 +744,10 @@ def main():
 
     if have_positional:
         scores = parse_scores_positional(args.positional)
-        result = run_scores_mode(scores, args.age)
+        result = run_scores_mode(scores, args.age, args.scale)
     elif have_scores:
         scores = parse_scores_input(args.scores)
-        result = run_scores_mode(scores, args.age)
+        result = run_scores_mode(scores, args.age, args.scale)
     elif have_type:
         result = run_type_mode(args.type_code, args.age)
     else:

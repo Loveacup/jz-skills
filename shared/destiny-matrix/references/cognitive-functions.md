@@ -393,7 +393,7 @@ Fi 是「右脑—内部价值排序」，每个决定先与"内在指北针"比
 | ISTP | Ti | Se | Ni | Fe | Te | Si | Ne | Fi |
 | ISTJ | Si | Te | Fi | Ne | Se | Ti | Fe | Ni |
 | ISFP | Fi | Se | Ni | Te | Fe | Si | Ne | Ti |
-| ISFJ | Si | Fe | Ti | Ne | Se | Fi | Te | Si |
+| ISFJ | Si | Fe | Ti | Ne | Se | Fi | Te | Ni |
 
 ---
 
@@ -995,3 +995,87 @@ Loop 是慢性压抑的产物，Grip 是急性爆发。Loop 更隐蔽——他�
 
 > "Knowing your own darkness is the best method for dealing with the darknesses of other people."
 > — Jung, CW 13 §335
+
+---
+
+## v4 增补（2026-07-15）
+
+> 本节为 R1 荣格线调研增补，只追加不改写既有正文。既有正文与本节冲突处，以本节（有出处核验）为准。
+
+### 增补一 · Beebe 八原型命名核准（对照 2016 原著）
+
+**出版信息勘误**：Beebe 原著为 *Energies and Patterns in Psychological Type: The Reservoir of Consciousness*，Routledge，**2016** 年出版（ISBN 9781138922280，232 页）。本文档及 `jung-classical-texts.md` 既有正文标注的「Beebe 2017」应为 **Beebe 2016**（部分印次版权页标 2017，通行引用以 2016 为准）。
+
+**模型时间线**：Beebe 于 1983 年会议讨论后开始构建该模型，「阴影十字」（shadow cross，第 5-8 位）于 1990 年经七年梦析后定型；2016 年著作是历年论文的结集，此前最系统的单篇表述见 Beebe, "Understanding Consciousness through the Theory of Psychological Types" (2004, 收录于 *Analytical Psychology: Contemporary Perspectives in Jungian Analysis*) 与 "Evolving the Eight-Function Model" (APTi Bulletin)。
+
+**八原型官方命名核准表**：
+
+| 位 | Beebe 官方命名（英） | 通行中译 | 阴影对应关系 | 备注 |
+|:---|:---|:---|:---|:---|
+| 1 | Hero / Heroine | 英雄 | — | |
+| 2 | Good Parent（亦作 Father/Mother） | 良好父母 | — | |
+| 3 | Puer Aeternus / Puella Aeterna | 永恒少年/少女 | — | 「Child」为通行俗称 |
+| 4 | Anima / Animus | 阿尼玛/阿尼姆斯 | — | 「Inferior」是位置名，原型名是 Anima/Animus |
+| 5 | Opposing Personality | 对立人格 | 第 1 位 Hero 的阴影（同功能反态度） | |
+| 6 | **Senex / Witch** | 老者/女巫 | 第 2 位 Good Parent 的阴影 | 既有正文「Critic（批评家）」是通行俗称，**非 Beebe 原著命名**；命书中引 Beebe 时应用 Senex/Witch |
+| 7 | Trickster | 欺骗者 | 第 3 位 Puer/Puella 的阴影 | |
+| 8 | **Demonic / Daimonic Personality** | 恶魔/守护灵人格 | 第 4 位 Anima/Animus 的阴影 | Beebe 强调其整合后转为 daimonic（带来精神成长），未整合时呈 demonic（破坏性自恋） |
+
+**结构补强（原著核心概念，既有正文未收）**：
+- 八原型是「承载各功能的**原型情结**（archetypal complexes）」，即人人皆有的「亚人格 / 较小的我」（ego-states），不是抽象标签。
+- **脊柱与手臂轴**（spine vs arms）：第 1-4 位构成「脊柱」（dominant–inferior 轴，关乎自我的自我认同）；第 2-3 位构成「手臂」（auxiliary–tertiary 轴，关乎与他人的联结）。阴影四位镜像同构。
+
+来源：Beebe 2016（Routledge 官方页 routledge.com/9781138922280）；书评 E. Bolden, "Book Review: Beebe Energies and Patterns" (erictb.wordpress.com, 2016-09-18)；APTi "Evolving the Eight-Function Model" (aptinternational.org)。
+
+**待定**：既有正文所引「Beebe 2017:87 / :92 / :104 / :128」四处**页码级引文未能在线核实原文**，按 `jung-classical-texts.md`「引文真实性原则」，命书使用时建议降级为概述式引用（「Beebe 在原著中大意是说……」）或章节级引用，待人工对照纸书后再恢复页码。
+
+### 增补二 · Grip 理论引证补强（Quenk）
+
+**书目信息**：Naomi L. Quenk, *Was That Really Me? How Everyday Stress Brings Out Our Hidden Personality*, Davies-Black Publishing, 2002——系 1993 年 *Beside Ourselves: Our Hidden Personality in Everyday Life* (CPP) 的修订扩充版。另有普及小册 *In the Grip: Understanding Type, Stress, and the Inferior Function*, 2nd ed., CPP, 2000（官方 PDF 见 asia.themyersbriggs.com "In the Grip"）。
+
+**按劣势功能分组的 Grip 表现速查**（Quenk 体系，与本文档第六章逐类型条目互为印证）：
+
+| 劣势功能 | 涉及类型 | Grip 典型表现 |
+|:---|:---|:---|
+| 劣势 Se | INTJ, INFJ | 感官过度放纵（暴食/酗酒/冲动消费）、对外部细节的强迫聚焦、与外部世界的对抗态度 |
+| 劣势 Si | ENTP, ENFP | 退缩与抑郁、对身体状况的强迫关注（疑病）、被过往细节淹没 |
+| 劣势 Ne | ISTJ, ISFJ | 灾难化想象、消极穷举可能性、失控感 |
+| 劣势 Ni | ESTP, ESFP | 内在困惑、对事件作出不当的「深意」归因、末日式预感 |
+| 劣势 Te | INFP, ISFP | 苛刻的能力批判（对己对人）、攻击性挑错、仓促行动 |
+| 劣势 Ti | ENFJ, ESFJ | 过度批判、缠绕的逻辑、强迫式「求真」 |
+| 劣势 Fe | INTP, ISTP | 对人际关系过敏（坚信被讨厌）、情绪爆发、对情感本身的恐惧 |
+| 劣势 Fi | ENTJ, ESTJ | 对内在状态过敏、突发情绪宣泄（流泪/暴怒）、「不被爱」的非理性确信 |
+
+**通用触发条件**（Quenk）：疲劳、疾病、长期压力、过量要求、陌生情境、未解决的冲突——均会降低主导功能的守门阈值。Quenk 将 Grip 定位为「心灵恢复平衡的尝试」而非失败，与本框架「命运可塑」立场一致。
+
+来源：Quenk 2002；*In the Grip* 官方 PDF（asia.themyersbriggs.com/wp-content/uploads/2016/09/6180-In-the-Grip.pdf）；综述 "Naomi Quenk's Work on the Inferior Function" (gettherapybirmingham.com)。
+
+**待定**：既有正文所引 Quenk 页码区间（如 2002:124-138、189-205 等）未逐一核实，使用时同样建议先以章节/概述级引用为主。
+
+### 增补三 · 16 亚型 A/H·O/B 编码规范（正确译法写死）
+
+**编码归属澄清**：A/H·O/B 十六亚型编码**不是 sakinorva 的体系**。sakinorva.net/functions（96 题 Grant/Brownsword/Myers 版及 256 题 domain 版）输出的是八功能分数与四种判型结果，页面不使用 A/H、O/B 记号（2026-07-15 实查）。该编码出自 **JUNGUS 荣格斯第二代认知功能测试**（jungus.cn），其理论页「16功能总览」（jungus.cn/theory/16func.html）将荣格八维各拆两个亚型，得 16 功能。
+
+**官方定义与唯一正确译法**（写死，禁止再译）：
+
+| 记号 | 英文原词 | 正确中译 | 官方别名 | 适用功能 |
+|:---|:---|:---|:---|:---|
+| A | Analysis / Analytic | **分析型** | 「方正」 | 判断功能 Te/Ti/Fe/Fi |
+| H | Holism / Holistic | **整体型** | 「圆融」 | 判断功能 Te/Ti/Fe/Fi |
+| O | Object | **对象取向（主体型）** | — | 感知功能 Se/Si/Ne/Ni |
+| B | Background | **背景取向（场域型）** | — | 感知功能 Se/Si/Ne/Ni |
+
+- **历史教训（2026-07-15 判官报告）**：H 曾被误译为「人本型」（误当 Humanistic）。H = Holistic = **整体型**，此为唯一正确译法。
+- 官方定义摘录：A（方正）「更强调清晰边界、抽象原则、形式逻辑和跨场景的一致性」；H（圆融）「更强调处境关系、整体调和、辩证变化」；O「眼中的世界更像独立存在的物体」；B「眼中的世界更像连续而相互依存的场域」。
+- 学术根基：A/H 源自 Nisbett 等「分析型/整体型认知」研究传统（Nisbett, Peng, Choi & Norenzayan, "Culture and Systems of Thought," *Psychological Review*, 2001）；O/B 源自对象-背景知觉研究（Masuda & Nisbett, 2001）。
+- 命书写法示例：`FiA = 分析型内倾情感`、`NeB = 背景取向（场域）外倾直觉`。判断功能只配 A/H，感知功能只配 O/B，不得混配。
+
+来源：jungus.cn/theory/16func.html；sakinorva.net/functions（反证）；Nisbett et al. 2001；Masuda & Nisbett 2001。
+
+### 增补四 · 功能发展年龄阶段的来源核对
+
+- **通行年龄模型的真实出处**是 W. Harold Grant, Magdala Thompson & Thomas E. Clarke, *From Image to Likeness: A Jungian Path in the Gospel Journey* (Paulist Press, **1983**；archive.org 有全文)。通行转述为：主导约 6-12 岁、辅助约 12-20 岁、第三约 20-35 岁、劣势约 35-50 岁；另有二手来源转述为主导 7-14、辅助至 ~20、第三 30-40、劣势 ~50（Berens, "The Evolution of the Function-Attitudes," 2003, hpsys.com PDF）。**两套数字均系 Grant 框架的转述，区间本身不精确，命书中应写「约」并避免精确到岁**。
+- **实证警示**：Grant 式功能栈及其年龄表**缺乏实证支持**——2000 年代以来的问卷研究未能复现「类型 → Grant 栈序」的对应（社区综述见 personalitycafe.com "The cognitive function study which found nobody matched Grant stacks"）。本文档第九章年龄表是框架自建的综合表（糅合 Grant 年龄段与荣格个体化阶段），**非任何单一典籍的原表**，命书中不得将其冠以「荣格说」。
+- **原典层面可靠的只有粗粒度结论**：荣格本人只给出「人生上下半场」的划分（CW 8 "The Stages of Life"，§749-§795：前半生建立自我与适应，约 35-40 岁后转向内在与整合），未给过逐功能的年龄表。命书引年龄阶段时，荣格名下只可引这一层。
+
+来源：Grant et al. 1983（archive.org/details/fromimagetoliken00gran）；Berens 2003（hpsys.com）；Jung CW 8 §749-§795。

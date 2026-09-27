@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "final_verdict（book-finalizer，契约见 agents/book-finalizer.md）",
+  "type": "object",
+  "required": [
+    "checklist_results",
+    "validator_output",
+    "visual_qa",
+    "failure_analysis",
+    "decision",
+    "revision_instructions",
+    "defect_disclosure"
+  ],
+  "properties": {
+    "checklist_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "evidence_quote",
+          "verdict"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^(M[1-8]|C[1-5]|W[1-3]|E[1-5]|P[1-3])$"
+          },
+          "evidence_quote": {
+            "type": "string",
+            "minLength": 1
+          },
+          "verdict": {
+            "enum": [
+              "pass",
+              "fail"
+            ]
+          }
+        }
+      }
+    },
+    "validator_output": {
+      "type": "object",
+      "required": [
+        "exit_code",
+        "summary",
+        "red_items"
+      ],
+      "properties": {
+        "exit_code": {
+          "type": "integer"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "red_items": {
+          "type": "array"
+        }
+      }
+    },
+    "visual_qa": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "screenshot_point",
+          "observation",
+          "verdict"
+        ],
+        "properties": {
+          "screenshot_point": {
+            "type": "string"
+          },
+          "observation": {
+            "type": "string"
+          },
+          "verdict": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "failure_analysis": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "checklist_id",
+          "observation",
+          "basis",
+          "judgment",
+          "suggestion"
+        ]
+      }
+    },
+    "decision": {
+      "enum": [
+        "pass",
+        "revise",
+        "degrade"
+      ]
+    },
+    "revision_instructions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "problem",
+          "location",
+          "fix",
+          "priority"
+        ]
+      }
+    },
+    "defect_disclosure": {
+      "type": "array"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "const": "revise"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "revision_instructions": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "const": "degrade"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "defect_disclosure": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
+}

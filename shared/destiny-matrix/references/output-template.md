@@ -241,7 +241,7 @@ p.body strong { font-weight: 500; color: var(--text); }
 .summary-frame .verdict { font-family: var(--font-serif); font-size: 20px; font-weight: 500; line-height: 1.5; color: var(--text); margin: 0 0 6px; letter-spacing: 0.02em; }
 .summary-frame .gloss { font-size: 13.5px; color: var(--text-secondary); line-height: 1.6; margin: 0; }
 
-/* 数据可视化容器 */
+/* 数据可视化容器（v4：落 HTML 时必带 data-chart-id 属性，见文末 v4 增补） */
 .chart-container { margin: 2rem 0; padding: 1.25rem; background: var(--bg-alt); border-radius: 4px; }
 .chart-title { font-size: 12px; color: var(--text-tertiary); letter-spacing: 0.05em; text-transform: uppercase; margin: 0 0 1rem; }
 
@@ -431,14 +431,14 @@ table.chart-data td { padding: 8px 12px; border: 0.5px solid var(--border); }
 <!-- 开篇叙事（200-400 字）-->
 <p class="body">{用 200-400 字铺开主导功能的"主旋律"，引出此命主的认知地图}</p>
 
-<!-- 视觉化资产 1：认知雷达图 -->
-<div class="chart-container">
+<!-- 视觉化资产 1：认知雷达图（v4：data-chart-id 必带，见文末 v4 增补） -->
+<div class="chart-container" data-chart-id="chart-1-01">
   <p class="chart-title">认知功能强度 · 八轴雷达</p>
   {SVG 雷达图，见 3.2}
 </div>
 
 <!-- 视觉化资产 2：Beebe 8 原型环 -->
-<div class="chart-container">
+<div class="chart-container" data-chart-id="chart-1-02">
   <p class="chart-title">Beebe 八原型 · 性格剧场</p>
   {SVG 同心圆，见 3.3}
 </div>
@@ -455,7 +455,7 @@ table.chart-data td { padding: 8px 12px; border: 0.5px solid var(--border); }
 <!-- 后 4 个原型（Opposing/Senex/Trickster/Demon）省略样式细节，沿用 .function-card 基类 -->
 
 <!-- 视觉化资产 3：Grip 风险仪表盘 -->
-<div class="chart-container">
+<div class="chart-container" data-chart-id="chart-1-03">
   <p class="chart-title">劣势功能抓取风险 · Grip Meter</p>
   {Grip 仪表盘，见 3.4}
 </div>
@@ -1048,3 +1048,82 @@ table.chart-data td { padding: 8px 12px; border: 0.5px solid var(--border); }
 
 > **本模板定调**：性格是恒量，玄学是注解，命运是性格在时机中的展开。
 > 主语 · 谓语 · 状语 · 时机 — 四者各归其位，命书方为命书。
+
+---
+
+## v4 增补（2026-07-15）
+
+> 本节为 v4 双产物（HTML + PDF）与图表核销机制的增量规范。**既有屏显 CSS（第二节）一律不改**；以下 `@media print` 块**原样追加**到 HTML 骨架 `<style>` 的末尾（`@media (max-width: 600px)` 块之后、`</style>` 之前）。
+
+### v4-1 · `@media print` 块（PDF 导出必备，追加到 CSS 末尾）
+
+配套 `scripts/export_pdf.py`（Playwright Chromium，`page.pdf(format="A4", print_background=True)`）。屏显不受影响——本块只在打印/导 PDF 时生效。
+
+```css
+@media print {
+  /* A4 内容宽度接管版心：撤掉屏显居中窄栏，交给 export_pdf.py 的页边距 */
+  body {
+    max-width: none;
+    padding: 0;
+    background: #fff;
+  }
+
+  /* 每章从新页开始：.section-num 是章的第一个元素（封面因此独占第一页） */
+  .section-num {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  /* 关键块禁止跨页劈断（V4_PLAN §5.2 指定四类 + 同性质块） */
+  .chart-container, table, .classic, .summary-frame,
+  .evidence-rating, .function-card, .cross-grid,
+  .subject-card, .one-line-portrait, .grip-meter, .ziwei-board {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  /* 注意：break-inside: avoid 对「高于一页」的元素无效——单个图表
+     （含标题与图注）设计高度不得超过 ~240mm（A4 版心高），超高图表
+     应拆成两个 .chart-container（各自登记 data-chart-id）。 */
+
+  /* 图表随版心等比缩放，防超宽截断 */
+  .chart-container svg {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* 印刷安全色：屏显低对比灰阶（#8a8a8a/#d5d2c8）在纸面进一步发虚，
+     统一加深一档；正文米黄底转纯白由上方 body 规则完成 */
+  :root {
+    --text-secondary: #4a4a4a;
+    --text-tertiary: #666666;
+    --border: #b5b2a8;
+  }
+
+  /* 超宽表格缩放策略：紫微 12 宫与相位全表等宽表整体缩字号收进版心，
+     不允许横向溢出截断 */
+  table.chart-data { font-size: 12px; }
+  .ziwei-board { font-size: 11px; }
+  .ziwei-cell { min-height: 80px; padding: 6px; }
+
+  /* 链接按正文处理（PDF 中不需要交互提示色） */
+  a { color: inherit; text-decoration: none; }
+}
+```
+
+**实测记录（2026-07-15）**：以案例A命书（旧版无本块）为对照，`export_pdf.py` 直出 74 页时 Ch1 的「16 亚型分数条形图」在页 3/4 之间被劈断（标题条与图身分离）；向同一 HTML 注入本块后复测，该劈断消失。此即 locked-checklist P2 项的结构性保证。
+
+### v4-2 · `.chart-container` 规范升级：必带 `data-chart-id`
+
+自 v4 起，**每个** `.chart-container` 必须携带 `data-chart-id` 属性，值来自 S7 chart-director 的图表规划表，命名规则 `chart-{章号}-{两位序号}`：
+
+```html
+<div class="chart-container" data-chart-id="chart-2-01">
+  <p class="chart-title">五行能量权重 · 分组条形</p>
+  {SVG}
+</div>
+```
+
+- **用途**：`scripts/validate_book.py` 据此逐行核销图表规划表（locked-checklist C1），并统计各章配额（C2/C3）。
+- **覆盖范围**：全书所有图表容器，包括第三节三大视觉化资产（示例已标注 chart-1-01 ~ chart-1-03）、玄学三章图表、时间线、印证矩阵等。HTML 进度条类（如 Grip Meter）若包裹在 `.chart-container` 内同样必带。
+- **缺失后果**：validate_book.py 报 🔴（C1 fail）→ 触发 S9 修订流。
+- 组合图表（一容器多 SVG）算一个 ID；同一数据拆成多容器时各自领 ID 并在规划表分行登记。

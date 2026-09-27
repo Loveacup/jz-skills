@@ -78,7 +78,8 @@ def cache_save(hash_key: str, data: dict) -> None:
 
 def run_script(script: str, args: list) -> dict:
     """调用子脚本（bazi_calc / ziwei_calc / astro_calc）并解析其 JSON 输出"""
-    cmd = ['python3', os.path.join(SCRIPT_DIR, script)] + [str(a) for a in args]
+    # sys.executable：子脚本与调度脚本共用同一解释器（macOS 上 PATH 的 python3 常是缺依赖的系统 3.9）
+    cmd = [sys.executable, os.path.join(SCRIPT_DIR, script)] + [str(a) for a in args]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         if result.returncode != 0:
@@ -232,12 +233,18 @@ def main():
     corrected_date_str = f'{c_year:04d}-{c_month:02d}-{c_day:02d}'
     corrected_time_str = f'{c_hour:02d}:{c_minute:02d}'
 
-    # 3. 调用三个子脚本（传入校正后的时刻）
-    # astro_calc 接受 IANA 字符串作为 tz 参数，让它内部按出生日期算 DST
-    astro_tz_arg = iana if iana else str(tz)
-    bazi = run_script('bazi_calc.py', [corrected_date_str, corrected_time_str, gender])
+    # 3. 调用三个子脚本
+    # 八字/紫微用真太阳时校正后的时刻；占星用钟表时原值——astro_calc 内部按经纬度 + IANA
+    # 时区做地心换算，喂校正后时刻会把经度时差算两遍（v4.1 修复，见 memory/known-issues.md）。
+    # 显式 --tz 优先（文档承诺「提供时跳过 DST 自动计算」）；否则交 IANA 让 astro_calc 按出生日期算 DST
+    astro_tz_arg = str(opts['tz']) if opts['tz'] is not None else (iana if iana else str(tz))
+    bazi_args = [corrected_date_str, corrected_time_str, gender]
+    if opts['use_true_solar_time']:
+        bazi_args.append('--true-solar-time-corrected=yes')  # 否则 JSON 误标「未校正」
+    bazi = run_script('bazi_calc.py', bazi_args)
     ziwei = run_script('ziwei_calc.py', [corrected_date_str, str(hour_idx), gender])
-    astro = run_script('astro_calc.py', [corrected_date_str, corrected_time_str,
+    astro = run_script('astro_calc.py', [f'{year:04d}-{month:02d}-{day:02d}',
+                                          f'{hour:02d}:{minute:02d}',
                                           lat, lon, astro_tz_arg])
 
     # 4. 输出统一结构
@@ -255,6 +262,11 @@ def main():
                 'IANA 时区': iana or '(未知)',
                 'DST 状态': '夏令时' if dst else '标准时',
                 '时辰索引': f'{hour_idx} ({HOUR_BRANCHES[hour_idx]}时)',
+            },
+            '时刻口径': {
+                '八字/紫微': f'{corrected_date_str} {corrected_time_str}（真太阳时校正后）',
+                '占星': f'{year:04d}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}（钟表时，引擎内部做地心换算）',
+                '说明': '两者不同是方法学要求，不是不一致',
             },
             '真太阳时校正': {
                 '启用': opts['use_true_solar_time'],

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 # v3.1.1
-from __future__ import annotations  # PEP 604 类型在 Python 3.9 兼容
 """
 西方占星完整排盘
 基于 pyswisseph（瑞士星历表的 Python 绑定）。
@@ -16,6 +15,7 @@ from __future__ import annotations  # PEP 604 类型在 Python 3.9 兼容
   --svg-name=NAME       SVG 中显示的命主名（默认 'Subject'）
   --svg-tz=TZ           生成 SVG 时强制指定的 IANA 时区（缺省由 tz 推导）
   --svg-out=DIR         SVG 输出目录（默认 ./cache/svg）
+  --hints               输出「性格映射提示」（v4.1 起默认不输出：内含预置荣格结论，会污染 S4 判官）
 
 示例:
   python3 astro_calc.py 1993-09-30 17:30 30.27 120.16 8
@@ -31,6 +31,7 @@ v3.1 变更（本次）:
   - 输出 JSON 新增「宫位制」「北交类型」「扩展配点」「性格映射提示」
   - 接入 kerykeion 出 SVG 圆盘（--svg）
 """
+from __future__ import annotations  # PEP 604 类型在 Python 3.9 兼容；须在模块 docstring 之后，否则 __doc__ 为 None
 import os
 import sys
 import json
@@ -641,6 +642,7 @@ def main():
     svg_name = 'Subject'
     svg_tz = None
     svg_out = None
+    want_hints = False
 
     positional = []
     for arg in sys.argv[1:]:
@@ -656,6 +658,8 @@ def main():
             svg_tz = arg[len('--svg-tz='):].strip() or None
         elif arg.startswith('--svg-out='):
             svg_out = arg[len('--svg-out='):].strip() or None
+        elif arg == '--hints':
+            want_hints = True
         else:
             positional.append(arg)
 
@@ -701,6 +705,8 @@ def main():
     except ValueError as e:
         print(f'ERROR: {e}', file=sys.stderr)
         sys.exit(2)
+    if not want_hints:
+        result.pop('性格映射提示', None)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 

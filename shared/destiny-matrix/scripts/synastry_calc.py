@@ -643,12 +643,8 @@ def generate_paths(type_a, type_b, top4_a, top4_b, bridges, name_a, name_b) -> l
 def _safe_load_json(path: Optional[str]) -> Optional[dict]:
     if not path:
         return None
-    try:
-        with open(path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except Exception as e:
-        print(f'WARN: 无法加载 {path}: {e}', file=sys.stderr)
-        return None
+    with open(path, 'r', encoding='utf-8') as f:
+        return json.load(f)
 
 
 def _extract_jung_info(jung: Optional[dict]) -> tuple:
@@ -749,20 +745,26 @@ def main():
 
     args = parser.parse_args()
 
-    result = calc_synastry(
-        a_bazi=_safe_load_json(args.a_bazi),
-        a_ziwei=_safe_load_json(args.a_ziwei),
-        a_astro=_safe_load_json(args.a_astro),
-        a_jung=_safe_load_json(args.a_jung),
-        b_bazi=_safe_load_json(args.b_bazi),
-        b_ziwei=_safe_load_json(args.b_ziwei),
-        b_astro=_safe_load_json(args.b_astro),
-        b_jung=_safe_load_json(args.b_jung),
-        name_a=args.name_a, name_b=args.name_b,
-    )
-
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+    try:
+        data = {key: _safe_load_json(getattr(args, key)) for key in
+                ('a_bazi', 'a_ziwei', 'a_astro', 'a_jung',
+                 'b_bazi', 'b_ziwei', 'b_astro', 'b_jung')}
+    except (OSError, json.JSONDecodeError, UnicodeError) as e:
+        print("ERROR: 无法读取或解析输入 JSON: %s" % e, file=sys.stderr)
+        return 2
+    try:
+        result = calc_synastry(
+            a_bazi=data['a_bazi'], a_ziwei=data['a_ziwei'], a_astro=data['a_astro'],
+            a_jung=data['a_jung'], b_bazi=data['b_bazi'], b_ziwei=data['b_ziwei'],
+            b_astro=data['b_astro'], b_jung=data['b_jung'],
+            name_a=args.name_a, name_b=args.name_b,
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
+    except Exception as e:
+        print("ERROR: %s" % str(e).replace("\\n", " "), file=sys.stderr)
+        return 1
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

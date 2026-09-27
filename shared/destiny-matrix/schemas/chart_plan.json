@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "chart_plan（chart-director 产出；同时是 validate_book.py --plan 输入）",
+  "type": "object",
+  "required": [
+    "planning_rationale",
+    "special_features",
+    "chart_table",
+    "quota_check",
+    "anchor_six_check",
+    "total"
+  ],
+  "properties": {
+    "planning_rationale": {
+      "type": "string",
+      "minLength": 1
+    },
+    "special_features": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "chart_table": {
+      "type": "array",
+      "minItems": 26,
+      "items": {
+        "type": "object",
+        "required": [
+          "chart_id",
+          "chapter",
+          "title",
+          "patterns",
+          "data_source",
+          "type"
+        ],
+        "properties": {
+          "chart_id": {
+            "type": "string",
+            "pattern": "^chart-[1-8]-[0-9]+$"
+          },
+          "chapter": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "叙事性标题，禁工程性标题"
+          },
+          "patterns": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^P[0-9]{2}(\\+P[0-9]{2})*$|^新变体"
+            }
+          },
+          "data_source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "type": {
+            "enum": [
+              "必配",
+              "加码"
+            ]
+          },
+          "bonus_reason": {
+            "type": "string"
+          }
+        },
+        "if": {
+          "properties": {
+            "type": {
+              "const": "加码"
+            }
+          }
+        },
+        "then": {
+          "required": [
+            "bonus_reason"
+          ],
+          "properties": {
+            "bonus_reason": {
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "quota_check": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "chapter",
+          "planned",
+          "floor",
+          "pass"
+        ],
+        "properties": {
+          "chapter": {
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "planned": {
+            "type": "integer"
+          },
+          "floor": {
+            "type": "integer"
+          },
+          "pass": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "anchor_six_check": {
+      "type": "array",
+      "minItems": 6,
+      "items": {
+        "type": "object",
+        "required": [
+          "anchor",
+          "chart_id"
+        ],
+        "properties": {
+          "anchor": {
+            "type": "string"
+          },
+          "chart_id": {
+            "type": "string",
+            "pattern": "^chart-[1-8]-[0-9]+$"
+          }
+        }
+      }
+    },
+    "total": {
+      "type": "object",
+      "required": [
+        "planned",
+        "floor"
+      ],
+      "properties": {
+        "planned": {
+          "type": "integer",
+          "minimum": 26
+        },
+        "floor": {
+          "const": 26
+        }
+      }
+    }
+  }
+}

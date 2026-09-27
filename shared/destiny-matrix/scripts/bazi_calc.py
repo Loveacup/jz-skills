@@ -10,6 +10,7 @@ v3 相比 v2 的增强：
 4. 跨节气警告：出生时刻距节气 < 15 分钟时附"另一可能月柱"双盘
 5. 真太阳时已校正标记（接 _common.py 上游处理）
 6. 性格映射提示：日主意象 + 格局倾向 + 五行偏强 / 偏弱 + 调候 -> 认知功能线索
+   v4.1 起默认不输出（内含预置荣格结论，会污染 S4 判官独立重推）；需要时显式加 --hints
 
 核心立场（v3）：八字是"性格的能量基础"，玄学辅证而非决定。
 本脚本只产生数据，命书叙事由 cast_chart.py 之上的工作流完成。
@@ -934,7 +935,7 @@ def calc_bazi(year, month, day, hour, minute, gender,
 
 def parse_args(argv):
     """解析 CLI 参数（避免依赖 argparse 模块以保持轻量）"""
-    args = {'zi_hour_rule': 'early', 'true_solar_corrected': False}
+    args = {'zi_hour_rule': 'early', 'true_solar_corrected': False, 'hints': False}
     positional = []
     for a in argv:
         if a.startswith('--zi-hour-rule='):
@@ -944,6 +945,8 @@ def parse_args(argv):
         elif a.startswith('--true-solar-time-corrected='):
             v = a.split('=', 1)[1]
             args['true_solar_corrected'] = (v == 'yes')
+        elif a == '--hints':
+            args['hints'] = True
         else:
             positional.append(a)
     return positional, args
@@ -962,6 +965,8 @@ def main():
     result = calc_bazi(year, month, day, hour, minute, gender,
                        zi_hour_rule=opts['zi_hour_rule'],
                        true_solar_corrected=opts['true_solar_corrected'])
+    if not opts['hints']:
+        result.pop('性格映射提示', None)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 

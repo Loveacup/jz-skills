@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "consistency_report（chief-judge，契约见 agents/chief-judge.md）",
+  "type": "object",
+  "required": [
+    "comparison_log",
+    "discrepancies",
+    "consistency_rating",
+    "rating_basis",
+    "verdict",
+    "revise_targets",
+    "disclosure_for_book"
+  ],
+  "properties": {
+    "comparison_log": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "dimension",
+          "judge_inference",
+          "analyst_claim",
+          "verdict",
+          "basis"
+        ],
+        "properties": {
+          "dimension": {
+            "type": "string"
+          },
+          "judge_inference": {
+            "type": "string"
+          },
+          "analyst_claim": {
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "一致",
+              "措辞差异",
+              "实质分歧"
+            ]
+          },
+          "basis": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "discrepancies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "dimension_owner",
+          "item",
+          "judge_said",
+          "analyst_said",
+          "severity",
+          "suggested_focus"
+        ],
+        "properties": {
+          "dimension_owner": {
+            "enum": [
+              "jung",
+              "bazi",
+              "ziwei",
+              "astro"
+            ]
+          },
+          "item": {
+            "type": "string"
+          },
+          "judge_said": {
+            "type": "string"
+          },
+          "analyst_said": {
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "重大",
+              "一般"
+            ]
+          },
+          "suggested_focus": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "consistency_rating": {
+      "type": "string",
+      "pattern": "^★{1,5}$"
+    },
+    "rating_basis": {
+      "type": "string",
+      "minLength": 1
+    },
+    "verdict": {
+      "enum": [
+        "pass",
+        "revise"
+      ]
+    },
+    "revise_targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "analyst",
+          "items"
+        ],
+        "properties": {
+          "analyst": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "disclosure_for_book": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "judge_*_verdicts（judge-jung/bazi/ziwei/astro 共用，契约见 agents/judge-*.md）",
+  "type": "object",
+  "required": [
+    "reasoning_trace",
+    "independent_inferences",
+    "confidence_notes"
+  ],
+  "properties": {
+    "reasoning_trace": {
+      "type": "string",
+      "minLength": 1,
+      "description": "从 JSON 字段到结论的推导过程（推理在前）"
+    },
+    "independent_inferences": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "required": [
+          "dimension",
+          "json_evidence",
+          "inference"
+        ],
+        "properties": {
+          "dimension": {
+            "type": "string"
+          },
+          "json_evidence": {
+            "type": "string",
+            "minLength": 1,
+            "description": "引用的原始 JSON 字段路径与取值"
+          },
+          "inference": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "confidence_notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "无法从 JSON 判定的点；输入污染（成稿/性格映射提示/历史归档）也在此披露"
+    }
+  }
+}

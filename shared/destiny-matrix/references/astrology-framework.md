@@ -194,9 +194,71 @@
 
 **典型四维印证示例**：
 
-> 八字"伤官见官"——克夫之象
+> 八字"伤官见官"——感情能量需要主动调和的信号
 > 紫微"夫妻宫破军化禄"——感情中的破局者
 > 占星"金星四分火星"——爱与攻击的张力
 > 荣格"Fi 极高"——对感情的内在标准苛刻
 >
 > 四道力同向 → 命运密码 = "感情中必须主导，无法被驯服"
+
+---
+
+## v4 增补（2026-07-15）
+
+> 本节为 v4 施工新增（R4 占星线调研），只追加不改写上文。每条带来源；无法确证处标「待定」。
+
+### 一、交界上升（星座 cusp ±1°）的处理惯例
+
+**学理立场（占星学界共识）**：黄道星座边界是精确度数，任一时刻上升点（及任何天体）只落在一个星座内，"跨两个星座的 cusp 人格"没有占星学依据——上升 29°59′ 仍然是该星座的上升。所谓 cusp 感受多来自水星/金星等个人行星落于邻座。（来源：Wikipedia "Cusp (astrology)"；mindbodygreen / Bustle / TODAY 多位职业占星师访谈一致表述）
+
+**敏感度量化**：上升点约每 4 分钟推进 1°（一天走完十二星座）。因此上升落在 0°–1° 或 28°–29° 区间时，出生时间 ±4–5 分钟的记录误差即可能换座——这是"交界警戒"的触发条件。（来源：AstroLibrary / Augurine 上升计算器说明；与瑞士星历表几何一致）
+
+**出生时间不确定时的标准做法**（按代价从低到高）：
+
+1. **核对时间来源**：出生证明 > 医院记录 > 家人记忆 > 估计，并在盘面标注不确定度。
+2. **双源复算**：同一生辰跑两个独立排盘源，确认本地计算无时区/夏令时/经度错误。（来源：Divine Tools Hub 上升计算指南建议）
+3. **双盘并行比对**：对不确定区间两端的两个候选上升各排一盘，用已知性格特征与大事年表比对哪张盘更吻合——即简化版定盘。
+4. **正式生时校正（rectification）**：由已定日期的人生大事（婚姻、迁移、事故等）反推出生时间，属专业技法，不宜交给简单算法。（来源：The Astrology Podcast Ep.169 "Rectification: Using Astrology to Find Your Birth Time"，Chris Brennan & Patrick Watson；Astro-Seek 提供基于 primary directions 的免费 rectification 工具）
+5. **无法裁决时**：按本 skill conventions「时辰存疑」显性标注；宫位与上升论述降权处理，行星-星座论述保留（行星星座对分钟级误差不敏感，月亮换座当日除外）。
+
+**与本 skill 的衔接**：上升在星座交界 ±1°、或出生时间落在时辰交界 ±10 分钟 → 必须触发 external-verification.md 的交界警戒条目（2026-07-15 案例A案「上升 29.87°」后经查是 v4.0 把真太阳时校正后时刻喂给占星所致，正确为摩羯 3.34°；触发警戒时先核时间口径）。
+
+### 二、Placidus vs Whole Sign 适用边界（权威表述）
+
+| 维度 | Placidus | Whole Sign (WSH) |
+|:---|:---|:---|
+| 历史地位 | 文艺复兴后主流、现代软件默认 | 希腊化占星的主要分宫法，最古老的系统之一 |
+| 权威依据 | 现代心理占星传统 | Chris Brennan, *Hellenistic Astrology: The Study of Fate and Fortune* (2017) 以一手文献论证 WSH 为西方占星原初分宫法；The Astrology Podcast 专文 "Whole Sign Houses: The Best System of House Division" (2015) |
+| 高纬度 | 约 >60° 纬度宫位严重畸变，极圈内（~66.5°+）部分黄道度数永不升起，系统失效 | 不受纬度影响 |
+| 出生时间精度 | 高度敏感（宫头随分钟移动） | 不确定 >15 分钟时更稳（只要上升星座不换，全盘宫位不变） |
+| 技法配套 | 现代推运、宫头度数技法 | 古典/希腊化技法（年主星、小限法、宫主星体系） |
+
+（来源：theastrologypodcast.com 2015-11-21 专文与 Ep.52 文字稿；astrochartus.com "House Systems Explained"；astrobutterfly.com 2025-04-22）
+
+**实务折中惯例**：不少现代占星师以 WSH 定宫位归属的基础结构，同时参考 Placidus 的 MC/四轴作为独立敏感点——两者并非互斥。（来源：astrobutterfly / mutablejuniper 综述）
+
+**本 skill 采用**：`astro_calc.py` 输出按 Placidus（框架首节已述）；v4 起要求命书注明分宫法；遇交界上升或时辰不确定个案，建议加排 WSH 对照盘并在文中披露差异。（待定：astro_calc.py 是否内建 WSH 切换开关，需 caster/toolsmith 线确认）
+
+### 三、行运/推运计算惯例核对
+
+**行运（Transits）**：
+- 定义核对：当下天体位置对本命盘的相位——与上文一致，无需更正。
+- 容许度惯例：外行星（天/海/冥）行运以 **1–2° 为标准容许度**，对个人行星与四轴（ASC/MC/DSC/IC）的行运最为显著。（来源：astro.com Astrowiki "Transit"；cafeastrology.com "Transits in Astrology"）
+- **三次经过（three passes）**：外行星逆行使同一相位常精确三次——顺行第一次（引入议题）、逆行第二次（内化回顾）、再顺行第三次（定形落地）；论应期窗口应以三次经过的首尾为界，而非单点。（来源：astro.com Astrowiki "Transit"；多家行运指南一致）
+
+**次限推运（Secondary Progressions）**：
+- 换算法核对：**day-for-a-year**——出生后第 N 天的天空 = N 岁的内在状态，方法可上溯 Ptolemy，经 Placidus、Dane Rudhyar 等系统化。（来源：Wikipedia "Astrological progression"；cafeastrology.com "Secondary Progressions"）
+- 推运月亮：约 27–28 年一周天、每年推进约 13°、约 2–2.5 年换座；推运朔望周期约 28–30 年。**核对结论：上文"推运月亮约 27-28 年走完黄道一圈，每 2.3 年换一个星座"与来源一致，无需更正。**
+- 上文推运示例（1993-09-30 生人 33 岁 ≈ 1993-11-02 天空）经 day-for-a-year 口径复核成立（33 天后）。
+
+**待定项**：
+- 本命盘相位容许度各家差异大（合冲 8° 上下、行运 1–2°、推运通常 ≤1°），本 skill 行运/推运功能落地时需在 astro_calc.py 中显式定案并写入输出 JSON。
+- 推运上升/MC 的推进法（太阳弧法 vs Naibod vs 真实 MC 推进）各软件不一，未调研定论，暂标待定。
+
+**来源清单**：
+- Wikipedia: Cusp (astrology); Astrological progression
+- Chris Brennan, *Hellenistic Astrology* (2017); theastrologypodcast.com（2015-11-21 WSH 专文、Ep.52、Ep.169 rectification 文字稿）
+- astro.com Astrowiki: Transit
+- cafeastrology.com: Transits in Astrology; Secondary Progressions
+- astrochartus.com: House Systems Explained; astrobutterfly.com (2025-04-22, 2023-09-19)
+- Divine Tools Hub / AstroLibrary / Augurine 上升计算说明（敏感度与双源验证做法）

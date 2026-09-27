@@ -11,10 +11,11 @@ v3 增强：
                   「正玄山人法盘」（fix_leap=False，闰月独立排）
   3. 性格映射提示：命宫主星 → Beebe Hero / 夫妻宫 → 阿尼玛阶段 /
                     福德宫 → Child / 命主+身主 → 个体化任务
+                    v4.1 起默认不输出（内含预置荣格结论，会污染 S4 判官）；需要时加 --hints
   4. 输入校验：日期格式、时辰索引 0-11、性别 m/f
 
 用法:
-  python3 ziwei_calc.py <yyyy-mm-dd> <时辰索引 0-11> <gender:m|f>
+  python3 ziwei_calc.py <yyyy-mm-dd> <时辰索引 0-11> <gender:m|f> [--hints]
 示例:
   python3 ziwei_calc.py 1993-09-30 9 f   (酉时 = 9, 17:00-19:00)
 
@@ -496,23 +497,27 @@ def calc_ziwei(date_str, hour_idx, gender_str):
 # ============================================================
 
 def main():
-    if len(sys.argv) < 4:
+    want_hints = '--hints' in sys.argv[1:]
+    argv = [a for a in sys.argv[1:] if a != '--hints']
+    if len(argv) < 3:
         print(__doc__)
         sys.exit(1)
 
-    date_str = sys.argv[1]
+    date_str = argv[0]
     try:
-        hour_idx = int(sys.argv[2])
+        hour_idx = int(argv[1])
     except ValueError:
-        print(f'ERROR: 时辰索引非整数: {sys.argv[2]!r}', file=sys.stderr)
+        print(f'ERROR: 时辰索引非整数: {argv[1]!r}', file=sys.stderr)
         sys.exit(1)
-    gender_str = sys.argv[3].lower()
+    gender_str = argv[2].lower()
 
     try:
         result = calc_ziwei(date_str, hour_idx, gender_str)
     except ValueError as e:
         print(f'ERROR: {e}', file=sys.stderr)
         sys.exit(1)
+    if not want_hints:
+        result.pop('性格映射提示', None)
 
     def fallback(o):
         if hasattr(o, 'model_dump'):

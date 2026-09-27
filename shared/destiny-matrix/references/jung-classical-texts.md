@@ -587,3 +587,41 @@ destiny-matrix v3 的命书采用「双典籍」体系：
 > "Knowing your own darkness is the best method for dealing with the darknesses of other people."
 > 「认识自己的黑暗，是面对他人黑暗的最佳方法。」
 > （Jung, CW 13 §335）
+
+---
+
+## v4 增补（2026-07-15）
+
+> 本节为 R1 荣格线调研增补，只追加不改写既有正文。以下勘误与补强优先于既有正文。
+
+### 1. Beebe 条目勘误与补强
+
+- **年份勘误**：*Energies and Patterns in Psychological Type: The Reservoir of Consciousness* 为 Routledge **2016** 年出版（ISBN 9781138922280）。既有正文各处「Beebe (2017)」「Beebe 2017:xx」应统一为 **Beebe 2016**。
+- **原型命名勘误**：第 6 位官方命名为 **Senex/Witch（老者/女巫）**，「Critic/批评家」是通行俗称非原著命名；第 8 位官方命名为 **Demonic/Daimonic Personality**，Beebe 强调整合后转为 daimonic（守护灵性质）。第 3 位原著用 Puer Aeternus/Puella Aeterna。
+- **阴影对应关系**（原著核心，速查表未收）：第 5 位是第 1 位的阴影、第 6 位是第 2 位的阴影、第 7 位是第 3 位的阴影、第 8 位是第 4 位的阴影（同功能反态度）。另有「脊柱轴」（1-4 位，自我认同）与「手臂轴」（2-3 位，与他人联结）概念。
+- **模型史**：模型起于 1983 年，阴影十字 1990 年定型；2016 年书系论文结集，此前系统表述见 Beebe "Understanding Consciousness through the Theory of Psychological Types" (2004)。
+- **待定**：既有正文两条页码引文（Beebe 2017:87「八原型不是我们扮演的角色……」、2017:104「劣势功能是无意识最直接进入意识的入口」）及 cognitive-functions.md 的 2017:128 引文，**未能在线核实页码与原文**。按本文件「引文真实性原则」，恢复页码前命书一律用概述式或章节级引用。
+
+### 2. Quenk 条目补强
+
+- 完整书目：*Was That Really Me? How Everyday Stress Brings Out Our Hidden Personality*, Davies-Black Publishing, 2002；系 *Beside Ourselves* (CPP, 1993) 修订版。配套普及小册 *In the Grip*, 2nd ed., CPP, 2000（官方 PDF：asia.themyersbriggs.com "In the Grip"）——命书中引 Grip 表现表时，此小册可作可公开核验的替代出处。
+- 按劣势功能分组的 8 组 Grip 表现速查表已补入 `cognitive-functions.md` v4 增补（增补二），含来源。
+- **待定**：既有正文 Quenk 页码（2002:5 / :14 / :42-58）未逐一核实，暂以章节/概述级引用为主。
+
+### 3. von Franz / Thomson 条目核对
+
+- von Franz 名句「劣势功能是无意识所有形象进入意识的那扇门」确系其《荣格类型学讲座》中「劣势功能」讲的著名论断（该书为 von Franz 与 James Hillman 合著，Spring Publications, 1971；von Franz 撰劣势功能部分，Hillman 撰情感功能部分——既有正文未提 Hillman，引全书时应署两人）。**待定**：1971:67 / :73 页码随版次不同而异，未核实。
+- Thomson《Personality Type: An Owner's Manual》出版社为 Shambhala (1998)。**使用警示**：其「左脑/右脑 × 八功能」映射是作者自建的解释性模型，**非神经科学定论**——命书中引用时只作隐喻（「Thomson 用左右脑作比」），不得写成脑科学事实。
+
+### 4. Jung 引文勘误
+
+- 「Until you make the unconscious conscious, it will direct your life and you will call it fate」是**通行改写，非荣格原文**。可核验的原文是：**"The psychological rule says that when an inner situation is not made conscious, it happens outside, as fate."（CW 9ii《Aion》§126）**。既有正文标注的「CW 9i §126 关联表达」卷次有误，应为 **CW 9ii**。命书需要此意时，引 Aion 原句并注明前者为流行转述。
+- **待定**：「Consciousness of one's own type is the beginning of all wisdom about oneself」（既有正文标「给 H. G. Baynes 的信，1923」）未能核实信件原文，使用前需人工核对 *Letters* 卷一，暂以概述式引用替代。
+
+### 5. 建议补录的第十一典（功能发展年龄）
+
+- W. Harold Grant, M. Thompson & T. E. Clarke, *From Image to Likeness: A Jungian Path in the Gospel Journey*, Paulist Press, 1983——「主导 6-12 / 辅助 12-20 / 第三 20-35 / 劣势 35-50」通行年龄模型的真实出处（archive.org 有全文）。引用时必须同时披露：该模型无实证支持，荣格原典只支持「人生上下半场」粗粒度划分（CW 8 §749-§795）。详见 `cognitive-functions.md` v4 增补（增补四）。
+
+### 6. 十六亚型编码的引用规范（防误译回归）
+
+- A/H·O/B 十六亚型编码出自 JUNGUS 荣格斯第二代测试（jungus.cn/theory/16func.html），**非 sakinorva**。唯一正确译法：A = 分析型（方正）、H = **整体型**（圆融，禁译「人本型」）、O = 对象取向（主体型）、B = 背景取向（场域型）。学术根基：Nisbett et al. 2001（*Psychological Review*）；Masuda & Nisbett 2001。完整规范见 `cognitive-functions.md` v4 增补（增补三）。
