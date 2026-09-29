@@ -14,6 +14,7 @@
 - **doctor**：新增 `omp.agent.dm-judge`、`cc.agent.dm-judge`（链接，缺失为 yellow 并给 `ln -s` 命令）与 `*.dm-judge.tools`（frontmatter 与隔离要求不符为 red）；另以 yellow `omp.agent.dm-judge.mcp` 提示 omp 不按 agent `tools` 过滤 MCP。
 - **冒烟**：CC `claude -p` 派 dm-judge，子代理只见 `SubagentHandback`，无 Read/Bash。omp `omp -p --no-session` 派 dm-judge，工具只有 `yield`、`multi_tool_use.parallel` 和用户 MCP（context7、exa），无 read/bash。omp 的 `task` 不接受空共享 context。
 - **memory/MEMORY.md**：由 v3 索引改为 v5 简短索引；v3 决策标为已废弃。
+- **omp 18.4.3 复核（2026-09-29）**：新版 agent frontmatter 解析（`tools`/`spawns`/`thinkingLevel`）与 18.4.2 相同，`tools: []` 隔离仍有效，doctor 通过。18.4.3 批量 `task` 默认预启动（`task.speculativeLaunch`），barrier 语义不变，runtime-omp 已注明。思考深度：用户 role 带 `:auto` 后缀时由模型自适应，按用户决定视为正常而非缺陷。MCP：omp 没有按 agent 关闭 MCP 的开关（只看父会话 `restrictToolNames`/plan mode 与全局 `disabledServers`），用户选择维持 adapter 纪律 + runtime_trace 记 `egress_tools`；§3 补“判官实际调用联网工具即按污染处理、标 `unavailable` 并 fresh 重派”。
 
 ### 文风与表达有效性
 

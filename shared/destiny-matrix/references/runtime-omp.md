@@ -7,7 +7,7 @@
 | 动词 | omp 实现 |
 |---|---|
 | `dispatch(stage, roles)` | 每席位一个 `task` item，使用本文件下方规定的 adapter；共享 `context` 只放同批均可见的中性说明（`task` 不接受空 context），席位专属原始输入仅放该 task 的内容。判官 item 用 `dm-judge`，内容为 `judge_payload.py` 载荷全文。 |
-| `barrier(stage)` | 等待 DAG 中本批所需任务结果全部送达后再派遣下游，不轮询后台任务。 |
+| `barrier(stage)` | 等待 DAG 中本批所需任务结果全部送达后再派遣下游，不轮询后台任务。omp 18.4.3 起批量 `task` 默认预启动（`task.speculativeLaunch`：每个 item 流式写完即启动，整批调用无效时已启动者被中止）；同批 item 本就互不依赖，barrier 语义不变，但 runtime_trace 的 `started_at` 可能早于整批调用结束。 |
 | `collect(role)` | 读取完整 task 结果；schema 任务核验结构化输出。Leader 是 runtime_trace 唯一写入者，登记实际可观察模型、用量、状态和输入/输出产物 ID。 |
 | `message(to)` | `write agent://<id>` 传递必要依赖、纠错或产物 ID；不得用共享文件路径替代判官输入隔离，也不向判官续发材料。 |
 | `fresh_spawn(role)` | 新 `task` item、新名称和独立上下文。fresh writer 仅接收修订包及获准保留的资产，不接触被拒正文。 |
@@ -46,9 +46,9 @@ adapter 是 `agents` 的运行模板，不改变角色职责：
 
 `dm-judge` 与 `dm-deep` 同档（frontmatter `thinking-level: high`），frontmatter 为 `tools: []` 且不设 `spawns`：omp 此时只给内置 `yield`，没有 read/bash/write/task，判官只能消费 task 正文里的载荷。`doctor.py` 的 `omp.agent.dm-judge.tools` 检查该 frontmatter。
 
-已观测到的偏差：一次 omp 冒烟中 dm-judge 实际解析的 thinking 为 low，而不是 frontmatter 的 high。frontmatter 值只在没有后缀时生效，不能当作已生效的深度；需要保证判官深度时，Leader 用 `task.agentModelOverrides` 以 thinking 后缀显式指定，例如 `{"dm-judge":"@slow:high"}`（后缀语义同上节），并在 runtime_trace 记录实际观测到的 thinking，不按配置值填写。若当前运行时的 `task` 另有派遣级 effort/thinking 参数，也可用它显式指定；以当前工具表为准，本文不假定其存在。
+思考深度：用户的 model role 若带 `:auto` 后缀（如 `slow: …:auto`），后缀优先于 frontmatter 的 `thinking-level`，由模型按任务自适应选择深度；这是用户接受的默认（2026-09-29），不视为缺陷。一次只问“列出可用工具”的冒烟里观测到 low，属自适应的正常结果。需要固定深度时，Leader 可用 `task.agentModelOverrides` 以后缀显式指定（如 `{"dm-judge":"@slow:high"}`）；无论哪种，runtime_trace 记录实际观测到的 thinking，不按配置值填写。
 
-omp 18.4.2 不按 agent `tools` 过滤用户配置的 MCP 工具（冒烟中 dm-judge 仍见 context7、exa 检索/抓取），这些工具读不到本地工作区，但构成外传通道；adapter 正文禁止调用它们，这一条靠纪律而非运行时限制，doctor 以 yellow 提示。只有 Leader 以 `task` 派遣 `dm-judge`、正文与 `judge_payload.py` 输出逐字一致时，才可按 `team-orchestration.md` §3 标 `input_only`；改用 `dm-deep` 等带文件工具的 adapter 时一律 `unavailable`。
+omp（18.4.2 与 18.4.3 均如此）不按 agent `tools` 过滤用户配置的 MCP 工具：子代理是否加载 MCP 只取决于父会话的 `restrictToolNames`/plan mode 与全局 `disabledServers`，没有按 agent 关闭的开关（冒烟中 dm-judge 仍见 context7、exa 检索/抓取）。这些工具读不到本地工作区，但构成外传通道。用户选择的处理方式（2026-09-29）：不临时停用全局 MCP，也不改用独立无头进程，而是由 adapter 正文禁止调用，并由 Leader 在该判官 task 的 runtime_trace 记 `egress_tools`（判官可见的联网工具清单），供隐私审计复核；判官实际调用联网工具时的处理见 `team-orchestration.md` §3。doctor 以 yellow 提示此项。只有 Leader 以 `task` 派遣 `dm-judge`、正文与 `judge_payload.py` 输出逐字一致时，才可按 `team-orchestration.md` §3 标 `input_only`；改用 `dm-deep` 等带文件工具的 adapter 时一律 `unavailable`。
 
 ## Trace 采集
 
