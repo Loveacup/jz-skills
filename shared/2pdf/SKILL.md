@@ -1,20 +1,36 @@
 ---
 name: 2pdf
-description: Comprehensive PDF manipulation toolkit for extracting text and tables, creating new PDFs, merging/splitting documents, and handling forms. Also converts Markdown / Obsidian notes into beautiful CJK-safe styled PDF (and PNG/HTML/WeChat) with themes, Mermaid, and bookmarks. When Claude needs to fill a PDF form, process/generate/analyze PDFs at scale, or turn Markdown/Obsidian notes into PDF. Triggers: md to pdf, markdown to pdf, 转 PDF, Obsidian 导出 PDF, 笔记转 PDF, export note to PDF.
+description: "PDF and document toolkit with independent engines routed by task: (1) Markdown / Obsidian notes → beautiful CJK-safe styled PDF/PNG/HTML/WeChat with themes, Mermaid, bookmarks; (2) PDF edit and light extraction — merge/split/rotate/watermark/encrypt, basic text & table extraction, simple OCR, create PDFs; (3) fill PDF forms; (4) structured parsing of PDF/images/DOCX/PPTX/XLSX/HTML/EPUB into Markdown/JSON/HTML/chunks with layout, tables, equations and OCR via Marker; (5) Marker batch parsing, OCR-only / table-only extraction, LLM-enhanced parsing, Python extensions, local GUI or HTTP API. Triggers: md to pdf, markdown to pdf, 转 PDF, Obsidian 导出 PDF, 笔记转 PDF, export note to PDF, merge/split PDF, fill PDF form, PDF 转 Markdown, pdf to markdown/json, 文档结构化解析, 扫描件转 Markdown, extract tables from PDF, chunks for RAG, marker."
 license: Proprietary. LICENSE.txt has complete terms
 ---
 
 # PDF Processing Skill
 
-> **Source repo**: https://github.com/Loveacup/jz-skills (path `shared/2pdf`) — to update this skill: `git pull` then re-run `python3 scripts/md2pdf_chrome.py --setup` (idempotent).
+> **Source repo**: https://github.com/Loveacup/jz-skills (path `shared/2pdf`) — to update this skill: `git pull` then re-run `python3 scripts/md2pdf_chrome.py --setup` (typesetting engine, idempotent). The Marker parsing engine has its own setup: `python3.12 scripts/marker_runner.py setup` (see `references/marker.md`).
 
 ## Overview
 
-This skill covers PDF processing operations: extract text/tables, merge/split, create new PDFs, fill forms, and convert Markdown to styled PDF with CJK support.
+One skill, independent execution chains. Pick the chain from the user's goal; never swap one engine for another as a silent fallback.
 
-- **Markdown to PDF** (primary workflow): `scripts/md2pdf_chrome.py` — see below
+| User task | Execution chain |
+|---|---|
+| Markdown/Obsidian → typeset PDF/PNG/HTML/WeChat | `scripts/md2pdf_chrome.py`, venv `~/.venvs/pdf-skill`, its own `--setup`/`--preflight`/`--verify` (below) |
+| Merge/split/rotate/watermark/encrypt, basic text & table extraction, simple OCR, create PDFs | Tools in `references/pdf-operations.md`; a tool the user names wins |
+| Read/fill fillable fields, or fill by coordinates | `references/forms.md` + its helper scripts (Marker's Form *extraction* is not form *filling*) |
+| Document → structure-preserving Markdown/JSON/HTML/chunks; complex tables, equations, scanned layout | **Read `references/marker.md`**, run `scripts/marker_runner.py` (venv `~/.venvs/2pdf-marker`) |
+| Batch parsing, OCR-only/table-only JSON, LLM enhancement, Python custom blocks/processors, GUI, HTTP API | **Read `references/marker-advanced.md`** (same Marker venv) |
+
+Routing rules:
+- Plain "extract the text/tables" stays on the light tools; do not escalate to model-based parsing by default. "PDF → Markdown/JSON/chunks" or an explicit need for complex structure goes to Marker.
+- "Process this PDF" with no target result → ask which result is wanted before choosing a chain.
+- Multi-stage tasks are explicit process hand-offs through files, e.g. Marker → `<stem>/` output directory → `md2pdf_chrome.py <abs path to <stem>.md>`. Pass the Markdown path *inside* Marker's output directory (images are relative to it); do not move the `.md` out alone. Re-typesetting is not a lossless reproduction of the source PDF, and the typesetting engine gains no LaTeX math rendering from this.
+- Marker failures are reported as Marker failures; they never trigger the typesetting engine, and vice versa. The two engines never import each other.
+
+Reference map:
+- **Markdown to PDF** (primary typesetting workflow): `scripts/md2pdf_chrome.py` — see below
 - **PDF operations** (merge, split, extract, create): see `references/pdf-operations.md`
 - **Fill PDF forms**: read `references/forms.md` and follow its instructions
+- **Structured parsing (Marker)**: `references/marker.md`; batch/LLM/Python/GUI/API: `references/marker-advanced.md`
 - **Advanced** (pypdfium2, pdf-lib, troubleshooting): see `references/advanced.md`
 - **Markdown to PDF internals** (pagination, font sizing, Mermaid, callouts): see `references/md2pdf-details.md`
 
@@ -188,3 +204,7 @@ For pagination rules, font sizing tables, Mermaid details, callout types, and CS
 | Fill PDF forms | pypdf / pdf-lib | `references/forms.md` |
 | pypdfium2, pdf-lib | advanced libs | `references/advanced.md` |
 | Page headers/footers | `scripts/md2pdf_chrome.py` | Playwright, auto page numbering |
+| **Document → Markdown/JSON/HTML/chunks** (layout, tables, equations, OCR) | `scripts/marker_runner.py single -- …` | `references/marker.md` |
+| Office/HTML/EPUB → structured output | `marker_runner.py setup --full`, then `single` | `references/marker.md` |
+| Table-only / OCR-only JSON | Marker `TableConverter` / `OCRConverter` | `references/marker.md` |
+| Batch parsing, LLM enhancement, Python API, GUI, HTTP API | `marker_runner.py batch/python/gui/server` | `references/marker-advanced.md` |

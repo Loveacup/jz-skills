@@ -1,0 +1,5 @@
+# 2pdf 结构化解析链（Marker）的核心依赖，由 scripts/marker_runner.py setup 安装到独立 venv。
+# 精确版本 = 已核查转换与模型服务生命周期的上游源码版本；升级前须重新核查再改这里。
+# 可选能力（--full / --gui / --server）由 marker_runner.py 在同一次 pip 调用中追加。
+marker-pdf==2.0.0
+surya-ocr==0.22.1

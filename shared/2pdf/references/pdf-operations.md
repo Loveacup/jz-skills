@@ -65,6 +65,8 @@ with pdfplumber.open("document.pdf") as pdf:
         print(text)
 ```
 
+> Need reading order, headings, and layout preserved as Markdown/JSON/HTML/chunks instead of raw text? Use the structured parsing chain: `references/marker.md`.
+
 #### Extract Tables
 ```python
 with pdfplumber.open("document.pdf") as pdf:
@@ -94,6 +96,8 @@ if all_tables:
     combined_df = pd.concat(all_tables, ignore_index=True)
     combined_df.to_excel("extracted_tables.xlsx", index=False)
 ```
+
+> Complex tables (merged cells, borderless, scanned) or table-only JSON with page bounding boxes: Marker `TableConverter`, see `references/marker.md`.
 
 ### reportlab - Create PDFs
 
@@ -226,6 +230,8 @@ for i, image in enumerate(images):
 
 print(text)
 ```
+
+> Scanned documents that must come out as structured Markdown/JSON (layout, tables, equations), or OCR JSON with block boxes: Marker `--force_ocr` / `OCRConverter`, see `references/marker.md`. This requires the separate Marker environment and local models; the pytesseract recipe above stays the lightweight option.
 
 ### Add Watermark
 ```python
