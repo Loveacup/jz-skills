@@ -162,7 +162,9 @@ def _build_chart(lunar, hour_idx, gender_zh, as_of, *, fix_leap=True):
         "当前流月": horo_to_dict(horoscope.monthly),
         "当前流日": horo_to_dict(horoscope.daily),
     }
-    return {"基础信息": base, "十二宫": palaces, "运限": horoscope_data}
+    from ziwei_structure import build_structure
+    return {"基础信息": base, "十二宫": palaces, "运限": horoscope_data,
+            "结构": build_structure(palaces, horoscope_data)}
 
 
 def calc_ziwei(time_context, calculation_sex=None, analysis_as_of=None):

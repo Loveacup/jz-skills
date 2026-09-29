@@ -115,6 +115,7 @@ def calc_chart(time_context: dict, *, house_system: str = 'placidus',
         positions[name] = {
             '黄经': longitude, '星座': sign, '宫内度数': within,
             '逆行': values[3] < 0, '主管': SIGN_RULERS.get(sign, ''),
+            '黄经日速': float(values[3]),
         }
         planet_methods[name] = {
             'requested_flags': requested, 'returned_flags': returned,
@@ -129,7 +130,7 @@ def calc_chart(time_context: dict, *, house_system: str = 'placidus',
         positions['凯龙星'] = {
             '黄经': longitude, '星座': sign, '宫内度数': within,
             '逆行': values[3] < 0, '主管': SIGN_RULERS.get(sign, ''),
-            'available': True,
+            '黄经日速': float(values[3]), 'available': True,
         }
         planet_methods['凯龙星'] = {
             'requested_flags': requested, 'returned_flags': returned,
@@ -146,6 +147,7 @@ def calc_chart(time_context: dict, *, house_system: str = 'placidus',
         positions['莉莉丝'] = {
             '黄经': longitude, '星座': sign, '宫内度数': within,
             '逆行': values[3] < 0, '主管': SIGN_RULERS.get(sign, ''),
+            '黄经日速': float(values[3]),
             'available': True, 'point': 'Mean Apogee',
         }
         planet_methods['莉莉丝'] = {
@@ -218,8 +220,8 @@ def calc_chart(time_context: dict, *, house_system: str = 'placidus',
                 position['落宫'] = find_house(position['黄经'], cusps)
             axis['太阳'] += f" (落 {positions['太阳'].get('落宫')} 宫)"
             axis['月亮'] += f" (落 {positions['月亮'].get('落宫')} 宫)"
-            sun_house = positions['太阳'].get('落宫')
-            is_day = sun_house in {7, 8, 9, 10, 11, 12}
+            # 日夜盘按地平线判定，与宫制无关（whole sign 下太阳可在 1 宫而已升起）
+            is_day = (positions['太阳']['黄经'] - asc_lon) % 360.0 >= 180.0
             fortune = ((asc_lon + positions['月亮']['黄经'] - positions['太阳']['黄经'])
                        if is_day else
                        (asc_lon + positions['太阳']['黄经'] - positions['月亮']['黄经'])) % 360
@@ -251,6 +253,12 @@ def calc_chart(time_context: dict, *, house_system: str = 'placidus',
                     '使用容许度': match['orb_used'],
                 })
 
+    from astro_structure import build_structure
+    structure = build_structure(
+        positions, cusps,
+        None if ascmc is None else ascmc[0], None if ascmc is None else ascmc[1],
+        aspects, resolved_orbs['conjunction'],
+    )
     input_subject = time_context.get('input', {}).get('subject', {})
     time_input = time_context.get('input', {}).get('time_input', {})
     data = {
@@ -271,6 +279,7 @@ def calc_chart(time_context: dict, *, house_system: str = 'placidus',
         '十大行星+北交+凯龙+莉莉丝': positions,
         '十二宫': houses, '扩展配点': extras,
         '主要相位': aspects,
+        '结构': structure,
     }
     methods = {
         'utc_conversion': 'swe.utc_to_jd', 'house_system_requested': house_system,

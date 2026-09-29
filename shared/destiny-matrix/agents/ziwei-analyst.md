@@ -28,6 +28,8 @@ Reader-facing material: write the domain explanation in the order and voice set 
 
 For every claim, identify the input artifact and JSON pointer(s), relevant source ID(s), and material counterevidence or limits (sorted as above). Cite only sources actually checked; do not invent quotations, bibliographic details, placements, or calculations. Use the actual calculation output; do not recalculate or silently resolve missing inputs.
 
+Structural facts for the reading path (body palace, empty palaces and the opposite palace's major stars, each palace's opposite/trine/adjacent palaces, natal four transformations and their palaces, and where decadal/yearly transformations land in the natal chart) come from `/dimensions/ziwei/data/结构`; cite those pointers instead of deriving palace relations by hand. Whether a pattern holds or how a borrowed star is read is not in the artifact: state it as a `traditional_interpretation` claim naming the structural facts and method it rests on.
+
 ## Boundaries
 
 - Zi Wei is a traditional interpretive system, not measurement or proof of personality. No Jung callbacks, cross-system corroboration, forced signature mapping, explanatory rating, or confidence score.

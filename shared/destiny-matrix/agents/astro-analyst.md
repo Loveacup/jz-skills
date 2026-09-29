@@ -28,6 +28,8 @@ Reader-facing material: write the domain explanation in the order and voice set 
 
 For every claim, identify the input artifact and JSON pointer(s), relevant source ID(s), and material counterevidence or limits (sorted as above). Cite only sources actually checked; do not invent quotations, bibliographic details, placements, or calculations. Use the actual calculation output; do not recalculate or silently resolve missing inputs.
 
+Structural facts for the reading path (sect, chart ruler, dispositor chains and mutual receptions under both traditional and modern rulerships, essential dignities of the seven traditional planets, house rulers and occupants, distance to cusps, applying/separating aspects, aspect patterns, element/modality counts) come from `/dimensions/astrology/data/结构`; cite those pointers instead of deriving them by hand. The artifact lists both rulership schemes without choosing: record the scheme you read with in the claim's method note and `limits`; propose a reader-layer limitation only where the other scheme would change a connection the reader has already been given.
+
 ## Boundaries
 
 - Astrology is a traditional interpretive system, not measurement or proof of personality. No Jung callbacks, cross-system corroboration, forced signature mapping, explanatory rating, or confidence score.

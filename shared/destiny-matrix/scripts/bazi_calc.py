@@ -869,6 +869,9 @@ def calc_bazi(time_context, calculation_sex=None, *, zi_hour_rule="midnight",
             }
     except (ImportError, ValueError, AttributeError):
         sxtwl_check = None
+    from bazi_structure import build_structure
+    structure = build_structure(pillar_gans, pillar_zhis,
+                                dayun=da_yun_list, liunian=liunian)
     data = {
         "公历": apparent_dt.isoformat(timespec="seconds"),
         "节气时间轴": term_dt.isoformat(timespec="seconds"),
@@ -881,6 +884,7 @@ def calc_bazi(time_context, calculation_sex=None, *, zi_hour_rule="midnight",
         "五行比例": wx_pct,
         "五行统计口径": "四柱天干+藏干固定权重；非实测能量",
         "调候用神": diaohou,
+        "结构": structure,
         "神煞": shensha,
         "起运": yun_data,
         "大运": da_yun_list,
