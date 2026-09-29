@@ -15,7 +15,7 @@ if _SCRIPT_DIR not in sys.path:
     sys.path.insert(0, _SCRIPT_DIR)
 
 from _common import (  # noqa: E402
-    CalcError, InputError, format_coord, format_tz, match_aspect,
+    ASTRO_POSITIONS_KEY, CalcError, InputError, format_coord, format_tz, match_aspect,
     normalize_birth_time, resolve_orbs,
 )
 
@@ -276,7 +276,7 @@ def calc_chart(time_context: dict, *, house_system: str = 'placidus',
         '三轴心': axis,
         'ASC_MC_原始黄经': None if ascmc is None else {'ASC': ascmc[0], 'MC': ascmc[1]},
         '十二宫始黄经': list(cusps) if cusps is not None else None,
-        '十大行星+北交+凯龙+莉莉丝': positions,
+        ASTRO_POSITIONS_KEY: positions,
         '十二宫': houses, '扩展配点': extras,
         '主要相位': aspects,
         '结构': structure,

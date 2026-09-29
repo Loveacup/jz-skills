@@ -166,8 +166,8 @@ class SynastryInputTests(unittest.TestCase):
         self.assertNotIn("★", json.dumps(output, ensure_ascii=False))
 
     def test_synastry_aspect_profile_and_inclusive_orb_boundary(self):
-        a = self.bundle(astrology={"十大行星+北交+凯龙": {"太阳": {"黄经": 0.0}}})
-        b = self.bundle(astrology={"十大行星+北交+凯龙": {"月亮": {"黄经": 8.0}}})
+        a = self.bundle(astrology={"十大行星+北交+凯龙+莉莉丝": {"太阳": {"黄经": 0.0}}})
+        b = self.bundle(astrology={"十大行星+北交+凯龙+莉莉丝": {"月亮": {"黄经": 8.0}}})
         with tempfile.TemporaryDirectory() as directory:
             pa, pb = Path(directory) / "a.json", Path(directory) / "b.json"
             pa.write_text(json.dumps(a), encoding="utf-8")

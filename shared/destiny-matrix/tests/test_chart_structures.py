@@ -166,6 +166,31 @@ class AstroStructureTests(unittest.TestCase):
         self.assertIn(('太阳', '天顶'), angles)
 
 
+class SynastryReadsCalculatorOutputTests(unittest.TestCase):
+    def test_synastry_astrology_layer_reads_real_calc_chart_output(self):
+        from synastry_calc import analyze_astrology
+        from _common import resolve_orbs
+        bundle = {'dimensions': {'astrology': calc_chart(context())}}
+        profile, orbs = resolve_orbs(None)
+        layer = analyze_astrology(bundle, bundle, orbs, profile)
+        self.assertEqual(layer['status'], 'available')
+        scan = next(row for row in layer['observations'] if row['kind'] == 'aspect_scan')
+        self.assertGreater(scan['checked_pairs'], 0)
+        same = [row for row in layer['observations'] if row.get('a_point') == row.get('b_point')
+                and row['kind'] == 'computed_aspect']
+        for row in same:
+            self.assertEqual(row['aspect'], 'conjunction')
+
+    def test_synastry_astrology_layer_is_unavailable_without_position_table(self):
+        from synastry_calc import analyze_astrology
+        from _common import resolve_orbs
+        chart = calc_chart(context())
+        chart['data'] = {'太阳': {'黄经': 1.0}, '月亮': {'黄经': 2.0}}
+        bundle = {'dimensions': {'astrology': chart}}
+        profile, orbs = resolve_orbs(None)
+        self.assertEqual(analyze_astrology(bundle, bundle, orbs, profile)['status'], 'unavailable')
+
+
 class ZiweiStructureTests(unittest.TestCase):
     def setUp(self):
         self.data = BUNDLE['dimensions']['ziwei']['data']

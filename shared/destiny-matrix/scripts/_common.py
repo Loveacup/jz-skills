@@ -133,6 +133,10 @@ def resolve_orbs(custom: dict | None) -> tuple[str, dict]:
     return "standard-v1", profile
 
 
+# astro_calc 写出、synastry_calc 读取的星体表键名；两端共用，避免各写一份而失配
+ASTRO_POSITIONS_KEY = "十大行星+北交+凯龙+莉莉丝"
+
+
 def match_aspect(lon_a: float, lon_b: float, orbs: dict) -> dict | None:
     if not all(math.isfinite(x) for x in (lon_a, lon_b)):
         raise InputError("non_finite_angle", "angle", "黄经必须为有限数")

@@ -9,7 +9,7 @@ import sys
 from typing import Any
 
 from _common import InputError as SharedInputError
-from _common import match_aspect, resolve_orbs
+from _common import ASTRO_POSITIONS_KEY, match_aspect, resolve_orbs
 
 FUNCTIONS = ("Se", "Si", "Ne", "Ni", "Te", "Ti", "Fe", "Fi")
 SUBTYPE_KEYS = {
@@ -228,9 +228,9 @@ def analyze_ziwei(a_bundle: dict[str, Any], b_bundle: dict[str, Any]) -> dict[st
 
 
 def _planet_positions(data: dict[str, Any]) -> dict[str, float]:
-    positions = data.get("十大行星+北交+凯龙")
+    positions = data.get(ASTRO_POSITIONS_KEY)
     if not isinstance(positions, dict):
-        positions = data.get("planets") if isinstance(data.get("planets"), dict) else data
+        return {}
     result = {}
     for planet in ("太阳", "月亮", "水星", "金星", "火星", "土星", "冥王星"):
         item = positions.get(planet)
