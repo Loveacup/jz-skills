@@ -122,5 +122,102 @@ class BookValidationTests(unittest.TestCase):
         self.assertEqual(code, 0, result)
         self.assertTrue(any(row["term"] == "命中注定" for row in result["review_required"]))
 
+    # --- v5.2 reader-layer limitations and style hints ------------------------
+    def use_limitations(self, adjacent_section="personality"):
+        evidence = json.loads(self.evidence.read_text(encoding="utf-8"))
+        row = lambda lid, changes, placement: {"limitation_id": lid, "affected_claim_ids": ["J-001"], "impact": "i",
+                                               "changes_reading": changes, "reader_text": "t", "required_placement": placement}
+        evidence["limitations"] = [row("L-OPEN", True, "opening"), row("L-ADJ", True, "adjacent"), row("L-AUD", False, "appendix")]
+        self.evidence.write_text(json.dumps(evidence), encoding="utf-8")
+        plan = self.plan_doc()
+        for section in plan["sections"]:
+            section["limitation_ids"] = ["L-ADJ"] if section["section_id"] == adjacent_section else []
+        self.plan.write_text(json.dumps(plan), encoding="utf-8")
+
+    def limited_html(self, body_marks='<aside data-disclosure-id="d-adj" data-limitation-id="L-ADJ">如果时辰改动，这一节改读。</aside>',
+                     opening_mark=' data-limitation-id="L-OPEN"', ziwei_extra=""):
+        html = self.html_doc(extra=body_marks).replace('id="disclosure-basis">口径说明',
+                                                       f'id="disclosure-basis"><p{opening_mark}>这是反思读物。</p>')
+        return html.replace("<p>三</p>", "<p>三</p>" + ziwei_extra)
+
+    def codes(self):
+        return {i["code"] for i in self.run_check()[1]["issues"]}
+
+    def test_reader_limitations_render_once_where_planned(self):
+        self.use_limitations()
+        self.html.write_text(self.limited_html(), encoding="utf-8")
+        code, result = self.run_check()
+        self.assertEqual(code, 0, result)
+
+    def test_adjacent_limitation_missing_or_repeated_fails(self):
+        self.use_limitations()
+        self.html.write_text(self.limited_html(body_marks=""), encoding="utf-8")
+        self.assertIn("limitation_missing", self.codes())
+        twice = '<span data-limitation-id="L-ADJ">按时辰前提</span><span data-limitation-id="L-ADJ">按时辰前提</span>'
+        self.html.write_text(self.limited_html(body_marks=twice), encoding="utf-8")
+        self.assertIn("limitation_repeated", self.codes())
+        hidden = '<span hidden data-limitation-id="L-ADJ">按时辰前提</span>'
+        self.html.write_text(self.limited_html(body_marks=hidden), encoding="utf-8")
+        self.assertTrue({"limitation_missing", "hidden_dom"} <= self.codes())
+
+    def test_hollow_limitation_marker_fails(self):
+        self.use_limitations()
+        for hollow in ('<span data-limitation-id="L-ADJ"></span>', '<span data-limitation-id="L-ADJ">L-ADJ</span>',
+                       '<span data-limitation-id="L-ADJ">按时辰</span>'):
+            with self.subTest(markup=hollow):
+                self.html.write_text(self.limited_html(body_marks=hollow), encoding="utf-8")
+                self.assertIn("limitation_empty", self.codes())
+        self.html.write_text(self.limited_html(body_marks='<span data-limitation-id="L-ADJ">按前面说的时辰前提</span>'), encoding="utf-8")
+        self.assertNotIn("limitation_empty", self.codes())
+
+    def test_limitation_layer_placement_is_enforced(self):
+        self.use_limitations()
+        self.html.write_text(self.limited_html(opening_mark=""), encoding="utf-8")
+        self.assertIn("limitation_missing", self.codes())
+        self.html.write_text(self.limited_html(ziwei_extra='<p data-limitation-id="L-AUD">排版软件版本。</p>'), encoding="utf-8")
+        self.assertIn("appendix_limitation_in_body", self.codes())
+        self.html.write_text(self.limited_html(ziwei_extra='<p data-limitation-id="L-ADJ">再说一次。</p>'), encoding="utf-8")
+        self.assertIn("limitation_wrong_placement", self.codes())
+        self.html.write_text(self.limited_html(ziwei_extra='<p data-limitation-id="L-OPEN">再说一次。</p>'), encoding="utf-8")
+        self.assertIn("limitation_wrong_placement", self.codes())
+        self.html.write_text(self.limited_html(ziwei_extra='<p data-limitation-id="L-GHOST">未登记。</p>'), encoding="utf-8")
+        self.assertIn("unknown_limitation", self.codes())
+
+    def test_common_reading_source_cannot_be_quoted(self):
+        evidence = json.loads(self.evidence.read_text(encoding="utf-8"))
+        evidence["sources"] = [{"source_id": "S1", "kind": "common_reading"}]
+        self.evidence.write_text(json.dumps(evidence), encoding="utf-8")
+        self.assertIn("common_reading_quoted", self.codes())
+
+    def test_process_words_and_denial_openings_are_review_only(self):
+        body = '</p><p>不是说你冷淡，而是先观察。</p><p>本次按工具虚岁计算，已绑定 artifact。</p><p>'
+        appendix_note = '<p>本次使用的工具与字段见此。</p>'
+        html = self.html_doc(extra=body).replace('<summary>方法</summary>', '<summary>方法</summary>' + appendix_note)
+        self.html.write_text(html, encoding="utf-8")
+        code, result = self.run_check()
+        self.assertEqual(code, 0, result)
+        rows = result["review_required"]
+        process = [r for r in rows if r["kind"] == "process_term"]
+        terms = {r["term"] for r in process}
+        self.assertTrue({"本次", "工具虚岁", "绑定", "artifact", "口径"} <= terms, rows)
+        self.html.write_text(self.html_doc(extra="审稿后未采用这条读法。"), encoding="utf-8")
+        terms = {r["term"] for r in self.run_check()[1]["review_required"] if r["kind"] == "process_term"}
+        self.assertTrue({"审稿", "未采用"} <= terms)
+        self.assertNotIn("工具", terms)  # nested inside 工具虚岁, reported once
+        self.assertFalse(any(r["location"].startswith("appendix") for r in process))
+        self.assertTrue(any(r["kind"] == "opening_negation" and r["term"] == "不是" for r in rows))
+
+    def test_many_opening_limitations_raise_review_hint(self):
+        evidence = json.loads(self.evidence.read_text(encoding="utf-8"))
+        evidence["limitations"] = [{"limitation_id": f"L-{i}", "affected_claim_ids": [], "impact": "i", "changes_reading": True,
+                                    "reader_text": "t", "required_placement": "opening"} for i in range(6)]
+        self.evidence.write_text(json.dumps(evidence), encoding="utf-8")
+        marks = "".join(f'<p data-limitation-id="L-{i}">这是第{i}条通用阅读边界</p>' for i in range(6))
+        self.html.write_text(self.html_doc().replace('id="disclosure-basis">口径说明', f'id="disclosure-basis">{marks}'), encoding="utf-8")
+        code, result = self.run_check()
+        self.assertEqual(code, 0, result)
+        self.assertTrue(any(r["kind"] == "opening_limitation_count" for r in result["review_required"]))
+
+
 if __name__ == "__main__":
     unittest.main()

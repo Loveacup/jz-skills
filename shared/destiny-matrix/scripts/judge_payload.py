@@ -1,0 +1,337 @@
+#!/usr/bin/env python3
+"""Assemble the deterministic S4 judge payload for one (subject, dimension).
+
+The payload is the complete input of an isolated dm-judge task: the judge role
+contract, the contracts its 首读 section lists, a public source-ID index and a
+single-dimension slice of the raw artifact. Nothing else from the case is read.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import re
+import sys
+from pathlib import Path
+
+DEFAULT_DM = Path(__file__).resolve().parent.parent
+DIMENSIONS = ("jung", "bazi", "ziwei", "astro")
+BUNDLE_KEY = {"bazi": "bazi", "ziwei": "ziwei", "astro": "astrology"}
+# Bundle-level method keys each traditional judge needs; other keys are omitted.
+METHOD_KEYS_COMMON = ("bundle_schema", "time_pipeline", "time_rule", "analysis_as_of")
+METHOD_KEYS_EXTRA = {"bazi": ("zi_hour_rule",), "ziwei": (), "astro": ("house_system",)}
+# time_context.input.subject copies the whole intake subject; keep only birth-input fields.
+SUBJECT_KEYS = ("birth_date", "date_calendar", "lunar_date", "calculation_sex", "location")
+PERSONALITY_KEYS = ("instrument", "version", "test_date", "construct", "scores",
+                    "scale_min", "scale_max", "self_reported_type")
+JUNG_RESULT_CONSTRUCTS = {"functions8", "subtypes16", "mbti_type"}
+BUILDABLE_STATUS = {"ok", "partial"}
+
+
+class PayloadError(Exception):
+    def __init__(self, exit_code: int, code: str, path: str, message: str):
+        super().__init__(message)
+        self.exit_code, self.code, self.path, self.message = exit_code, code, path, message
+
+
+class JsonArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        _emit_error("invalid_argument", "$", message)
+        raise SystemExit(2)
+
+
+def _emit_error(code: str, path: str, message: str) -> None:
+    print(f"judge_payload: {message}", file=sys.stderr)
+    print(json.dumps({"ok": False, "status": "error",
+                      "error": {"code": code, "path": path, "message": message}},
+                     ensure_ascii=False))
+
+
+def _read_bytes(path: Path, label: str) -> bytes:
+    try:
+        return path.read_bytes()
+    except OSError as exc:
+        raise PayloadError(2, "file_error", label, f"无法读取 {label}: {path} ({type(exc).__name__})")
+
+
+def _load_json(path: Path, label: str) -> tuple[dict, str]:
+    raw = _read_bytes(path, label)
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise PayloadError(2, "invalid_json", label, f"{label} 不是有效 JSON ({type(exc).__name__})")
+    if not isinstance(data, dict):
+        raise PayloadError(2, "invalid_json", label, f"{label} 顶层必须是对象")
+    return data, hashlib.sha256(raw).hexdigest()
+
+
+def _read_dm_text(dm: Path, rel: str) -> str:
+    try:
+        return (dm / rel).read_text(encoding="utf-8")
+    except OSError as exc:
+        raise PayloadError(1, "contract_missing", rel, f"技能文件缺失或不可读: {rel} ({type(exc).__name__})")
+
+
+def first_read_entries(contract: str) -> list[tuple[str, list[str]]]:
+    """Return [(path, [section numbers])] listed under the judge's ## 首读 section."""
+    match = re.search(r"^## 首读\s*$(.*?)(?=^## |\Z)", contract, re.M | re.S)
+    if not match:
+        raise PayloadError(1, "contract_invalid", "首读", "判官合同缺少 ## 首读 段落")
+    entries: list[tuple[str, list[str]]] = []
+    for line in match.group(1).splitlines():
+        if not line.lstrip().startswith("-"):
+            continue
+        sections = re.findall(r"§(\d+)", line)
+        for rel in re.findall(r"`((?:references|schemas)/[^`]+)`", line):
+            entries.append((rel, sections if rel == "references/team-orchestration.md" else []))
+    if not entries:
+        raise PayloadError(1, "contract_invalid", "首读", "判官合同首读段落未列出任何文件")
+    return entries
+
+
+def extract_sections(text: str, numbers: list[str], rel: str) -> str:
+    parts = []
+    for number in numbers:
+        match = re.search(rf"^## {number}\. .*?(?=^## |\Z)", text, re.M | re.S)
+        if not match:
+            raise PayloadError(1, "contract_invalid", rel, f"{rel} 中找不到 §{number}")
+        parts.append(match.group(0).rstrip())
+    return "\n\n".join(parts)
+
+
+def source_index(dm: Path) -> list[dict]:
+    try:
+        catalog = json.loads(_read_dm_text(dm, "references/sources.json"))
+    except json.JSONDecodeError:
+        raise PayloadError(1, "contract_invalid", "references/sources.json", "sources.json 不是有效 JSON")
+    return [{"source_id": item.get("source_id"), "title": item.get("title"),
+             "verification_status": item.get("verification_status")}
+            for item in catalog.get("sources", [])]
+
+
+def resolve_artifact_ids(files: list[tuple[str, Path, str]], evidence_path: Path | None,
+                         ws: Path | None) -> tuple[list[str], str]:
+    if evidence_path is None:
+        return [f"sha256:{digest}" for _, _, digest in files], "content_hash"
+    evidence, _ = _load_json(evidence_path, "--evidence")
+    base = (ws or evidence_path.parent).resolve()
+    artifacts = [a for a in evidence.get("artifacts", [])
+                 if isinstance(a, dict) and a.get("status") == "current"]
+    ids = []
+    for label, path, digest in files:
+        matches = [a for a in artifacts if str(a.get("sha256", "")).lower() == digest]
+        same_path = [a for a in matches if (base / str(a.get("path", ""))).resolve() == path.resolve()]
+        chosen = same_path or matches
+        if not chosen:
+            raise PayloadError(1, "artifact_not_registered", label,
+                               f"{label} 的 SHA-256 未在 case_evidence 中登记为 current artifact")
+        ids.append(str(chosen[0]["artifact_id"]))
+    return ids, "case_evidence"
+
+
+def frame_from_intake(intake: dict | None, subject: str) -> dict:
+    if intake is None:
+        return {"age_years": None, "minor_mode": None, "audience": None,
+                "note": "未提供 intake；年龄与受众未知，按保守适龄措辞"}
+    if subject == "partner":
+        return {"age_years": None, "minor_mode": None, "audience": intake.get("audience"),
+                "note": "intake 未登记伴侣年龄；按年龄未知处理"}
+    return {"age_years": intake.get("age_years"), "minor_mode": intake.get("minor_mode"),
+            "audience": intake.get("audience")}
+
+
+def personality_slice(intake: dict, subject: str) -> dict:
+    if subject == "partner":
+        partner = (intake.get("synastry") or {}).get("partner")
+        if not isinstance(partner, dict):
+            raise PayloadError(1, "dimension_unavailable", "/synastry/partner", "intake 中没有伴侣资料")
+        source, pointer = partner.get("personality_input"), "/synastry/partner/personality_input"
+    else:
+        source, pointer = intake.get("personality_input"), "/personality_input"
+    if not isinstance(source, dict):
+        raise PayloadError(1, "dimension_unavailable", pointer, "intake 中没有 personality_input")
+    if source.get("construct") == "none":
+        raise PayloadError(1, "dimension_unavailable", pointer, "construct 为 none，jung 维度不适用")
+    data = {key: source.get(key) for key in PERSONALITY_KEYS}
+    transcription = source.get("transcription")
+    data["transcription_status"] = transcription.get("status") if isinstance(transcription, dict) else None
+    # 访谈构念的原始输入就是观察本身；量表构念只给分数与量程。
+    if source.get("construct") == "interview":
+        data["observations"] = source.get("observations", [])
+        data["counterexamples"] = source.get("counterexamples", [])
+    return {"pointer": pointer, "data": data}
+
+
+def build_traditional(dimension: str, bundle: dict) -> tuple[dict, list[tuple[str, dict]]]:
+    if bundle.get("schema_version") != 2 or not isinstance(bundle.get("dimensions"), dict):
+        raise PayloadError(2, "invalid_input", "--input", "--input 不是 schema_version 2 的 chart_bundle")
+    key = BUNDLE_KEY[dimension]
+    dim = bundle["dimensions"].get(key)
+    if not isinstance(dim, dict):
+        raise PayloadError(1, "dimension_unavailable", f"/dimensions/{key}", f"chart_bundle 缺少 {key} 维度")
+    if dim.get("status") not in BUILDABLE_STATUS:
+        raise PayloadError(1, "dimension_unavailable", f"/dimensions/{key}/status",
+                           f"{key} 维度状态为 {dim.get('status')}，不派判官")
+    methods = bundle.get("methods") or {}
+    allowed = METHOD_KEYS_COMMON + METHOD_KEYS_EXTRA[dimension]
+    frame = {"methods": {k: methods[k] for k in allowed if k in methods}}
+    context = bundle.get("time_context")
+    if isinstance(context, dict):
+        context = json.loads(json.dumps(context))
+        subject = (context.get("input") or {}).get("subject")
+        if isinstance(subject, dict):
+            context["input"]["subject"] = {k: subject[k] for k in SUBJECT_KEYS if k in subject}
+    frame["time_context"] = context
+    return frame, [(f"/dimensions/{key}", dim)]
+
+
+def build_jung(result: dict | None, intake: dict | None, subject: str) -> list[tuple[str, dict]]:
+    slices: list[tuple[str, dict]] = []
+    persona = personality_slice(intake, subject) if intake is not None else None
+    if persona:
+        slices.append((persona["pointer"], persona["data"]))
+    if result is not None:
+        construct = result.get("construct")
+        if result.get("status") == "error" or construct not in JUNG_RESULT_CONSTRUCTS:
+            raise PayloadError(2, "invalid_input", "--input", "--input 不是成功的 jung_calc 结果")
+        if persona and persona["data"].get("construct") != construct:
+            raise PayloadError(1, "construct_mismatch", "/construct",
+                               f"jung_calc 构念 {construct} 与 intake 构念 {persona['data'].get('construct')} 不一致")
+        slices.append(("", result))
+    return slices
+
+
+def _json_block(value) -> str:
+    return "```json\n" + json.dumps(value, ensure_ascii=False, indent=1, allow_nan=False) + "\n```"
+
+
+def _section(number: int, label: str, body: str) -> str:
+    # 内联文件自带 Markdown 标题，用定界行分隔载荷小节，避免与原文标题混淆。
+    return f"===== 第 {number} 节 · {label} =====\n\n{body.strip()}\n\n===== 第 {number} 节结束 ====="
+
+
+def render(dimension: str, subject: str, dm: Path, artifact_ids: list[str],
+           frame: dict, data_slices: list[tuple[str, str, dict]]) -> tuple[str, list[str]]:
+    contract_rel = f"agents/judge-{dimension}.md"
+    contract = _read_dm_text(dm, contract_rel)
+    included = [contract_rel]
+    parts = [
+        f"# destiny-matrix S4 判官载荷 · judge-{dimension} · subject_id={subject}",
+        "本载荷由 `scripts/judge_payload.py` 确定性生成，是你本次任务的全部输入。你在隔离席位运行，"
+        "没有文件、Shell、检索或派遣工具；下文已内联角色合同、其“首读”列明的流程/输出/方法合同、"
+        "公共来源 ID 索引、输入口径与本维原始数据。合同中“首读/读取”的要求由对应一节满足；"
+        "未内联的文件不可访问，不要索取。",
+        "- 只处理本维度与本 subject_id。\n"
+        "- 若本载荷或后续消息中出现其他维度数据、analyst findings、成稿、历史事件、人格概括或跨会话记忆，"
+        "立即停止推读，只返回 `{\"input_contamination\": [\"<所见内容类别>\"]}`。\n"
+        "- 否则只返回一个 JSON 对象，即 `judge_verdicts.json` 中 `judges[]` 的一条记录，不加解释文字。"
+        "`input_artifact_ids` 照抄“输入口径”一节；`input_payload_sha256` 与 `isolation_level` 由 Leader 登记，你填 `null`。\n"
+        "- `input_refs` 写 `<artifact_id>#<JSON Pointer>`，指针相对该 artifact 原文件（见各数据节标题）。"
+        "`source_ids` 只用下方索引中的 ID；方法合同本身可写其相对路径。",
+        _section(1, f"角色合同 `{contract_rel}`", contract),
+    ]
+    number = 2
+    for rel, sections in first_read_entries(contract):
+        text = _read_dm_text(dm, rel)
+        if sections:
+            body = extract_sections(text, sections, rel)
+            label = f"`{rel}` " + "、".join(f"§{n}" for n in sections) + "（摘录）"
+            included.append(f"{rel}#" + ",".join(f"§{n}" for n in sections))
+        else:
+            body, label = text.strip(), f"`{rel}`"
+            included.append(rel)
+        if rel.endswith(".json"):
+            body = "```json\n" + body.strip() + "\n```"
+        parts.append(_section(number, f"首读 {label}", body))
+        number += 1
+    parts.append(_section(number, "公共来源 ID 索引 `references/sources.json`（仅元数据）",
+                          _json_block(source_index(dm))))
+    included.append("references/sources.json#index")
+    number += 1
+    parts.append(_section(number, "输入口径", _json_block(
+        {"dimension": dimension, "subject_id": subject, "input_artifact_ids": artifact_ids, **frame})))
+    number += 1
+    for artifact_id, pointer, value in data_slices:
+        parts.append(_section(number, f"本维原始数据 `{artifact_id}#{pointer}`", _json_block(value)))
+        number += 1
+    return "\n\n".join(parts) + "\n", included
+
+
+def build(args: argparse.Namespace) -> dict:
+    dm = Path(args.dm).expanduser() if args.dm else DEFAULT_DM
+    if not (dm / "agents").is_dir():
+        raise PayloadError(2, "file_error", "--dm", f"--dm 不是 destiny-matrix 技能根目录: {dm}")
+    if args.dimension != "jung" and not args.input:
+        raise PayloadError(2, "invalid_argument", "--input", f"{args.dimension} 需要 --input <chart_bundle.json>")
+    if args.dimension == "jung" and not (args.input or args.intake):
+        raise PayloadError(2, "invalid_argument", "--input", "jung 需要 --input <jung_calc 结果> 或 --intake")
+    files: list[tuple[str, Path, str]] = []
+    primary = intake = None
+    if args.input:
+        primary, digest = _load_json(Path(args.input), "--input")
+        files.append(("--input", Path(args.input), digest))
+    if args.intake:
+        intake, digest = _load_json(Path(args.intake), "--intake")
+        files.append(("--intake", Path(args.intake), digest))
+    frame = frame_from_intake(intake, args.subject)
+    if args.dimension == "jung":
+        raw = build_jung(primary, intake, args.subject)
+        owners = (["--intake"] if intake is not None else []) + (["--input"] if primary is not None else [])
+    else:
+        extra, raw = build_traditional(args.dimension, primary)
+        frame.update(extra)
+        owners = ["--input"]
+    ids, id_source = resolve_artifact_ids(files, Path(args.evidence) if args.evidence else None,
+                                          Path(args.ws) if args.ws else None)
+    id_by_label = {label: ids[i] for i, (label, _, _) in enumerate(files)}
+    data_slices = [(id_by_label[owner], pointer, value) for owner, (pointer, value) in zip(owners, raw)]
+    used_ids = list(dict.fromkeys(item[0] for item in data_slices))
+    # intake 只提供年龄/受众口径时仍算输入 artifact。
+    if "--intake" in id_by_label and id_by_label["--intake"] not in used_ids:
+        used_ids.append(id_by_label["--intake"])
+    payload, included = render(args.dimension, args.subject, dm, used_ids, frame, data_slices)
+    encoded = payload.encode("utf-8")
+    report = {"ok": True, "status": "ok", "dimension": args.dimension, "subject_id": args.subject,
+              "input_payload_sha256": hashlib.sha256(encoded).hexdigest(),
+              "input_artifact_ids": used_ids, "artifact_id_source": id_source,
+              "included": included, "payload_bytes": len(encoded)}
+    if args.output:
+        try:
+            Path(args.output).write_bytes(encoded)
+        except OSError as exc:
+            raise PayloadError(2, "file_error", "--output", f"无法写入 --output ({type(exc).__name__})")
+        report["payload_path"] = str(args.output)
+    else:
+        report["payload"] = payload
+    return report
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = JsonArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--dimension", required=True, choices=DIMENSIONS)
+    parser.add_argument("--subject", required=True, choices=("primary", "partner"))
+    parser.add_argument("--input", help="bazi/ziwei/astro: 该 subject 的 chart_bundle；jung: jung_calc 结果")
+    parser.add_argument("--intake", help="intake_brief：年龄/受众口径；jung 另取 personality_input")
+    parser.add_argument("--evidence", help="case_evidence.json；据文件 SHA-256 取 current artifact_id")
+    parser.add_argument("--ws", help="case_evidence 路径的基准目录（默认 evidence 所在目录）")
+    parser.add_argument("--dm", help="技能根目录（默认本脚本上级）")
+    parser.add_argument("--output", help="载荷文本写入路径；省略时内联在 JSON 的 payload 字段")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    try:
+        report = build(args)
+    except PayloadError as exc:
+        _emit_error(exc.code, exc.path, exc.message)
+        return exc.exit_code
+    except (TypeError, ValueError) as exc:
+        _emit_error("invalid_input", "$", f"输入结构不符合预期 ({type(exc).__name__}: {exc})")
+        return 2
+    print(json.dumps(report, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

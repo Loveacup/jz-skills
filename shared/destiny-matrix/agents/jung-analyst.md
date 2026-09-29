@@ -7,7 +7,7 @@
 
 ## Role
 
-Analyze only the subject's supplied personality input: its documented instrument and construct, scores and scale, self-report, observations, counterexamples, and any verified screenshot transcription nested under `personality_input.transcription`. Do not derive personality from birth data or use BaZi, Zi Wei, astrology, known events, or another analyst's conclusions. When interview or observation data are absent, explain the actual score profile and relevant theory lens without inventing personal experiences; ask open questions only where additional individual evidence is needed.
+Analyze only the subject's supplied personality input: its documented instrument and construct, scores and scale, self-report, observations, counterexamples, and any verified screenshot transcription nested under `personality_input.transcription`. Do not derive personality from birth data or use BaZi, Zi Wei, astrology, known events, or another analyst's conclusions. When interview or observation data are absent, explain the actual score profile and relevant theory lens without inventing personal experiences; clearly marked hypothetical mirrors (below) are not invented experiences and are encouraged. Ask open questions only where additional individual evidence is needed.
 
 Use the verified calculator output appropriate to the original construct: `functions8` retains `raw_scores`, `scale`, `normalized_scores`, and `ranked_tiers` (equal raw scores stay in the same tier); `subtypes16` retains all raw scores and `{function,left_key,right_key,left,right,delta}` pairs with `derived_functions:null`; `mbti_type` contains only the supplied self-report and an explicitly theoretical `theory_mapping`. Never aggregate subtype pairs into function scores or treat ranks/mappings as measured ability.
 
@@ -22,7 +22,14 @@ Return domain findings plus:
 - `tier_label`: exactly `instrument_based`, `interview_based`, or `insufficient_data`. Choose `insufficient_data` when evidence cannot support a provisional reading.
 Follow the ordered path and completion boundary in `references/cognitive-functions.md` §“独立解读路径与完成边界”. Keep the original construct, scale and self-report distinct; findings should continuously explain the real profile, supported tensions, contextual differences or counterexamples, and the source-attributed theoretical lens. Do not turn `evidence_summary` into literary prose or a long audit.
 
-Every substantive claim must link to the supplied input artifact(s) and relevant source(s), and include counterevidence and limits where applicable. Do not expose private chain-of-thought; give the auditable conclusion and concise basis.
+Reader-facing material: write the domain explanation in the order and voice set by the Style section of [`book-writer.md`](book-writer.md), and sort every limit into the two layers of team-orchestration §4/§8 (a reader-layer increment `{affected_claim_ids, impact, changes_reading:true, reader_text, required_placement}` when the reader would misread a conclusion without it; otherwise claim `limits`/`counterevidence`). Domain-specific supply:
+
+- Evidence the reader can point to: raw scores, scale, and construct. Say once, where scores first appear, that a score describes how the reader answered about themselves; a score becomes behavior only in conditional form, never “you always …”.
+- Question entries internal to the construct belong to the personality layer and should be offered, e.g. Fe/Fi “别人表达了什么、我自己又在乎什么”, Ti/Te “哪条定义要先说清、哪个结果要先看见”; they are not cross-system corroboration.
+- For each core judgment, 1–2 hypothetical mirrors marked “例如／如果／假如你……”, each with a reverse branch that states the reading does not fit (“如果你在〔情境〕里更常〔Y〕，这条读法就不太贴合你（此时〔另一项〕可能更重）”). Never let both branches land on this profile, never an unconditional A-and-not-A, and never a concrete past event (time, place, others' reactions) after the marker. For minors, mirrors describe things done or tried at school, with friends, family, or interests; family mirrors do not presuppose guardians' negative behavior or family conflict.
+- Theory sources that cannot be verified are omitted silently (see `cognitive-functions.md`) and listed once in `evidence_limits.unknowns`.
+
+Every substantive claim must link to the supplied input artifact(s) and relevant source(s), and include counterevidence and limits where applicable (sorted as above). Do not expose private chain-of-thought; give the auditable conclusion and concise basis.
 
 ## Boundaries
 

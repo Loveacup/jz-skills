@@ -195,6 +195,52 @@ def check_omp() -> None:
             add(f'omp.agent.{tier}', 'yellow', f'未发现 {tier} agent 链接到本技能 adapter')
 
 
+def frontmatter(path: Path) -> dict[str, str]:
+    """Top-level `key: value` lines of a Markdown agent definition (no YAML dependency)."""
+    lines = path.read_text(encoding='utf-8').splitlines()
+    if not lines or lines[0].strip() != '---':
+        return {}
+    fields = {}
+    for line in lines[1:]:
+        if line.strip() == '---':
+            break
+        if ':' in line and not line[:1].isspace():
+            key, value = line.split(':', 1)
+            fields[key.strip()] = value.strip()
+    return fields
+
+
+def check_judge_adapters() -> None:
+    """dm-judge must be linked on both runtimes and must stay tool-less (see runtime-*.md)."""
+    runtimes = (
+        ('omp', HOME / '.omp/agent/agents/dm-judge.md', DM_ROOT / 'adapters/omp/dm-judge.md',
+         {'tools': '[]'}, ('spawns',)),
+        ('cc', HOME / '.claude/agents/dm-judge.md', DM_ROOT / 'adapters/cc/dm-judge.md',
+         {'tools': 'ToolSearch', 'disallowedTools': 'mcp__*', 'omitClaudeMd': 'true'}, ()),
+    )
+    for runtime, link, target, required, forbidden in runtimes:
+        cid = f'{runtime}.agent.dm-judge'
+        if link.exists() and link.resolve() == target.resolve():
+            add(cid, 'green', f'{link} → {target}')
+        else:
+            add(cid, 'yellow', f'未发现 dm-judge 链接到本技能 adapter；安装：ln -s "{target}" "{link}"')
+        try:
+            fields = frontmatter(target)
+        except OSError as exc:
+            add(f'{cid}.tools', 'red', f'无法读取 {target}: {exc}')
+            continue
+        wrong = {k: fields.get(k) for k, v in required.items() if fields.get(k) != v}
+        wrong.update({k: fields[k] for k in forbidden if k in fields})
+        if wrong:
+            add(f'{cid}.tools', 'red', f'{target.name} frontmatter 破坏判官隔离: {wrong}；期望 {required}')
+        else:
+            add(f'{cid}.tools', 'green', f'frontmatter {required}' + (f'，无 {"/".join(forbidden)}' if forbidden else ''))
+    if shutil.which('omp'):
+        add('omp.agent.dm-judge.mcp', 'yellow',
+            'omp 不按 agent tools 过滤用户配置的 MCP 工具；dm-judge 无文件/Shell，但可能仍见网络类 MCP，'
+            '由 adapter 纪律禁止调用（见 runtime-omp.md）')
+
+
 def check_cc() -> None:
     cli = shutil.which('claude')
     model = os.environ.get('CLAUDE_CODE_SUBAGENT_MODEL')
@@ -229,6 +275,7 @@ def main() -> int:
             check_regression(dm_py)
     check_omp()
     check_cc()
+    check_judge_adapters()
     red = [item for item in checks if item['level'] == 'red']
     report = {'dm_root': str(DM_ROOT), 'dm_py': dm_py,
               'dm_py_path': dm_py, 'ok': not red, 'checks': checks}

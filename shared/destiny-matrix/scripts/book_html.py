@@ -233,6 +233,18 @@ def is_hidden(node: Node) -> bool:
     return False
 
 
+# A reader-layer limitation marker must still say something once its IDs are stripped.
+MIN_LIMITATION_HAN = 6
+
+
+def limitation_text_size(node: Node) -> int:
+    """Han characters in a limitation marker's visible text, excluding its own IDs."""
+    text = node.text()
+    for limitation_id in (node.attr("data-limitation-id") or "").split():
+        text = text.replace(limitation_id, "")
+    return len(re.findall(r"[\u3400-\u9fff]", text))
+
+
 def section_role(node: Node) -> str:
     kind = node.attr("data-content-kind")
     return str(kind or node.attr("data-section-id") or node.tag)

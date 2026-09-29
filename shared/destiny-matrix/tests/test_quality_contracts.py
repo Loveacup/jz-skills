@@ -158,12 +158,119 @@ class QualityContractsTest(unittest.TestCase):
             "verdict_id":"pre-1","previous_verdict":None,"review_phase":"pre_export","evidence_revision":"r0",
             "artifact_hashes":{"html":"a"*64,"pdf":None},"checklist_results":copy.deepcopy(checks),
             "validator_output":{},"visual_qa":[],"decision":"pass","revision_round":0,
-            "revision_instructions":[],"blocked_items":[],"recommendations":[],"export_result":None
+            "revision_instructions":[],"blocked_items":[],"recommendations":[],"export_result":None,
+            "reader_takeaways":["你在压力下先收缩再求证。","时辰前提改变第三章读法。","本周试一次先说需要再说方案。"]
         }
         self.assertIn("pre_export_pass", {issue["code"] for issue in check("final_verdict", pre)})
         post = copy.deepcopy(pre)
         post.update({"review_phase":"post_export","decision":"pass","artifact_hashes":{"html":"a"*64,"pdf":"b"*64},"visual_qa":[{"observation":"observed"}],"export_result":{"html_sha256":"c"*64,"pdf_sha256":"b"*64}})
         self.assertIn("artifact_hash_mismatch", {issue["code"] for issue in check("final_verdict", post)})
+
+    # --- v5.2 style layering -------------------------------------------------
+    @staticmethod
+    def layered_evidence():
+        claim = {"claim_id":"C-1","owner":"analyst","subject_id":"primary","kind":"traditional_interpretation",
+                 "statement":"fixture","input_refs":[],"source_ids":["CR-1"],"parent_claim_ids":[],
+                 "counterevidence":[],"limits":["审计层限制"],"status":"active"}
+        lim = lambda lid, changes, placement: {"limitation_id":lid,"affected_claim_ids":["C-1"],"impact":"audit note",
+                                               "changes_reading":changes,"reader_text":"如果时辰改动，这一节改读为另一种倾向。",
+                                               "required_placement":placement}
+        return {"artifacts":[],"claims":[claim],"corrections":[],
+                "sources":[{"source_id":"CR-1","kind":"common_reading","locator":"紫微通行读法：天机主思虑","version":None,
+                            "status":"verified","excerpt":None}],
+                "limitations":[lim("L-OPEN",True,"opening"),lim("L-ADJ",True,"adjacent"),lim("L-AUD",False,"appendix")]}
+
+    def test_limitation_layers_validate_and_misplacement_has_readable_codes(self):
+        evidence = self.layered_evidence()
+        self.assertEqual([], check("case_evidence", evidence))
+        bad = copy.deepcopy(evidence); bad["limitations"][2]["required_placement"] = "adjacent"
+        self.assertIn("limitation_placement", {i["code"] for i in check("case_evidence", bad)})
+        bad = copy.deepcopy(evidence); bad["limitations"][1]["required_placement"] = "appendix"
+        self.assertIn("reader_limitation_in_appendix", {i["code"] for i in check("case_evidence", bad)})
+        bad = copy.deepcopy(evidence); del bad["limitations"][0]["reader_text"]
+        self.assertIn("schema", {i["code"] for i in check("case_evidence", bad)})
+        bad = copy.deepcopy(evidence); bad["limitations"][0]["reader_text"] = ""
+        self.assertIn("schema", {i["code"] for i in check("case_evidence", bad)})
+
+    def test_common_reading_source_is_paraphrase_only_and_traditional(self):
+        evidence = self.layered_evidence()
+        bad = copy.deepcopy(evidence); bad["sources"][0]["excerpt"] = "“天机主善”"
+        self.assertIn("common_reading_excerpt", {i["code"] for i in check("case_evidence", bad)})
+        bad = copy.deepcopy(evidence); bad["claims"][0]["kind"] = "psychological_hypothesis"
+        self.assertIn("common_reading_claim_kind", {i["code"] for i in check("case_evidence", bad)})
+        catalog = {"schema_version":1,"sources":[{"source_id":"cr","kind":"common_reading","author":"通行读法","title":"天机",
+                   "edition":None,"locator":"现代教材通行表述","url":None,"verification_status":"verified","quotes":[],
+                   "supports":["通行象义"],"does_not_support":["古籍原文"]}]}
+        self.assertEqual([], check("sources", catalog))
+        catalog["sources"][0]["quotes"] = [{"quote_id":"cr-q01","original":"天机主善","translation":None,"translation_kind":"none"}]
+        self.assertIn("common_reading_quote", {i["code"] for i in check("sources", catalog)})
+
+    def test_synthesis_child_inherits_reader_limitations(self):
+        evidence = self.layered_evidence()
+        child = copy.deepcopy(evidence["claims"][0])
+        child.update({"claim_id":"S-1","owner":"synthesizer","parent_claim_ids":["C-1"],"source_ids":[]})
+        evidence["claims"].append(child)
+        codes = {i["code"] for i in check("case_evidence", evidence)}
+        self.assertIn("inherited_limitation_missing", codes)
+        for row in evidence["limitations"]:
+            if row["changes_reading"]:
+                row["affected_claim_ids"].append("S-1")
+        self.assertEqual([], check("case_evidence", evidence))
+
+    def test_active_claim_needs_verified_common_reading(self):
+        evidence = self.layered_evidence()
+        evidence["sources"][0]["status"] = "unverified"
+        self.assertIn("common_reading_unverified", {i["code"] for i in check("case_evidence", evidence)})
+        evidence["claims"][0]["status"] = "rejected"
+        self.assertNotIn("common_reading_unverified", {i["code"] for i in check("case_evidence", evidence)})
+
+    def test_chart_plan_limitations_reader_layer_single_section(self):
+        evidence = self.layered_evidence()
+        section = lambda sid, lids: {"section_id":sid,"title":"t","question_ids":[],"claim_ids":["C-1"] if sid == "ziwei" else [],
+                                     "required_content":["x"],"limitation_ids":lids}
+        plan = {"planning_rationale":"r","special_features":[],"sections":[section("ziwei",["L-ADJ"]),section("synthesis",[])],
+                "chart_table":[],"total":{"planned":0}}
+        self.assertEqual([], check("chart_plan", plan, evidence=evidence))
+        codes = lambda p: {i["code"] for i in check("chart_plan", p, evidence=evidence)}
+        bad = copy.deepcopy(plan); bad["sections"][1]["limitation_ids"] = ["L-ADJ"]
+        self.assertIn("limitation_multiple_sections", codes(bad))
+        self.assertIn("limitation_multiple_sections", {i["code"] for i in check("chart_plan", bad)})
+        bad = copy.deepcopy(plan); bad["sections"][0]["limitation_ids"] = ["L-ADJ","L-AUD"]
+        self.assertIn("section_limitation_not_reader_layer", codes(bad))
+        bad = copy.deepcopy(plan); bad["sections"][0]["limitation_ids"] = ["L-ADJ","L-OPEN"]
+        self.assertIn("section_limitation_not_adjacent", codes(bad))
+        bad = copy.deepcopy(plan); bad["sections"][0]["limitation_ids"] = ["L-ADJ","L-GHOST"]
+        self.assertIn("dangling_limitation", codes(bad))
+        bad = copy.deepcopy(plan); bad["sections"][0]["limitation_ids"] = []
+        self.assertIn("adjacent_limitation_unplanned", codes(bad))
+        bad = copy.deepcopy(plan); bad["sections"][0]["limitation_ids"] = ["L-ADJ","L-ADJ"]
+        self.assertIn("schema", codes(bad))
+
+    def test_reader_takeaways_required_or_r1_d3_fail(self):
+        check_ids = "I1 I2 I3 A1 A2 A3 R1 R2 R3 D1 D2 D3 D4 P1 P2 P3".split()
+        rows = [{"id":cid,"verdict":"deferred" if cid.startswith("P") else "pass",
+                 "evidence":{"artifact":"book.html","location":"#x","quote":"q"},"reason":"r"} for cid in check_ids]
+        verdict = {"verdict_id":"pre-1","previous_verdict":None,"review_phase":"pre_export","evidence_revision":"r0",
+                   "artifact_hashes":{"html":"a"*64,"pdf":None},"checklist_results":rows,"validator_output":{},"visual_qa":[],
+                   "decision":"awaiting_export","revision_round":0,"revision_instructions":[],"blocked_items":[],
+                   "reader_takeaways":["一","二","三"],"recommendations":[],"export_result":None}
+        codes = lambda v: {i["code"] for i in check("final_verdict", v)}
+        self.assertEqual(set(), codes(verdict))
+        empty = copy.deepcopy(verdict); empty["reader_takeaways"] = []
+        self.assertIn("reader_takeaways_missing", codes(empty))
+        empty.update({"decision":"revise","revision_instructions":[{"check_id":"R1","fix_type":"prose","owner":"book-writer",
+                      "claim_ids":[],"section_ids":["bazi"],"problem":"p","acceptance":"a"}]})
+        empty["checklist_results"][check_ids.index("R1")]["verdict"] = "fail"
+        self.assertIn("reader_takeaways_missing", codes(empty))  # R1 alone is not enough
+        empty["checklist_results"][check_ids.index("D3")]["verdict"] = "fail"
+        self.assertEqual(set(), codes(empty))
+        short = copy.deepcopy(verdict); short["reader_takeaways"] = ["一","二"]
+        self.assertIn("reader_takeaways_count", codes(short))
+        many = copy.deepcopy(verdict); many["reader_takeaways"] = ["句"] * 6
+        self.assertIn("schema", codes(many))
+        missing = copy.deepcopy(verdict); del missing["reader_takeaways"]
+        self.assertIn("schema", codes(missing))
+
 
 if __name__ == "__main__":
     unittest.main()

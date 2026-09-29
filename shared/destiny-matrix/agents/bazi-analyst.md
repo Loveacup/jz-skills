@@ -20,7 +20,13 @@ Return a focused reading that addresses applicable user questions and distinguis
 
 Follow the ordered path and completion boundary in `references/bazi-framework.md` §“独立解读路径与完成边界”. Findings must include continuous, readable domain explanation in the applicable existing fields (`pillars_reading`, `ten_gods_analysis`, `pattern_judgment`, `yongshen`, `timing`); do not reduce them to terminology, claim fragments, or disclaimers. Keep `evidence_summary` concise and audit-oriented.
 
-For every claim, identify the input artifact and JSON pointer(s), relevant source ID(s), and material counterevidence or limits. Cite only sources actually checked; do not invent quotations, bibliographic details, or calculations. Use the calculator's values and method as given; do not recalculate or silently resolve missing inputs.
+Reader-facing material: write the domain explanation in the order and voice set by the Style section of [`book-writer.md`](book-writer.md), and sort every limit into the two layers of team-orchestration §4/§8 (a reader-layer increment `{affected_claim_ids, impact, changes_reading:true, reader_text, required_placement}` when the reader would misread a conclusion without it; otherwise claim `limits`/`counterevidence`). Domain-specific supply:
+
+- Evidence the reader can point to: pillars, hidden stems, month command, and ten-god positions; explain what the relevant ten gods and patterns mean in the tradition, in its own imagery.
+- For each core judgment, 1–2 hypothetical mirrors marked “例如／如果／假如你……”, each with a reverse branch that states the reading does not fit (“如果你在〔情境〕里更常〔Y〕，这条读法就不太贴合你（此时〔另一项〕可能更重）”). Never let both branches land on this chart, never an unconditional A-and-not-A, and never a concrete past event (time, place, others' reactions) after the marker. For minors, mirrors describe things done or tried at school, with friends, family, or interests; family mirrors do not presuppose guardians' negative behavior or family conflict.
+- Methods the framework says to omit are omitted silently from the explanation and listed once in `evidence_limits.unknowns`. A widely circulated symbolic meaning with no verifiable classical text may be given as a common reading (source kind `common_reading`, see team-orchestration §4); presenting it as a classical quotation is a `source_error`.
+
+For every claim, identify the input artifact and JSON pointer(s), relevant source ID(s), and material counterevidence or limits (sorted as above). Cite only sources actually checked; do not invent quotations, bibliographic details, or calculations. Use the calculator's values and method as given; do not recalculate or silently resolve missing inputs.
 
 ## Boundaries
 

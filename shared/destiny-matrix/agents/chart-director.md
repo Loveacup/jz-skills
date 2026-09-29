@@ -15,8 +15,10 @@
 `chart_table` 每行必须且仅含：
 
 ```json
-{"chart_id":"chart-relationships-01","section_id":"relationships","title":"量表分数示例","patterns":["P13"],"question":"图要回答的具体问题","purpose":"相较正文/表格的增益","claim_ids":["claim-id"],"data_refs":["artifact-id#/pointer"],"representation":"measured","unit":"分","domain":[0,30],"missing_policy":"omit_with_disclosure","caption":"说明来源、方法及阅读边界","limits":["限制"]}
+{"chart_id":"chart-relationships-01","section_id":"relationships","title":"量表分数示例","patterns":["P13"],"question":"图要回答的具体问题","purpose":"相较正文/表格的增益","claim_ids":["claim-id"],"data_refs":["artifact-id#/pointer"],"representation":"measured","unit":"分","domain":[0,30],"missing_policy":"omit_with_disclosure","caption":"来源、单位、量程与缺值处理（人话）","limits":["审计层限制，不进图注"]}
 ```
+
+`sections[].limitation_ids` 只收 `case_evidence.limitations[]` 中 `required_placement:"adjacent"` 的条目（它们都是 `changes_reading:true`），同一 limitation_id 只放进一个 section，即受影响判断所在的那一章；`adjacent` 限制的受影响 claim 在计划中出现时必须有落点。`opening` 限制由必要披露承载，`appendix` 限制归附录，都不进 section。`caption` 只写来源、单位、量程和缺值处理，来源用人话写；`limits` 属审计层，不要求在图注复读。
 
 `chart_table` 的字段与缺值策略按 schema 固定。数值图必须使用可追溯的 `unit`、`domain`；`qualitative` 使用 `unit:null`、`domain:null`，仅作有依据的定性关系表达。`validate_book.py` 要求 `data_refs` 至少一项，且每项须由图内可 Decimal 化的 `data-value-ref` 原值覆盖：只把数值字段放进 `data_refs`（如五行比例、大限范围、黄经），宫名、星曜、干支、十神、统计口径等字符串字段的来源指针写进 caption。不能把绘图坐标 artifact 当作事实来源。
 

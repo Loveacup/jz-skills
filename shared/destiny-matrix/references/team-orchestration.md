@@ -63,6 +63,8 @@ S7 chart-director：冻结 sections 与 chart_table
   ↓
 S8 book-writer：单一作者统稿；需要时先过功能性样章门，缺口经 Leader 定向回提
   ↓
+S8.5 reader-editor：只改措辞（guard_book prose scope），不占修订额度；guard 失败则以 S8 原稿进入 S9
+  ↓
 S9 book-finalizer：HTML/内容终审，写 pre 裁决
   ↓ decision=awaiting_export
 S10 Leader：导出 PDF → finalizer 检视真实 PDF 并写 post 裁决
@@ -83,11 +85,12 @@ S3 与 S4 并行，二者共同依赖 S2；不等待 S3 才启动判官。chief 
 | S4 | 对应 judges（仅适用维度） | 本维原始 JSON、输入口径、公共方法合同 → 独立推读、核算问题与解释限制 |
 | S4 chief | chief-judge | 本维 judge 与 analyst 产物 → 分类后的 `consistency_report`、修订责任 |
 | S4C | external-verifier | 实际将使用的引用/外部声明 → 核验过的来源、支持范围与限制 |
-| S5 | synthesizer | 各维 findings、chief 分类、请求 → 围绕同一读者问题的新增理解（`synthesis_claims`）、行动选项、outline |
+| S5 | synthesizer | 各维 findings、chief 分类、请求 → 围绕同一读者问题的新增理解（`synthesis_claims`）、行动选项、outline，以及全书 3–5 条 `core_propositions:[{proposition_id:"CP-01",image:string\|null,statement,claim_ids:[]}]`（`statement` 是带对象/条件的判断，`claim_ids` 回链已登记的 active claim；`image` 可空，不得升级为能力/命运结论） |
 | S6 | love-specialist / growth-specialist | 本专题请求、有关 findings 和计算材料 → relationships/career/wellbeing/timing/practice 专题覆盖 |
 | S7 | chart-director | intake、claim/evidence、专题和 chart_bundle → 冻结 `chart_plan.sections` 与 `chart_table` |
-| S8 | book-writer（全书唯一作者） | 已审事实摘录及 artifact 定位、领域论述、综合主张、专题素材、冻结计划、输出模板 → HTML |
-| S9 | book-finalizer | HTML、计划、evidence、checklist、验证器与真实浏览器证据 → `verdict-rN-pre.json` |
+| S8 | book-writer（全书唯一作者） | 已审事实摘录及 artifact 定位、领域论述、综合主张、`core_propositions`、专题素材、冻结计划、输出模板 → HTML |
+| S8.5 | reader-editor | S8 的 `$WS/book.html`、冻结计划、`case_evidence.json`（只读）、文风合同 → 同路径改写后的 HTML 与 `$WS/reader_edit_report.json`（`{guard_ok,patterns:[{pattern,count}],notes}`） |
+| S9 | book-finalizer | HTML、计划、evidence、checklist、验证器与真实浏览器证据 → `verdict-rN-pre.json`（含 `reader_takeaways`） |
 | S10 | Leader + book-finalizer | 合格 pre、HTML → PDF 技术导出；finalizer 检视真实 PDF → `verdict-rN-post.json` |
 
 阶段需重算/补充的职责边界、定稿后的完整字段形状在 `agents/*.md` 与 schema 中；不可因本表简写而改变它们。
@@ -95,13 +98,14 @@ S3 与 S4 并行，二者共同依赖 S2；不等待 S3 才启动判官。chief 
 ### 2.2 S6 派遣与作者素材
 
 - S6 按 §1.2 解析后的**有效主题集合**判定：`full` 包含默认八主题，再合并 `requested_topics` 中的额外请求；不能只检查 `requested_topics` 数组。有效集合含 `relationships` 或 `synastry` 才派 love；含 `timing/practice/career/wellbeing` 任一项才派 growth；都不含时不派空任务。完整命书默认含关系、时间与实践，不能借条件派遣省掉它们。
-- S3 的领域论述、S5 的 outline 与 `synthesis_claims`、S6 的 `chapter_material` 都是给作者的素材，不是逐项照抄的成文。作者负责章节内次序、承接、意象与删重；section/topic 与图表 ID 仍服从 S7 冻结计划，计算与传统规则推算不交给作者。
+- S3 的领域论述、S5 的 outline、`synthesis_claims` 与 `core_propositions`、S6 的 `chapter_material` 都是给作者的素材，不是逐项照抄的成文。作者负责章节内次序、承接、意象与删重；section/topic 与图表 ID 仍服从 S7 冻结计划，计算与传统规则推算不交给作者。
 
 ## 3. 判官输入隔离与 chief 复核
 
 - S0/S2 确定每个 `subject_id` 的适用维度集合；真正不适用的维度才省略。S4 派遣前 Leader 将完整 `(subject_id,dimension)` 对写入必填 `judge_verdicts.json.expected_judges`（`subject_id` 为 `primary|partner`，`dimension` 为 `jung|bazi|ziwei|astro`）；chief 必须逐项核对每对均有对应 analyst finding 与 judge 结果。适用席位缺失、重复或覆盖不完整均为 `blocked`；checker 对缺失项发 `missing_applicable_judge`。不得把遗漏伪装成“不适用”。仅当无适用 judge 且 `judges` 为空时 `expected_judges` 才可为空；B1 的 `quality_contracts` 校验 expected 与实际 judge 覆盖。
 - 每位 judge 在独立上下文中只接收本体系原始 JSON、必要输入口径与公开方法合同。不得接收历史事件、人格概括、其他体系数据、analyst findings、成稿、通用案例工作区根目录或跨会话记忆。
-- Leader 记录该任务实际字段、`input_artifact_ids`、`input_payload_sha256` 和 `isolation_level`。`input_only` 表示仅注入允许的原始输入；运行时不能限制输入时标 `unavailable`，并停止“独立盲审”声称。
+- 判官载荷只由 `scripts/judge_payload.py` 生成：本维原始切片、判官合同“首读”所列合同与公共来源 ID 索引，不含其他维度、历史事件或 intake 其余字段。Leader 把载荷文本原样作为该 task 的全部正文，派给本端无文件/Shell/派遣工具的 `dm-judge` adapter（见 runtime 文件），不附加其他材料。
+- Leader 记录该任务实际字段，并从脚本输出登记 `input_artifact_ids`、`input_payload_sha256`。`isolation_level:"input_only"` 仅当以 `dm-judge` 派遣、正文与该哈希对应的载荷逐字一致、且判官未返回 `input_contamination` 时成立；使用通用子代理或带文件工具的 adapter、改写或补充载荷、判官报告污染，或运行时不能限制输入时，一律标 `unavailable`，并停止“独立盲审”声称。omp 端若判官工具表含可联网的 MCP 工具，runtime_trace 该 task 另记 `egress_tools`（实际可见的工具名清单），供隐私审计复核。
 - judge 返回 `independent_readings`、每项的输入引用/来源/限制、`calculation_issues` 与 `interpretation_limits`；简明证据摘要，不输出隐藏思维链。不得评 analyst 或写一致性评级。
 - chief 的差异按 `calculation_error|source_error|unsupported_inference|method_difference|wording_difference` 分类，严重度 `blocking|disclose|editorial`。前三类证据成立即阻断；流派方法差异披露，文字差异不强行统一。
 - chief 只在有支持证据时定 `pass|revise|blocked`。若需 AB/BA 检查顺序偏好，在同一 chief 任务内交换材料；不另开判官投票。
@@ -116,20 +120,24 @@ Leader 是唯一 `$WS/case_evidence.json` 工作账本的写入者，并原地�
 - artifact 注册路径相对本案 `$WS`，并记录 SHA-256、claim/artifact 依赖和 `current|stale`。更正后只失效直接及传递依赖；未受影响资产保留。verdict 不自注册，须绑定证据修订和实际产物哈希。
 - claims 有全案唯一 ID、subject、kind、输入引用、来源、父 claim、反证、限制和状态；输入引用含 artifact ID、文件哈希与 JSON Pointer。修正以 correction 登记，不能让旧失效 claim 继续 active。
 - 角色 claim 登记：S3 analyst、S5 synthesizer、S6 specialist 只返回 claim 增量，不写账本。Leader 审查父 claim（须为 active）、来源和限制，补齐 ledger 必需的 `owner:<席位名>`、`status:"active"` 后登记到唯一 `case_evidence.json`；引入新来源时先走 S4C 核验，未核来源的主张不登记。S3 首稿若经 chief 判 revise，只登记纠正轮后经 chief 复核的 claims，首稿 findings 保留为 `stale` artifact。
-- S5 新综合主张（`owner:"synthesizer"`）：S7 在相应 `sections[].claim_ids` 引用这些已登记主张，writer 段落用 `data-claim-ids` 回链。综合稿不送盲判官；终审 A3/R2 审核推论是否越级。父主张被修正时，下游综合 claim 依 corrections 置 `superseded` 或 `rejected`、相关 artifact 置 `stale`（claim 没有 `stale` 状态），再重做受影响的综合、计划与正文；父 claim 的限制与反例对子 claim 继续有效。
+- S5 新综合主张（`owner:"synthesizer"`）：S7 在相应 `sections[].claim_ids` 引用这些已登记主张，writer 段落用 `data-claim-ids` 回链。综合稿不送盲判官；终审 A3/R2 审核推论是否越级。父主张被修正时，下游综合 claim 依 corrections 置 `superseded` 或 `rejected`、相关 artifact 置 `stale`（claim 没有 `stale` 状态），再重做受影响的综合、计划与正文；父 claim 的限制与反例对子 claim 继续有效。登记综合 claim 时，Leader 把其父 claim 所受的 `changes_reading:true` 限制的 `affected_claim_ids` 扩展到该子 claim（checker：`inherited_limitation_missing`）；综合章以短从句回扣，由 S9 A3 核对。
+- **限制分两层。** 审计层是 `claims[].limits`、`counterevidence` 与 judge/chief 措辞，只供评审和附录，writer 不原样渲染进正文。读者层是 `limitations[]`，每条必填 `changes_reading`（删掉它读者会不会形成具体误读，或某句结论会不会变）、`reader_text`（面向读者的正向/条件句，不含流程词）与 `required_placement`。Leader 登记时按以下规则定落点。`changes_reading` 由 Leader 判定并把理由写入 `impact`；chief 判为 `disclose` 的差异默认 `changes_reading:true`，改标 `false` 须在 `impact` 写明它不改变哪一句结论；S9 可推翻该判定（见 `locked-checklist.md` A3）。schema 以 `limitation_placement` / `reader_limitation_in_appendix` 报错：`changes_reading:false` 只能 `appendix`；`changes_reading:true` 只能 `opening` 或 `adjacent`；`opening` 只用于全书通用边界（性质、非预测、资料范围），建议全书不超过 5 条（checker 不设门禁，validator 超过时给 `review_required` 提示）。chief 的 `disclose` 差异先改写成 `reader_text` 再登记，不把回应判官的口吻带进读者层。
+- S7 `sections[].limitation_ids` 只收 `adjacent` 限制，同一 ID 只进一个 section；`adjacent` 限制的 `affected_claim_ids` 与计划中任一 claim 相交时必须有落点。`quality_contracts.py chart_plan --evidence` 分别报 `section_limitation_not_reader_layer`、`section_limitation_not_adjacent`、`limitation_multiple_sections`、`adjacent_limitation_unplanned`、`dangling_limitation`。正文以可见元素的 `data-limitation-id`（可空格分隔多个）标记限制：计划限制在所属 section 恰好一次，`opening` 在必要披露恰好一次，`appendix` 不以该属性进正文；标记元素去掉编号后须写出限制本身（不少于 6 个汉字，否则 `limitation_empty`）；后文回扣用不带标记的短从句。
 - 公共引文目录在 `references/sources.json`；案例证据账本记录本案使用和核验状态。任何来源不明、版本不明或未核原话均不得伪装 verified。
+- **通行读法（`common_reading`）。** 找不到古籍原文核实、但确为通行的象义，以 `sources[].kind:"common_reading"` 登记：`locator` 写可定位的现代通行资料或教材表述，`status:"verified"` 表示“已确认为通行读法”，不表示古籍原文已核；`excerpt` 必须为 `null`（`common_reading_excerpt`）。引用它的 claim 只能是 `traditional_interpretation`（`common_reading_claim_kind`）。正文以“传统上常见的讲法是……”转述，不加引号、不挂古籍名/篇名/作者；`references/sources.json` 中 `kind:"common_reading"` 的条目 `quotes` 必须为空，`<q data-quote-id>` 指向通行读法来源时 validator 报 `common_reading_quoted`。冒充古籍出处仍是 `source_error`。
 - 仅同案、相同规范化输入切片、上游 hash、方法/依赖版本、角色合同/schema 版本及实际 role 配置下的成功产物可复用。
 - `task_fingerprint` 为以上输入切片与配置快照的 SHA-256。复用项填写 `reused_from`；新证据、合同、上游产物或已知实际模型变化使其失效。resolvedModel 未知时只允许同一次运行内复用。
 
 ## 5. 派遣与档位
 
-每个 task 首步完整读取自己的 `agents/<seat>.md` 与其中明确要求的合同。prompt 说明目标、输出 schema、必需来源/工具、任务边界、上游 artifact ID 和验收方式；不要反复粘贴全局流程。batch 共享 context 仅放本批全员可见的中性内容，原始输入、私人字段和判官 payload 放各自 task。
+每个 task 首步完整读取自己的 `agents/<seat>.md` 与其中明确要求的合同。prompt 说明目标、输出 schema、必需来源/工具、任务边界、上游 artifact ID 和验收方式；不要反复粘贴全局流程。batch 共享 context 仅放本批全员可见的中性内容，原始输入、私人字段和判官 payload 放各自 task；判官 task 不读角色文档，其正文就是 §3 的载荷全文。
 
 | 档位 | 席位 | OMP adapter/model 顺序 | Claude Code |
 |---|---|---|---|
-| light | intake-refiner、caster；受限机械布局修补 | `dm-light`：`["@smol","@task"]` | 输入/脚本执行按已配置轻量家族别名 |
-| research | external-verifier、四 analyst、love/growth、chart-director | `dm-research`：`["@default","@slow"]` | `inherit` |
-| deep | 四 judge、chief-judge、synthesizer、book-writer、book-finalizer | `dm-deep`：`["@slow","@default"]` | `inherit` |
+| light | intake-refiner、caster；受限机械布局修补 | `dm-light`：`["@smol","@task"]` | 通用子代理，派遣时 `model:"haiku"` |
+| research | external-verifier、四 analyst、love/growth、chart-director | `dm-research`：`["@default","@slow"]` | 通用子代理，省略 `model`（继承） |
+| deep | chief-judge、synthesizer、book-writer、reader-editor、book-finalizer | `dm-deep`：`["@slow","@default"]` | 通用子代理，省略 `model`（继承） |
+| deep（隔离） | 四 judge | `dm-judge`：`["@slow","@default"]`，`tools: []` | `subagent_type:"dm-judge"`，`model: inherit` |
 
 模型档位表示任务深度，不承诺费用高低或输出质量。纯机械布局改动可由 light 执行，但原 finalizer 复核。light 能力不足最多升 research 一次；输入/文件/依赖错误要先修原因；deep/judge/终审不降档。按运行时规则尊重 thinking 后缀及 `task.agentModelOverrides`；不改全局 model roles。具体工具名和后缀语义见本端 runtime 文件。
 
@@ -157,15 +165,15 @@ Leader 每个阶段和 task 记录：
 S5 输出请求覆盖、主题综合、claim 回链和章节 outline；S6 处理适用专题（派遣条件见 §2.2）。S7 冻结 `chart_plan.sections` 与 `chart_table` 后，writer 不新增/删除请求主题或图表 ID。
 
 - `full` 默认主题及 focused 路由见 §1.2。全部主题有清楚正文落点或经用户接受的限制；资料缺失未获接受时不以空章代替完成。默认八主题是导航，不按等分篇幅或章数验收。
-- 每项核心回答在正文能理解：本盘看见的结构与含义、为何这样读、改变读法的限制和现实含义。计算细节、流派/时钟/软件版本与次要来源索引放方法附录，但影响结论的分歧/时刻不确定性不能只藏在附录。
+- 每项核心回答在正文能理解：本盘看见的结构与含义、为何这样读、改变读法的限制和现实含义。计算细节、流派/时钟/软件版本与次要来源索引放方法附录，但影响结论的分歧/时刻不确定性（`changes_reading:true`）不能只藏在附录；未采用的取法及原因集中列在附录一处，正文不宣布“未核/未采用”。
 - 图表没有最低数量，也不以图数验收。每张均由真实输入、计算值或有证据的 claim 支持；不补零、不填造数值，也不为凑图复刻同一信息。正文确实解释空间/周期结构时，采用 `chart-patterns.md` 的对应结构图，而不是一律退成表格。
 - HTML 采用 `references/output-template.md` 的唯一语义结构；writer 不自行重算/填写计算值，需引用 artifact JSON Pointer。截图转录只使用已确认结果。
 
 ### 8.1 功能性样章门
 
-首次采用当前 `book-writer.md` 编辑合同、此前发生内容或风格失败、或出现新的输入构念／受众分支时开门；相同合同与同类输入不重复开门。S8 从冻结计划中选**最容易失败的一个领域解读段**；范围含 synthesis 时加入与之关联的一个综合段，存在适用结构图时一起输出可读 HTML 小样。focused 任务不为样章额外增加综合或图表，按其实际任务检查解释深度。样章篇幅以完整表达该论点为止，不按字数凑数；只写人格开篇或泛泛寄语不能过门。
+首次采用当前 `book-writer.md` 编辑合同、此前发生内容或风格失败、或出现新的输入构念／受众分支时开门；相同合同与同类输入不重复开门。S8 从冻结计划中选**最容易写成审计口吻的一个领域解读段**（限制多、来源多为通行读法或未采用取法多的那一段）；范围含 synthesis 时加入与之关联的一个综合段，存在适用结构图时一起输出可读 HTML 小样。非 focused 任务另加入一条行动（含回链判断的“为什么是你”），让 S5 `action_options.goal` 的缺口在样章阶段暴露。focused 任务不为样章额外增加综合或图表，按其实际任务检查解释深度。样章篇幅以完整表达该论点为止，不按字数凑数；只写人格开篇或泛泛寄语不能过门。
 
-同一 finalizer 按 `book-finalizer.md` 的预检合同先读读者稿、再查 evidence；失败项汇总一次定点纠正，仍失败按现行阻断规则留存原因，不生成整本凑交付。过门后同一 writer 继续全书；样章不取代全书 16 项终审和实际 PDF 回审。
+同一 finalizer 按 `book-finalizer.md` 的预检合同先读读者稿、再查 evidence，预检同样套用 R1 换盘测试与 D3 有效段落标准；失败项汇总一次定点纠正，仍失败按现行阻断规则留存原因，不生成整本凑交付。过门后同一 writer 继续全书；样章不取代全书 16 项终审和实际 PDF 回审。
 
 ### 8.2 作者缺口回提
 
@@ -177,11 +185,13 @@ S5 输出请求覆盖、主题综合、claim 回链和章节 outline；S6 处理
 
 终审 JSON 形状见 `schemas/final_verdict.json`。每次裁决不可变保存 `verdict-rN-pre.json` 或 `verdict-rN-post.json`；`final_verdict.json` 是最新完整裁决副本。
 
+- **S8.5 reader-editor。** S8 成稿后、S9 前，Leader 先把 S8 稿存为不可变的当轮基准稿 `$WS/book-s8-r{N}.html`（N 为 `revision_round`，fresh writer 修订后的第二次 S8.5 用新文件，不覆盖上一轮），再派 reader-editor 改写 `$WS/book.html`：只做去重、否定→条件句、主语回到人、流程词替换、删除宣告式“未核”、合并重复停止条件、审计口吻改读者口吻；不得增删 claim/限制、改数字/引文/图表或写新推论。出口由 Leader 运行 `guard_book.py --before "$WS/book-s8-r{N}.html" --after "$WS/book.html" --scope prose --targets <全部 body section_id> --plan "$WS/chart_plan.json" --json`：`ok:true` 才以改后稿进入 S9；否则把 `book-s8-r{N}.html` 恢复为 `book.html` 进入 S9，并在 runtime_trace 该 task 记 `status:"reverted"` 与 guard issue code。prose scope 允许改带 `data-claim-ids` 段落的措辞与合并段落（每节 claim ID 集合不变），数字按集合比较（可删重复出现，不可新增或改值），`data-value-ref` 与引文节点原样，图表与隐藏状态不可变，每节 `data-limitation-id` 集合不变且计划限制恰好一次。guard 输出的 `certainty_review`（声源/条件标记减少的 section 及改前/改后计数）与 `reader_edit_report.json` 一并交 S9 对照。S8.5 不占 fresh writer 修订额度，也不开新的修订轮；S9 可因 S8.5 引入的退步（确定程度升高、声源标签被删、限制条件被削）判回退，由 Leader 把当轮基准稿恢复为 `book.html`，回退不计修订轮；回退后由 fresh finalizer 对恢复稿重做 pre 裁决，原裁决保留为不可变记录。S8.5 结束（含回退）后，Leader 按实际文件更新 `book.html` 的 artifact 哈希；`book-s8-r{N}.html` 另行登记或不登记，不得以 current 与正文并存。
 - `pre_export` 检查 HTML。所有适用非 PDF 项通过且 P1–P3 标 `deferred` 才能是 `awaiting_export`。此阶段不允许 `pass`；deferred 仅可用于 P1–P3。D1 必须基于 `validate_book.py "$WS/book.html" --plan "$WS/chart_plan.json" --evidence "$WS/case_evidence.json" --json` 的 `ok:true` 输出，并在 D1 evidence 附该次 stdout JSON 的哈希；若怀疑 validator 误报，只能 `blocked` 并报告工具缺陷，不得豁免为 pass。
 - S10 只接受与当前 HTML 哈希相符、decision 为 `awaiting_export` 的 pre verdict。导出后 finalizer 亲自核验真实 PDF；post 必须有 HTML/PDF 哈希、实际视觉证据、16 项齐全且均通过或合法 `na` 才能为 `pass` / released。
 - 最终 decision 仅 `awaiting_export|revise|blocked|pass`。内容错误、来源错误、请求未回答、缺少实际 PDF、未验证真实 PDF、哈希不匹配或任何阻断项失败均不得放行。
 - 每项 revision instruction 为 `{check_id,fix_type,owner,claim_ids,section_ids,problem,acceptance}`；`fix_type` 是 `calculation|source|analysis|prose|layout`。上游 calculation/source/analysis 更正先使相关 artifact 失效并重跑必要下游；writer 不可用措辞掩盖计算错误。
-- 最多一轮 fresh writer 内容修订；定点内容修补也计入该轮。纯 CSS/layout 交 light 在 guard 指定范围内修补，由原 finalizer复核，不重写全文；每轮成书最多两次 layout 修补，第二次只能把 `output-template.md` 已有的规则套进本书唯一 `<style>`，不新写 CSS 手法。修订 writer 只拿 prepare-revision 生成的干净目录、未受影响内容和纠正素材，不接收被拒正文或内部审稿日志。
+- 终审只读读者稿后写 `reader_takeaways`（3–5 句“读者能带走什么”）；写不出时给空数组，且 R1 与 D3 同时 `fail`（checker：`reader_takeaways_missing`；1–2 句报 `reader_takeaways_count`）。
+- 最多一轮 fresh writer 内容修订；定点内容修补也计入该轮。fresh writer 修订后先再过一次 S8.5（`--targets` 为全部 body section，同样不占额度），再进入 S9。纯 CSS/layout 交 light 在 guard 指定范围内修补，由原 finalizer复核，不重写全文；每轮成书最多两次 layout 修补，第二次只能把 `output-template.md` 已有的规则套进本书唯一 `<style>`，不新写 CSS 手法。修订 writer 只拿 prepare-revision 生成的干净目录、未受影响内容和纠正素材，不接收被拒正文或内部审稿日志。
 - 任意 HTML、CSS、数据或正文变更使旧 PDF、P1–P3 结果和 post verdict 失效，必须重新导出并复核。内容修订或第二次 layout 修补后仍有必过项 fail 即 `blocked`，不降级交付；第一次 layout 修补后仅剩 layout 类 fail 时，finalizer 判 `revise` 并给出第二次修补指令。
 - `guard_book.py` 按 `prose|layout|citations|charts|content` 及 targets 约束差异；计算、来源或分析纠错须具备已接受的 revision 与更新 evidence。越界改动拒绝。
 
@@ -203,11 +213,15 @@ chart_data.py dumbbell --pairs <JSON数组> --min 0 --max <scale>
 quality_contracts.py <kind> <json_path> [--evidence <case_evidence.json>] [--json]
 validate_book.py <html> --plan <chart_plan.json> --evidence <case_evidence.json> [--sources <references/sources.json 默认技能内>] --json
 export_pdf.py <html> <pdf> --verdict <verdict-rN-pre.json> --json
-guard_book.py --before <html> --after <html> --scope prose|layout|citations|charts|content --targets <id,...> [--revision <instructions.json> --evidence <case_evidence.json>] --json
+guard_book.py --before <html> --after <html> --scope prose|layout|citations|charts|content --targets <id,...> [--plan <chart_plan.json>] [--revision <instructions.json> --evidence <case_evidence.json>] --json
 guard_book.py --prepare-revision --before <html> --revision <instructions.json> --evidence <case_evidence.json> --output <new_dir> --json
+judge_payload.py --dimension jung|bazi|ziwei|astro --subject primary|partner [--input <chart_bundle.json | jung_calc 结果>] [--intake <intake_brief.json>] [--evidence <case_evidence.json>] [--ws <dir>] [--dm <dir>] [--output <payload.txt>]
 ```
 
 `astro_calc.py` 的 `--tz` 与 `--tz-name` 必须且只能给一个；没有时区时不默认 UTC+8。
+`validate_book.py` 的 `review_required` 只作人工复核提示，不进 `issues`、不影响 `ok`：`forbidden_term`（硬禁词）、`process_term`（流程词词表，扫必要披露与正文，不扫附录）、`opening_negation` / `opening_method`（正文段首否定或方法句）、`opening_limitation_count`（必要披露中 opening 限制超过 5 条）。词表是 `validate_book.py` 顶部的模块常量。
+`guard_book.py --plan` 只作用于 prose scope：给出时每个改动 section 的计划 `limitation_ids` 须恰好出现一次（`prose_limitation_count`）；不给时仍检查每节 `data-limitation-id` 集合不变（`prose_limitation_changed`）。prose scope 另拒绝把限制标记删到只剩编号（`prose_limitation_emptied`），并在输出中给 `certainty_review:[{section,before,after,before_total,after_total}]`：声源/条件标记（“在…的读法里”“传统上”“常见的讲法”“如果”“可能”“倾向”“多半”“例如”）减少的 section，只作 S9 对照提示，不影响 `ok`。
+`judge_payload.py` 返回 `{ok,status,dimension,subject_id,input_payload_sha256,input_artifact_ids,artifact_id_source:"case_evidence"|"content_hash",included,payload_bytes,payload_path|payload}`；三传统维度必须给该 subject 的 chart_bundle，且该维 status 为 ok/partial，否则 exit 1 `dimension_unavailable`。jung 取 `jung_calc` 结果和/或 intake 的 `personality_input` 白名单字段（访谈构念才带观察与反例），两者构念不一致即 exit 1。`--intake` 只贡献年龄/受众口径与 jung 切片；给 `--evidence` 时按文件 SHA-256 取 current artifact_id，未登记即 exit 1。哈希为载荷 UTF-8 字节的 SHA-256，同输入逐字节确定。
 `jung_calc.py --scores` 返回 `{construct:"functions8",raw_scores,scale,normalized_scores,ranked_tiers:[{functions,raw_score,normalized_score}],reflection_prompts:[{theory_basis,question,needs_observation:true}],interpretation_limits}`；并列分数放入同一 tier。`--scores16` 返回 `{construct:"subtypes16",raw_scores,scale,pairs:[{function,left_key,right_key,left,right,delta}],derived_functions:null,reflection_prompts,interpretation_limits}`；T/F 的 delta=H−A、N/S 的 delta=B−O。`--type` 返回 `{construct:"mbti_type",self_reported_type,theory_mapping:{basis,stack:[{position,function,role}×8]},reflection_prompts,interpretation_limits}`。三种模式互斥，不输出主导类型/未校准置信度。
 `synastry_calc.py` 返回 `{schema_version:1,status:"ok"|"partial",aspect_profile:"standard-v1",orbs,dimensions:{jung,bazi,ziwei,astrology},communication_options:[{action,trigger,review_question,adapt_or_stop}],limitations}`。每层为 `{status:"available"|"unavailable",input_refs,observations,limits}`；关联 chart_bundle 维度 `data:null` 时映为 `unavailable`。
 Jung 的 functions8/subtypes16 observation 为 `{kind:"construct_snapshot",person,construct,raw_scores,scale}`；`mbti_type` 为 `{kind:"theory_mapping",person,self_reported_type,stack}`。Bazi 为 `{kind:"traditional_calculation",calculation_method:"day_stem_element_relations",day_stems,elements,element_relation,direction,ten_stem_combination_element}`；Zi Wei 按共同宫位为 `{calculation_method:"traditional_palace_configuration",palace,a:{main_stars,mutagens},b:{main_stars,mutagens}}`。

@@ -2,6 +2,38 @@
 
 ---
 
+## v5.2.0 — 2026-09-29
+
+### 运行时适配
+
+**判官隔离落到运行时**：此前两端判官都用带完整文件/Shell 工具的通用子代理（CC 的 general-purpose、omp 的 dm-deep），能读到整个 `$WS`，严格说只能标 `isolation_level:"unavailable"`。
+
+- **dm-judge adapter（两端）**：`adapters/omp/dm-judge.md` 为 deep 档（`["@slow","@default"]`、thinking high）、`tools: []`、不开 `spawns`，omp 只给内置 `yield`。`adapters/cc/dm-judge.md` 用 `tools: ToolSearch`、`disallowedTools: mcp__*`、`omitClaudeMd: true`、`model: inherit`、`maxTurns: 4`。Claude Code 拒绝派生零工具子代理，`TodoWrite` 在当前模型上不提供，列它同样被拒；`ToolSearch` 只检索子代理自身工具池，读不到工作区。安装方式为软链到 `~/.claude/agents/`、`~/.omp/agent/agents/`。
+- **判官载荷脚本** `scripts/judge_payload.py`：确定性拼接判官合同全文、其“首读”所列合同（team-orchestration §3/§7 摘录、`judge_verdicts.json`、本维 framework，八字另含 classical-texts）、公共来源 ID 索引、输入口径与本维原始切片，并输出 `input_payload_sha256`、`input_artifact_ids`（给 `--evidence` 时取登记的 artifact_id）。不带其他维度，也不带 bundle 顶层 limitations（它汇总了三维限制）、intake 历史事件、`time_context` 中出生资料以外的 subject 字段；方法键按维度白名单；jung 只取 personality_input 白名单字段，访谈构念才带观察与反例。新增 `tests/test_judge_payload.py`（10 项：跨维哨兵不泄漏、哈希确定且等于写出文件、首读合同来源、jung/伴侣切片、构念冲突、evidence 取 ID、维度不可用、缺文件/坏 JSON/参数错误 exit 2）。
+- **规范**：team-orchestration §3 规定只有“`dm-judge` 派遣 + 正文与脚本载荷逐字一致 + 判官未报污染”才可标 `input_only`，其余一律 `unavailable`；§5 档位表拆出“deep（隔离）”行，§10 登记 CLI。runtime-cc 写明 subagent_type/model（省略即继承，light 用 `haiku`）、后台完成通知即 barrier、`SendMessage` 对应 message，并说明为何不另建 CC 端 light/research/deep 定义。runtime-omp 加 dm-judge 行、安装命令与 MCP 限制；dm-deep 描述不再含判官。
+- **doctor**：新增 `omp.agent.dm-judge`、`cc.agent.dm-judge`（链接，缺失为 yellow 并给 `ln -s` 命令）与 `*.dm-judge.tools`（frontmatter 与隔离要求不符为 red）；另以 yellow `omp.agent.dm-judge.mcp` 提示 omp 不按 agent `tools` 过滤 MCP。
+- **冒烟**：CC `claude -p` 派 dm-judge，子代理只见 `SubagentHandback`，无 Read/Bash。omp `omp -p --no-session` 派 dm-judge，工具只有 `yield`、`multi_tool_use.parallel` 和用户 MCP（context7、exa），无 read/bash。omp 的 `task` 不接受空共享 context。
+- **memory/MEMORY.md**：由 v3 索引改为 v5 简短索引；v3 决策标为已废弃。
+
+### 文风与表达有效性
+
+**起因**：对 v5.1 同案新旧稿做文本诊断（样本内部稿，未随技能发布）：否定/限定句占比新旧稿都是 24%；“本次/工具/字段/未核”密度是旧稿的 5–10 倍；长段首句讲方法或限制的占 29%（旧稿 7%）；35 个限制框占正文约 18%；章首命题的主语是“这张盘该怎么读”，没有一句能让读者认出自己。根因不在文风节，在流水线：claim 的 limits 一路传到正文；漏一条限制会阻断发布，多写十条只扣 D3 软分；模板示例本身示范否定句；framework 的“核不到就省去”被执行成逐条宣布“未核”；16 项验收没有一项检查写得有没有用。红线（非决定论、分层、不互证、不虚构亲历、适龄、引文核实、隐私、终审与哈希）全部不变，改的是放置层级、措辞方向与正向验收。
+
+- **限制两层**（`schemas/case_evidence.json`、`scripts/quality_contracts.py`、`scripts/validate_book.py`、team-orchestration §4）：`limitations[]` 新增必填 `changes_reading`、`reader_text`；`changes_reading:false` 只能进附录，`adjacent` 必须改变读法；计划中的读者层限制以 `data-limitation-id` 在所属章节恰好出现一次，opening 在必要披露出现一次，appendix 不进正文。`claims[].limits` 与 judge/chief 措辞为审计层，不原样渲染。A3 与阻断条件改为“读者层缺失会改变结论的限制”。删除按 impact 关键词判定的旧规则。
+- **通行读法**：source kind 新增 `common_reading`（`excerpt` 必须为 null，只能支持 `traditional_interpretation`，正文不得用 `<q>` 引用）。正文以“传统上常见的讲法是……”写入，不加引号、不挂古籍名；冒充古籍出处仍是 `source_error`。
+- **省去即沉默**：未核取法按 framework 省去后，正文不宣告“本次未核”，未采用的读法集中列在附录；只有改变已读结论时才作为读者层限制写一次。
+- **S8.5 reader-editor**（新席位，deep 档）：S8 后、S9 前只改措辞（去重、否定改条件句、主语回到人、流程词替换、合并重复的停止条件），出口为 `guard_book.py --scope prose --plan`；guard 失败则以 S8 原稿进 S9。fresh writer 修订后再过一次，不占修订额度。`guard_book` prose scope 改为只比较数值节点、引文节点、每节 claim ID 集合与 limitation ID 集合，不再比较段落全文（原实现下带 `data-claim-ids` 的段落一字不能改）；数字按集合保护（不得新增、原有每个数字至少保留一处）。已知缺口：同节同一数字指不同事物时删去一处不会被拦，由 S9 核对。
+- **写作合同**（`agents/book-writer.md` 文风节重写）：主语是你；判断→依据→条件；声源标签（事实/传统/假说/选项）；限制写成条件句并用“去留三问”取舍；标明的假设镜像与可落空的反向情形（区分冷读的“彩虹诡计”）；Finn 1→2→3 反馈顺序；倾向写成模式而非身份；行动“因—行—判”，停止条件每章一次，未成年读者附可直接说出口的原话；开篇三件事、结尾回到读者本人；流程词词典。删去“不设免责声明密度上限”。
+- **核心命题**：S5 产出 3–5 条 `core_propositions:[{proposition_id,image,statement,claim_ids}]`，须过换盘测试；writer 在导读预告、各章回扣、综合对照、结尾收束。目前无 schema 校验。
+- **素材源头**：四位 analyst 与四个 framework 先写看见的结构与含义，为核心判断各给 1–2 条标明的生活镜像；`cognitive-functions.md` 边界列改为“什么情况下这条不太适用”的条件句；chief 的 disclose 措辞只进审计层；模板骨架与图注示例清除否定示范，图注只写来源、单位、量程、缺值。
+- **正向验收**（`locked-checklist.md`，仍 16 项）：R1 加人称命题与换盘测试；R3 要求行动有因；D3 用“有效段落”八条判定；I3/A3 区分亲历与标明的假设镜像；`final_verdict.reader_takeaways`（3–5 句）必填，写不出时 R1 与 D3 均须 fail（checker 联动）；样章门改选最容易写成审计口吻的段落。
+- **研究依据**：否定句先激活被否定概念（Mayo 等 2004）、辟谣须给替代解释（Debunking Handbook 2020）、具体的不确定性不损信任而笼统措辞损信任（van der Bles 等 2020）、Barnum 效应（Forer 1949；Dickson & Kelly 1985）、治疗性评估的分级反馈（Finn）、泛指句标签对儿童动机的影响（Cimpian 等 2007）、动机式访谈/焦点解决/执行意图、ISAR 伦理守则。
+- **memory**：`README.md` 与 `analysis-sessions/README.md` 改为 v5：默认不写个案，删去星级印证度、反向校准与应期吻合度模板；`conventions.md` 增“隐私运维记录不进正文”。
+- **独立红线审稿与修复**：审稿发现 2 条阻断并已修复。(B1) 阻断条件与 A3 一度只认 `changes_reading:true` 标签，错标无人兜底——改回按实质判断：会改变读者已读结论的限制无论漏写、错标或从未登记都阻断；终审抽查审计层，错标即 A3 fail；chief `disclose` 默认 `changes_reading:true`，改标须在 `impact` 写明理由。(B2) 探针证实把条件句改成断言、把限制框掏空为空标签时 guard 与 validator 均放行——reader-editor 增“不提高确定程度”禁止项（声源标签、情态词、条件部分、分数≠能力、镜像标注），validator 增 `limitation_empty`、guard 增 `prose_limitation_emptied`，声源/条件标记减少时输出 `certainty_review` 提示；S9 对照当轮基准稿 `book-s8-r{N}.html` 与编辑报告，S8.5 退步判 A3 fail 并回退、不计修订轮。另修 10 条一致性问题：`reader_takeaways` 失败须 R1 与 D3 同时 fail（checker 同步）；标明镜像后写具体过去事件按亲历虚构；反向情形须有一支“这条读法不太贴合你”，否则按冷读判 R1 fail；传统象义落到“你”时同句须保留声源标签；常见读法不替代取法核验；综合 claim 继承父 claim 的读者层限制（`inherited_limitation_missing`）；文风规则副本收回 book-writer。并采纳建议：S8.5 后更新 book.html 哈希、omp 判官记录 `egress_tools`、`common_reading_unverified`、样章加入一条行动。
+- **纸面试写**（审稿人用新合同改写 v5.1 稿两段，未跑流水线）：紫微段 R1 由 fail 变 pass，D3 八条约由 2 条满足升到 7 条；实践段的“为什么是你”、未成年原话脚本与生活镜像依赖 S3/S5 素材，措辞编辑补不出来，故样章门加入一条行动以提前暴露。
+- **验证**：单元测试 100 项通过；回归 18 例 0 FAIL；doctor ok。未做真实成书测试（按用户要求本轮只研究与调整）。
+- **已知未决（留 v5.2.1）**：(1) 只删一句否定限定、或把限制框换成 ≥6 字的无关文字，guard 与 validator 都不报（审稿探针 P-3/P-4），目前靠 S9 对照基准稿；可在 `certainty_review` 增否定限定词计数与限制框改前/改后文字对照。(2) `inherited_limitation_missing` 也作用于 opening 限制，Leader 登记负担偏重；可只对 `adjacent` 执行。
+
 ## v5.1.0 — 2026-09-28
 
 **内容与图文合同优化**：目标改为“四体系各自完整解读，以人的问题组织跨体系综合，写成有阅读价值的命书”。计算、证据链、盲判、schema、脚本与 CLI 均不变。

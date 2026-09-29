@@ -8,7 +8,11 @@ import re
 import sys
 from pathlib import Path, PureWindowsPath
 from decimal import Decimal, InvalidOperation
-from book_html import BookHTML, Node, is_hidden, normalize_text
+from book_html import BookHTML, Node, is_hidden, normalize_text, limitation_text_size, MIN_LIMITATION_HAN
+
+# Voice/condition markers whose loss can raise a sentence's certainty (review hint for S9, not an issue).
+CERTAINTY_MARKERS = (("在…的读法里", r"在[^，。；！？]{1,16}的读法里"), ("传统上", r"传统上"), ("常见的讲法", r"常见的讲法"),
+                     ("如果", r"如果"), ("可能", r"可能"), ("倾向", r"倾向"), ("多半", r"多半"), ("例如", r"例如"))
 
 
 def digest(value: str) -> str:
@@ -24,6 +28,46 @@ def bindings(node: Node) -> list[tuple]:
                     n.attr("data-precision"), n.attr("data-claim-ids"), n.attr("data-quote-id"), normalize_text(n.text()))
                   for n in node.descendants() if any(n.has_attr(k) for k in
                   ("data-value-ref", "data-claim-ids", "data-quote-id"))), key=repr)
+
+
+def prose_bindings(node: Node) -> tuple:
+    """Bindings prose edits must keep: value/quote nodes verbatim, and the section's claim-ID set.
+
+    Paragraph text carrying data-claim-ids may be reworded or merged (S8.5 reader-editor);
+    the claims it cites may not be added or dropped."""
+    fixed = sorted(((n.tag, n.attr("data-value-ref"), n.attr("data-value"), n.attr("data-unit"),
+                     n.attr("data-precision"), n.attr("data-claim-ids"), n.attr("data-quote-id"), normalize_text(n.text()))
+                    for n in node.descendants() if n.has_attr("data-value-ref") or n.has_attr("data-quote-id")), key=repr)
+    claims = sorted({c for n in node.descendants() if not is_hidden(n)
+                     for c in (n.attr("data-claim-ids") or "").split()})
+    return fixed, claims
+
+
+def limitation_marks(node: Node) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for n in node.descendants():
+        if n.has_attr("data-limitation-id") and not is_hidden(n) and not any(is_hidden(a) for a in n.ancestors()):
+            for lid in (n.attr("data-limitation-id") or "").split():
+                counts[lid] = counts.get(lid, 0) + 1
+    return counts
+
+
+def certainty_counts(node: Node) -> dict[str, int]:
+    text = normalize_text(node.text())
+    return {label: len(re.findall(pattern, text)) for label, pattern in CERTAINTY_MARKERS}
+
+
+def certainty_review(before: BookHTML, after: BookHTML, sections: set[str]) -> list[dict]:
+    rows = []
+    bmap, amap = before.section_map(), after.section_map()
+    for sid in sorted(sections & set(bmap) & set(amap)):
+        old, new = certainty_counts(bmap[sid]), certainty_counts(amap[sid])
+        if sum(new.values()) < sum(old.values()) or any(new[k] < old[k] for k in old):
+            rows.append({"section": sid, "before": old, "after": new,
+                         "before_total": sum(old.values()), "after_total": sum(new.values())})
+    return rows
+
+
 def clean_fragment(node: Node, *, omit_figures: bool = False) -> str:
     clone = clean_fragment_node(node, omit_figures=omit_figures)
     return clone.serialize() if clone else ""
@@ -208,7 +252,7 @@ def _protected_numbers(node: Node):
 
 
 def _guard(before: BookHTML, after: BookHTML, scope: str, targets: set[str],
-           revision: str | None, evidence_path: str | None) -> list[dict]:
+           revision: str | None, evidence_path: str | None, plan_path: str | None = None) -> list[dict]:
     issues = []
     bsections, bfigures = before.section_map(), before.figure_map()
     asections, afigures = after.section_map(), after.figure_map()
@@ -247,11 +291,30 @@ def _guard(before: BookHTML, after: BookHTML, scope: str, targets: set[str],
             fail("unauthorized_section", f"未授权 section 发生变化: {sorted(changed_sections-targets)}")
         if changed_figures:
             fail("prose_figure_changed", "prose scope 不允许修改图表")
+        if _hidden_signature(before) != _hidden_signature(after):
+            fail("prose_visibility_changed", "prose scope 不得隐藏或新增隐藏内容")
+        planned = {}
+        if plan_path:
+            planned = {s.get("section_id"): s.get("limitation_ids", []) for s in _data(plan_path).get("sections", [])
+                       if isinstance(s, dict)}
         for sid in changed_sections & targets:
-            if bindings(bsections[sid]) != bindings(asections[sid]):
-                fail("prose_binding_changed", f"section {sid} 的数字、引文或证据绑定发生变化")
-            if _protected_numbers(bsections[sid]) != _protected_numbers(asections[sid]):
+            if prose_bindings(bsections[sid]) != prose_bindings(asections[sid]):
+                fail("prose_binding_changed", f"section {sid} 的数值、引文或 claim 集合发生变化")
+            # Set comparison: a repeated number may be dropped with its duplicate clause, never added or altered.
+            if set(_protected_numbers(bsections[sid])) != set(_protected_numbers(asections[sid])):
                 fail("prose_numbers_changed", f"section {sid} 中的数字不能通过 prose scope 修改")
+            old_marks, new_marks = limitation_marks(bsections[sid]), limitation_marks(asections[sid])
+            if set(old_marks) != set(new_marks):
+                fail("prose_limitation_changed", f"section {sid} 的读者层限制被删除或新增: "
+                     f"删除 {sorted(set(old_marks)-set(new_marks))}，新增 {sorted(set(new_marks)-set(old_marks))}")
+            for n in asections[sid].descendants():
+                if (n.has_attr("data-limitation-id") and not is_hidden(n)
+                        and not any(is_hidden(a) for a in n.ancestors())
+                        and limitation_text_size(n) < MIN_LIMITATION_HAN):
+                    fail("prose_limitation_emptied", f"section {sid} 的限制 {n.attr('data-limitation-id')} 被删到只剩编号或不足 {MIN_LIMITATION_HAN} 个汉字")
+            for lid in planned.get(sid, []):
+                if new_marks.get(lid, 0) != 1:
+                    fail("prose_limitation_count", f"计划限制 {lid} 在 section {sid} 中须恰好出现一次，当前 {new_marks.get(lid, 0)} 次")
     elif scope == "content":
         if not revision or not evidence_path:
             fail("revision_required", "content scope 必须提供 --revision 与 --evidence")
@@ -335,6 +398,7 @@ def main(argv=None):
     parser.add_argument("--targets")
     parser.add_argument("--revision")
     parser.add_argument("--evidence")
+    parser.add_argument("--plan")
     parser.add_argument("--prepare-revision", action="store_true")
     parser.add_argument("--output")
     parser.add_argument("--json", action="store_true")
@@ -360,8 +424,11 @@ def main(argv=None):
                 raise ValueError("content scope 需要 --revision 与 --evidence")
             if args.scope == "layout" and targets - (set(sections) | set(figures)):
                 raise ValueError(f"未知 layout target ID: {sorted(targets-(set(sections)|set(figures)))}")
-            issues = _guard(before, after, args.scope, targets, args.revision, args.evidence)
+            issues = _guard(before, after, args.scope, targets, args.revision, args.evidence, args.plan)
             result, code = {"ok": not issues, "issues": issues}, (0 if not issues else 1)
+            if args.scope == "prose":
+                changed_sections, _ = changed(before, after)
+                result["certainty_review"] = certainty_review(before, after, changed_sections & targets)
     except FileExistsError as exc:
         result, code = {"ok": False, "issues": [{"path": "output", "code": "output_exists", "message": str(exc)}]}, 2
     except (OSError, ValueError, json.JSONDecodeError) as exc:

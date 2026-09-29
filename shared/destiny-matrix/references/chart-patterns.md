@@ -28,6 +28,7 @@
 - `data-representation` 必须为 `measured`、`computed` 或 `qualitative`。数值必须从实际输入或计算产物绑定，`data-value-ref` 形如 `<artifact_id>#<json_pointer>`，同一值还需有 `data-value`、`data-unit`、`data-precision`，并与读者可见标签、辅助表一致。文字建议不应伪装成精确计算量。
 - 定性图标注“概念示意”，只表达有依据的类别/关系，不造连续数值、运势曲线、成功概率、置信度或时间刻度。缺值采用 `omit_with_disclosure`：说明缺项、不补零、不插值、不闭合雷达。八维数据不全时改为仅列已知值的表格并明确缺项。
 - 图表必须有可读表格或等效逐项文本；复杂图的 `aria-label` 不能替代数据与关系说明。键盘可聚焦的 `.chart-scroll` 只允许图表局部横向滚动，整页不得横移。
+- `chart_table.limits` 属审计层，不写进图注；“手机上可左右滚动、下方有原值表”这类提示全书只在第一张需要它的图旁出现一次。图注写法见 `agents/book-writer.md` 文风第 10 条。
 - 使用系统字体，不加载网络字体。判断字号要以变换后屏幕/PDF的实际尺寸为准，不能仅依据 SVG 源码字号。手机上保留最小可读画布和局部滚动，绝不把图压到约 4px 字号。PDF 实际高度超过 240mm 的图由作者按语义拆成并登记的子图，不由导出器缩放。
 - 色彩须符合模板对比度要求并配合文本、标记或线型。`#d5d2c8` 只用于装饰线，不能用于文字、关键图形或唯一的数据区分。
 - 占星轮须由真实宫始黄经与上升点生成，调用 `chart_data.py wheel --cusps <12个宫始黄经> --asc <deg>`；不使用等分假宫线。
@@ -53,7 +54,7 @@
 | P14 | 成对对照图 | 同一量纲下两项数值或描述对照 | 不把偏好差异解释成能力优劣；提供原始值 |
 | P15 | 关系网络图 | 展示盘面/文本中有明确定义的结构连接 | 只显示已核关系；不能暗示关系强弱或因果除非有定义数据 |
 | P16 | 双人双轮对照 | 同一图中分别展示双方的占星位置 | 双方数据分色/分表且来源独立；不是兼容度分数或成功率 |
-| P17 | 亚型哑铃图 | subtypes16 同一功能两端的原始量表分数对照 | 同量程显示两端原值及有符号差；缺端点不连线、不解释为能力差。不是所有人格构念的通用图 |
+| P17 | 亚型哑铃图 | subtypes16 同一功能两端的原始量表分数对照 | 同量程显示两端原值及有符号差，图中称“原始分”与“两端分差”；缺端点只画已知端点。仅用于 subtypes16 |
 
 ## 3. 各模式骨架与实现指引
 
@@ -95,7 +96,7 @@
 
 ### P07 · 占星轮
 
-仅在十二个互异、有限且处于 `[0,360)` 的真实宫头、有效 ASC 与行星黄经均可用时，复用 `chart_data.py wheel --cusps … --asc … --planets …` 的坐标输出。MC 按实际角度绘制，不默认等于第十宫头；只突出正文讨论的主要相位，精确角度与其余相位留在结构表。图注说明宫制、时刻口径及星历；宫头、行星、轴点和相位数据回链 artifact。缺真实宫头或其余必要坐标时改用位置／相位表，不画等分假宫轮。
+仅在十二个互异、有限且处于 `[0,360)` 的真实宫头、有效 ASC 与行星黄经均可用时，复用 `chart_data.py wheel --cusps … --asc … --planets …` 的坐标输出。MC 按实际角度绘制，不默认等于第十宫头；只突出正文讨论的主要相位，精确角度与其余相位留在结构表。图注写来源（排盘软件、宫制名）与单位；时刻精度与星历放附录，改变读法时按读者层限制就近写一次；宫头、行星、轴点和相位数据回链 artifact。缺真实宫头或其余必要坐标时改用位置／相位表，不画等分假宫轮。
 
 ### P08 · 结构化数据表
 
@@ -135,7 +136,7 @@
 
 ### P17 · 亚型哑铃图
 
-仅为完整或部分真实 `subtypes16` 原始分选择该图：同一功能左右两端使用共同量程，标原始分及完整配对的有符号差。复用 `chart_data.py dumbbell --pairs … --min 0 --max …` 坐标；缺一端时只显示已知端点与缺失标记，不补零、不连线、不计算差。完整 `functions8` 使用原分条形图；缺值只列已知项并说明缺项，不生成假八维图。NERIS、类型、访谈等不同构念各自呈现，不从缺失构念推造八维。相同原值不得再重复做排名、雷达图或卡片。图与表回链真实 artifact；只说明量表原值差异，不称能力差、偏好优劣、置信度或发展阶段。
+仅为完整或部分真实 `subtypes16` 原始分选择该图：同一功能左右两端使用共同量程，标原始分及完整配对的有符号差。复用 `chart_data.py dumbbell --pairs … --min 0 --max …` 坐标；缺一端时只显示已知端点与缺失标记，不补零、不连线、不计算差。完整 `functions8` 使用原分条形图；缺值只列已知项并说明缺项，不生成假八维图。NERIS、类型、访谈等不同构念各自呈现，不从缺失构念推造八维。相同原值不得再重复做排名、雷达图或卡片。图与表回链真实 artifact；图题、图注与数据表只用“原始分”“两端分差”“量程”这组说法，读者从中读到的是同一功能两种作答倾向的相对差异。
 ```html
 <figure class="chart-container" data-chart-id="chart-personality-02" data-representation="measured">
   <figcaption id="chart-personality-02-caption">合成样本：两个亚型原始分数（量程 0–30 分）</figcaption>
@@ -150,7 +151,7 @@
       <text x="{xR}" y="25" text-anchor="middle">{right}</text>
     </svg>
     <table class="chart-data">
-      <caption>合成样本原始值；不是能力评价</caption>
+      <caption>合成样本原始分（量程 0–30 分）</caption>
       <thead><tr><th scope="col">功能</th><th scope="col">左键</th><th scope="col">左值</th><th scope="col">右键</th><th scope="col">右值</th><th scope="col">有符号差</th></tr></thead>
       <tbody><tr><th scope="row">Ti</th><td>TiA</td><td data-value-ref="synthetic-case#/personality_input/scores/TiA" data-value="10" data-unit="分" data-precision="0">10 分</td><td>TiH</td><td data-value-ref="synthetic-case#/personality_input/scores/TiH" data-value="12" data-unit="分" data-precision="0">12 分</td><td data-value-ref="synthetic-case#/derived/Ti_delta" data-value="2" data-unit="分" data-precision="0">+2 分</td></tr></tbody>
     </table>

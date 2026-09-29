@@ -4,17 +4,17 @@
 
 ## 1. 内容组织
 
-开篇顺序固定为：书名＋来自正文的短引言／阅读主题 → 必要披露 → 目录 → 正文。各部分均在 `<main id="book">` 中；目录链接到正文已有章节，不新建 `section_id`。不使用 hero、kicker 或摘要卡模板。图紧邻解释它的正文，不将图表集中堆放；逐项数据、方法记录及次要来源索引可放附录。
+开篇顺序固定为：书名＋来自正文的短引言／阅读主题 → 必要披露 → 目录 → 正文。必要披露只承担三件事：这是什么、它不能替读者决定什么、怎么读；`required_placement:"opening"` 的全书通用边界放在这里，隐私与运维说明放附录。书名、副标题与披露标题取自本书内容，骨架中的文字只是合成占位。各部分均在 `<main id="book">` 中；目录链接到正文已有章节，不新建 `section_id`。不使用 hero、kicker 或摘要卡模板。图紧邻解释它的正文，不将图表集中堆放；逐项数据、方法记录及次要来源索引可放附录。
 
 完整报告默认顺序：`personality → bazi → ziwei → astrology → synthesis → timing → relationships → practice`。用户请求事业或健康专题时，分别在 `relationships` 后插入 `career`、`wellbeing`。合盘只放在 `relationships` 内的 `#module-synastry`，不另设重复章节。focused 报告只生成请求落点；必要背景、边界与行动收束在该落点内，不静默添加其他主题。缺资料时须披露真实缺口；未经用户接受的关键缺失不能靠空章或占位内容伪装完成。
 
-正文保留影响读法的限制；通用适用说明可置于必要披露，改变具体结论的限制放在相关正文附近。附录按正文首次引用顺序排列，引用索引最后。
+限制按 `team-orchestration.md` §4 的两层与落点规则放置（opening、adjacent、appendix 及 `data-limitation-id`）；框架省去的取法集中在附录“本书没有采用的读法”一处。全书结尾段落位于最后一个正文章节末尾。附录按正文首次引用顺序排列，引用索引最后。
 
 ## 2. 唯一 HTML 语义结构
 
 - 开篇材料、目录及全部正文均位于 `<main id="book">`；目录使用 `<nav>` 链接到本书实际存在的正文 `id`，不能增加目录专用 `section_id`。
 - 顶层内容类别只有 `disclosure`、`body`、`appendix`：必要披露用 `<section data-content-kind="disclosure">`；正文用 `<section data-content-kind="body" data-section-id="…" id="ch-…">`；附录用 `<section data-content-kind="appendix">`。
-- 正文就近限制说明使用 `<aside data-disclosure-id="…">`，不得使用折叠面板。
+- 正文就近限制说明使用 `<aside data-disclosure-id="…" data-limitation-id="…">`，或用 `<span data-limitation-id="…">` 包住段内从句；同一 `data-limitation-id` 在正文只出现一次；不得使用折叠面板。
 - `<details>` 仅可出现在 appendix 内，并带全书唯一的 `data-appendix-id`。每个附录必须有正文可达链接及返回正文的锚点。审稿记录、失败日志和修订指令不得进入发布 HTML，包括隐藏 DOM 与 HTML 注释。
 - 每个图使用 `<figure class="chart-container" data-chart-id="chart-<section_id>-01">`，包含 `<figcaption>`、可访问的简短说明及读者可访问的原始数据表/定性关系表。复用 `figure/figcaption/.chart-description/.chart-scroll/.chart-data` 与 `data-chart-id/data-value-ref/data-claim-ids`，不另建 DOM 合同。
 - 精确计算值须绑定为 `data-value-ref="<artifact_id>#<json_pointer>"`、`data-value`、`data-unit`、`data-precision`。绑定值与读者可见文本一致。段落的 `data-claim-ids` 以空格分隔，仅引用有效 claim。
@@ -29,7 +29,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>合成样本 · 阅读报告</title>
+  <title>合成样本 · 先整理线索的人</title>
   <style>
     :root {
       color-scheme: light;
@@ -135,13 +135,13 @@
 </head>
 <body>
   <main id="book">
-    <h1 class="book-title">合成样本 · 阅读报告</h1>
+    <h1 class="book-title">合成样本 · 先整理线索的人</h1>
     <p class="opening-quote">“遇到复杂任务时会先整理线索。”</p>
-    <p class="book-subtitle">阅读主题：从已知资料出发，区分计算、传统解释与可尝试的选择</p>
+    <p class="book-subtitle">三条线索：你怎样整理复杂的事，在哪里被看见，可以先试什么</p>
 
     <section class="disclosure" data-content-kind="disclosure" id="disclosure-basis" aria-labelledby="basis-title">
-      <h2 id="basis-title">阅读口径</h2>
-      <p>本例仅演示结构。传统体系的解释属于文化方法，不等于对个人经历的测量或保证。</p>
+      <h2 id="basis-title">这本书怎么读</h2>
+      <p>这本书把几种传统读法和一份测验各自怎样读你放在一起，它们是理解自己的镜头，未来怎么走由你决定。每章先给一个关于你的判断，再给盘面依据；读的时候对照你自己的经验，像的留下，不像的也值得记下来。（本例为合成样本，仅演示结构。）</p>
     </section>
     <nav class="book-toc" aria-label="目录">
       <h2 class="subsection-title">目录</h2>
@@ -149,12 +149,12 @@
     </nav>
     <section class="book-section" data-content-kind="body" data-section-id="personality" id="ch-personality" aria-labelledby="personality-title">
       <h2 class="section-title" id="personality-title">在变化中寻找稳定的支点</h2>
-      <p>性格与选择 · 先看已知资料，再谈可能解释</p>
-      <p data-claim-ids="J-001">合成样本在自述中提到，遇到复杂任务时会先整理线索。这里引用的是自述，而非从出生资料推导的事实。</p>
-      <aside data-disclosure-id="limit-personality"><p>适用边界：这条观察来自单次自述，仍需结合不同情境中的反例修订。</p></aside>
+      <p>性格与选择 · 遇到复杂任务时，你的第一步</p>
+      <p data-claim-ids="J-001">遇到复杂任务，你会先把线索整理清楚再动手。这句来自你的自述；出生盘提供的是传统读法。</p>
+      <aside data-disclosure-id="limit-personality" data-limitation-id="L-personality-01"><p>这条观察来自一次自述；如果你在别的场合更常先动手、边做边理，这一节说的就只是你面对复杂任务时的做法。</p></aside>
       <figure class="chart-container" data-chart-id="chart-personality-01" data-representation="measured">
         <figcaption>合成样本的已记录分数</figcaption>
-        <p class="chart-description" id="chart-personality-01-desc">表格逐项列出合成样本提供的数据；没有提供的项目不会补零。</p>
+        <p class="chart-description" id="chart-personality-01-desc">表格逐项列出已提供的分数；缺的项目标为“未提供”。</p>
         <div class="chart-scroll" role="region" tabindex="0" aria-labelledby="chart-personality-01-caption" aria-describedby="chart-personality-01-desc">
           <table class="chart-data">
             <caption id="chart-personality-01-caption">已提供项目（量表分数）</caption>
@@ -162,22 +162,22 @@
             <tbody><tr><th scope="row">项目甲</th><td data-value-ref="fixture#/scores/item" data-value="12" data-unit="分" data-precision="0">12 分</td></tr></tbody>
           </table>
         </div>
-        <p class="chart-note">数据来源：合成验收资料；不代表能力高低。</p>
+        <p class="chart-note">来源：合成验收资料中的量表原始分；单位为分，量程 0–30。</p>
       </figure>
       <p><a href="#appendix-personality">查看性格数据与方法</a></p>
     </section>
 
     <section class="book-section" data-content-kind="body" data-section-id="relationships" id="ch-relationships" aria-labelledby="relationships-title">
       <h2 class="section-title" id="relationships-title">把分歧变成一次可讨论的请求</h2>
-      <p>关系主题 · 描述双方可观察的做法，不推断身份或结果</p>
-      <div id="module-synastry" data-module="synastry"><p>合盘模块只在取得双方资料且用户请求时出现；本例不含个案结论。</p></div>
+      <p>关系主题 · 分歧出现时，你们各自先做什么</p>
+      <div id="module-synastry" data-module="synastry"><p>〔合盘模块：取得双方资料且用户请求时写在这里〕</p></div>
     </section>
 
     <section class="appendix" data-content-kind="appendix" id="appendix" aria-labelledby="appendix-title">
       <h2 class="appendix-title" id="appendix-title">附录</h2>
       <details class="appendix-entry" data-appendix-id="appendix-personality" id="appendix-personality">
         <summary>性格数据与方法</summary>
-        <div class="appendix-body"><p>本例的合成分数用于演示数据绑定结构，不构成心理测量结论。</p><a class="appendix-back" href="#ch-personality">返回性格与选择</a></div>
+        <div class="appendix-body"><p>量表名称、版本、作答日期与原始分数表；本例分数为合成数据，用于演示数据绑定结构。</p><a class="appendix-back" href="#ch-personality">返回性格与选择</a></div>
       </details>
     </section>
     <footer class="colophon">合成示例 · 用于说明成品结构与阅读层级</footer>

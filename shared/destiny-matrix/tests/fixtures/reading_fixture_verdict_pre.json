@@ -3,7 +3,7 @@
   "previous_verdict": null,
   "review_phase": "pre_export",
   "evidence_revision": "fixture-evidence-r0",
-  "artifact_hashes": {"html": "d53d3b57a3333290874b71bce75aa6c645da5e89f3372dcb330eaa33815ac676", "pdf": null},
+  "artifact_hashes": {"html": "0f3ee8b771144e90f4c7c7e41723290f76d96fe6072974d37fee388d0e8c3365", "pdf": null},
   "checklist_results": [
     {"id":"I1","verdict":"pass","evidence":{"artifact":"reading_fixture.html","location":"#disclosure-basis","quote":"FX-DISC-01"},"reason":"合成样本的披露明确。"},
     {"id":"I2","verdict":"pass","evidence":{"artifact":"reading_fixture_evidence.json","location":"/artifacts","quote":"三个本地快照均有哈希。"},"reason":"输入及其来源可定位。"},
@@ -28,6 +28,7 @@
   "revision_round": 0,
   "revision_instructions": [],
   "blocked_items": [],
+  "reader_takeaways": ["FX-TAKEAWAY-01：读者能说出这份样书讲的是自己的哪一种倾向。", "FX-TAKEAWAY-02：读者知道哪条限制会改变这一节的读法。", "FX-TAKEAWAY-03：读者带走一个可以本周尝试的小动作。"],
   "recommendations": [],
   "export_result": null
 }

@@ -13,11 +13,25 @@ from pathlib import Path, PureWindowsPath
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Any
 
-from book_html import BookHTML, Node, normalize_text, is_hidden
+from book_html import BookHTML, Node, normalize_text, is_hidden, limitation_text_size, MIN_LIMITATION_HAN
 
 HARD_FORBIDDEN = ("命中注定", "这辈子注定", "天注定", "克夫", "克妻", "改命", "真命天子",
                   "真爱", "不可改变", "无法逆转", "克应", "命定")
 SENTENCE_DELIMITERS = "。！？；\n"
+# Style-spec §2.7: pipeline vocabulary that must not reach reader-facing prose (appendix excluded).
+# Hits are review_required hints only, never issues.
+PROCESS_TERMS = ("本次", "工具虚岁", "工具", "字段", "口径", "未核", "绑定", "浮点", "引擎回退", "MOSEPH",
+                 "artifact", "JSON Pointer", "claim", "judge", "chief", "parallel", "tension",
+                 "not_comparable", "跨会话记忆", "外部提交", "未采用", "不裁定", "审稿", "星历文件")
+PROCESS_PATTERNS = (("S0–S10", r"(?<![A-Za-z0-9])S(?:10|[0-9])(?:\.5)?(?![A-Za-z0-9])"),
+                    ("sect1/2", r"sect[12]"),
+                    ("ISO 时间戳", r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}"))
+# Style-spec §2.4 / D3: a paragraph should open with a judgement about the reader, not a denial or a method note.
+OPENING_NEGATIONS = ("不是", "并不", "并非", "不代表", "不等于", "不意味着", "不能说明", "不能", "不证明",
+                     "这不是", "这并不", "这不", "这里不", "本书不", "这些不是", "它不是")
+OPENING_METHODS = ("这张盘该怎么读", "该怎么读", "读法上", "按照", "按本书", "本节", "这一节", "本章", "以下",
+                   "下面先", "先说明", "需要说明", "说明一下", "严格来说", "在解读之前", "方法上")
+OPENING_LIMITATION_ADVISORY = 5
 
 
 class InputFailure(Exception):
@@ -310,6 +324,8 @@ def _issues_for_html(book: BookHTML, plan: Any, evidence: Any, artifacts: dict,
     for comment in book.comments:
         add(f"html:{comment['line']}:{comment['column']}", "html_comment", "成品不得包含 HTML 注释或审稿批注")
 
+    _limitation_issues(book, planned_sections, evidence, add)
+
     rows = plan.get("chart_table", [])
     plan_chart_ids = [r.get("chart_id") for r in rows if isinstance(r, dict)]
     valid_plan_chart_ids = [x for x in plan_chart_ids if isinstance(x, str) and x]
@@ -360,6 +376,8 @@ def _issues_for_html(book: BookHTML, plan: Any, evidence: Any, artifacts: dict,
     source_rows = sources.get("sources", []) if isinstance(sources, dict) else []
     quotes = {}
     source_by_id = {s.get("source_id"): s for s in source_rows if isinstance(s, dict)}
+    common_reading_ids = {s.get("source_id") for s in evidence.get("sources", [])
+                          if isinstance(s, dict) and s.get("kind") == "common_reading"}
     for source in source_rows:
         if not isinstance(source, dict):
             continue
@@ -373,6 +391,9 @@ def _issues_for_html(book: BookHTML, plan: Any, evidence: Any, artifacts: dict,
             add(f"html.quotes[{index}]", "unknown_quote", f"quote_id 不存在于 sources.json: {quote_id}")
             continue
         source, quote = pair
+        if source.get("kind") == "common_reading" or source.get("source_id") in common_reading_ids:
+            add(f"html.quotes[{index}]", "common_reading_quoted", f"{quote_id} 属于通行读法来源，只能不加引号地转述")
+            continue
         if source.get("verification_status") != "verified":
             add(f"html.quotes[{index}]", "unverified_quote", f"{quote_id} 所属来源不是 verified")
             continue
@@ -450,20 +471,125 @@ def _issues_for_html(book: BookHTML, plan: Any, evidence: Any, artifacts: dict,
     return issues
 
 
-def _review_candidates(book: BookHTML) -> list[dict]:
+def _visible(node: Node) -> bool:
+    return not is_hidden(node) and not any(is_hidden(a) for a in node.ancestors())
+
+
+def _limitation_marks(book: BookHTML) -> dict[str, list[tuple[str, str]]]:
+    """limitation_id -> [(content_kind, section_id)] for every visible data-limitation-id token."""
+    marks: dict[str, list[tuple[str, str]]] = {}
+    for node in book.nodes:
+        if not node.has_attr("data-limitation-id") or not _visible(node):
+            continue
+        section = book.containing_section(node)
+        kind = section.attr("data-content-kind") if section is not None else None
+        section_id = (section.attr("data-section-id") or section.attr("id") or kind) if section is not None else None
+        for limitation_id in (node.attr("data-limitation-id") or "").split():
+            marks.setdefault(limitation_id, []).append((str(kind), str(section_id)))
+    return marks
+
+
+def _limitation_issues(book: BookHTML, planned_sections: list, evidence: dict, add) -> None:
+    rows = evidence.get("limitations", [])
+    registry = {r.get("limitation_id"): r for r in rows if isinstance(r, dict)} if isinstance(rows, list) else {}
+    marks = _limitation_marks(book)
+    for limitation_id in sorted(set(marks) - set(registry)):
+        add(f"html.limitations[{limitation_id}]", "unknown_limitation", f"data-limitation-id 未在 case_evidence 登记: {limitation_id}")
+    for section in (s for s in planned_sections if isinstance(s, dict)):
+        section_id = section.get("section_id")
+        ids = section.get("limitation_ids", [])
+        for limitation_id in ids if isinstance(ids, list) else []:
+            if limitation_id not in registry:
+                add(f"plan.sections[{section_id}].limitation_ids", "unknown_limitation", f"计划限制未在 case_evidence 登记: {limitation_id}")
+                continue
+            here = sum(1 for kind, sid in marks.get(limitation_id, []) if kind == "body" and sid == section_id)
+            if here == 0:
+                add(f"html.sections[{section_id}]", "limitation_missing", f"{limitation_id} 须在 {section_id} 正文就近出现（data-limitation-id）")
+            elif here > 1:
+                add(f"html.sections[{section_id}]", "limitation_repeated", f"{limitation_id} 在 {section_id} 正文出现 {here} 次；只写一次，其后用短从句回扣")
+    for node in book.nodes:
+        if not node.has_attr("data-limitation-id") or not _visible(node):
+            continue
+        reader_ids = [lid for lid in (node.attr("data-limitation-id") or "").split()
+                      if registry.get(lid, {}).get("required_placement") in ("opening", "adjacent")]
+        if reader_ids and limitation_text_size(node) < MIN_LIMITATION_HAN:
+            add(f"html:{node.line}:{node.column}", "limitation_empty",
+                f"限制标记 {' '.join(reader_ids)} 去掉编号后可见文字不足 {MIN_LIMITATION_HAN} 个汉字；限制须写出条件本身")
+    planned = {lid: s.get("section_id") for s in planned_sections if isinstance(s, dict)
+               for lid in (s.get("limitation_ids") if isinstance(s.get("limitation_ids"), list) else [])}
+    for limitation_id, row in registry.items():
+        placement = row.get("required_placement")
+        found = marks.get(limitation_id, [])
+        body = [sid for kind, sid in found if kind == "body"]
+        if placement == "opening":
+            count = sum(1 for kind, _ in found if kind == "disclosure")
+            if count != 1:
+                add(f"html.disclosure[{limitation_id}]", "limitation_repeated" if count else "limitation_missing",
+                    f"opening 限制 {limitation_id} 须在必要披露中恰好出现一次，当前 {count} 次")
+            if body:
+                add(f"html.sections[{body[0]}]", "limitation_wrong_placement", f"opening 限制 {limitation_id} 不以 data-limitation-id 重复出现在正文")
+        elif placement == "appendix":
+            if body:
+                add(f"html.sections[{body[0]}]", "appendix_limitation_in_body", f"审计层限制 {limitation_id} 只放附录，不进正文")
+        elif placement == "adjacent":
+            stray = [sid for kind, sid in found if not (kind == "body" and sid == planned.get(limitation_id))]
+            if stray:
+                add(f"html.limitations[{limitation_id}]", "limitation_wrong_placement",
+                    f"adjacent 限制 {limitation_id} 只在计划 section {planned.get(limitation_id)} 标记一次，另见于 {sorted(set(stray))}")
+
+
+def _sentence_around(text: str, index: int, length: int) -> str:
+    left = max((text.rfind(d, 0, index) + 1 for d in SENTENCE_DELIMITERS), default=0)
+    right_positions = [text.find(d, index + length) for d in SENTENCE_DELIMITERS]
+    right = min((pos + 1 for pos in right_positions if pos >= 0), default=len(text))
+    return normalize_text(text[left:right])
+
+
+def _review_candidates(book: BookHTML, evidence: Any = None) -> list[dict]:
     candidates = []
     for section in book.sections:
         text = section.text()
+        kind = section.attr("data-content-kind")
         section_id = section.attr("data-section-id") or section.attr("id") or "disclosure"
         for word in HARD_FORBIDDEN:
             start = 0
             while (index := text.find(word, start)) >= 0:
-                left = max((text.rfind(d, 0, index) + 1 for d in SENTENCE_DELIMITERS), default=0)
-                right_positions = [text.find(d, index + len(word)) for d in SENTENCE_DELIMITERS]
-                right = min((pos + 1 for pos in right_positions if pos >= 0), default=len(text))
-                candidates.append({"location": f"{section_id}:{index}",
-                                   "snippet": normalize_text(text[left:right]), "term": word})
+                candidates.append({"location": f"{section_id}:{index}", "kind": "forbidden_term",
+                                   "snippet": _sentence_around(text, index, len(word)), "term": word})
                 start = index + len(word)
+        if kind == "appendix":
+            continue
+        hits = []
+        for word in PROCESS_TERMS:
+            pattern = re.escape(word) if not word.isascii() else r"(?<![A-Za-z])" + re.escape(word) + r"(?![A-Za-z])"
+            hits.extend((m.start(), m.group(0), word) for m in re.finditer(pattern, text, re.I))
+        for label, pattern in PROCESS_PATTERNS:
+            hits.extend((m.start(), m.group(0), label) for m in re.finditer(pattern, text))
+        covered: list[tuple[int, int]] = []
+        for index, matched, term in sorted(hits, key=lambda h: (h[0], -len(h[1]))):
+            if any(a <= index < b for a, b in covered):
+                continue  # 工具虚岁 already reported; skip the nested 工具
+            covered.append((index, index + len(matched)))
+            candidates.append({"location": f"{section_id}:{index}", "kind": "process_term",
+                               "snippet": _sentence_around(text, index, len(matched)), "term": term})
+        if kind != "body":
+            continue
+        for p_index, para in enumerate(n for n in section.descendants() if n.tag == "p" and _visible(n)):
+            opening = normalize_text(para.text()).lstrip("“\"「（(")
+            for label, words in (("opening_negation", OPENING_NEGATIONS), ("opening_method", OPENING_METHODS)):
+                term = next((w for w in words if opening.startswith(w)), None)
+                if term:
+                    candidates.append({"location": f"{section_id}:p{p_index}", "kind": label,
+                                       "snippet": _sentence_around(opening, 0, 0), "term": term})
+                    break
+    if isinstance(evidence, dict) and isinstance(evidence.get("limitations"), list):
+        opening_ids = {r.get("limitation_id") for r in evidence["limitations"]
+                       if isinstance(r, dict) and r.get("required_placement") == "opening"}
+        rendered = {lid for lid, found in _limitation_marks(book).items()
+                    if lid in opening_ids and any(kind == "disclosure" for kind, _ in found)}
+        if len(rendered) > OPENING_LIMITATION_ADVISORY:
+            candidates.append({"location": "disclosure", "kind": "opening_limitation_count",
+                               "snippet": f"必要披露中有 {len(rendered)} 条 opening 限制", "term": str(len(rendered))})
     return candidates
 
 
@@ -495,7 +621,7 @@ def main(argv=None):
     preissues = []
     artifacts = _artifact_documents(evidence, evidence_path.resolve().parent, preissues)
     issues = preissues + _issues_for_html(book, plan, evidence, artifacts, sources, evidence_path.resolve().parent)
-    result = {"ok": not issues, "issues": issues, "review_required": _review_candidates(book),
+    result = {"ok": not issues, "issues": issues, "review_required": _review_candidates(book, evidence),
               "stats": {"sections": len([s for s in book.sections if s.attr("data-content-kind") == "body"]),
                         "figures": len(book.figures), "values": len(book.values),
                         "quotes": len(book.quotes), "issues": len(issues)}}

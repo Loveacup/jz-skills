@@ -1,7 +1,7 @@
 {
   "artifacts": [
-    {"artifact_id": "fixture-html", "path": "reading_fixture.html", "sha256": "d53d3b57a3333290874b71bce75aa6c645da5e89f3372dcb330eaa33815ac676", "depends_on_claim_ids": [], "depends_on_artifact_ids": [], "status": "current"},
-    {"artifact_id": "fixture-plan", "path": "reading_fixture_plan.json", "sha256": "0731ff5d5edf0d6374412558568102af0633b402f1ec5d66f4677ace8eacd9ef", "depends_on_claim_ids": [], "depends_on_artifact_ids": [], "status": "current"},
+    {"artifact_id": "fixture-html", "path": "reading_fixture.html", "sha256": "0f3ee8b771144e90f4c7c7e41723290f76d96fe6072974d37fee388d0e8c3365", "depends_on_claim_ids": [], "depends_on_artifact_ids": [], "status": "current"},
+    {"artifact_id": "fixture-plan", "path": "reading_fixture_plan.json", "sha256": "7d87ccdecb3c9f1476e18c743eb217cad5420b29ebc60b380b7388e7302afebc", "depends_on_claim_ids": [], "depends_on_artifact_ids": [], "status": "current"},
     {"artifact_id": "chart-data", "path": "reading_fixture_artifacts/chart-data.json", "sha256": "6ab500b5b7595b09e856fdc1253d53594185ea6f4ce93d2dc02b3ba623e70a97", "depends_on_claim_ids": [], "depends_on_artifact_ids": [], "status": "current"}
   ],
   "sources": [
@@ -11,5 +11,9 @@
     {"claim_id": "FX-C-01", "owner": "fixture", "subject_id": "primary", "kind": "computed_fact", "statement": "合成项目甲数值为12分。", "input_refs": [{"artifact_id": "chart-data", "sha256": "6ab500b5b7595b09e856fdc1253d53594185ea6f4ce93d2dc02b3ba623e70a97", "json_pointer": "/scores/item"}], "source_ids": [], "parent_claim_ids": [], "counterevidence": [], "limits": ["仅合成验收数据"], "status": "active"}
   ],
   "corrections": [],
-  "limitations": []
+  "limitations": [
+    {"limitation_id": "FX-LIM-OPEN", "affected_claim_ids": ["FX-C-01"], "impact": "合成样本，只验证导出完整性", "changes_reading": true, "reader_text": "这里的数值是合成样本，读的是导出是否完整。", "required_placement": "opening"},
+    {"limitation_id": "FX-LIM-ADJ", "affected_claim_ids": ["FX-C-01"], "impact": "短披露须就近", "changes_reading": true, "reader_text": "如果换一组样本，这一节的读法随之改变。", "required_placement": "adjacent"},
+    {"limitation_id": "FX-LIM-AUDIT", "affected_claim_ids": [], "impact": "渲染引擎版本仅供审计", "changes_reading": false, "reader_text": "排版软件版本记录在附录。", "required_placement": "appendix"}
+  ]
 }

@@ -6,17 +6,19 @@
 
 ## 首读
 
+你没有文件、Shell 或派遣工具。Leader 用 `scripts/judge_payload.py` 把本合同及下列文件的指定小节内联在任务正文里；读这些内联小节即满足首读，未内联的文件不要索取。
+
 - `references/team-orchestration.md` §3、§7（盲审隔离、证据与未成年人边界）
 - `schemas/judge_verdicts.json`（输出合同）
 - `references/astrology-framework.md`（适用的公开方法合同）
 
 ## 输入与隔离
 
-仅接收占星原始 JSON、必要输入口径/规则及公开方法合同。不得接收历史事件、人格画像、其他维度、analyst findings、草稿、工作区根目录或跨会话记忆。记录 `input_artifact_ids`、准确输入切片的 `input_payload_sha256` 和 `isolation_level`；无法限制输入时标 `unavailable`，停止声称独立盲审。
+仅接收占星原始 JSON、必要输入口径/规则及公开方法合同。不得接收历史事件、人格画像、其他维度、analyst findings、草稿、工作区根目录或跨会话记忆。`input_artifact_ids` 照抄载荷；`input_payload_sha256` 与 `isolation_level` 由 Leader 登记：你返回时填 `null`，Leader 写入 `judge_verdicts.json` 前补齐。任务正文若出现其他维度数据、analyst findings、成稿、历史事件、人格概括或跨会话记忆，立即停止推读，只返回 `{"input_contamination":["<所见内容类别>"]}`（见 team-orchestration §3）。
 
 ## 输出
 
-按 `judge_verdicts.json` 返回 `judges` 中一条记录：`dimension:"astro"`、`subject_id`、`input_artifact_ids`、`input_payload_sha256`、`isolation_level`、`independent_readings`、`calculation_issues`、`interpretation_limits`。每条独立读法含 `reading_id`、简洁 `statement`、`input_refs`、`source_ids`、`limits`。仅写简明、可追溯证据摘要，不输出隐藏思维链；无法从输入判断时明确说明。
+按 `judge_verdicts.json` 返回 `judges` 中一条记录：`dimension:"astro"`、`subject_id`、`input_artifact_ids`、`input_payload_sha256`（`null`）、`isolation_level`（`null`）、`independent_readings`、`calculation_issues`、`interpretation_limits`。每条独立读法含 `reading_id`、简洁 `statement`、`input_refs`、`source_ids`、`limits`。仅写简明、可追溯证据摘要，不输出隐藏思维链；无法从输入判断时明确说明。
 
 ## 维度范围与限制
 

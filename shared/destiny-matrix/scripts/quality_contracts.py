@@ -59,7 +59,10 @@ def _validate_schema(kind: str, data: Any) -> list[dict[str, str]]:
         issues = []
         for error in sorted(validator.iter_errors(data), key=lambda e: list(map(str, e.absolute_path))):
             pointer = "/" + "/".join(str(part).replace("~", "~0").replace("/", "~1") for part in error.absolute_path)
-            issues.append(_issue(pointer, "schema", f"schema rule failed: {error.validator or 'validation'}"))
+            # Subschemas may name a readable contract code (x-issue-code) for rules expressed in the schema.
+            rule = error.schema if isinstance(error.schema, dict) else {}
+            issues.append(_issue(pointer, rule.get("x-issue-code", "schema"),
+                                 rule.get("x-issue-message", f"schema rule failed: {error.validator or 'validation'}")))
         return issues
     except Exception as exc:
         return [_issue("/", "schema_error", f"Schema validation could not complete ({type(exc).__name__})")]
@@ -261,11 +264,28 @@ def _case_evidence(data: dict, issues: list[dict[str, str]], base_dir: str | Non
     for index, artifact in enumerate(artifacts):
         if artifact.get("artifact_id") in affected_artifacts and artifact.get("status") == "current":
             issues.append(_issue(f"/artifacts/{index}/status", "correction_not_propagated", "artifact depending on invalidated evidence remains current"))
-    for index, limitation in enumerate(data.get("limitations", [])):
+    limitations = data.get("limitations", [])
+    lid = [x.get("limitation_id") for x in limitations]
+    if len(lid) != len(set(lid)): issues.append(_issue("/limitations", "duplicate_id", "limitation IDs must be unique"))
+    for index, limitation in enumerate(limitations):
         for claim_id in limitation.get("affected_claim_ids", []):
             if claim_id not in cmap: issues.append(_issue(f"/limitations/{index}/affected_claim_ids", "dangling_claim", "limitation references an unknown claim"))
-        if limitation.get("affected_claim_ids") and limitation.get("required_placement") == "appendix" and any(word in limitation.get("impact", "").lower() for word in ("changes conclusion", "critical", "material")):
-            issues.append(_issue(f"/limitations/{index}/required_placement", "limitation_placement", "material limitations must be disclosed in opening or adjacent text"))
+    common = {s.get("source_id"): s for s in sources if s.get("kind") == "common_reading"}
+    reader_limits = [x for x in limitations if x.get("changes_reading") is True]
+    for index, claim in enumerate(claims):
+        cited = set(claim.get("source_ids", [])) & set(common)
+        if cited and claim.get("kind") != "traditional_interpretation":
+            issues.append(_issue(f"/claims/{index}/kind", "common_reading_claim_kind", "claims resting on a common_reading source must be traditional_interpretation"))
+        if claim.get("status") == "active" and any(common[s].get("status") != "verified" for s in cited):
+            issues.append(_issue(f"/claims/{index}/source_ids", "common_reading_unverified", "active claims may cite a common_reading source only once it is verified as a customary reading"))
+        if claim.get("status") != "active":
+            continue
+        parents = set(claim.get("parent_claim_ids", []))
+        for limitation in reader_limits:
+            affected = set(limitation.get("affected_claim_ids", []))
+            if parents & affected and claim.get("claim_id") not in affected:
+                issues.append(_issue(f"/claims/{index}/claim_id", "inherited_limitation_missing",
+                                     f"reader-layer limitation {limitation.get('limitation_id')} applies to a parent claim; extend its affected_claim_ids to this child claim"))
     for index, claim in enumerate(claims):
         parents = [cmap[p] for p in claim.get("parent_claim_ids", []) if p in cmap]
         subjects = {p.get("subject_id") for p in parents if p.get("subject_id") != "joint"}
@@ -284,8 +304,30 @@ def _sources(data: dict, issues: list[dict[str, str]]) -> None:
     if len(quote_ids)!=len(set(quote_ids)): issues.append(_issue("/sources","duplicate_quote_id","quote_id values must be globally unique"))
 
 
-def _chart_plan(data: dict, issues: list[dict[str, str]]) -> None:
+def _chart_plan(data: dict, issues: list[dict[str, str]], evidence: dict | None = None) -> None:
     sections={s.get("section_id") for s in data.get("sections",[])}; rows=data.get("chart_table",[]); counts={}; seen=set()
+    owner={}
+    for i,section in enumerate(data.get("sections",[])):
+        for limitation_id in section.get("limitation_ids",[]):
+            if limitation_id in owner:
+                issues.append(_issue(f"/sections/{i}/limitation_ids","limitation_multiple_sections",f"limitation {limitation_id} is already planned in section {owner[limitation_id]}; render it once and refer back in prose"))
+            else: owner[limitation_id]=section.get("section_id")
+    if evidence is not None:
+        lmap={x.get("limitation_id"):x for x in evidence.get("limitations",[]) if isinstance(x,dict)}
+        for i,section in enumerate(data.get("sections",[])):
+            for limitation_id in section.get("limitation_ids",[]):
+                row=lmap.get(limitation_id)
+                if row is None:
+                    issues.append(_issue(f"/sections/{i}/limitation_ids","dangling_limitation",f"limitation {limitation_id} is not registered in case_evidence"))
+                elif row.get("changes_reading") is not True:
+                    issues.append(_issue(f"/sections/{i}/limitation_ids","section_limitation_not_reader_layer",f"{limitation_id} does not change the reading; keep it in the appendix"))
+                elif row.get("required_placement")!="adjacent":
+                    issues.append(_issue(f"/sections/{i}/limitation_ids","section_limitation_not_adjacent",f"{limitation_id} is {row.get('required_placement')}; only adjacent limitations belong to a section"))
+        planned_claims={c for s in data.get("sections",[]) for c in s.get("claim_ids",[])}|{c for r in rows for c in r.get("claim_ids",[])}
+        for limitation_id,row in lmap.items():
+            if (row.get("required_placement")=="adjacent" and limitation_id not in owner
+                    and set(row.get("affected_claim_ids",[]))&planned_claims):
+                issues.append(_issue("/sections","adjacent_limitation_unplanned",f"adjacent limitation {limitation_id} affects planned claims but no section carries it"))
     for i,row in enumerate(rows):
         sid=row.get("section_id"); counts[sid]=counts.get(sid,0)+1
         if sid not in sections: issues.append(_issue(f"/chart_table/{i}/section_id","unknown_section","chart must reference a declared section"))
@@ -343,6 +385,12 @@ def _final(data: dict, issues: list[dict[str, str]]) -> None:
             issues.append(_issue("/artifact_hashes/html", "artifact_hash_mismatch", "HTML hash must match the export record"))
         if exported.get("pdf_sha256") != hashes.get("pdf"):
             issues.append(_issue("/artifact_hashes/pdf", "artifact_hash_mismatch", "PDF hash must match the export record"))
+    takeaways = data.get("reader_takeaways", [])
+    failed = {r.get("id") for r in rows if r.get("verdict") == "fail"}
+    if not takeaways and not {"R1", "D3"} <= failed:
+        issues.append(_issue("/reader_takeaways", "reader_takeaways_missing", "a reviewer who cannot state what the reader takes away must fail both R1 and D3"))
+    elif 0 < len(takeaways) < 3:
+        issues.append(_issue("/reader_takeaways", "reader_takeaways_count", "reader_takeaways holds 3-5 sentences, or is empty with both R1 and D3 failed"))
     if decision == "revise" and not data.get("revision_instructions"):
         issues.append(_issue("/revision_instructions", "revision_instructions_missing", "revise requires actionable revision instructions"))
     if decision == "blocked" and not data.get("blocked_items"):
@@ -371,7 +419,7 @@ def check(kind: str, data: dict, *, evidence: dict | None = None, base_dir: str 
     if kind=="intake_brief": _intake(data,issues)
     elif kind=="case_evidence": _case_evidence(data,issues,base_dir)
     elif kind=="sources": _sources(data,issues)
-    elif kind=="chart_plan": _chart_plan(data,issues)
+    elif kind=="chart_plan": _chart_plan(data,issues,evidence)
     elif kind=="judge_verdicts": _judge(data,issues)
     elif kind=="consistency_report":
         discrepancies=data.get("discrepancies",[])
