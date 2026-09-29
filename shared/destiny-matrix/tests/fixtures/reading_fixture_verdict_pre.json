@@ -1,0 +1,33 @@
+{
+  "verdict_id": "fixture-r0-pre",
+  "previous_verdict": null,
+  "review_phase": "pre_export",
+  "evidence_revision": "fixture-evidence-r0",
+  "artifact_hashes": {"html": "d53d3b57a3333290874b71bce75aa6c645da5e89f3372dcb330eaa33815ac676", "pdf": null},
+  "checklist_results": [
+    {"id":"I1","verdict":"pass","evidence":{"artifact":"reading_fixture.html","location":"#disclosure-basis","quote":"FX-DISC-01"},"reason":"合成样本的披露明确。"},
+    {"id":"I2","verdict":"pass","evidence":{"artifact":"reading_fixture_evidence.json","location":"/artifacts","quote":"三个本地快照均有哈希。"},"reason":"输入及其来源可定位。"},
+    {"id":"I3","verdict":"pass","evidence":{"artifact":"reading_fixture.html","location":"#disclosure-basis","quote":"合成披露"},"reason":"隐私与未知项符合合成范围。"},
+    {"id":"A1","verdict":"pass","evidence":{"artifact":"chart-data.json","location":"/scores/item","quote":"12"},"reason":"展示数值与合成数据相同。"},
+    {"id":"A2","verdict":"pass","evidence":{"artifact":"reading_fixture.html","location":"#FX-QUOTE-01","quote":"ditiansui-q01"},"reason":"引文具有已核目录ID。"},
+    {"id":"A3","verdict":"pass","evidence":{"artifact":"reading_fixture.html","location":"#FX-BODY-01","quote":"合成样本"},"reason":"事实与边界明确。"},
+    {"id":"R1","verdict":"pass","evidence":{"artifact":"reading_fixture.html","location":"#FX-BODY-03","quote":"行动以小步开始"},"reason":"请求主题有直接内容。"},
+    {"id":"R2","verdict":"pass","evidence":{"artifact":"reading_fixture.html","location":"#FX-BODY-02","quote":"不同情境"},"reason":"呈现可修订限制。"},
+    {"id":"R3","verdict":"pass","evidence":{"artifact":"reading_fixture.html","location":"#FX-BODY-03","quote":"根据实际反馈调整"},"reason":"行动可观察并调整。"},
+    {"id":"D1","verdict":"pass","evidence":{"artifact":"reading_fixture.html","location":"main#book","quote":"body与appendix"},"reason":"结构可核对。"},
+    {"id":"D2","verdict":"pass","evidence":{"artifact":"reading_fixture_plan.json","location":"/chart_table/0","quote":"chart-personality-01"},"reason":"图表使用追溯值。"},
+    {"id":"D3","verdict":"pass","evidence":{"artifact":"reading_fixture.html","location":"#ch-personality","quote":"第一章"},"reason":"章节层次清楚。"},
+    {"id":"D4","verdict":"pass","evidence":{"artifact":"reading_fixture.html","location":"@media print","quote":"正文12pt"},"reason":"打印尺寸依模板约定。"},
+    {"id":"P1","verdict":"deferred","evidence":{"artifact":null,"location":null,"quote":null},"reason":"等待实际PDF导出。"},
+    {"id":"P2","verdict":"deferred","evidence":{"artifact":null,"location":null,"quote":null},"reason":"等待实际PDF视觉复核。"},
+    {"id":"P3","verdict":"deferred","evidence":{"artifact":null,"location":null,"quote":null},"reason":"等待HTML/PDF产物哈希。"}
+  ],
+  "validator_output": {},
+  "visual_qa": [],
+  "decision": "awaiting_export",
+  "revision_round": 0,
+  "revision_instructions": [],
+  "blocked_items": [],
+  "recommendations": [],
+  "export_result": null
+}

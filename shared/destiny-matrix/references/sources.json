@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "source_id": "ditiansui",
+      "author": "相传京图撰，版本及注者依具体底本",
+      "title": "滴天髓",
+      "edition": null,
+      "locator": "《通天论》开篇",
+      "url": "https://zh.wikisource.org/wiki/%E6%BB%B4%E5%A4%A9%E9%AB%93/01",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "ditiansui-q01",
+          "original": "欲識三元萬物宗，先觀帝載與神功。",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": ["该句见《通天论》开篇所录文本。"],
+      "does_not_support": ["出处只证明该句见于所核文本，不证明命理解释对个体具有经验效度。"]
+    },
+    {
+      "source_id": "ziping-zhenquan",
+      "author": "沈孝瞻；徐乐吾评注",
+      "title": "子平真诠评注",
+      "edition": null,
+      "locator": "第八章《论用神》（https://www.diancang.xyz/xuanxuewushu/zipingzhenquanpingzhu/53678.html）；第九章《论用神成败救应》（https://www.diancang.xyz/xuanxuewushu/zipingzhenquanpingzhu/53679.html）；第十二章《论用神格局高低》（https://www.diancang.xyz/xuanxuewushu/zipingzhenquanpingzhu/53682.html）原文栏",
+      "url": "https://www.diancang.xyz/xuanxuewushu/zipingzhenquanpingzhu/53679.html",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "ziping-zhenquan-q01",
+          "original": "八字用神，专求月令，以日干配月令地支，而生克不同，格局分焉。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziping-zhenquan-q02",
+          "original": "成中有败，必是带忌；败中有成，全凭救应。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziping-zhenquan-q03",
+          "original": "然其理之大纲，亦在有情无情、有力无力之间而已。",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": ["所列句子可在网页对应章节中核对；徐乐吾评注与沈孝瞻原文须区分。"],
+      "does_not_support": ["出处只证明这些句子见于所核文本，不证明格局判断对个体具有经验效度；古籍中的命定、疾病、性别和社会身份论断不构成现代事实。"]
+    },
+    {
+      "source_id": "qiongtong-baojian",
+      "author": "余春台编订（具体文本源流有版本差异）",
+      "title": "穷通宝鉴",
+      "edition": null,
+      "locator": "《论木·八月甲木》",
+      "url": "https://zh.wikisource.org/wiki/%E7%A9%B7%E9%80%9A%E5%AE%9D%E9%89%B4",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "qiongtong-baojian-q01",
+          "original": "八月甲木，木囚金旺。丁火为先，次用丙火，庚金再次。",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": ["该句见《论甲木》之八月甲木条；条目将九月甲木单独处理，不能改写成秋季通则。"],
+      "does_not_support": ["出处只证明该句见于所核文本，不证明调候或行运判断对个体具有经验效度；书中疾病、寿命、婚配和性别断语仅能作为历史语境材料。"]
+    },
+    {
+      "source_id": "ptolemy-tetrabiblos-robbins",
+      "author": "Claudius Ptolemy；译者 F. E. Robbins",
+      "title": "Tetrabiblos",
+      "edition": "Loeb Classical Library 435, 1940 英译；LacusCurtius 校读转录",
+      "locator": "Book I, chapters 2–3; web text includes Loeb page markers",
+      "url": "https://penelope.uchicago.edu/Thayer/E/Roman/Texts/Ptolemy/Tetrabiblos/1A*.html",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "ptolemy-tetrabiblos-robbins-q01",
+          "original": "In addition to this, all aforesaid conditions being equal, rearing and customs contribute to influence the particular way in which a life is lived.",
+          "translation": "此外，即使其他条件都一样，一个人怎样被养育、养成了什么习惯，也会影响他具体过上怎样的生活。",
+          "translation_kind": "own"
+        },
+        {
+          "quote_id": "ptolemy-tetrabiblos-robbins-q02",
+          "original": "even with events that will necessarily take place their unexpectedness is very apt to cause excessive panic and delirious joy, while foreknowledge accustoms and calms the soul by experience of distant events as though they were present, and prepares it to greet with calm and steadiness whatever comes.",
+          "translation": "即便是必然会发生的事，突如其来时也最容易让人过度惊慌，或者狂喜到失态；预先知道，则让心灵把远处的事当作眼前的事来体会，从而习惯、平静下来，准备好用镇定和稳重去迎接将要到来的一切。",
+          "translation_kind": "own"
+        },
+        {
+          "quote_id": "ptolemy-tetrabiblos-robbins-q03",
+          "original": "we should not believe that separate events attend mankind as the result of the heavenly cause as if they had been originally ordained for each person by some irrevocable divine command and destined to take place by necessity without the possibility of any other cause whatever interfering.",
+          "translation": "我们不应认为，人一生中的各件事都出自天上的原因，好像早已由不可撤回的神谕为每个人定下，必然发生，其他任何原因都无法介入。",
+          "translation_kind": "own"
+        },
+        {
+          "quote_id": "ptolemy-tetrabiblos-robbins-q04",
+          "original": "but if they are recognized ahead of time and remedies are provided, again quite in accord with nature and fate, they either do not occur at all or are rendered less severe.",
+          "translation": "如果事先认出它们并采取应对，那么这些事要么根本不会发生，要么会轻得多；这本身也顺应自然与命运。",
+          "translation_kind": "own"
+        }
+      ],
+      "supports": ["该网页转录并标明 Loeb 1940 英译；四条英文均在所列章节核对，摘录跨越的页码标记不属于句子。"],
+      "does_not_support": ["出处只证明 Ptolemy 在该文本中这样论述，不证明占星学预测对个体具有经验效度，也不构成医学建议。"]
+    },
+    {
+      "source_id": "jung-cw15-main-2018",
+      "author": "C. G. Jung；由 Roderick Main 学术论文引述",
+      "title": "Richard Wilhelm: In Memoriam（引自 Main, ‘Research on synchronicity: status and prospects’）",
+      "edition": "Jung, Collected Works vol. 15, The Spirit in Man, Art, and Literature, trans. R. F. C. Hull, §82；二手核引于 Main 2018, pp. 135–156",
+      "locator": "Jung CW 15 §82；Main 2018, discussion of qualitative time, PDF p. 9",
+      "url": "https://repository.essex.ac.uk/23721/1/Roderick%20Main%20--%20Research%20on%20synchronicity.pdf",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "jung-cw15-main-2018-q01",
+          "original": "Whatever is born or done at this particular moment of time has the quality of this moment of time.",
+          "translation": "在这一特定时刻诞生或发生的一切，都带有这一时刻的质地。",
+          "translation_kind": "own"
+        }
+      ],
+      "supports": ["只依据 Roderick Main 的学术二手文献确认此英文引句及 CW 15 §82 定位；尚未核对 CW 15 原书页面。"],
+      "does_not_support": ["出处只证明二手文献如此引述 Jung，不证明荣格理论、占星或同时性对个体具有经验效度。"]
+    },
+    {
+      "source_id": "sanming-tonghui",
+      "author": "万民英",
+      "title": "三命通会",
+      "edition": null,
+      "locator": "本次未核对到可引用原文的具体篇章定位",
+      "url": null,
+      "verification_status": "unverified",
+      "quotes": [],
+      "supports": [],
+      "does_not_support": ["当前没有对本任务所涉原句完成可追溯的一手核对；不得以该书署名直接引文。"]
+    },
+    {
+      "source_id": "shenfeng-tongkao",
+      "author": "张楠（作者归属按传统书目题署）",
+      "title": "神峰通考",
+      "edition": null,
+      "locator": "本次未核对到可引用原文的具体篇章定位",
+      "url": null,
+      "verification_status": "unverified",
+      "quotes": [],
+      "supports": [],
+      "does_not_support": ["本目录不为未核的通行歌诀或网络转述背书；不得保留未核的署名原话。"]
+    },
+    {
+      "source_id": "yuanhai-ziping",
+      "author": "传统题署及成书归属存在版本问题",
+      "title": "渊海子平",
+      "edition": null,
+      "locator": "本次未核对到可引用原文的具体篇章定位",
+      "url": "https://zh.wikisource.org/wiki/%E6%B7%B5%E6%B5%B7%E5%AD%90%E5%B9%B3",
+      "verification_status": "unverified",
+      "quotes": [],
+      "supports": [],
+      "does_not_support": ["所见维基文库页面标示来源不明且未完成；不能据此核准本任务中的署名原话。古代疾病、性别和亲属对应只可置于历史语境，不作现代事实或个体预测。"]
+    },
+    {
+      "source_id": "guolao-xingzong",
+      "author": "托名张果老；成书及作者归属未核",
+      "title": "果老星宗",
+      "edition": null,
+      "locator": "本次未核对到可引用原文的具体篇章定位",
+      "url": null,
+      "verification_status": "unverified",
+      "quotes": [],
+      "supports": [],
+      "does_not_support": ["‘命主以四柱为体，星宗以七政为用’未核到原书，不得作为原典引文或声称其为唯一系统性合参来源。"]
+    }
+  ]
+}

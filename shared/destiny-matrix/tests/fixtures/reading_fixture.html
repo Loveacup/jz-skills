@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>合成 &amp; &lt;PDF&gt; 测试</title><style>
+    :root {
+      color-scheme: light;
+      --bg: #fafaf8;
+      --surface: #f3f1ec;
+      --text: #1a1a1a;
+      --text-secondary: #5a5a5a;
+      --text-support: #666666;
+      --accent: #8a1a1a;
+      --blue: #2c5f7c;
+      --green: #356746;
+      --gold: #775e35;
+      --rule: #d5d2c8;
+      --sans: "PingFang SC", "Microsoft YaHei", sans-serif;
+      --serif: "Songti SC", "STSong", "SimSun", serif;
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--bg); }
+    body {
+      margin: 0 auto;
+      max-width: 44rem;
+      padding: 3rem 1.5rem;
+      color: var(--text);
+      background: var(--bg);
+      font-family: var(--sans);
+      font-size: 17px;
+      line-height: 1.9;
+      line-break: strict;
+      word-break: normal;
+    }
+    a { color: var(--blue); text-decoration-thickness: .08em; text-underline-offset: .16em; }
+    .book-title, .section-title, .subsection-title, .appendix-title { font-family: var(--serif); font-weight: 500; line-height: 1.4; }
+    .book-title { margin: 0; font-size: 32px; text-align: center; }
+    .book-subtitle { margin: .5rem 0 3rem; color: var(--text-secondary); text-align: center; font-size: 15px; }
+    .section-title { margin: 0 0 .25rem; font-size: 26px; }
+    .subsection-title, .appendix-title { margin: 0 0 1rem; font-size: 20px; }
+    .section-subtitle { margin: 0 0 1.5rem; color: var(--text-secondary); font-size: 20px; }
+    .disclosure, .book-section, .appendix { margin: 0 0 3rem; }
+    .disclosure { padding: 1rem 1.25rem; border-left: 3px solid var(--accent); background: var(--surface); }
+    .disclosure p, .book-section p, .appendix p { margin: 0 0 1.25rem; }
+    .callout { margin: 1.5rem 0; padding: 1rem 1.25rem; border-left: 3px solid var(--blue); background: var(--surface); }
+    .callout > :last-child { margin-bottom: 0; }
+    .term { text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: .18em; }
+    .chart-container { min-width: 0; margin: 1.5rem 0 2rem; padding: 1rem; background: var(--surface); border-radius: .25rem; }
+    .chart-container figcaption { margin: 0 0 .75rem; font-weight: 600; }
+    .chart-description, .chart-note, .appendix-note, blockquote { color: var(--text-secondary); font-size: 15px; }
+    .chart-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+    .chart-scroll:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+    .chart-scroll svg { display: block; max-width: 100%; height: auto; }
+    .chart-data { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 15px; }
+    .chart-data caption { padding: .5rem; text-align: left; font-weight: 600; }
+    .chart-data th, .chart-data td { padding: .5rem .65rem; border: 1px solid var(--rule); text-align: left; vertical-align: top; }
+    .chart-data th { background: var(--surface); }
+    .chart-data td[data-value-ref], [data-value-ref] { font-variant-numeric: tabular-nums; }
+    .appendix-entry { margin: 1.5rem 0; }
+    .appendix-entry summary { cursor: pointer; font-weight: 600; }
+    .appendix-body { padding: 1rem 0; }
+    .appendix-back { display: inline-block; margin-top: .5rem; }
+    .colophon, .page-header, .page-footer { margin-top: 4rem; padding-top: 1rem; border-top: 1px solid var(--rule); color: var(--text-support); font-size: 14px; }
+    @media (min-width: 320px) and (max-width: 430px) {
+      body { padding: 2rem 20px; }
+    }
+    @media (max-width: 319px) {
+      body { padding: 1.5rem 16px; }
+      .book-title { font-size: 26px; }
+    }
+    @media print {
+      @page { size: A4; margin: 18mm 14mm 16mm; }
+      html, body { width: auto; max-width: none; margin: 0; padding: 0; background: #fff; }
+      body { font-size: 12pt; line-height: 1.75; }
+      .book-title { font-size: 24pt; }
+      .section-title { font-size: 20pt; }
+      .subsection-title, .appendix-title { font-size: 16pt; }
+      .section-subtitle { font-size: 16pt; }
+      .book-subtitle { font-size: 10pt; }
+      .chart-description, .chart-note, .appendix-note { font-size: 10.1pt; }
+      blockquote, q { font-size: 11.6pt; }
+      .chart-data { font-size: 9.6pt; }
+      .page-header, .page-footer { font-size: 8.1pt; }
+      .chart-container { break-inside: avoid; }
+      .appendix, .appendix-entry { break-inside: auto; }
+      .callout { break-inside: auto; }
+      .callout.short-callout { break-inside: avoid; }
+      h1, h2, h3, figcaption, summary { break-after: avoid; }
+      table { break-inside: auto; }
+      thead { display: table-header-group; }
+      tr { break-inside: avoid; }
+      a { color: inherit; }
+    }
+    .long-callout p { margin: 0 0 1em; }
+    .vector-page { break-before: page; break-after: page; height: 255mm; display: grid; place-items: center; }
+    .vector-page svg { width: min(150mm, 100%); height: auto; }
+    @media print {
+      .vector-page svg { width: 150mm; height: 150mm; max-width: none; }
+    }
+</style></head><body><main id="book">
+<h1 class="book-title">合成 &amp; &lt;PDF&gt; 测试</h1>
+<section class="disclosure" data-content-kind="disclosure" id="disclosure-basis"><h2>阅读口径</h2><p id="FX-DISC-01">FX-DISC-01：此处为合成披露，说明数据仅供验证导出完整性。</p></section>
+<section class="book-section" data-content-kind="body" data-section-id="personality" id="ch-personality"><h2 class="section-title">第一章：记录与尺度</h2>
+<p id="FX-BODY-01">FX-BODY-01：记录描述一项可观察的做法，不把它扩展成对人格能力的证明。</p>
+<p id="FX-BODY-02">FX-BODY-02：不同情境可能带来不同反应，因此读者可用新的经验继续修订理解。</p>
+<aside class="callout short-callout" data-disclosure-id="FX-SHORT-01"><p>FX-SHORT-01：短披露保留在相关说明旁，不藏入折叠内容。</p></aside>
+<figure class="chart-container" data-chart-id="chart-personality-01"><figcaption id="FX-CAPTION-01">FX-CAPTION-01：合成分值与可追溯数据</figcaption><p class="chart-description">FX-DESC-01：图形与表格共同呈现同一条合成记录。</p>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 90" role="img" aria-label="合成数据条形图"><rect x="5" y="10" width="240" height="40" fill="#2c5f7c"/><text x="10" y="78" font-size="14">FX-SVG-01</text></svg>
+<table class="chart-data"><caption>合成原始值</caption><thead><tr><th>项目</th><th>数值</th></tr></thead><tbody><tr><th>项目甲</th><td data-value-ref="chart-data#/scores/item" data-value="12" data-unit="分" data-precision="0">12 分</td><td>FX-VALUE-01</td></tr></tbody></table></figure>
+<p><a href="#appendix-data">FX-LINK-01：查看数据附录</a></p>
+<blockquote data-quote-id="ditiansui-q01">欲識三元萬物宗，先觀帝載與神功。</blockquote><p id="FX-QUOTE-01">FX-QUOTE-01：引文 ID 指向已核原文。</p>
+</section>
+<section class="book-section" data-content-kind="body" data-section-id="practice" id="ch-practice"><h2 class="section-title">第二章：行动与回看</h2>
+<p id="FX-BODY-03">FX-BODY-03：行动以小步开始，并根据实际反馈调整，不由图表替读者作决定。</p><p><a href="#appendix-method">FX-LINK-02：查看方法附录</a></p>
+<aside class="callout long-callout" data-disclosure-id="FX-LONG-01"><h3>较长的必要披露</h3>
+<p>FX-LONG-01-A：该披露说明合成数值的范围、来源与分页方式，不代表真实个案判断。</p>
+<p>FX-LONG-01-B：导出检查关注句子是否丢失、是否裁切，以及读者能否连续阅读。</p>
+<p>FX-LONG-01-C：图形和表格并列，核对相同数据的文字提取与单元格内容。</p>
+<p>FX-LONG-01-D：资料不足时应说明限制，不能用默认值伪造精确结果。</p>
+<p>FX-LONG-01-E：长段落允许自然跨页，不因容纳内容而缩小字体或裁掉正文。</p>
+<p>FX-LONG-01-F：此处为足够长的合成披露，用来验证 callout 跨页。</p>
+<p id="FX-LONG-02">FX-LONG-02：合成报告的数据只展示本地生成的固定值，来源文件也在 fixture 目录中。审查者可以核对每个标记、单元格、引用与附录入口，而不需要读取其他个案资料。</p>
+<p id="FX-LONG-03">FX-LONG-03：HTML 的原始字符在转换前后保持不变。导出器只在浏览器当前页面内将折叠附录转换为普通标题和 section，不回写用户的源文件或丢弃任何表格内容。</p>
+<p id="FX-LONG-04">FX-LONG-04：纸面内容应保留清晰层次，短披露框可避免拆页，长披露框则允许自然分页。无论段落落在哪一页，读者都应能辨认其标题与相邻内容。</p>
+<p id="FX-LONG-05">FX-LONG-05：图表旁的数值表是独立可读的表达，不应因 SVG 正常显示就被忽略。导出检查同时核对可见文字、数据标记和 PDF 中可提取的文本。</p>
+<p id="FX-LONG-06">FX-LONG-06：页面分页会受到字体、表格行高和内容宽度影响，所以样本不把固定页数当成成功条件。短书可以小于二十页，只要每个内容块都实际存在。</p>
+<p id="FX-LONG-07">FX-LONG-07：附录默认在网页中关闭是交互设计，而不是隐藏发布内容的理由。PDF 导出会递归展开已分类的 details，保留 summary 的标题文本、锚点、链接和内部顺序。</p>
+<p id="FX-LONG-08">FX-LONG-08：表格行超过单页时允许继续到下一页，并通过重复的表头帮助阅读。每个单元格都使用唯一的合成文本，让抽取检查能够发现遗漏或截断。</p>
+<p id="FX-LONG-09">FX-LONG-09：文字大小以最终打印样式和变换后的实际矩阵核查，而不是只看 HTML 中写下的字号。若 SVG 内层图形经过缩放，文字也必须满足最小尺寸要求。</p>
+<p id="FX-LONG-10">FX-LONG-10：这里的引文逐字对应已核来源目录，出处标识在 HTML 语义节点上记录。引文来源只证明文本位置，不把传统文化表达升级成对读者的实证结论。</p>
+<p id="FX-LONG-11">FX-LONG-11：失败条件包括未分类折叠块、隐藏正文、无效裁切和字号低于合同阈值。仅有矢量图的页面不应因抽取文本为空而自动删除，是否空白只供后续目视判断。</p>
+<p id="FX-LONG-12">FX-LONG-12：如果提取顺序无法明确对应到某段内容，工具要把该块标记为需要人工核对，而不能伪称已经通过。可疑空白页同样记录页码，交由成品复审。</p>
+<p id="FX-LONG-13">FX-LONG-13：合成验收内容仅用于验证结构与导出行为。它不构成心理测试、占星判断、命运预测或对任何真实人物的描述。</p>
+</aside></section>
+<section class="book-section" data-content-kind="body" data-section-id="relationships" id="ch-relationships"><h2 class="section-title">第三章：逐行核对</h2><p id="FX-TABLE-INTRO">FX-TABLE-INTRO：长表每行和每个单元格都有唯一标记。</p>
+<table id="FX-LONG-TABLE"><thead><tr><th>行号</th><th>字段一</th><th>字段二</th></tr></thead><tbody>
+<tr><td>FX-TBL-01</td><td>项目-01</td><td>值-01</td></tr><tr><td>FX-TBL-02</td><td>项目-02</td><td>值-02</td></tr><tr><td>FX-TBL-03</td><td>项目-03</td><td>值-03</td></tr><tr><td>FX-TBL-04</td><td>项目-04</td><td>值-04</td></tr><tr><td>FX-TBL-05</td><td>项目-05</td><td>值-05</td></tr><tr><td>FX-TBL-06</td><td>项目-06</td><td>值-06</td></tr><tr><td>FX-TBL-07</td><td>项目-07</td><td>值-07</td></tr><tr><td>FX-TBL-08</td><td>项目-08</td><td>值-08</td></tr><tr><td>FX-TBL-09</td><td>项目-09</td><td>值-09</td></tr><tr><td>FX-TBL-10</td><td>项目-10</td><td>值-10</td></tr>
+<tr><td>FX-TBL-11</td><td>项目-11</td><td>值-11</td></tr><tr><td>FX-TBL-12</td><td>项目-12</td><td>值-12</td></tr><tr><td>FX-TBL-13</td><td>项目-13</td><td>值-13</td></tr><tr><td>FX-TBL-14</td><td>项目-14</td><td>值-14</td></tr><tr><td>FX-TBL-15</td><td>项目-15</td><td>值-15</td></tr><tr><td>FX-TBL-16</td><td>项目-16</td><td>值-16</td></tr><tr><td>FX-TBL-17</td><td>项目-17</td><td>值-17</td></tr><tr><td>FX-TBL-18</td><td>项目-18</td><td>值-18</td></tr><tr><td>FX-TBL-19</td><td>项目-19</td><td>值-19</td></tr><tr><td>FX-TBL-20</td><td>项目-20</td><td>值-20</td></tr>
+<tr><td>FX-TBL-21</td><td>项目-21</td><td>值-21</td></tr><tr><td>FX-TBL-22</td><td>项目-22</td><td>值-22</td></tr><tr><td>FX-TBL-23</td><td>项目-23</td><td>值-23</td></tr><tr><td>FX-TBL-24</td><td>项目-24</td><td>值-24</td></tr><tr><td>FX-TBL-25</td><td>项目-25</td><td>值-25</td></tr><tr><td>FX-TBL-26</td><td>项目-26</td><td>值-26</td></tr><tr><td>FX-TBL-27</td><td>项目-27</td><td>值-27</td></tr><tr><td>FX-TBL-28</td><td>项目-28</td><td>值-28</td></tr><tr><td>FX-TBL-29</td><td>项目-29</td><td>值-29</td></tr><tr><td>FX-TBL-30</td><td>项目-30</td><td>值-30</td></tr>
+<tr><td>FX-TBL-31</td><td>项目-31</td><td>值-31</td></tr><tr><td>FX-TBL-32</td><td>项目-32</td><td>值-32</td></tr><tr><td>FX-TBL-33</td><td>项目-33</td><td>值-33</td></tr><tr><td>FX-TBL-34</td><td>项目-34</td><td>值-34</td></tr><tr><td>FX-TBL-35</td><td>项目-35</td><td>值-35</td></tr><tr><td>FX-TBL-36</td><td>项目-36</td><td>值-36</td></tr><tr><td>FX-TBL-37</td><td>项目-37</td><td>值-37</td></tr><tr><td>FX-TBL-38</td><td>项目-38</td><td>值-38</td></tr><tr><td>FX-TBL-39</td><td>项目-39</td><td>值-39</td></tr><tr><td>FX-TBL-40</td><td>项目-40</td><td>值-40</td></tr>
+<tr><td>FX-TBL-41</td><td>项目-41</td><td>值-41</td></tr><tr><td>FX-TBL-42</td><td>项目-42</td><td>值-42</td></tr><tr><td>FX-TBL-43</td><td>项目-43</td><td>值-43</td></tr><tr><td>FX-TBL-44</td><td>项目-44</td><td>值-44</td></tr><tr><td>FX-TBL-45</td><td>项目-45</td><td>值-45</td></tr><tr><td>FX-TBL-46</td><td>项目-46</td><td>值-46</td></tr><tr><td>FX-TBL-47</td><td>项目-47</td><td>值-47</td></tr><tr><td>FX-TBL-48</td><td>项目-48</td><td>值-48</td></tr><tr><td>FX-TBL-49</td><td>项目-49</td><td>值-49</td></tr><tr><td>FX-TBL-50</td><td>项目-50</td><td>值-50</td></tr>
+<tr><td>FX-TBL-51</td><td>项目-51</td><td>值-51</td></tr><tr><td>FX-TBL-52</td><td>项目-52</td><td>值-52</td></tr><tr><td>FX-TBL-53</td><td>项目-53</td><td>值-53</td></tr><tr><td>FX-TBL-54</td><td>项目-54</td><td>值-54</td></tr><tr><td>FX-TBL-55</td><td>项目-55</td><td>值-55</td></tr><tr><td>FX-TBL-56</td><td>项目-56</td><td>值-56</td></tr><tr><td>FX-TBL-57</td><td>项目-57</td><td>值-57</td></tr><tr><td>FX-TBL-58</td><td>项目-58</td><td>值-58</td></tr><tr><td>FX-TBL-59</td><td>项目-59</td><td>值-59</td></tr><tr><td>FX-TBL-60</td><td>项目-60</td><td>值-60</td></tr>
+ </tbody></table><div class="vector-page" aria-label="纯矢量图页"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" aria-hidden="true"><circle cx="200" cy="200" r="160" fill="none" stroke="#2c5f7c" stroke-width="8"/><path d="M200 40V360M40 200H360M87 87L313 313M313 87L87 313" stroke="#8a1a1a" stroke-width="5"/></svg></div></section>
+<section class="appendix" data-content-kind="appendix" id="appendix"><h2 class="appendix-title">技术附录</h2>
+<details class="appendix-entry" id="appendix-data" data-appendix-id="appendix-data"><summary>数据与来源</summary><div class="appendix-body"><p id="FX-APPENDIX-FIRST">FX-APPENDIX-FIRST：附录正文首项保留。</p><p>图表值回链合成 artifact JSON，页面文本与原始数据一致。</p><a class="appendix-back" href="#ch-personality">返回记录与尺度</a><p id="FX-APPENDIX-LAST">FX-APPENDIX-LAST：附录正文末项保留。</p></div></details>
+<details class="appendix-entry" id="appendix-method" data-appendix-id="appendix-method"><summary>方法说明</summary><div class="appendix-body"><p id="FX-APPENDIX-2-FIRST">FX-APPENDIX-2-FIRST：第二个附录首项。</p><p>图形不是经验预测，也不代表实际读者数据。</p><a class="appendix-back" href="#ch-practice">返回行动与回看</a><p id="FX-APPENDIX-2-LAST">FX-APPENDIX-2-LAST：第二个附录末项。</p></div></details></section>
+</main></body></html>

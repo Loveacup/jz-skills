@@ -1,603 +1,357 @@
 {
   "_meta": {
-    "version": "v4.1-baseline",
-    "created": "2026-05-02",
-    "agent": "Agent L · 回归测试基线",
-    "说明": "命例锚点用于回归比对。'推断 MBTI' 与 '性格签名锚点' 仅供人工 review，不参与自动 PASS/FAIL 判定。出生时辰若史料不确定，标 nullable 字段。",
-    "锚点字段路径": {
-      "bazi_day_master": "八字.日主.天干",
-      "bazi_day_master_element": "八字.日主.五行",
-      "bazi_dominant_element": "推算自 八字.五行比例 的最大值",
-      "ziwei_ming_palace_stars": "紫微.十二宫[宫位==命宫].主星[].名称",
-      "ziwei_ming_branch": "紫微.基础信息.命宫地支",
-      "ziwei_wuxing_ju": "紫微.基础信息.五行局",
-      "astro_sun_sign": "占星.三轴心.太阳 中提取星座（中文）",
-      "astro_rising_sign": "占星.三轴心.上升 中提取星座（中文）",
-      "astro_moon_sign": "占星.三轴心.月亮 中提取星座（中文）",
-      "astro_asc_lon": "占星.十二宫[宫位==1] 宫始星座×30+宫内度数（黄经，容差 ±0.02°）",
-      "astro_sun_lon": "占星.十大行星+北交+凯龙.太阳.黄经（容差 ±0.02°）"
-    },
-    "比对规则": {
-      "PASS": "所有声明的锚点全部命中",
-      "WARN": "声明字段中只有 nullable 标注的不一致；或史料不确定字段不一致；或受影响子脚本异常但相关锚点全是 nullable",
-      "FAIL": "脚本异常退出 / 输出非 JSON / 关键锚点（非 nullable）不一致"
-    },
-    "占星锚点说明": "v4.0 因 PEP 604 旧问题把 astro_* 全标 nullable 且从未撤销，导致 cast_chart 占星段重复经度校正潜伏三个月。v4.1 撤销 astro nullable；度数锚点取自修复后 astro_calc 钟表时直调结果，且每条用例由 run_regression 的「占星直调对照」独立复核时间管线。"
+    "version": "5.0.0",
+    "fixed_analysis_as_of": "2026-01-15",
+    "purpose": "legacy pipeline smoke inputs only; no expected chart values or accuracy claims",
+    "anchor_policy": "Any exact anchor must include verified independent source, calculation method, dependency/version, and tolerance. Missing metadata is a configuration error.",
+    "calendar_policy": "Pre-1582 solar dates require a confirmed calendar; explicit lunar dates use lunar-python mixed-calendar conversion and retain the unverified source status.",
+    "status_semantics": {
+      "CONTRACT_OK": "CLI output is valid chart_bundle v2; does not verify historical birth data or interpretive accuracy.",
+      "BLOCKED": "input evidence/calendar is insufficient and needs source review.",
+      "FAIL": "process, dependency, contract, or declared anchor failed."
+    }
   },
   "cases": [
     {
       "id": "毛泽东",
       "category": "celebrity",
+      "mode": "pipeline_only",
       "input": {
-        "date": "1893-12-26",
-        "time": "08:00",
-        "gender": "m",
-        "city": "长沙"
+        "birth_date": "1893-12-26",
+        "birth_time": "08:00",
+        "calculation_sex": "m",
+        "city": "韶山",
+        "latitude": 27.915,
+        "longitude": 112.527,
+        "utc_offset_hours": 8.0
       },
-      "expected_anchors": {
-        "bazi_day_master": "丁",
-        "bazi_day_master_element": "火",
-        "ziwei_ming_branch": "卯",
-        "astro_sun_sign": "摩羯",
-        "推断 MBTI": "ENTJ",
-        "性格签名锚点": [
-          "Te 主导",
-          "战略远见",
-          "Ni 内向直觉",
-          "革命家气质"
-        ],
-        "astro_asc_lon": 282.11,
-        "astro_sun_lon": 274.49
-      },
-      "key_events": [
-        {
-          "年份": 1921,
-          "事件": "中共一大"
-        },
-        {
-          "年份": 1949,
-          "事件": "建国"
-        },
-        {
-          "年份": 1976,
-          "事件": "去世"
-        }
-      ],
-      "来源": "公历 1893-12-26 辰时（《毛泽东年谱》）",
-      "nullable": [
-        "ziwei_ming_branch"
-      ],
-      "note": "民间命例多记命宫卯（流行说法），算法按辰时排盘得申。命宫地支锚点设为 nullable，差异降为 WARN 待人工核定真实出生时辰"
+      "input_source_status": "unverified",
+      "unverified_source_note": "公历 1893-12-26 辰时（《毛泽东年谱》）",
+      "unverified_coordinate_note": "韶山近似坐标 27.915°N,112.527°E 来自集成者本次提供的估值，未独立核定。",
+      "input_status": "legacy_input_only"
     },
     {
       "id": "曾国藩",
       "category": "celebrity",
+      "mode": "pipeline_only",
       "input": {
-        "date": "1811-11-26",
-        "time": "06:00",
-        "gender": "m",
+        "birth_date": "1811-11-26",
+        "birth_time": "06:00",
+        "calculation_sex": "m",
         "city": "湘乡",
-        "lat": 27.74,
-        "lon": 112.55,
-        "tz": 8.0
+        "latitude": 27.74,
+        "longitude": 112.55,
+        "utc_offset_hours": 8.0
       },
-      "expected_anchors": {
-        "bazi_day_master": "丙",
-        "bazi_day_master_element": "火",
-        "astro_sun_sign": "射手",
-        "推断 MBTI": "ISTJ",
-        "性格签名锚点": [
-          "秩序感强",
-          "传统主义",
-          "Si-Te 双刀",
-          "持重克己"
-        ],
-        "astro_asc_lon": 229.35,
-        "astro_sun_lon": 242.79
-      },
-      "key_events": [
-        {
-          "年份": 1853,
-          "事件": "创建湘军"
-        },
-        {
-          "年份": 1864,
-          "事件": "攻克天京"
-        },
-        {
-          "年份": 1872,
-          "事件": "病逝"
-        }
-      ],
-      "来源": "嘉庆十六年十月十一日（公历 1811-11-26）卯时",
-      "nullable": [
-        "bazi_day_master"
-      ]
+      "input_source_status": "unverified",
+      "unverified_source_note": "嘉庆十六年十月十一日（公历 1811-11-26）卯时",
+      "input_status": "legacy_input_only"
     },
     {
       "id": "王阳明",
       "category": "celebrity",
+      "mode": "pipeline_only",
+      "date_calendar": "julian",
       "input": {
-        "date": "1472-10-31",
-        "time": "22:00",
-        "gender": "m",
+        "birth_date": null,
+        "lunar_date": {
+          "year": 1472,
+          "month": 9,
+          "day": 30,
+          "is_leap_month": false
+        },
+        "birth_time": null,
+        "precision": "branch",
+        "branch_label": "亥",
+        "calculation_sex": "m",
         "city": "余姚",
-        "lat": 30.04,
-        "lon": 121.16,
-        "tz": 8.0
+        "latitude": 30.04,
+        "longitude": 121.16,
+        "utc_offset_hours": 8.0
       },
-      "expected_anchors": {
-        "astro_sun_sign": "天蝎",
-        "推断 MBTI": "INFJ",
-        "性格签名锚点": [
-          "Ni 主导",
-          "知行合一",
-          "心学集大成",
-          "致良知"
-        ],
-        "astro_asc_lon": 112.65,
-        "astro_sun_lon": 218.49
-      },
-      "key_events": [
-        {
-          "年份": 1508,
-          "事件": "龙场悟道"
-        },
-        {
-          "年份": 1517,
-          "事件": "平定漳南"
-        },
-        {
-          "年份": 1529,
-          "事件": "病逝"
-        }
-      ],
-      "来源": "成化八年九月三十日（公历 1472-10-31）亥时",
-      "nullable": [],
-      "note": "明代以前的占星精度可能受限于历史日期范围"
+      "input_source_status": "unverified",
+      "unverified_source_note": "成化八年（1472）九月三十日亥时；史料未独立核实。",
+      "input_status": "legacy_input_only"
     },
     {
       "id": "爱因斯坦",
       "category": "celebrity",
+      "mode": "pipeline_only",
       "input": {
-        "date": "1879-03-14",
-        "time": "11:30",
-        "gender": "m",
+        "birth_date": "1879-03-14",
+        "birth_time": "11:30",
+        "calculation_sex": "m",
         "city": "Ulm",
-        "lat": 48.4,
-        "lon": 9.99,
-        "tz": 0.6
+        "latitude": 48.4,
+        "longitude": 9.99,
+        "utc_offset_hours": 0.6
       },
-      "expected_anchors": {
-        "astro_sun_sign": "双鱼",
-        "推断 MBTI": "INTP",
-        "性格签名锚点": [
-          "Ti 主导",
-          "Ne 辅助",
-          "理论物理",
-          "好奇驱动"
-        ],
-        "astro_asc_lon": 102.46,
-        "astro_sun_lon": 353.51
-      },
-      "key_events": [
-        {
-          "年份": 1905,
-          "事件": "奇迹年（狭义相对论等四篇论文）"
-        },
-        {
-          "年份": 1915,
-          "事件": "广义相对论"
-        },
-        {
-          "年份": 1921,
-          "事件": "诺贝尔物理学奖"
-        }
-      ],
-      "来源": "Ulm, Germany 上午 11:30（自传）",
-      "nullable": []
+      "input_source_status": "unverified",
+      "unverified_source_note": "Ulm, Germany 上午 11:30（自传）",
+      "input_status": "legacy_input_only"
     },
     {
       "id": "乔布斯",
       "category": "celebrity",
+      "mode": "pipeline_only",
       "input": {
-        "date": "1955-02-24",
-        "time": "19:15",
-        "gender": "m",
+        "birth_date": "1955-02-24",
+        "birth_time": "19:15",
+        "calculation_sex": "m",
         "city": "San Francisco",
-        "lat": 37.7749,
-        "lon": -122.4194,
-        "tz": -8.0
+        "latitude": 37.7749,
+        "longitude": -122.4194,
+        "utc_offset_hours": -8.0
       },
-      "expected_anchors": {
-        "astro_sun_sign": "双鱼",
-        "推断 MBTI": "ENTJ",
-        "性格签名锚点": [
-          "Te 主导",
-          "Ni 内向直觉",
-          "现实扭曲力场",
-          "完美主义"
-        ],
-        "astro_asc_lon": 172.29,
-        "astro_sun_lon": 335.75
-      },
-      "key_events": [
-        {
-          "年份": 1976,
-          "事件": "创办苹果"
-        },
-        {
-          "年份": 1985,
-          "事件": "被苹果赶走"
-        },
-        {
-          "年份": 1997,
-          "事件": "回归苹果"
-        },
-        {
-          "年份": 2007,
-          "事件": "iPhone 发布"
-        },
-        {
-          "年份": 2011,
-          "事件": "去世"
-        }
-      ],
-      "来源": "出生证明：1955-02-24 19:15 San Francisco",
-      "nullable": []
+      "input_source_status": "unverified",
+      "unverified_source_note": "出生证明：1955-02-24 19:15 San Francisco",
+      "input_status": "legacy_input_only"
     },
     {
       "id": "周恩来",
       "category": "celebrity",
+      "mode": "pipeline_only",
       "input": {
-        "date": "1898-03-05",
-        "time": "06:00",
-        "gender": "m",
+        "birth_date": "1898-03-05",
+        "birth_time": "06:00",
+        "calculation_sex": "m",
         "city": "淮安",
-        "lat": 33.62,
-        "lon": 119.02,
-        "tz": 8.0
+        "latitude": 33.62,
+        "longitude": 119.02,
+        "utc_offset_hours": 8.0
       },
-      "expected_anchors": {
-        "astro_sun_sign": "双鱼",
-        "推断 MBTI": "ISFJ",
-        "性格签名锚点": [
-          "Si 主导",
-          "Fe 辅助",
-          "外交家",
-          "团队整合"
-        ],
-        "astro_asc_lon": 332.62,
-        "astro_sun_lon": 344.38
-      },
-      "key_events": [
-        {
-          "年份": 1949,
-          "事件": "出任政务院总理"
-        },
-        {
-          "年份": 1976,
-          "事件": "去世"
-        }
-      ],
-      "来源": "光绪二十四年二月十三日（公历 1898-03-05）卯时",
-      "nullable": []
+      "input_source_status": "unverified",
+      "unverified_source_note": "光绪二十四年二月十三日（公历 1898-03-05）卯时",
+      "input_status": "legacy_input_only"
     },
     {
       "id": "鲁迅",
       "category": "celebrity",
+      "mode": "pipeline_only",
       "input": {
-        "date": "1881-09-25",
-        "time": "10:00",
-        "gender": "m",
+        "birth_date": "1881-09-25",
+        "birth_time": "10:00",
+        "calculation_sex": "m",
         "city": "绍兴",
-        "lat": 30.0,
-        "lon": 120.58,
-        "tz": 8.0
+        "latitude": 30.0,
+        "longitude": 120.58,
+        "utc_offset_hours": 8.0
       },
-      "expected_anchors": {
-        "astro_sun_sign": "天秤",
-        "推断 MBTI": "INTJ",
-        "性格签名锚点": [
-          "Ni 主导",
-          "Te 辅助",
-          "批判精神",
-          "孤勇者"
-        ],
-        "astro_asc_lon": 235.4,
-        "astro_sun_lon": 182.13
-      },
-      "key_events": [
-        {
-          "年份": 1918,
-          "事件": "《狂人日记》发表"
-        },
-        {
-          "年份": 1936,
-          "事件": "去世"
-        }
-      ],
-      "来源": "光绪七年八月初三日（公历 1881-09-25）",
-      "nullable": []
+      "input_source_status": "unverified",
+      "unverified_source_note": "光绪七年八月初三日（公历 1881-09-25）",
+      "input_status": "legacy_input_only"
     },
     {
       "id": "蒋介石",
       "category": "celebrity",
+      "mode": "pipeline_only",
       "input": {
-        "date": "1887-10-31",
-        "time": "12:00",
-        "gender": "m",
-        "city": "宁波"
+        "birth_date": "1887-10-31",
+        "birth_time": "12:00",
+        "calculation_sex": "m",
+        "city": "宁波",
+        "latitude": null,
+        "longitude": null,
+        "utc_offset_hours": null
       },
-      "expected_anchors": {
-        "astro_sun_sign": "天蝎",
-        "推断 MBTI": "ESTJ",
-        "性格签名锚点": [
-          "Te 主导",
-          "Si 辅助",
-          "军事强人",
-          "保守纪律"
-        ],
-        "astro_asc_lon": 294.44,
-        "astro_sun_lon": 217.43
-      },
-      "key_events": [
-        {
-          "年份": 1928,
-          "事件": "形式上统一中国"
-        },
-        {
-          "年份": 1949,
-          "事件": "退守台湾"
-        },
-        {
-          "年份": 1975,
-          "事件": "去世"
-        }
-      ],
-      "来源": "光绪十三年九月十五日（公历 1887-10-31）午时",
-      "nullable": []
+      "input_source_status": "unverified",
+      "unverified_source_note": "光绪十三年九月十五日（公历 1887-10-31）午时",
+      "input_status": "legacy_input_only"
     },
     {
       "id": "比尔盖茨",
       "category": "celebrity",
+      "mode": "pipeline_only",
       "input": {
-        "date": "1955-10-28",
-        "time": "22:00",
-        "gender": "m",
+        "birth_date": "1955-10-28",
+        "birth_time": "22:00",
+        "calculation_sex": "m",
         "city": "Seattle",
-        "lat": 47.6062,
-        "lon": -122.3321,
-        "tz": -8.0
+        "latitude": 47.6062,
+        "longitude": -122.3321,
+        "utc_offset_hours": -8.0
       },
-      "expected_anchors": {
-        "astro_sun_sign": "天蝎",
-        "推断 MBTI": "INTJ",
-        "性格签名锚点": [
-          "Ni 主导",
-          "Te 辅助",
-          "战略远见",
-          "技术驱动"
-        ],
-        "astro_asc_lon": 116.97,
-        "astro_sun_lon": 215.04
-      },
-      "key_events": [
-        {
-          "年份": 1975,
-          "事件": "创办微软"
-        },
-        {
-          "年份": 2000,
-          "事件": "卸任 CEO"
-        },
-        {
-          "年份": 2008,
-          "事件": "全职从事慈善"
-        }
-      ],
-      "来源": "Seattle 1955-10-28 晚（公开传记）",
-      "nullable": []
+      "input_source_status": "unverified",
+      "unverified_source_note": "Seattle 1955-10-28 晚（公开传记）",
+      "input_status": "legacy_input_only"
     },
     {
       "id": "马斯克",
       "category": "celebrity",
+      "mode": "pipeline_only",
       "input": {
-        "date": "1971-06-28",
-        "time": "07:30",
-        "gender": "m",
+        "birth_date": "1971-06-28",
+        "birth_time": "07:30",
+        "calculation_sex": "m",
         "city": "Pretoria",
-        "lat": -25.75,
-        "lon": 28.19,
-        "tz": 2.0
+        "latitude": -25.75,
+        "longitude": 28.19,
+        "utc_offset_hours": 2.0
       },
-      "expected_anchors": {
-        "astro_sun_sign": "巨蟹",
-        "推断 MBTI": "INTJ",
-        "性格签名锚点": [
-          "Ni 主导",
-          "Te 辅助",
-          "第一性原理",
-          "工程驱动"
-        ],
-        "astro_asc_lon": 103.52,
-        "astro_sun_lon": 95.89
-      },
-      "key_events": [
-        {
-          "年份": 2002,
-          "事件": "创办 SpaceX"
-        },
-        {
-          "年份": 2008,
-          "事件": "Tesla 接近破产时担任 CEO"
-        },
-        {
-          "年份": 2022,
-          "事件": "收购 Twitter"
-        }
-      ],
-      "来源": "Pretoria, South Africa 1971-06-28（公开传记）",
-      "nullable": []
+      "input_source_status": "unverified",
+      "unverified_source_note": "Pretoria, South Africa 1971-06-28（公开传记）",
+      "input_status": "legacy_input_only"
     },
     {
       "id": "马云",
       "category": "celebrity",
+      "mode": "pipeline_only",
       "input": {
-        "date": "1964-09-10",
-        "time": "00:00",
-        "gender": "m",
-        "city": "杭州"
+        "birth_date": "1964-09-10",
+        "birth_time": "00:00",
+        "calculation_sex": "m",
+        "city": "杭州",
+        "latitude": null,
+        "longitude": null,
+        "utc_offset_hours": null
       },
-      "expected_anchors": {
-        "astro_sun_sign": "处女",
-        "推断 MBTI": "ENTP",
-        "性格签名锚点": [
-          "Ne 主导",
-          "Ti 辅助",
-          "演说家",
-          "颠覆者气质"
-        ],
-        "astro_asc_lon": 93.24,
-        "astro_sun_lon": 166.98
-      },
-      "key_events": [
-        {
-          "年份": 1999,
-          "事件": "创办阿里巴巴"
-        },
-        {
-          "年份": 2014,
-          "事件": "阿里 IPO"
-        },
-        {
-          "年份": 2020,
-          "事件": "外滩演讲后退隐"
-        }
-      ],
-      "来源": "1964-09-10 杭州（自述）",
-      "nullable": [],
-      "note": "出生时辰仅有日期，时辰按 00:00 估算（此为子时边界用例）"
+      "input_source_status": "unverified",
+      "unverified_source_note": "1964-09-10 杭州（自述）",
+      "input_status": "legacy_input_only"
     },
     {
       "id": "张爱玲",
       "category": "celebrity",
+      "mode": "pipeline_only",
       "input": {
-        "date": "1920-09-30",
-        "time": "12:00",
-        "gender": "f",
-        "city": "上海"
+        "birth_date": "1920-09-30",
+        "birth_time": "12:00",
+        "calculation_sex": "f",
+        "city": "上海",
+        "latitude": null,
+        "longitude": null,
+        "utc_offset_hours": null
       },
-      "expected_anchors": {
-        "astro_sun_sign": "天秤",
-        "推断 MBTI": "INFJ",
-        "性格签名锚点": [
-          "Ni 主导",
-          "Fe 辅助",
-          "敏锐洞察",
-          "苍凉美学"
-        ],
-        "astro_asc_lon": 265.3,
-        "astro_sun_lon": 186.68
-      },
-      "key_events": [
-        {
-          "年份": 1943,
-          "事件": "《沉香屑》成名"
-        },
-        {
-          "年份": 1955,
-          "事件": "赴美"
-        },
-        {
-          "年份": 1995,
-          "事件": "孤独离世于洛杉矶"
-        }
-      ],
-      "来源": "1920-09-30 上海（家族回忆录）",
-      "nullable": []
+      "input_source_status": "unverified",
+      "unverified_source_note": "1920-09-30 上海（家族回忆录）",
+      "input_status": "legacy_input_only"
     },
     {
       "id": "boundary_high_latitude",
       "category": "boundary",
+      "mode": "pipeline_only",
       "input": {
-        "date": "1980-06-21",
-        "time": "12:00",
-        "gender": "m",
+        "birth_date": "1980-06-21",
+        "birth_time": "12:00",
+        "calculation_sex": "m",
         "city": "Tromsø",
-        "lat": 69.65,
-        "lon": 18.96,
-        "tz": 2.0
+        "latitude": 69.65,
+        "longitude": 18.96,
+        "utc_offset_hours": 2.0
       },
-      "expected_anchors": {
-        "astro_sun_sign": "巨蟹",
-        "astro_asc_lon": 150.0,
-        "astro_sun_lon": 90.17
+      "expected_contracts": [
+        {"id": "placidus_unavailable", "value": true},
+        {"id": "asc_mc_available", "value": true}
+      ],
+      "input_source_status": "unverified",
+      "input_status": "legacy_input_only"
+    },
+    {
+      "id": "boundary_high_latitude_whole_sign",
+      "category": "boundary",
+      "mode": "pipeline_only",
+      "house_system": "whole_sign",
+      "input": {
+        "birth_date": "1980-06-21",
+        "birth_time": "12:00",
+        "calculation_sex": "m",
+        "city": "Tromsø",
+        "latitude": 69.65,
+        "longitude": 18.96,
+        "utc_offset_hours": 2.0
       },
-      "note": "高纬度（69°N，北极圈附近）极昼期出生，验证占星宫位计算 fallback；夏至前后太阳交界，可能落巨蟹或双子边界",
-      "nullable": []
+      "input_source_status": "unverified",
+      "input_status": "legacy_input_only",
+      "expected_contracts": [
+        {"id": "whole_sign_available", "value": true},
+        {"id": "asc_mc_available", "value": true}
+      ]
     },
     {
       "id": "boundary_jieqi_5min",
       "category": "boundary",
+      "mode": "pipeline_only",
       "input": {
-        "date": "2024-02-04",
-        "time": "16:30",
-        "gender": "m",
-        "city": "北京"
+        "birth_date": "2024-02-04",
+        "birth_time": "16:30",
+        "calculation_sex": "m",
+        "city": "北京",
+        "latitude": null,
+        "longitude": null,
+        "utc_offset_hours": null
       },
-      "expected_anchors": {
-        "astro_asc_lon": 122.87,
-        "astro_sun_lon": 315.0
-      },
-      "note": "2024 立春交节时刻约 2024-02-04 16:27 北京时间。本用例落在节气分界 ±5 分钟内，期望 bazi_calc 输出节气警告或月柱归属说明"
+      "input_source_status": "unverified",
+      "input_status": "legacy_input_only",
+      "expected_anchors": [
+        {
+          "id": "bazi_year_pillar",
+          "value": "甲辰",
+          "source": "香港天文台2024年历",
+          "locator": "2024年2月历页：立春为2024-02-04 16:27 UTC+08；来源精度为分钟（±60秒）。",
+          "method": "测试输入北京时间2024-02-04 16:30，在HKO所列立春后；按固定UTC+08节气轴判年柱。",
+          "dependency_version": "lunar-python==1.4.8",
+          "tolerance": 0,
+          "source_status": "verified"
+        },
+        {
+          "id": "bazi_month_pillar",
+          "value": "丙寅",
+          "source": "香港天文台2024年历",
+          "locator": "2024年2月历页：立春为2024-02-04 16:27 UTC+08；来源精度为分钟（±60秒）。",
+          "method": "测试输入北京时间2024-02-04 16:30，在立春后进入寅月；按八字节气月干支规则计算。",
+          "dependency_version": "lunar-python==1.4.8",
+          "tolerance": 0,
+          "source_status": "verified"
+        }
+      ]
     },
     {
       "id": "boundary_leap_month",
       "category": "boundary",
+      "mode": "pipeline_only",
       "input": {
-        "date": "2023-03-22",
-        "time": "10:00",
-        "gender": "f",
-        "city": "广州"
+        "birth_date": "2023-03-22",
+        "birth_time": "10:00",
+        "calculation_sex": "f",
+        "city": "广州",
+        "latitude": null,
+        "longitude": null,
+        "utc_offset_hours": null
       },
-      "expected_anchors": {
-        "astro_asc_lon": 63.97,
-        "astro_sun_lon": 1.18
-      },
-      "note": "癸卯年闰二月（公历 2023-03-22 至 2023-04-19）出生，验证农历换算与紫微闰月策略"
+      "input_source_status": "unverified",
+      "input_status": "legacy_input_only"
     },
     {
       "id": "boundary_overseas_dst",
       "category": "boundary",
+      "mode": "pipeline_only",
       "input": {
-        "date": "1985-07-15",
-        "time": "14:00",
-        "gender": "m",
-        "city": "纽约"
+        "birth_date": "1985-07-15",
+        "birth_time": "14:00",
+        "calculation_sex": "m",
+        "city": "纽约",
+        "latitude": null,
+        "longitude": null,
+        "utc_offset_hours": null
       },
-      "expected_anchors": {
-        "astro_sun_sign": "巨蟹",
-        "astro_asc_lon": 211.22,
-        "astro_sun_lon": 113.17
-      },
-      "note": "1985 年 7 月 NYC 处于 EDT (UTC-4)，验证 v3 是否正确识别 DST。v2 曾偏一小时。",
-      "nullable": []
+      "input_source_status": "unverified",
+      "input_status": "legacy_input_only"
     },
     {
       "id": "boundary_zi_hour_23",
       "category": "boundary",
+      "mode": "pipeline_only",
       "input": {
-        "date": "1990-05-15",
-        "time": "23:00",
-        "gender": "f",
-        "city": "上海"
+        "birth_date": "1990-05-15",
+        "birth_time": "23:00",
+        "calculation_sex": "f",
+        "city": "上海",
+        "latitude": null,
+        "longitude": null,
+        "utc_offset_hours": null
       },
-      "expected_anchors": {
-        "astro_asc_lon": 278.7,
-        "astro_sun_lon": 54.48
-      },
-      "note": "23:00 整为子时起点。验证晚子时规则（日柱归属当日还是次日）"
+      "input_source_status": "unverified",
+      "input_status": "legacy_input_only"
     }
   ]
 }

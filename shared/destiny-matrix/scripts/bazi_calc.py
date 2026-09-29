@@ -1,33 +1,9 @@
 #!/usr/bin/env python3
-# v3.0
-"""
-八字命理完整排盘（v3）
+# -*- coding: utf-8 -*-
+"""按统一 time_context 计算四柱及明确请求的流年/流月数据。
 
-v3 相比 v2 的增强：
-1. 调候用神补全 120 组（十日主 x 十二月）—— 据徐乐吾《穷通宝鉴评注》
-2. 神煞模块：17 种核心神煞按四柱分列输出
-3. 早 / 夜子时参数化（--zi-hour-rule=early|late）
-4. 跨节气警告：出生时刻距节气 < 15 分钟时附"另一可能月柱"双盘
-5. 真太阳时已校正标记（接 _common.py 上游处理）
-6. 性格映射提示：日主意象 + 格局倾向 + 五行偏强 / 偏弱 + 调候 -> 认知功能线索
-   v4.1 起默认不输出（内含预置荣格结论，会污染 S4 判官独立重推）；需要时显式加 --hints
-
-核心立场（v3）：八字是"性格的能量基础"，玄学辅证而非决定。
-本脚本只产生数据，命书叙事由 cast_chart.py 之上的工作流完成。
-
-主库：lunar_python（精确起运、纳音、十神、空亡、大运）
-辅库：sxtwl（四柱交叉校验）
-
-用法：
-    python3 bazi_calc.py <yyyy-mm-dd> <hh:mm> <gender:m|f>
-                         [--zi-hour-rule=early|late]
-                         [--true-solar-time-corrected=yes|no]
-
-示例：
-    python3 bazi_calc.py 1993-09-30 17:30 f
-    python3 bazi_calc.py 1985-12-21 23:30 m --zi-hour-rule=late
-
-依赖：pip install lunar_python sxtwl --break-system-packages
+节气年/月使用固定 UTC+08:00；日/时使用输入经度对应的地方视太阳时。
+子时换日口径通过 ``--zi-hour-rule midnight|zi_start`` 显式选择。
 """
 import sys
 import json
@@ -636,51 +612,41 @@ def get_diaohou(day_gan, month_zhi):
 # 跨节气警告
 # ============================================================
 
-def calc_jieqi_warning(solar):
-    """检测出生时刻距上下"节"的精确分钟数，附另一可能月柱"""
-    lunar = solar.getLunar()
-    prev_jq = lunar.getPrevJieQi()
-    next_jq = lunar.getNextJieQi()
+def _solar_datetime(solar):
+    second = float(solar.getSecond())
+    whole = int(second)
+    return datetime(solar.getYear(), solar.getMonth(), solar.getDay(),
+                    solar.getHour(), solar.getMinute(), whole,
+                    round((second - whole) * 1_000_000))
 
-    # 仅关心"节"（不取"气"）—— 节决定月柱边界
-    # JieQi 对象的 isJie() / isQi() 区分
-    # 寻找最近的"节"（前 / 后）
-    def _to_dt(jq):
-        s = jq.getSolar()
-        return datetime(s.getYear(), s.getMonth(), s.getDay(),
-                        s.getHour(), s.getMinute(), s.getSecond())
 
-    birth_dt = datetime(solar.getYear(), solar.getMonth(), solar.getDay(),
-                        solar.getHour(), solar.getMinute(), solar.getSecond())
-
-    # prev_jq / next_jq 取自 JieQiTable，可能是节或气，需自己筛
-    jq_table = lunar.getJieQiTable()
-    nearest = []
-    for name, jq_solar in jq_table.items():
-        jq_dt = datetime(jq_solar.getYear(), jq_solar.getMonth(), jq_solar.getDay(),
-                         jq_solar.getHour(), jq_solar.getMinute(), jq_solar.getSecond())
-        delta = (birth_dt - jq_dt).total_seconds() / 60  # 分钟
-        nearest.append((name, jq_dt, delta))
-
-    # 找最接近的（绝对值最小的）"节"
-    # lunar_python 节气表里"节"的中文名：立春惊蛰清明立夏芒种小暑立秋白露寒露立冬大雪小寒
-    JIE_NAMES = {'立春', '惊蛰', '清明', '立夏', '芒种', '小暑',
-                 '立秋', '白露', '寒露', '立冬', '大雪', '小寒'}
-    jie_only = [(n, dt, d) for (n, dt, d) in nearest if n in JIE_NAMES]
-    if not jie_only:
+def calc_jieqi_warning(term_solar):
+    """在固定 UTC+8 轴上核对出生瞬间与月令节的距离。"""
+    table = term_solar.getLunar().getJieQiTable()
+    jie_names = {"立春", "惊蛰", "清明", "立夏", "芒种", "小暑",
+                 "立秋", "白露", "寒露", "立冬", "大雪", "小寒"}
+    birth = _solar_datetime(term_solar)
+    moments = []
+    for name, solar in table.items():
+        if name in jie_names:
+            moment = _solar_datetime(solar)
+            moments.append((name, moment, (birth - moment).total_seconds()))
+    if not moments:
         return None
-    jie_only.sort(key=lambda x: abs(x[2]))
-    name, jq_dt, delta = jie_only[0]
-    if abs(delta) >= 15:  # 阈值：15 分钟
+    name, moment, delta = min(moments, key=lambda row: abs(row[2]))
+    if abs(delta) >= 15 * 60:
         return None
-
-    sign = '+' if delta >= 0 else ''
-    direction = '已过' if delta >= 0 else '未到'
+    before_dt, after_dt = moment - timedelta(seconds=1), moment + timedelta(seconds=1)
+    before = Solar.fromYmdHms(before_dt.year, before_dt.month, before_dt.day,
+                              before_dt.hour, before_dt.minute, before_dt.second)
+    after = Solar.fromYmdHms(after_dt.year, after_dt.month, after_dt.day,
+                             after_dt.hour, after_dt.minute, after_dt.second)
     return {
-        f'距{name}': f'{sign}{int(delta)} 分钟（{direction}）',
-        '提示': f'距{name}仅 {abs(int(delta))} 分钟，月柱可能存在边界争议，建议双盘对比',
-        '_jie_name': name,
-        '_delta_minutes': int(delta),
+        "节气": name, "有符号差秒": delta,
+        "差值方向": "节后" if delta >= 0 else "节前",
+        "边界前月柱": before.getLunar().getEightChar().getMonth(),
+        "边界后月柱": after.getLunar().getEightChar().getMonth(),
+        "精度": "lunar-python 节气表精度",
     }
 
 
@@ -688,287 +654,318 @@ def calc_jieqi_warning(solar):
 # 早 / 夜子时切换
 # ============================================================
 
-def apply_zi_hour_rule(solar, rule):
-    """根据 zi-hour-rule 调整 Solar 对象用于排盘。
-    - early（默认推荐）：23:00-00:59 全部归当日早子时
-        实现：lunar_python 默认会将 23:00+ 归次日；要"归当日"，
-        把 23:xx 视为当日 23 时（保留），但日柱按出生日（不变），其实
-        lunar_python 在 23:00-24:00 区间会自动给出"当日日柱 + 子时柱"
-        即"子时柱由出生日次日干推"，与"早子时归当日"流派一致，
-        所以默认无需调整。
-    - late（夜子时归次日）：23:00-24:00 视为次日 0 点之前，日柱按次日推
-        实现：将 Solar 时刻整体 +1 小时后传给 lunar_python，得到次日的
-        日柱与子时柱（这是"夜子时"流派的处理方式）。
-    返回 (用于排盘的 solar, 子时调整说明)
-    """
-    h = solar.getHour()
-    if h != 23:
-        return solar, None
+def _datetime_from_context(value):
+    try:
+        return datetime.fromisoformat(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"无效 time_context datetime: {value!r}") from exc
 
-    if rule == 'late':
-        # 23:xx + 1 小时 = 次日 0:xx —— 由 datetime 处理跨月 / 跨年 / 闰
-        dt = datetime(solar.getYear(), solar.getMonth(), solar.getDay(),
-                      23, solar.getMinute(), solar.getSecond()) + timedelta(hours=1)
-        next_solar = Solar.fromYmdHms(dt.year, dt.month, dt.day,
-                                      0, dt.minute, dt.second)
-        return next_solar, '夜子时归次日：日柱按次日推（--zi-hour-rule=late）'
-
-    # early：明确告知用户当前规则；lunar_python 默认即为"早子时归当日"
-    return solar, '早子时归当日：23:00 后日柱仍按当日（--zi-hour-rule=early，默认）'
-
-
-# ============================================================
-# 性格映射提示
-# ============================================================
-
-def build_personality_mapping(dm, month_zhi, wx_pct, pillars, diaohou):
-    """构造性格映射提示（v3 哲学：八字是性格的能量基础）"""
-    # 日主意象
-    dm_image = DM_IMAGE.get(dm, '未知')
-
-    # 格局倾向：以月支本气十神为格局主线索
-    month_benqi = HIDDEN_WEIGHTS[month_zhi][0][0]
-    if month_benqi == dm:
-        geju = '建禄 / 月刃格 → 自我能量充沛，倾向 Ti / Fi 主导'
-    else:
-        ss = calc_shishen_gan(dm, month_benqi)
-        ss_to_jung = {
-            '正官': '正官格 → 倾向 Te 规则秩序 / Si 守序',
-            '七杀': '七杀格 → 倾向 Te 强势执行 / Se 应激',
-            '正印': '正印格 → 倾向 Ni 内倾直觉 / Si 内倾感觉',
-            '偏印': '偏印格 → 倾向 Ni 直觉 / Ti 内倾思考',
-            '正财': '正财格 → 倾向 Te 务实经营 / Si 稳定',
-            '偏财': '偏财格 → 倾向 Se 资源调度 / Te 外倾思考',
-            '食神': '食神格 → 倾向 Fe 表达 / Se 享受当下',
-            '伤官': '伤官格 → 倾向 Ne 创造 / Ti 锋芒批判',
-            '比肩': '比肩格 → 倾向 Ti 独立 / Fi 自我认同',
-            '劫财': '劫财格 → 倾向 Te 竞争 / Se 行动力',
-        }
-        geju = ss_to_jung.get(ss, f'{ss}格 → 待映射')
-
-    # 五行偏强 / 偏弱
-    sorted_wx = sorted(wx_pct.items(), key=lambda x: -x[1])
-    strongest = sorted_wx[0]
-    weakest = sorted_wx[-1]
-
-    wx_to_func = {
-        '木': ('Ne 外倾直觉', 'Si 内倾感觉'),
-        '火': ('Fe 外倾情感', 'Ti 内倾思考'),
-        '土': ('Si 内倾感觉', 'Ne 外倾直觉'),
-        '金': ('Te 外倾思考', 'Fi 内倾情感'),
-        '水': ('Ni 内倾直觉', 'Se 外倾感觉'),
-    }
-    strong_func = wx_to_func.get(strongest[0], ('', ''))[0]
-    weak_func = wx_to_func.get(weakest[0], ('', ''))[1]
-
-    # 调候用神 → 待整合的功能（劣势线索）
-    yongshen = diaohou.get('用神', '')
-    main_use = yongshen.split('·')[0] if '·' in yongshen else yongshen
-    main_use_wx = GAN_WX.get(main_use, '')
-    diaohou_hint = ''
-    if main_use_wx:
-        ys_funcs = wx_to_func.get(main_use_wx, ('', ''))[0]
-        diaohou_hint = f'{main_use}（{main_use_wx}）→ 暗示 {ys_funcs} 待整合 / 需补充'
-
-    return {
-        '日主意象': f'{dm}（{GAN_WX[dm]}）· {dm_image}',
-        '格局倾向': geju,
-        '五行偏强': f'{strongest[0]} {strongest[1]}% → 印证 {strong_func} 主导可能性',
-        '五行薄弱': f'{weakest[0]} {weakest[1]}% → 物质 / 心理 {weakest[0]} 维度薄弱，与 {weak_func} 弱位呼应',
-        '调候用神': diaohou_hint or f'{yongshen} → 命局调候线索',
-        '_说明': '本字段为命书第一阶段「性格画像」的线索池，最终映射由 jung_calc.py 主导，本表仅做交叉印证',
-    }
 
 
 # ============================================================
 # 主计算函数
 # ============================================================
 
-def calc_bazi(year, month, day, hour, minute, gender,
-              zi_hour_rule='early', true_solar_corrected=False):
-    """主计算函数：用 lunar_python 排盘 + v3 增强模块"""
-    raw_solar = Solar.fromYmdHms(year, month, day, hour, minute, 0)
-    solar, zi_note = apply_zi_hour_rule(raw_solar, zi_hour_rule)
+JIE_NAMES = {"立春", "惊蛰", "清明", "立夏", "芒种", "小暑",
+             "立秋", "白露", "寒露", "立冬", "大雪", "小寒", "DA_XUE"}
 
-    lunar = solar.getLunar()
-    ec = lunar.getEightChar()
 
-    # 四柱
+def _lichun_moment(year):
+    """Return the lunar-python solar-term instant in its documented BJT table."""
+    table = Solar.fromYmdHms(year, 2, 4, 12, 0, 0).getLunar().getJieQiTable()
+    term = table.get("立春")
+    if term is None:
+        raise ValueError(f"无法取得 {year} 年立春时刻")
+    return _solar_datetime(term)
+
+
+def _term_months_in_gregorian_month(year, month):
+    """Expose Gregorian scope and the actual Jie-bounded month-pillar segments."""
+
+    month_start = datetime(year, month, 1)
+    next_year, next_month = (year + 1, 1) if month == 12 else (year, month + 1)
+    month_end = datetime(next_year, next_month, 1)
+    table = Solar.fromYmdHms(year, month, 15, 12, 0, 0).getLunar().getJieQiTable()
+    moments = sorted({
+        _solar_datetime(term) for name, term in table.items()
+        if name in JIE_NAMES and month_start < _solar_datetime(term) < month_end
+    })
+    boundaries = [month_start, *moments, month_end]
+    segments = []
+    for start, end in zip(boundaries, boundaries[1:]):
+        marker = start + timedelta(seconds=1)
+        solar = Solar.fromYmdHms(marker.year, marker.month, marker.day,
+                                 marker.hour, marker.minute, marker.second)
+        segments.append({
+            "month_pillar": solar.getLunar().getEightChar().getMonth(),
+            "validity": {
+                "start": start.isoformat(timespec="seconds") + "+08:00",
+                "end": end.isoformat(timespec="seconds") + "+08:00",
+                "timezone": "UTC+08:00",
+            },
+        })
+    return {
+        "gregorian_month": {
+            "start": month_start.isoformat(timespec="seconds") + "+08:00",
+            "end": month_end.isoformat(timespec="seconds") + "+08:00",
+            "timezone": "UTC+08:00",
+        },
+        "solar_term_month_segments": segments,
+    }
+
+
+def calc_bazi(time_context, calculation_sex=None, *, zi_hour_rule="midnight",
+              analysis_as_of=None, timing_request=None):
+    """使用统一 time_context 计算四柱；节气年/月与地方视太阳日/时分轴。"""
+    if zi_hour_rule not in {"midnight", "zi_start"}:
+        raise ValueError("zi_hour_rule 只能是 midnight 或 zi_start")
+    if time_context.get("precision") != "minute":
+        from _common import candidate_contexts
+        groups = {}
+        for row in candidate_contexts(time_context):
+            exact = calc_bazi(
+                row["time_context"], calculation_sex,
+                zi_hour_rule=zi_hour_rule, analysis_as_of=analysis_as_of,
+                timing_request=timing_request,
+            )
+            source = exact.get("data")
+            if not isinstance(source, dict):
+                continue
+            candidate_data = {
+                key: value for key, value in source.items()
+                if key not in {"公历", "节气时间轴", "起运", "大运", "流年",
+                               "流月查询", "节气警告", "sxtwl_交叉校验"}
+            }
+            identity = json.dumps(candidate_data, ensure_ascii=False, sort_keys=True)
+            candidate = groups.setdefault(identity, {
+                "data": candidate_data, "validity": [],
+                "limitations": ["起运/大运随具体出生瞬间变化，未用区间代表值代替"],
+            })
+            validity = row["validity"]
+            if (candidate["validity"] and "start_utc" in validity
+                    and candidate["validity"][-1].get("end_utc") == validity["start_utc"]):
+                candidate["validity"][-1]["end_utc"] = validity["end_utc"]
+            else:
+                candidate["validity"].append(validity)
+        return {
+            "status": "partial", "data": None,
+            "candidates": list(groups.values()),
+            "limitations": ["非精确时刻；按地方视太阳小时、节气与DST边界列出离散四柱候选"],
+        }
+    term_dt = _datetime_from_context(time_context.get("term_datetime"))
+    apparent_dt = _datetime_from_context(time_context.get("local_apparent_datetime"))
+    from _common import local_solar_to_lunar
+    term_solar = local_solar_to_lunar(term_dt)
+    day_solar = local_solar_to_lunar(apparent_dt)
+    term_ec = term_solar.getLunar().getEightChar()
+    day_ec = day_solar.getLunar().getEightChar()
+    sect = 1 if zi_hour_rule == "zi_start" else 2
+    day_ec.setSect(sect)
+
     pillar_data = [
-        ('年柱', ec.getYear(), ec.getYearGan(), ec.getYearZhi(), ec.getYearNaYin()),
-        ('月柱', ec.getMonth(), ec.getMonthGan(), ec.getMonthZhi(), ec.getMonthNaYin()),
-        ('日柱', ec.getDay(), ec.getDayGan(), ec.getDayZhi(), ec.getDayNaYin()),
-        ('时柱', ec.getTime(), ec.getTimeGan(), ec.getTimeZhi(), ec.getTimeNaYin()),
+        ("年柱", term_ec.getYear(), term_ec.getYearGan(), term_ec.getYearZhi(),
+         term_ec.getYearNaYin()),
+        ("月柱", term_ec.getMonth(), term_ec.getMonthGan(), term_ec.getMonthZhi(),
+         term_ec.getMonthNaYin()),
+        ("日柱", day_ec.getDay(), day_ec.getDayGan(), day_ec.getDayZhi(),
+         day_ec.getDayNaYin()),
+        ("时柱", day_ec.getTime(), day_ec.getTimeGan(), day_ec.getTimeZhi(),
+         day_ec.getTimeNaYin()),
     ]
-
-    # 十神
-    ssg = [None, ec.getYearShiShenGan(), ec.getMonthShiShenGan(), '日主', ec.getTimeShiShenGan()]
-    ssz = [None, ec.getYearShiShenZhi(), ec.getMonthShiShenZhi(), ec.getDayShiShenZhi(), ec.getTimeShiShenZhi()]
-
+    day_master = day_ec.getDayGan()
     pillars = []
-    for i, (name, gz, gan, zhi, nayin) in enumerate(pillar_data, 1):
+    for name, gz, gan, zhi, nayin in pillar_data:
+        hidden = [stem for stem, _weight in HIDDEN_WEIGHTS[zhi]]
         pillars.append({
-            '柱': name,
-            '干支': gz,
-            '天干': gan,
-            '地支': zhi,
-            '纳音': nayin,
-            '天干十神': ssg[i],
-            '地支藏干十神': ssz[i],
+            "柱": name, "干支": gz, "天干": gan, "地支": zhi, "纳音": nayin,
+            "天干十神": "日主" if name == "日柱" else calc_shishen_gan(day_master, gan),
+            "地支藏干十神": [calc_shishen_gan(day_master, stem) for stem in hidden],
         })
 
-    dm = ec.getDayGan()
-    day_zhi = ec.getDayZhi()
-    month_zhi = ec.getMonthZhi()
-    year_zhi = ec.getYearZhi()
-
-    # 起运（lunar_python 精确计算）
-    yun_gender = 1 if gender == 'm' else 0
-    yun = ec.getYun(yun_gender)
-    qi_yun = {
-        '起运': f'{yun.getStartYear()}年{yun.getStartMonth()}月{yun.getStartDay()}天',
-        '起运公历': yun.getStartSolar().toYmd(),
-    }
-
-    # 大运
-    da_yun_list = []
-    for da in yun.getDaYun()[:9]:
-        gz = da.getGanZhi()
-        if gz:
-            da_yun_list.append({
-                '干支': gz,
-                '起始年龄': da.getStartAge(),
-                '终止年龄': da.getEndAge(),
-                '起始公历年': da.getStartYear(),
-                '终止公历年': da.getEndYear(),
-            })
-
-    # 五行权重统计（藏干）
-    wx_count = {'木': 0, '火': 0, '土': 0, '金': 0, '水': 0}
-    for _, _, gan, zhi, _ in pillar_data:
+    year_gan, year_zhi = pillar_data[0][2:4]
+    month_gan, month_zhi = pillar_data[1][2:4]
+    day_gan, day_zhi = pillar_data[2][2:4]
+    pillar_gans = [row[2] for row in pillar_data]
+    pillar_zhis = [row[3] for row in pillar_data]
+    wx_count = {"木": 0, "火": 0, "土": 0, "金": 0, "水": 0}
+    for gan, zhi in zip(pillar_gans, pillar_zhis):
         wx_count[GAN_WX[gan]] += 1.0
-        for h, w in HIDDEN_WEIGHTS[zhi]:
-            wx_count[GAN_WX[h]] += w
+        for hidden_gan, weight in HIDDEN_WEIGHTS[zhi]:
+            wx_count[GAN_WX[hidden_gan]] += weight
     total = sum(wx_count.values())
-    wx_pct = {k: round(v / total * 100, 1) for k, v in wx_count.items()}
+    wx_pct = {key: round(value / total * 100, 1) for key, value in wx_count.items()}
+    diaohou = get_diaohou(day_master, month_zhi)
+    shensha = calc_shensha(pillar_zhis, pillar_gans, day_master,
+                           year_zhi, day_zhi, month_zhi)
 
-    # 调候用神
-    diaohou = get_diaohou(dm, month_zhi)
+    yun_data = {"status": "unavailable", "reason": "缺 calculation_sex；不默认性别"}
+    da_yun_list = []
+    if calculation_sex in {"m", "f"}:
+        yun = term_ec.getYun(1 if calculation_sex == "m" else 0, sect=1)
+        yun_data = {
+            "status": "ok", "method": "sect1",
+            "start": f"{yun.getStartYear()}年{yun.getStartMonth()}月{yun.getStartDay()}天",
+            "start_date": yun.getStartSolar().toYmd(),
+        }
+        for da in yun.getDaYun()[:9]:
+            if da.getGanZhi():
+                da_yun_list.append({
+                    "干支": da.getGanZhi(), "起始年龄": da.getStartAge(),
+                    "终止年龄": da.getEndAge(), "起始公历年": da.getStartYear(),
+                    "终止公历年": da.getEndYear(),
+                })
 
-    # 神煞
-    pillars_zhi = [p[3] for p in pillar_data]
-    pillars_gan = [p[2] for p in pillar_data]
-    shensha = calc_shensha(pillars_zhi, pillars_gan, dm, year_zhi, day_zhi, month_zhi)
+    timing = timing_request if isinstance(timing_request, dict) else {}
+    systems = timing.get("systems") or ["bazi"]
+    run_bazi_timing = "bazi" in systems
+    years = timing.get("years", []) if run_bazi_timing else []
+    liunian = []
+    for year in sorted(set(years)):
+        year = int(year)
+        start = _lichun_moment(year)
+        end = _lichun_moment(year + 1)
+        marker_dt = start + timedelta(seconds=1)
+        marker = Solar.fromYmdHms(marker_dt.year, marker_dt.month, marker_dt.day,
+                                  marker_dt.hour, marker_dt.minute, marker_dt.second)
+        liunian.append({
+            "year": year, "干支": marker.getLunar().getEightChar().getYear(),
+            "year_boundary": "立春",
+            "validity": {
+                "start": start.isoformat(timespec="seconds") + "+08:00",
+                "end": end.isoformat(timespec="seconds") + "+08:00",
+                "timezone": "UTC+08:00",
+                "source": "lunar-python solar-term table",
+            },
+        })
+    monthly = []
+    if run_bazi_timing:
+        from _common import InputError
+        for query in timing.get("months", []):
+            if not isinstance(query, dict):
+                raise InputError("invalid_timing_month", "timing_request.months",
+                                 "每个流月查询必须包含 year 与 month")
+            try:
+                year, month = int(query["year"]), int(query["month"])
+                if month < 1 or month > 12:
+                    raise ValueError
+            except (KeyError, TypeError, ValueError) as exc:
+                raise InputError("invalid_timing_month", "timing_request.months",
+                                 "流月查询 year/month 必须为有效公历年月") from exc
+            monthly.append({"year": year, "month": month,
+                            **_term_months_in_gregorian_month(year, month)})
 
-    # 跨节气警告 —— 计算需基于原始时刻
-    jieqi_warn = calc_jieqi_warning(raw_solar)
-    if jieqi_warn:
-        # 计算另一可能月柱（用上一节气前一刻的月柱 vs 下一节气后一刻的月柱）
-        jie_name = jieqi_warn.pop('_jie_name', None)
-        delta = jieqi_warn.pop('_delta_minutes', 0)
-        # 如果出生在节气后 < 15 分钟，另一可能月柱 = 节气前的旧月柱
-        # 如果出生在节气前 < 15 分钟，另一可能月柱 = 节气后的新月柱
-        try:
-            if delta >= 0:
-                shift_dt = datetime(raw_solar.getYear(), raw_solar.getMonth(), raw_solar.getDay(),
-                                    raw_solar.getHour(), raw_solar.getMinute()) - timedelta(minutes=abs(delta) + 5)
-            else:
-                shift_dt = datetime(raw_solar.getYear(), raw_solar.getMonth(), raw_solar.getDay(),
-                                    raw_solar.getHour(), raw_solar.getMinute()) + timedelta(minutes=abs(delta) + 5)
-            alt_solar = Solar.fromYmdHms(shift_dt.year, shift_dt.month, shift_dt.day,
-                                         shift_dt.hour, shift_dt.minute, 0)
-            alt_month = alt_solar.getLunar().getEightChar().getMonth()
-            jieqi_warn['另一可能月柱'] = alt_month
-        except Exception:
-            pass
-
-    # 性格映射提示
-    personality_hint = build_personality_mapping(dm, month_zhi, wx_pct, pillars, diaohou)
-
-    # sxtwl 交叉校验
+    jieqi_warning = calc_jieqi_warning(term_solar)
     sxtwl_check = None
-    if HAS_SXTWL:
-        try:
-            d = sxtwl.fromSolar(year, month, day)
-            sx_year_gz = HS[d.getYearGZ().tg] + EB[d.getYearGZ().dz]
-            sx_month_gz = HS[d.getMonthGZ().tg] + EB[d.getMonthGZ().dz]
-            sx_day_gz = HS[d.getDayGZ().tg] + EB[d.getDayGZ().dz]
+    try:
+        birth_date = time_context.get("input", {}).get("subject", {}).get(
+            "birth_date", time_context.get("input", {}).get("subject", {}).get("date"))
+        if birth_date:
+            y, m, d = map(int, birth_date.split("-"))
+            day_info = sxtwl.fromSolar(y, m, d)
             sxtwl_check = {
-                '年柱': sx_year_gz, '月柱': sx_month_gz, '日柱': sx_day_gz,
-                '一致': (sx_year_gz == ec.getYear() and
-                        sx_month_gz == ec.getMonth() and
-                        sx_day_gz == ec.getDay()),
+                "date": f"{y:04d}-{m:02d}-{d:02d}",
+                "sxtwl_day_ganzhi": HS[day_info.getDayGZ().tg] + EB[day_info.getDayGZ().dz],
+                "precision": "date-level only; not an independent hour/month adjudication",
             }
-        except Exception:
-            sxtwl_check = {'error': 'sxtwl 校验失败'}
-
-    out = {
-        '公历': raw_solar.toYmdHms(),
-        '农历': lunar.toString(),
-        '真太阳时状态': '已校正' if true_solar_corrected else '未校正（输入为标准时间）',
-        '子时规则': zi_hour_rule + ('（早子时归当日）' if zi_hour_rule == 'early'
-                                  else '（夜子时归次日）'),
-        '子时调整说明': zi_note,
-        '四柱': pillars,
-        '日主': {'天干': dm, '五行': GAN_WX[dm], '意象': DM_IMAGE.get(dm, '未知')},
-        '五行权重': {k: round(v, 2) for k, v in wx_count.items()},
-        '五行比例': wx_pct,
-        '调候用神': diaohou,
-        '神煞': shensha,
-        '起运': qi_yun,
-        '大运': da_yun_list,
-        '空亡': {
-            '年柱空亡': ec.getYearXunKong(),
-            '日柱空亡': ec.getDayXunKong(),
-        },
-        '性格映射提示': personality_hint,
-        'sxtwl_交叉校验': sxtwl_check,
+    except (ImportError, ValueError, AttributeError):
+        sxtwl_check = None
+    data = {
+        "公历": apparent_dt.isoformat(timespec="seconds"),
+        "节气时间轴": term_dt.isoformat(timespec="seconds"),
+        "农历": day_solar.getLunar().toString(),
+        "子时规则": zi_hour_rule,
+        "四柱": pillars,
+        "日主": {"天干": day_master, "五行": GAN_WX[day_master],
+                 "意象": DM_IMAGE.get(day_master, "未知")},
+        "五行权重": {key: round(value, 2) for key, value in wx_count.items()},
+        "五行比例": wx_pct,
+        "五行统计口径": "四柱天干+藏干固定权重；非实测能量",
+        "调候用神": diaohou,
+        "神煞": shensha,
+        "起运": yun_data,
+        "大运": da_yun_list,
+        "流年": liunian,
+        "流月查询": monthly,
+        "空亡": {"年柱空亡": term_ec.getYearXunKong(),
+                 "日柱空亡": day_ec.getDayXunKong()},
+        "胎元": term_ec.getTaiYuan(),
+        "命宫": day_ec.getMingGong(),
+        "节气警告": jieqi_warning,
+        "sxtwl_交叉校验": sxtwl_check,
     }
-    if jieqi_warn:
-        out['节气警告'] = jieqi_warn
-    return out
-
-
-# ============================================================
-# CLI
-# ============================================================
-
+    return {"status": "ok" if yun_data["status"] == "ok" else "partial",
+            "data": data, "candidates": [],
+            "limitations": [] if yun_data["status"] == "ok" else [yun_data["reason"]]}
 def parse_args(argv):
-    """解析 CLI 参数（避免依赖 argparse 模块以保持轻量）"""
-    args = {'zi_hour_rule': 'early', 'true_solar_corrected': False, 'hints': False}
-    positional = []
-    for a in argv:
-        if a.startswith('--zi-hour-rule='):
-            v = a.split('=', 1)[1]
-            if v in ('early', 'late'):
-                args['zi_hour_rule'] = v
-        elif a.startswith('--true-solar-time-corrected='):
-            v = a.split('=', 1)[1]
-            args['true_solar_corrected'] = (v == 'yes')
-        elif a == '--hints':
-            args['hints'] = True
+    from _common import InputError
+    result = {"intake": None, "subject": "primary", "zi_hour_rule": "midnight"}
+    i = 0
+    while i < len(argv):
+        item = argv[i]
+        key, sep, value = item.partition("=")
+        if key == "--intake":
+            if not sep:
+                i += 1
+                value = argv[i] if i < len(argv) else None
+            if not value:
+                raise InputError("missing_argument", "--intake", "--intake 需要文件路径")
+            result["intake"] = value
+        elif key in {"--subject", "--zi-hour-rule"}:
+            if not sep:
+                i += 1
+                value = argv[i] if i < len(argv) else None
+            if key == "--subject" and value in {"primary", "partner"}:
+                result["subject"] = value
+            elif key == "--zi-hour-rule" and value in {"midnight", "zi_start"}:
+                result["zi_hour_rule"] = value
+            else:
+                raise InputError("invalid_argument", key, f"{key} 参数值无效")
         else:
-            positional.append(a)
-    return positional, args
+            raise InputError("unknown_argument", key, f"未知参数: {item}")
+        i += 1
+    if not result["intake"]:
+        raise InputError("missing_argument", "--intake", "必须提供 --intake")
+    return result
 
 
 def main():
-    if len(sys.argv) < 4:
-        print(__doc__)
-        sys.exit(1)
+    from _common import InputError, normalize_birth_time
+    try:
+        args = parse_args(sys.argv[1:])
+        with open(args["intake"], encoding="utf-8") as stream:
+            intake = json.load(stream)
+        if args["subject"] == "primary":
+            subject = intake.get("subject")
+            time_input = intake.get("time_input")
+        else:
+            partner = intake.get("synastry", {}).get("partner")
+            subject = partner.get("subject") if isinstance(partner, dict) else None
+            time_input = partner.get("time_input") if isinstance(partner, dict) else None
+        if not isinstance(subject, dict) or not isinstance(time_input, dict):
+            raise InputError("missing_subject", args["subject"],
+                             f"intake 缺少 {args['subject']} subject/time_input")
+        context = normalize_birth_time(subject, time_input,
+                                       as_of=intake.get("analysis_as_of"))
+        result = calc_bazi(
+            context, subject.get("calculation_sex"),
+            zi_hour_rule=args["zi_hour_rule"],
+            analysis_as_of=intake.get("analysis_as_of"),
+            timing_request=intake.get("timing_request"),
+        )
+        print(json.dumps(result, ensure_ascii=False, default=str))
+    except Exception as exc:
+        from _common import CalcError
+        code = 2 if isinstance(exc, (InputError, FileNotFoundError, json.JSONDecodeError)) else 1
+        print(json.dumps({"status": "error", "errors": [{
+            "code": getattr(exc, "code", "calculation_error"),
+            "path": getattr(exc, "path", ""),
+            "message": getattr(exc, "message", str(exc)),
+        }]}, ensure_ascii=False))
+        print(f"bazi_calc: {exc}", file=sys.stderr)
+        sys.exit(code)
 
-    positional, opts = parse_args(sys.argv[1:])
-    date_str, time_str, gender = positional[0], positional[1], positional[2].lower()
-    year, month, day = map(int, date_str.split('-'))
-    hour, minute = map(int, time_str.split(':'))
 
-    result = calc_bazi(year, month, day, hour, minute, gender,
-                       zi_hour_rule=opts['zi_hour_rule'],
-                       true_solar_corrected=opts['true_solar_corrected'])
-    if not opts['hints']:
-        result.pop('性格映射提示', None)
-    print(json.dumps(result, ensure_ascii=False, indent=2))
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
+
+

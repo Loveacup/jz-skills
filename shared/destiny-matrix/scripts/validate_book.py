@@ -1,412 +1,512 @@
 #!/usr/bin/env python3
-"""destiny-matrix v4 命书机器验收（V4_PLAN §6，检查 ID 对齐 references/locked-checklist.md）。
-
-用法: python3 validate_book.py <book.html> [--plan <图表规划表.json>] [--json]
-纯标准库（html.parser + re + json），零第三方依赖。任何红级 fail -> exit 1。
-"""
+"""Validate destiny-matrix HTML against its chart plan and case evidence."""
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import math
 import re
 import sys
-from html.parser import HTMLParser
+import xml.etree.ElementTree as ET
+from pathlib import Path, PureWindowsPath
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from typing import Any
 
-# ---------- 常量（与 locked-checklist.md 锁定同步，改动需过版本升级） ----------
+from book_html import BookHTML, Node, normalize_text, is_hidden
 
-CHAPTER_QUOTAS = {1: 6, 2: 4, 3: 4, 4: 4, 7: 4, 8: 1}  # C2；Ch5+Ch6 合计 >=3 单独处理
-COMBINED_56_QUOTA = 3
-TOTAL_QUOTA = 26  # C3
-
-# M-LEN 章节篇幅目标（占 Ch1-8 可见文本比例，%）；Ch7 无数值目标
-CHAPTER_WEIGHTS = {1: (35.0, 45.0), 2: (15.0, 15.0), 3: (15.0, 15.0),
-                   4: (15.0, 15.0), 5: (5.0, 5.0), 6: (5.0, 5.0), 8: (5.0, 5.0)}
-LEN_TOLERANCE = 10.0  # 偏差 >10 个百分点报 warning
-
-HARD_FORBIDDEN = ["命中注定", "这辈子注定", "天注定", "克夫", "克妻", "改命",
-                  "真命天子", "真爱", "不可改变", "无法逆转", "克应", "命定"]
-NEGATION_CUES = ("而非", "并非", "不是", "并不是", "不等于", "绝非", "不叫", "不算",
-                 "未使用", "未用", "没有使用", "不使用", "禁用", "严禁", "避免", "禁止", "不得")
+HARD_FORBIDDEN = ("命中注定", "这辈子注定", "天注定", "克夫", "克妻", "改命", "真命天子",
+                  "真爱", "不可改变", "无法逆转", "克应", "命定")
 SENTENCE_DELIMITERS = "。！？；\n"
-NEGATION_WINDOW = 40
-
-# W2 语境禁词（仅计数供 finalizer 复核，不影响 exit code）
-REVIEW_WORDS = ["可能", "也许", "大概率"]
-
-# C5 锚点六图关键词启发式（在图表容器全文里匹配；机器 fail 需 finalizer 目验确认）
-ANCHOR_CHARTS = {
-    "八维雷达(P01)": [["雷达"]],
-    "四柱全表(P08)": [["四柱"]],
-    "五行权重(P02)": [["五行", "权重"], ["五行", "能量"], ["五行", "分布"], ["五行", "比例"]],
-    "十二宫命盘(P06)": [["十二宫"], ["命盘"]],
-    "星盘轮(P07)": [["星盘"]],
-    "双轨时间线(P11)": [["双轨"], ["时间轴"], ["时间线"]],
-}
 
 
-class BookParser(HTMLParser):
-    """单趟解析：章节边界、可见文本、图表容器、SVG 健康。"""
-
-    def __init__(self):
-        super().__init__(convert_charrefs=True)
-        self.chapter = 0                 # 0 = 序/头部，1..N = 第 N 章
-        self.chapter_titles = []         # h2.section-title 文本
-        self.chapter_text = {}           # 章 -> 可见文本累积
-        self.text_offsets = {}
-        self.text_boundaries = {}
-        self.skip_depth = 0              # style/script 内部
-        self.h2_capture = False
-        self._h2_buf = []
-        # 图表容器
-        self.charts = []                 # {chapter, chart_id, text, svg_count}
-        self._chart_stack = []           # 嵌套深度计数（进入容器后的 div 层级）
-        # SVG
-        self.svgs = []                   # {chapter, viewbox, draw_elems, issues:[]}
-        self._svg = None
-        self._svg_depth = 0
-
-    # -- helpers --
-    @staticmethod
-    def _cls(attrs):
-        return dict(attrs).get("class", "") or ""
-
-    def handle_starttag(self, tag, attrs):
-        ad = dict(attrs)
-        cls = ad.get("class", "") or ""
-        if tag in ("style", "script"):
-            self.skip_depth += 1
-            return
-        if tag == "h2" and "section-title" in cls.split():
-            self.chapter += 1
-            self.h2_capture = True
-            self._h2_buf = []
-        if tag in ("div", "p", "li", "blockquote", "h1", "h2", "h3", "h4", "h5", "h6"):
-            self.text_boundaries.setdefault(self.chapter, []).append(
-                self.text_offsets.get(self.chapter, 0))
-        if "chart-container" in cls.split():
-            self.charts.append({"chapter": self.chapter,
-                                "chart_id": ad.get("data-chart-id"),
-                                "text": [], "svg_count": 0})
-            self._chart_stack.append(1)
-        elif self._chart_stack and tag == "div":
-            self._chart_stack[-1] += 1
-        if tag == "svg":
-            self._svg_depth += 1
-            if self._svg_depth == 1:
-                self._svg = {"chapter": self.chapter, "viewbox": ad.get("viewbox"),
-                             "draw_elems": 0, "issues": []}
-                if self._chart_stack and self.charts:
-                    self.charts[-1]["svg_count"] += 1
-        elif self._svg is not None:
-            self._check_svg_elem(tag, ad)
-
-    def handle_startendtag(self, tag, attrs):
-        ad = dict(attrs)
-        if self._svg is not None and tag != "svg":
-            self._check_svg_elem(tag, ad)
-
-    def handle_endtag(self, tag):
-        if tag in ("style", "script"):
-            self.skip_depth = max(0, self.skip_depth - 1)
-            return
-        if tag == "h2" and self.h2_capture:
-            self.h2_capture = False
-            self.chapter_titles.append("".join(self._h2_buf).strip())
-        if tag == "div" and self._chart_stack:
-            self._chart_stack[-1] -= 1
-            if self._chart_stack[-1] == 0:
-                self._chart_stack.pop()
-        if tag == "svg":
-            if self._svg_depth == 1 and self._svg is not None:
-                s = self._svg
-                if not s["viewbox"]:
-                    s["issues"].append("viewBox 缺失")
-                else:
-                    parts = s["viewbox"].replace(",", " ").split()
-                    ok = len(parts) == 4
-                    if ok:
-                        try:
-                            w, h = float(parts[2]), float(parts[3])
-                            ok = w > 0 and h > 0
-                        except ValueError:
-                            ok = False
-                    if not ok:
-                        s["issues"].append("viewBox 非法: %r" % s["viewbox"])
-                if s["draw_elems"] == 0:
-                    s["issues"].append("无有效绘图元素")
-                self.svgs.append(s)
-                self._svg = None
-            self._svg_depth = max(0, self._svg_depth - 1)
-
-    def _check_svg_elem(self, tag, ad):
-        s = self._svg
-        ok = False
-        if tag in ("polygon", "polyline"):
-            pts, degenerate = _parse_points(ad.get("points", ""))
-            if pts < (3 if tag == "polygon" else 2):
-                s["issues"].append("%s points 过少(%d)" % (tag, pts))
-            elif degenerate:
-                s["issues"].append("%s points 退化（所有点重合/共点）" % tag)
-            else:
-                ok = True
-        elif tag == "path":
-            d = (ad.get("d") or "").strip()
-            if not d:
-                s["issues"].append("path d 为空")
-            elif not re.search(r"[0-9]", d):
-                s["issues"].append("path d 无坐标: %r" % d[:40])
-            else:
-                ok = True
-        elif tag == "circle":
-            ok = _fnum(ad.get("r")) > 0
-            if not ok:
-                s["issues"].append("circle r 非正")
-        elif tag == "ellipse":
-            ok = _fnum(ad.get("rx")) > 0 and _fnum(ad.get("ry")) > 0
-        elif tag == "rect":
-            ok = _fnum(ad.get("width")) > 0 and _fnum(ad.get("height")) > 0
-        elif tag == "line":
-            ok = (ad.get("x1"), ad.get("y1")) != (ad.get("x2"), ad.get("y2"))
-        elif tag == "text":
-            ok = True  # 文本内容在 handle_data 里，出现即认可
-        if ok:
-            s["draw_elems"] += 1
-
-    def handle_data(self, data):
-        if self.skip_depth:
-            return
-        if self.h2_capture:
-            self._h2_buf.append(data)
-        self.chapter_text.setdefault(self.chapter, []).append(data)
-        self.text_offsets[self.chapter] = self.text_offsets.get(self.chapter, 0) + len(data)
-        if self._chart_stack and self.charts:
-            self.charts[-1]["text"].append(data)
+class InputFailure(Exception):
+    pass
 
 
-def _fnum(v):
+def _read_json(path: Path, label: str) -> Any:
     try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise InputFailure(f"无法读取{label}: {exc}") from exc
 
 
-def _parse_points(raw):
-    """返回 (点数, 是否退化)。退化 = 全部点重合或包围盒零面积且零长度。"""
-    nums = re.findall(r"-?\d+(?:\.\d+)?", raw)
-    pts = [(float(nums[i]), float(nums[i + 1])) for i in range(0, len(nums) - 1, 2)]
-    if not pts:
-        return 0, True
-    xs, ys = {p[0] for p in pts}, {p[1] for p in pts}
-    degenerate = len(set(pts)) == 1 or (len(xs) == 1 and len(ys) == 1)
-    return len(pts), degenerate
-
-
-def scan_forbidden(text_by_chapter, text_boundaries=None):
-    hard_hits, review_counts = [], {w: 0 for w in REVIEW_WORDS}
-    for ch, chunks in sorted(text_by_chapter.items()):
-        text = "".join(chunks)
-        boundaries = (text_boundaries or {}).get(ch, [])
-        for w in HARD_FORBIDDEN:
-            for m in re.finditer(re.escape(w), text):
-                sentence_start = max(
-                    (text.rfind(delimiter, 0, m.start()) + 1
-                     for delimiter in SENTENCE_DELIMITERS), default=0)
-                element_start = max((pos for pos in boundaries if pos <= m.start()), default=0)
-                lookback_start = max(sentence_start, element_start, m.start() - NEGATION_WINDOW)
-                preceding = text[lookback_start:m.start()]
-                if any(cue in preceding for cue in NEGATION_CUES):
-                    continue
-                ctx = text[max(0, m.start() - 20):m.end() + 20].replace("\n", " ")
-                hard_hits.append({"chapter": ch, "word": w, "context": ctx.strip()})
-        for w in REVIEW_WORDS:
-            review_counts[w] += len(re.findall(re.escape(w), text))
-    return hard_hits, review_counts
-
-
-def main():
-    ap = argparse.ArgumentParser(description="destiny-matrix v4 命书机器验收")
-    ap.add_argument("book", help="命书 HTML 文件")
-    ap.add_argument("--plan", help="图表规划表 JSON（chart-director 产出）")
-    ap.add_argument("--json", action="store_true", dest="as_json", help="机读输出")
-    args = ap.parse_args()
-
-    try:
-        with open(args.book, encoding="utf-8") as f:
-            html = f.read()
-    except (OSError, UnicodeError) as e:
-        print("无法读取文件: %s" % e, file=sys.stderr)
-        return 2
-
-    p = BookParser()
-    p.feed(html)
-    p.close()
-
-    checks = []   # {id, level(red|warn|info), status(pass|fail|warn), detail}
-    def add(cid, level, status, detail):
-        checks.append({"id": cid, "level": level, "status": status, "detail": detail})
-
-    n_ch = p.chapter
-    titles = p.chapter_titles
-
-    # ---- M1-M8 章锚点 ----
-    for i in range(1, 9):
-        if i <= n_ch:
-            add("M%d" % i, "red", "pass", "第 %d 章锚点存在：「%s」" % (i, titles[i - 1][:40]))
+def _resolve_pointer(document: Any, pointer: str) -> Any:
+    if pointer == "":
+        return document
+    if not pointer.startswith("/") or re.search(r"~(?![01])", pointer):
+        raise KeyError("JSON pointer 必须符合 RFC 6901")
+    current = document
+    for part in pointer[1:].split("/"):
+        part = part.replace("~1", "/").replace("~0", "~")
+        if isinstance(current, list):
+            if not re.fullmatch(r"0|[1-9]\d*", part):
+                raise KeyError(f"数组 pointer 索引无效: {part}")
+            current = current[int(part)]
+        elif isinstance(current, dict):
+            current = current[part]
         else:
-            add("M%d" % i, "red", "fail", "第 %d 章锚点缺失（全书仅 %d 个 h2.section-title）" % (i, n_ch))
-    if n_ch > 8:
-        add("M-EXTRA", "red", "fail", "章锚点多于 8 个（%d），全书必须恰好 8 个" % n_ch)
+            raise KeyError(f"无法读取 pointer 段 {part}")
+    return current
 
-    # ---- M-LEN 章节篇幅占比 ----
-    lens = {ch: len(re.sub(r"\s", "", "".join(p.chapter_text.get(ch, []))))
-            for ch in range(1, n_ch + 1)}
-    total_len = sum(lens.values()) or 1
-    len_rows, len_warns = [], []
-    for ch in range(1, min(n_ch, 8) + 1):
-        share = 100.0 * lens.get(ch, 0) / total_len
-        if ch in CHAPTER_WEIGHTS:
-            lo, hi = CHAPTER_WEIGHTS[ch]
-            dev = (lo - share) if share < lo else (share - hi if share > hi else 0.0)
-            mark = ""
-            if dev > LEN_TOLERANCE:
-                mark = " ← 偏差 %.1fpp" % dev
-                len_warns.append("Ch%d 占比 %.1f%%（目标 %g-%g%%）" % (ch, share, lo, hi))
-            len_rows.append("Ch%d %.1f%% (目标 %g-%g%%)%s" % (ch, share, lo, hi, mark))
-        else:
-            len_rows.append("Ch%d %.1f%% (无数值目标)" % (ch, share))
-    add("M-LEN", "warn", "warn" if len_warns else "pass",
-        "; ".join(len_rows) + ("；超容忍项: " + "、".join(len_warns) if len_warns else ""))
 
-    # ---- C2/C3 图表配额 ----
-    ids_in_html = [c["chart_id"] for c in p.charts if c["chart_id"] and c["chart_id"].strip()]
-    missing_attr = len(p.charts) - len(ids_in_html)
-    per_ch = {}
-    for c in p.charts:
-        if c["chart_id"] and c["chart_id"].strip():
-            per_ch[c["chapter"]] = per_ch.get(c["chapter"], 0) + 1
-    c2_fails = []
-    for ch, quota in sorted(CHAPTER_QUOTAS.items()):
-        if per_ch.get(ch, 0) < quota:
-            c2_fails.append("Ch%d %d/%d" % (ch, per_ch.get(ch, 0), quota))
-    combo = per_ch.get(5, 0) + per_ch.get(6, 0)
-    if combo < COMBINED_56_QUOTA:
-        c2_fails.append("Ch5+Ch6 %d/%d" % (combo, COMBINED_56_QUOTA))
-    dist = ", ".join("Ch%d=%d" % (ch, n) for ch, n in sorted(per_ch.items()))
-    add("C2", "red", "fail" if c2_fails else "pass",
-        ("配额未达标: " + "; ".join(c2_fails) + "；" if c2_fails else "各章配额达标；") +
-        "分布: " + (dist or "无带非空 data-chart-id 的图表容器") +
-        "；缺 data-chart-id: %d 个" % missing_attr)
-    total_charts = len(ids_in_html)
-    add("C3", "red", "pass" if total_charts >= TOTAL_QUOTA else "fail",
-        "带非空 data-chart-id 的图表容器 %d 个（下限 %d；缺属性容器 %d 个）"
-        % (total_charts, TOTAL_QUOTA, missing_attr))
-
-    # ---- C1 data-chart-id 清单 / 规划表核销 ----
-    if args.plan:
+def _artifact_documents(evidence: dict, base_dir: Path, issues: list[dict]) -> dict[str, Any]:
+    result = {}
+    artifacts = evidence.get("artifacts", [])
+    if not isinstance(artifacts, list):
+        issues.append({"path": "evidence.artifacts", "code": "invalid_artifacts", "message": "artifacts 必须为数组"})
+        return result
+    seen = set()
+    root = base_dir.resolve()
+    for index, artifact in enumerate(artifacts):
+        path = f"evidence.artifacts[{index}]"
+        if not isinstance(artifact, dict):
+            issues.append({"path": path, "code": "invalid_artifact", "message": "artifact 必须为对象"})
+            continue
+        artifact_id, rel = artifact.get("artifact_id"), artifact.get("path")
+        if not isinstance(artifact_id, str) or not artifact_id or artifact_id in seen:
+            issues.append({"path": path + ".artifact_id", "code": "duplicate_or_missing_id", "message": "artifact_id 缺失或重复"})
+            continue
+        seen.add(artifact_id)
+        if not isinstance(rel, str) or not rel:
+            issues.append({"path": path + ".path", "code": "missing_path", "message": "artifact path 缺失"})
+            continue
+        if Path(rel).is_absolute() or PureWindowsPath(rel).is_absolute():
+            issues.append({"path": path + ".path", "code": "absolute_artifact_path", "message": "artifact path 必须是 evidence 工作区内的相对路径"})
+            continue
+        candidate = (root / rel).resolve()
+        if candidate != root and root not in candidate.parents:
+            issues.append({"path": path + ".path", "code": "path_escape", "message": "artifact path 必须位于 evidence 工作区内"})
+            continue
+        if artifact.get("status", "current") != "current":
+            # Historical entries stay in the ledger; only current references are loadable.
+            continue
         try:
-            with open(args.plan, encoding="utf-8") as f:
-                plan = json.load(f)
-        except (OSError, json.JSONDecodeError, UnicodeError) as e:
-            print("无法读取规划表: %s" % e, file=sys.stderr)
-            return 2
-        # Accept chart-director chart_table, legacy charts, or bare row list.
-        if isinstance(plan, dict):
-            rows = plan.get("chart_table") if "chart_table" in plan else plan.get("charts")
+            raw = candidate.read_bytes()
+            digest = hashlib.sha256(raw).hexdigest()
+            expected = artifact.get("sha256")
+            if not isinstance(expected, str) or digest != expected:
+                issues.append({"path": path + ".sha256", "code": "artifact_hash_mismatch", "message": "artifact 必须声明且匹配 SHA-256"})
+                continue
+        except (OSError, UnicodeError) as exc:
+            issues.append({"path": path + ".path", "code": "artifact_unreadable", "message": str(exc)})
+            continue
+        try:
+            result[artifact_id] = json.loads(raw.decode("utf-8"))
+        except (UnicodeError, json.JSONDecodeError):
+            # Evidence may register HTML/PDF deliverables; only data refs require JSON.
+            continue
+    return result
+
+
+def _parse_data_ref(value: str) -> tuple[str, str]:
+    if "#" not in value:
+        raise ValueError("data ref 必须为 artifact_id#<json_pointer>")
+    artifact_id, pointer = value.split("#", 1)
+    if not artifact_id:
+        raise ValueError("artifact_id 为空")
+    return artifact_id, pointer
+def _data_ref_covers(container_ref: str, leaf_ref: str) -> bool:
+    try:
+        container_artifact, container_pointer = _parse_data_ref(container_ref)
+        leaf_artifact, leaf_pointer = _parse_data_ref(leaf_ref)
+    except (TypeError, ValueError):
+        return False
+    if container_artifact != leaf_artifact:
+        return False
+    def parts(pointer):
+        return [segment.replace("~1", "/").replace("~0", "~")
+                for segment in pointer[1:].split("/")] if pointer else []
+    container_parts, leaf_parts = parts(container_pointer), parts(leaf_pointer)
+    return len(container_parts) <= len(leaf_parts) and leaf_parts[:len(container_parts)] == container_parts
+
+
+def _display_number(value: Any, precision: int) -> str:
+    number = Decimal(str(value))
+    quantum = Decimal(1).scaleb(-precision)
+    number = number.quantize(quantum, rounding=ROUND_HALF_UP)
+    return f"{number:.{precision}f}"
+
+
+def _finite_tokens(value: str) -> bool:
+    for match in re.finditer(r"(?<![A-Za-z])[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?|(?i:NaN|Infinity)", value):
+        try:
+            if not math.isfinite(float(match.group(0))):
+                return False
+        except ValueError:
+            return False
+    return True
+def _raw_text(node: Node) -> str:
+    if node.tag == "#text":
+        return node.children[0] if node.children else ""
+    return "".join(_raw_text(child) if isinstance(child, Node) else child for child in node.children)
+
+
+def _svg_issues(svg: Node, index: int) -> list[dict]:
+    base = f"html.svg[{index}]"
+    issues = []
+    try:
+        parsed = ET.fromstring(svg.serialize())
+    except ET.ParseError as exc:
+        return [{"path": base, "code": "invalid_svg_xml", "message": str(exc)}]
+    ids: dict[str, int] = {}
+    references: list[tuple[str, str]] = []
+    drawable = 0
+    for node in parsed.iter():
+        attrs = node.attrib
+        for key, value in attrs.items():
+            if not _finite_tokens(value):
+                issues.append({"path": base, "code": "non_finite_svg_value", "message": f"{key} 含非有限数值"})
+            if key == "id":
+                ids[value] = ids.get(value, 0) + 1
+            if key in ("href", "{http://www.w3.org/1999/xlink}href") and value.startswith("#"):
+                references.append((key, value[1:]))
+            references.extend((key, ref) for ref in re.findall(r"url\(\s*['\"]?#([^)'\"\s]+)['\"]?\s*\)", value, re.I))
+        tag = node.tag.rsplit("}", 1)[-1].lower()
+        try:
+            if tag == "circle":
+                valid = float(attrs.get("r", "0")) > 0
+            elif tag == "ellipse":
+                valid = float(attrs.get("rx", "0")) > 0 and float(attrs.get("ry", "0")) > 0
+            elif tag == "rect":
+                valid = float(attrs.get("width", "0")) > 0 and float(attrs.get("height", "0")) > 0
+            elif tag == "line":
+                valid = (attrs.get("x1"), attrs.get("y1")) != (attrs.get("x2"), attrs.get("y2"))
+            elif tag in ("polygon", "polyline"):
+                points = re.findall(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?", attrs.get("points", ""))
+                required = 3 if tag == "polygon" else 2
+                valid = len(points) >= required * 2
+                if tag == "polygon" and valid:
+                    coords = [(float(points[i]), float(points[i + 1])) for i in range(0, len(points) - 1, 2)]
+                    valid = len(set(coords)) >= 3
+            elif tag == "path":
+                valid = bool(re.search(r"[MmLlHhVvCcSsQqTtAaZz].*[0-9]", attrs.get("d", "")))
+            elif tag == "text":
+                valid = bool("".join(node.itertext()).strip())
+            else:
+                valid = False
+            if valid:
+                drawable += 1
+            elif tag in ("circle", "ellipse", "rect", "line", "polygon", "polyline", "path"):
+                issues.append({"path": base, "code": "degenerate_svg_geometry", "message": f"{tag} 几何缺失或退化"})
+        except (ValueError, OverflowError):
+            issues.append({"path": base, "code": "degenerate_svg_geometry", "message": f"{tag} 几何数值非法"})
+    for element_id, count in ids.items():
+        if count > 1:
+            issues.append({"path": base, "code": "duplicate_svg_id", "message": f"SVG id 重复: {element_id}"})
+    for attr, ref in references:
+        if ref not in ids:
+            issues.append({"path": base, "code": "missing_svg_reference", "message": f"{attr} 引用不存在的 id: {ref}"})
+    if drawable == 0:
+        issues.append({"path": base, "code": "empty_svg", "message": "SVG 没有可见绘图元素"})
+    return issues
+
+
+def _issues_for_html(book: BookHTML, plan: Any, evidence: Any, artifacts: dict,
+                     sources: Any, base_dir: Path) -> list[dict]:
+    issues: list[dict] = []
+    def add(path: str, code: str, message: str):
+        issues.append({"path": path, "code": code, "message": message})
+
+    if not isinstance(plan, dict) or not isinstance(plan.get("sections"), list) or not isinstance(plan.get("chart_table"), list):
+        add("plan", "invalid_plan", "chart_plan 必须包含 sections 与 chart_table 数组")
+        return issues
+    if not isinstance(evidence, dict):
+        add("evidence", "invalid_evidence", "case_evidence 必须为对象")
+        return issues
+    kinds = {"disclosure", "body", "appendix"}
+    semantic_sections = book.sections
+    book_mains = [n for n in book.nodes if n.tag == "main" and n.attr("id") == "book"]
+    if len(book_mains) != 1:
+        add("html.main", "book_main_count", "必须恰有一个 <main id=\"book\">")
+    elif any(not any(a is book_mains[0] for a in section.ancestors()) for section in semantic_sections):
+        add("html.sections", "section_outside_book", "所有语义 section 必须位于 <main id=\"book\">")
+    for index, section in enumerate(n for n in book.nodes if n.tag == "section"):
+        if section.attr("data-content-kind") not in kinds:
+            add(f"html.sections[{index}]", "invalid_content_kind", "所有 section 均须归类为 disclosure/body/appendix")
+    disclosure_ids = set()
+    for index, aside in enumerate(n for n in book.nodes if n.tag == "aside"):
+        disclosure_id = aside.attr("data-disclosure-id")
+        if not disclosure_id or disclosure_id in disclosure_ids:
+            add(f"html.asides[{index}]", "duplicate_or_missing_disclosure_id", "每个 aside 必须有唯一 data-disclosure-id")
+        if disclosure_id:
+            disclosure_ids.add(disclosure_id)
+    for index, section in enumerate(semantic_sections):
+        kind = section.attr("data-content-kind")
+        if kind not in kinds:
+            add(f"html.sections[{index}].data-content-kind", "invalid_content_kind", "content-kind 只能是 disclosure/body/appendix")
+    for kind in sorted(kinds):
+        count = sum(s.attr("data-content-kind") == kind for s in semantic_sections)
+        if count != 1 and kind in ("disclosure", "appendix"):
+            add(f"html.sections[{kind}]", "section_kind_count", f"{kind} section 必须恰有一个，当前 {count}")
+    if not any(s.attr("data-content-kind") == "body" for s in semantic_sections):
+        add("html.sections.body", "missing_body_sections", "至少需要一个正文 body section")
+    body_sections = [s for s in semantic_sections if s.attr("data-content-kind") == "body"]
+    html_ids = [s.attr("data-section-id") for s in body_sections]
+    if any(not value for value in html_ids) or len(set(html_ids)) != len(html_ids):
+        add("html.sections.body", "duplicate_or_missing_section_id", "body section 必须有唯一 data-section-id")
+    if any(s.attr("id") != "ch-" + str(s.attr("data-section-id")) for s in body_sections):
+        add("html.sections.body", "invalid_section_anchor", "正文 section id 必须为 ch-<section_id>")
+    planned_sections = plan.get("sections", [])
+    plan_ids = [s.get("section_id") for s in planned_sections if isinstance(s, dict)]
+    valid_plan_ids = [x for x in plan_ids if isinstance(x, str) and x]
+    if len(plan_ids) != len(planned_sections) or len(valid_plan_ids) != len(plan_ids):
+        add("plan.sections", "invalid_sections", "每个计划 section 必须包含非空字符串 section_id")
+    if len(valid_plan_ids) != len(set(valid_plan_ids)):
+        add("plan.sections", "duplicate_section_id", "plan.sections 中 section_id 重复")
+    if html_ids != valid_plan_ids:
+        add("html.sections.body", "section_plan_mismatch", f"HTML 与 plan.sections 顺序/ID 不一致；HTML={html_ids}，plan={valid_plan_ids}")
+    for module in (n for n in book.nodes if n.attr("data-module") == "synastry"):
+        owner = next((a for a in module.ancestors() if a.attr("data-content-kind") == "body"), None)
+        if (module.tag != "div" or module.attr("id") != "module-synastry" or
+                owner is None or owner.attr("data-section-id") != "relationships"):
+            add(f"html:module-synastry", "invalid_synastry_location", "合盘模块必须是 relationships 内的 div#module-synastry")
+
+    appendix_sections = [s for s in semantic_sections if s.attr("data-content-kind") == "appendix"]
+    appendix_ids = set()
+    known_anchors = {n.attr("id") for n in book.nodes if n.attr("id")}
+    for index, details in enumerate(book.details):
+        appendix = next((a for a in details.ancestors() if a.attr("data-content-kind") == "appendix"), None)
+        appendix_id = details.attr("data-appendix-id")
+        if appendix is None:
+            add(f"html.details[{index}]", "details_outside_appendix", "details 只能位于 appendix section")
+        if not appendix_id or appendix_id in appendix_ids:
+            add(f"html.details[{index}].data-appendix-id", "duplicate_or_missing_appendix_id", "每个 details 必须有唯一 data-appendix-id")
+        if appendix_id:
+            appendix_ids.add(appendix_id)
+            if details.attr("id") != appendix_id:
+                add(f"html.details[{index}]", "appendix_anchor_mismatch", "details 的 id 必须与 data-appendix-id 一致")
+            has_entry = any(n.tag == "a" and n.attr("href") == "#" + appendix_id
+                            for section in body_sections for n in section.descendants())
+            if not has_entry:
+                add(f"html.details[{index}]", "appendix_entry_link_missing", f"正文缺少指向 #{appendix_id} 的入口链接")
+            back = next((n for n in details.descendants() if n.tag == "a" and n.attr("href", "").startswith("#ch-")), None)
+            if back is None or back.attr("href", "")[1:] not in known_anchors:
+                add(f"html.details[{index}]", "appendix_return_link_missing", "附录必须有返回有效正文锚点的链接")
+    css_text = "\n".join(_raw_text(n) for n in book.nodes if n.tag == "style")
+    hidden_classes, hidden_ids, hidden_tags = set(), set(), set()
+    for selectors, rules in re.findall(r"([^{}]+)\{([^{}]*)\}", css_text):
+        if not re.search(r"(?:display\s*:\s*none|visibility\s*:\s*hidden)", rules, re.I):
+            continue
+        for selector in selectors.split(","):
+            hidden_classes.update(re.findall(r"\.([\w-]+)", selector))
+            hidden_ids.update(re.findall(r"#([\w-]+)", selector))
+            simple = selector.strip().lower()
+            if re.fullmatch(r"[a-z][\w-]*", simple):
+                hidden_tags.add(simple)
+    for node in book.nodes:
+        decorative_svg = (node.tag == "svg" and (node.attr("aria-hidden") or "").lower() == "true"
+                          and not normalize_text(_raw_text(node)))
+        style = (node.attr("style") or "").lower().replace(" ", "")
+        markup_hidden = ("hidden" in node.attrs or bool(re.search(
+            r"(?:^|;)display:none(?:;|$)|(?:^|;)visibility:hidden(?:;|$)", style))
+            or "hidden" in (node.attr("class") or "").split())
+        concealed = (markup_hidden or
+                     ((node.attr("aria-hidden") or "").lower() == "true" and not decorative_svg) or
+                     node.attr("id") in hidden_ids or node.tag in hidden_tags or
+                     bool(set((node.attr("class") or "").split()) & hidden_classes))
+        if concealed:
+            add(f"html:{node.line}:{node.column}", "hidden_dom", "存在隐藏 DOM")
+    for comment in book.comments:
+        add(f"html:{comment['line']}:{comment['column']}", "html_comment", "成品不得包含 HTML 注释或审稿批注")
+
+    rows = plan.get("chart_table", [])
+    plan_chart_ids = [r.get("chart_id") for r in rows if isinstance(r, dict)]
+    valid_plan_chart_ids = [x for x in plan_chart_ids if isinstance(x, str) and x]
+    if len(plan_chart_ids) != len(rows) or len(valid_plan_chart_ids) != len(plan_chart_ids):
+        add("plan.chart_table", "invalid_chart_row", "每个图表行必须有非空字符串 chart_id")
+    if len(valid_plan_chart_ids) != len(set(valid_plan_chart_ids)):
+        add("plan.chart_table", "duplicate_chart_id", "chart_table 中 chart_id 重复")
+    figures = book.figures
+    for index, node in enumerate(n for n in book.nodes if n.tag == "figure" and n.has_attr("data-chart-id")):
+        if not node.has_class("chart-container"):
+            add(f"html.figures[{index}]", "invalid_chart_figure", "带 data-chart-id 的 figure 必须有 chart-container class")
+    html_chart_ids = [f.attr("data-chart-id") for f in figures]
+    if any(not chart_id for chart_id in html_chart_ids) or len(html_chart_ids) != len(set(html_chart_ids)):
+        add("html.figures", "duplicate_or_missing_chart_id", "图表 figure 必须有唯一 data-chart-id")
+    if set(html_chart_ids) != set(valid_plan_chart_ids):
+        add("html.figures", "chart_plan_mismatch", f"HTML 与 chart_table 不一致；缺少 {sorted(set(valid_plan_chart_ids)-set(html_chart_ids))}，多出 {sorted(set(html_chart_ids)-set(valid_plan_chart_ids))}")
+    plan_by_id = {row.get("chart_id"): row for row in rows
+                  if isinstance(row, dict) and isinstance(row.get("chart_id"), str) and row.get("chart_id")}
+    figure_by_id = {f.attr("data-chart-id"): f for f in figures if f.attr("data-chart-id")}
+    active_claims = {c.get("claim_id") for c in evidence.get("claims", [])
+                     if isinstance(c, dict) and isinstance(c.get("claim_id"), str) and c.get("status") == "active"}
+    section_ids = set(html_ids)
+    for chart_id, row in plan_by_id.items():
+        section_id = row.get("section_id")
+        if not isinstance(section_id, str) or section_id not in section_ids:
+            add(f"plan.chart_table[{chart_id}].section_id", "unknown_chart_section", "图表必须归属一个正文 section")
+        if not isinstance(section_id, str) or not re.fullmatch(r"chart-" + re.escape(section_id) + r"-\d{2}", chart_id):
+            add(f"plan.chart_table[{chart_id}].chart_id", "invalid_chart_id", "chart_id 必须为 chart-<section_id>-NN")
+        if row.get("missing_policy") != "omit_with_disclosure":
+            add(f"plan.chart_table[{chart_id}].missing_policy", "invalid_missing_policy", "missing_policy 必须为 omit_with_disclosure")
+        figure = figure_by_id.get(chart_id)
+        if figure and figure.attr("data-section-id") not in (None, section_id):
+            add(f"html.figures[{chart_id}]", "chart_section_mismatch", "figure section 与 chart_table 不一致")
+        row_claims = row.get("claim_ids", [])
+        if not isinstance(row_claims, list):
+            add(f"plan.chart_table[{chart_id}].claim_ids", "invalid_claim_ids", "图表 claim_ids 必须是数组")
         else:
-            rows = plan
-        if not isinstance(rows, list) or not all(isinstance(r, dict) for r in rows):
-            print("规划表结构不符：需 chart_plan.chart_table（对象数组，见 schemas/chart_plan.json）",
-                  file=sys.stderr)
-            return 2
-        plan_ids = []
-        for row in rows:
-            chart_id = row.get("chart_id") or row.get("id") or row.get("图表 ID")
-            if not isinstance(chart_id, str) or not chart_id.strip():
-                print("规划表结构不符：每行必须包含非空 chart_id / id / 图表 ID", file=sys.stderr)
-                return 2
-            plan_ids.append(chart_id.strip())
-        html_ids = [i.strip() for i in ids_in_html]
-        from collections import Counter
-        html_duplicates = sorted(i for i, count in Counter(html_ids).items() if count > 1)
-        plan_duplicates = sorted(i for i, count in Counter(plan_ids).items() if count > 1)
-        missing = sorted(set(plan_ids) - set(html_ids))
-        extra = sorted(set(html_ids) - set(plan_ids))
-        details = ["规划 %d 行，HTML 带 id 图表 %d 个" % (len(plan_ids), len(html_ids))]
-        if missing:
-            details.append("未核销: " + ", ".join(missing))
-        if extra:
-            details.append("计划外 id: " + ", ".join(extra))
-        if html_duplicates:
-            details.append("HTML 重复 id: " + ", ".join(html_duplicates))
-        if plan_duplicates:
-            details.append("计划重复 id: " + ", ".join(plan_duplicates))
-        if missing_attr:
-            details.append("缺 data-chart-id 的容器: %d 个" % missing_attr)
-        failed = missing or extra or html_duplicates or plan_duplicates or missing_attr
-        add("C1", "red", "fail" if failed else "pass", "；".join(details))
-    else:
-        add("C1", "red", "fail", "S9 必须提供 --plan")
+            for claim_id in row_claims:
+                if claim_id not in active_claims:
+                    add(f"plan.chart_table[{chart_id}].claim_ids", "inactive_claim", f"图表计划引用非 active claim: {claim_id}")
+    for index, node in enumerate(book.claim_nodes):
+        for claim_id in (node.attr("data-claim-ids") or "").split():
+            if claim_id not in active_claims:
+                add(f"html.claims[{index}]", "inactive_claim", f"data-claim-ids 引用非 active claim: {claim_id}")
+    for index, node in enumerate(n for n in book.nodes if n.tag in ("q", "blockquote") and not n.has_attr("data-quote-id")):
+        add(f"html.quotes[{index}]", "missing_quote_id", "每个 q/blockquote 必须提供 data-quote-id")
 
-    # ---- C4 SVG 健康 ----
-    bad = [s for s in p.svgs if s["issues"]]
-    if bad:
-        add("C4", "red", "fail", "%d/%d 个 SVG 异常: " % (len(bad), len(p.svgs)) +
-            "; ".join("Ch%d[%s]" % (s["chapter"], ", ".join(s["issues"])) for s in bad[:8]))
-    else:
-        add("C4", "red", "pass", "%d 个 SVG 全部健康（viewBox 正常、绘图元素非空非退化）" % len(p.svgs))
+    source_rows = sources.get("sources", []) if isinstance(sources, dict) else []
+    quotes = {}
+    source_by_id = {s.get("source_id"): s for s in source_rows if isinstance(s, dict)}
+    for source in source_rows:
+        if not isinstance(source, dict):
+            continue
+        for quote in source.get("quotes", []) if isinstance(source.get("quotes", []), list) else []:
+            if isinstance(quote, dict) and quote.get("quote_id"):
+                quotes[quote["quote_id"]] = (source, quote)
+    for index, quote_node in enumerate(book.quotes):
+        quote_id = quote_node.attr("data-quote-id")
+        pair = quotes.get(quote_id)
+        if pair is None:
+            add(f"html.quotes[{index}]", "unknown_quote", f"quote_id 不存在于 sources.json: {quote_id}")
+            continue
+        source, quote = pair
+        if source.get("verification_status") != "verified":
+            add(f"html.quotes[{index}]", "unverified_quote", f"{quote_id} 所属来源不是 verified")
+            continue
+        actual = normalize_text(quote_node.text())
+        candidates = [normalize_text(quote.get("original") or "")]
+        if quote.get("translation_kind") in ("published", "own"):
+            candidates.append(normalize_text(quote.get("translation") or ""))
+        if actual not in [candidate for candidate in candidates if candidate]:
+            add(f"html.quotes[{index}]", "quote_text_mismatch", f"{quote_id} 的可见文本与核准原文/译文不一致")
 
-    # ---- C5 锚点六图（关键词启发式） ----
-    chart_texts = ["".join(c["text"]) for c in p.charts]
-    missing_anchor = []
-    for name, groups in ANCHOR_CHARTS.items():
-        found = any(all(k in t for k in g) for t in chart_texts for g in groups)
-        if not found:
-            missing_anchor.append(name)
-    add("C5", "red", "fail" if missing_anchor else "pass",
-        ("缺失: " + "、".join(missing_anchor) + "（启发式判定，finalizer 须目验确认）")
-        if missing_anchor else "锚点六图关键词均命中（仍需 finalizer 目验图形正确性）")
+    artifact_docs = artifacts
+    for index, node in enumerate(book.values):
+        path = f"html.values[{index}]"
+        raw_ref = node.attr("data-value-ref") or ""
+        try:
+            artifact_id, pointer = _parse_data_ref(raw_ref)
+            if artifact_id not in artifact_docs:
+                raise KeyError(f"artifact 不存在或已失效: {artifact_id}")
+            actual_value = _resolve_pointer(artifact_docs[artifact_id], pointer)
+        except (ValueError, KeyError, IndexError, TypeError) as exc:
+            add(path + ".data-value-ref", "invalid_value_ref", str(exc))
+            continue
+        if actual_value is None:
+            add(path, "missing_value_rendered", "data-value-ref 指向缺值；不得将缺值绘制为 0 或其他数值")
+            continue
+        shown_value = node.attr("data-value")
+        unit = node.attr("data-unit")
+        if not node.has_attr("data-unit"):
+            add(path + ".data-unit", "missing_value_unit", "data-value 节点必须显式提供 data-unit（无单位时留空）")
+        try:
+            if shown_value is None or Decimal(str(shown_value)) != Decimal(str(actual_value)):
+                add(path + ".data-value", "value_binding_mismatch", "data-value 与 artifact 原始值不一致")
+            precision_text = node.attr("data-precision")
+            precision = int(precision_text) if precision_text is not None else -1
+            if precision < 0 or precision > 12:
+                raise ValueError("data-precision 必须是 0–12 的整数")
+            formatted = _display_number(actual_value, precision)
+            visible = normalize_text(node.text())
+            if formatted not in visible or (unit and unit not in visible):
+                add(path, "visible_value_mismatch", f"可见文本必须呈现 {formatted}{unit or ''}")
+        except (InvalidOperation, ValueError, TypeError) as exc:
+            add(path, "invalid_value_format", str(exc))
 
-    # ---- W1/W2 禁词 ----
-    hard_hits, review_counts = scan_forbidden(p.chapter_text, p.text_boundaries)
-    if hard_hits:
-        add("W1", "block", "fail", "硬禁词命中 %d 处: " % len(hard_hits) +
-            "; ".join("Ch%d「%s」…%s…" % (h["chapter"], h["word"], h["context"])
-                      for h in hard_hits))
-    else:
-        add("W1", "block", "pass", "硬禁词 0 命中（否定性提及已豁免）")
-    add("W2", "info", "warn" if any(review_counts.values()) else "pass",
-        "语境词计数（供 finalizer 复核，不判红）: " +
-        ", ".join("%s×%d" % (w, n) for w, n in review_counts.items()))
+    for index, svg in enumerate(book.svg_nodes):
+        issues.extend(_svg_issues(svg, index))
 
-    # ---- E4 玄学解释力评级（每章最多计一块） ----
-    eval_chapters = [
-        ch for ch in (2, 3, 4)
-        if re.search(r"解释力[：:]?\s*★", "".join(p.chapter_text.get(ch, [])))
-    ]
-    n_eval = len(eval_chapters)
-    add("E4", "info", "pass" if n_eval >= 3 else "warn",
-        "Ch2/Ch3/Ch4 中含解释力评级的章节 %d 个（最多各计 1 块；应为 3）" % n_eval)
+    # Chart data refs must be resolvable and agree with references rendered in the figure.
+    for index, row in enumerate(rows):
+        chart_id = row.get("chart_id") if isinstance(row, dict) else None
+        if not chart_id:
+            continue
+        refs = row.get("data_refs", [])
+        if not isinstance(refs, list):
+            add(f"plan.chart_table[{index}].data_refs", "invalid_data_refs", "data_refs 必须为数组")
+            continue
+        figure = figure_by_id.get(chart_id)
+        for ref in refs:
+            try:
+                artifact_id, pointer = _parse_data_ref(ref)
+                if artifact_id not in artifact_docs:
+                    raise KeyError(f"artifact 不存在或已失效: {artifact_id}")
+                value = _resolve_pointer(artifact_docs[artifact_id], pointer)
+                matching_refs = [n.attr("data-value-ref") for n in (figure.descendants() if figure else ())
+                                 if n.attr("data-value-ref")]
+                covered = any(_data_ref_covers(ref, rendered_ref) for rendered_ref in matching_refs)
+                if value is None:
+                    if covered or (figure is not None and any(n.attr("data-value") == "0"
+                        for n in figure.descendants() if n.has_attr("data-value"))):
+                        add(f"plan.chart_table[{index}].data_refs", "missing_plotted_as_zero", f"{ref} 缺值却在图中绘制")
+                elif figure is not None and not covered:
+                    add(f"plan.chart_table[{index}].data_refs", "unrendered_data_ref", f"{ref} 未在对应 figure 中绑定")
+            except (ValueError, KeyError, IndexError, TypeError) as exc:
+                add(f"plan.chart_table[{index}].data_refs", "invalid_data_ref", str(exc))
 
-    # ---- 输出 ----
-    reds = [c for c in checks if c["level"] == "red" and c["status"] == "fail"]
-    blocks = [c for c in checks if c["level"] == "block" and c["status"] == "fail"]
-    warns = [c for c in checks if c["status"] == "warn"]
-    result = {"file": args.book, "chapters": n_ch, "charts_total": total_charts,
-              "svg_total": len(p.svgs), "chart_ids": ids_in_html,
-              "checks": checks, "red_fails": len(reds), "block_fails": len(blocks),
-              "warnings": len(warns),
-              "verdict": "FAIL" if (reds or blocks) else "PASS"}
+    return issues
+
+
+def _review_candidates(book: BookHTML) -> list[dict]:
+    candidates = []
+    for section in book.sections:
+        text = section.text()
+        section_id = section.attr("data-section-id") or section.attr("id") or "disclosure"
+        for word in HARD_FORBIDDEN:
+            start = 0
+            while (index := text.find(word, start)) >= 0:
+                left = max((text.rfind(d, 0, index) + 1 for d in SENTENCE_DELIMITERS), default=0)
+                right_positions = [text.find(d, index + len(word)) for d in SENTENCE_DELIMITERS]
+                right = min((pos + 1 for pos in right_positions if pos >= 0), default=len(text))
+                candidates.append({"location": f"{section_id}:{index}",
+                                   "snippet": normalize_text(text[left:right]), "term": word})
+                start = index + len(word)
+    return candidates
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description="destiny-matrix 语义 HTML 校验")
+    ap.add_argument("book", help="命书 HTML 文件")
+    ap.add_argument("--plan", required=True, help="chart_plan.json")
+    ap.add_argument("--evidence", required=True, help="case_evidence.json")
+    ap.add_argument("--sources", help="sources.json（默认技能 references/sources.json）")
+    ap.add_argument("--json", action="store_true", dest="as_json", help="输出 JSON")
+    args = ap.parse_args(argv)
+    book_path = Path(args.book)
+    plan_path, evidence_path = Path(args.plan), Path(args.evidence)
+    sources_path = Path(args.sources) if args.sources else Path(__file__).resolve().parents[1] / "references" / "sources.json"
+    try:
+        source_html = book_path.read_text(encoding="utf-8")
+        plan = _read_json(plan_path, "chart_plan")
+        evidence = _read_json(evidence_path, "case_evidence")
+        sources = _read_json(sources_path, "sources.json")
+    except (OSError, UnicodeError, InputFailure) as exc:
+        payload = {"ok": False, "issues": [{"path": "input", "code": "input_error", "message": str(exc)}],
+                   "review_required": [], "stats": {}}
+        if args.as_json:
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+        else:
+            print(str(exc), file=sys.stderr)
+        return 2
+    book = BookHTML(source_html)
+    preissues = []
+    artifacts = _artifact_documents(evidence, evidence_path.resolve().parent, preissues)
+    issues = preissues + _issues_for_html(book, plan, evidence, artifacts, sources, evidence_path.resolve().parent)
+    result = {"ok": not issues, "issues": issues, "review_required": _review_candidates(book),
+              "stats": {"sections": len([s for s in book.sections if s.attr("data-content-kind") == "body"]),
+                        "figures": len(book.figures), "values": len(book.values),
+                        "quotes": len(book.quotes), "issues": len(issues)}}
     if args.as_json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
-        icon = {"pass": "[PASS]", "fail": "[FAIL]", "warn": "[WARN]"}
-        print("destiny-matrix validate_book — %s" % args.book)
-        print("章节 %d · 图表 %d · SVG %d\n" % (n_ch, total_charts, len(p.svgs)))
-        for c in checks:
-            print("%s %-7s %s" % (icon[c["status"]], c["id"], c["detail"]))
-        print("\n结论: %s（🔴 fail %d · 🟠 阻断 fail %d · warning %d）"
-              % (result["verdict"], len(reds), len(blocks), len(warns)))
-    return 1 if (reds or blocks) else 0
+        print("命书语义校验：%s" % ("通过" if result["ok"] else "失败"))
+        for issue in issues:
+            print("%s [%s] %s" % (issue["path"], issue["code"], issue["message"]))
+        print("review_required: %d 条候选" % len(result["review_required"]))
+    return 0 if result["ok"] else 1
 
 
 if __name__ == "__main__":

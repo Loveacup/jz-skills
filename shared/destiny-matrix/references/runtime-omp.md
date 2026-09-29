@@ -1,51 +1,47 @@
 # omp 运行时映射
 
-只映射 `team-orchestration.md` 的中立动词与能力词，不改 Stage、数据契约或质量门。判定方法见 `team-orchestration.md §10`（工具表有 `task` 子代理工具、可 `write agent://<id>` → omp）。
-
-> 本文件是 omp 工具名在 skill 里**唯一**出现的地方。omp 升级改名时只改这里；工具名以运行时工具表为准，本表与工具表冲突时信工具表并回填本表。
+本文只把 [`team-orchestration.md`](team-orchestration.md) 的中立阶段、角色档位与能力映射到 omp；DAG、输入隔离、输出形状、裁决、复用和发布状态由该文件唯一规定。
 
 ## 编排动词
 
 | 动词 | omp 实现 |
 |---|---|
-| `dispatch(stage, 席位[])` | 一个 Stage 一次 `task` 调用（batch 形）：`{context, tasks:[…]}`。每席位一个 item：`name: Dm<席位CamelCase>`、`agent: dm-deep｜dm-research｜dm-light`（分档见 `team-orchestration.md §11`）、`task: 席位契约全文 + 本席位输入切片 + $DM/$DM_PY/$WS/<席位> + capability_map + 委派五要素`；有 schema 的席位加 `outputSchema: <schemas/*.json 内容>`、`schemaMode: "strict"` |
-| `context`（批次共享背景） | 会渲染进**同批每个**子代理的系统提示。只放本批所有席位都可见的中性材料；S4 批次严禁放任何一维 JSON 或成稿（`team-orchestration.md §1.3`） |
-| `barrier(stage)` | 结果自动送达；本批全部送达前不派下游。无事可做时用 `wait`，不轮询 `proc://` |
-| `collect(席位)` | 结果正文；全文 `agent://<id>`；JSON 字段 `agent://<id>/<key>`。schema 席位读 `structuredOutput.data` 与校验状态。每席位记 `resolvedModel`、`resolvedModelIsFallback` 进 `runtime_trace` |
-| `message(to)` | `write agent://<id>`。**修订流不用**（`team-orchestration.md §2`） |
-| `fresh_spawn(席位)` | 新的 `task` item、新 `name`（如 `DmBookWriterR1`）；task 正文按 §2 注入，不带被拒章节原文 |
-| `ask_user` | Leader 用 `ask`；teammate 没有此能力，问题从 `questions_for_user` 收集后由 Leader 代问 |
-| `teardown` | `read proc://` 查看仍在运行的作业；滞留者 `write proc://<id>/kill` |
+| `dispatch(stage, roles)` | 每席位一个 `task` item，使用本文件下方规定的 adapter；共享 `context` 只放同批均可见的中性说明，席位专属原始输入仅放该 task 的内容。 |
+| `barrier(stage)` | 等待 DAG 中本批所需任务结果全部送达后再派遣下游，不轮询后台任务。 |
+| `collect(role)` | 读取完整 task 结果；schema 任务核验结构化输出。Leader 是 runtime_trace 唯一写入者，登记实际可观察模型、用量、状态和输入/输出产物 ID。 |
+| `message(to)` | `write agent://<id>` 传递必要依赖、纠错或产物 ID；不得用共享文件路径替代判官输入隔离。 |
+| `fresh_spawn(role)` | 新 `task` item、新名称和独立上下文。fresh writer 仅接收修订包及获准保留的资产，不接触被拒正文。 |
+| `ask_user` | 由 Leader 使用可用询问通道；teammate 仅返回 `questions_for_user`。 |
+| `teardown` | 按当前工具表检查运行中任务并清理残留。 |
 
-## 能力词 → omp 通道
+## 能力映射
 
-| 能力词 | omp 通道 | 备注 |
+| 能力 | omp 通道 | 边界 |
 |---|---|---|
-| 【读文件】 | `read`（`skill://destiny-matrix/<路径>` 或 `$DM/<路径>`） | `skill://` 只读 |
-| 【跑脚本】 | `bash`：`$DM_PY $DM/scripts/<脚本>.py …` | 不用 PATH 上的 `python3` |
-| 【写成书】/【写临时】 | `write` 到绝对路径（成书：交付目录；临时：`$WS/<席位>/`） | 不写 `local://`：同会话所有子代理共享其根目录 |
-| 【网页检索】 | `web_search`（本机 `modelRoles.web` 已指向 Exa）；工具表里有 Exa MCP 时可用其高级检索 | MCP 工具名从工具表读，不写死 |
-| 【抓网页】 | `read <URL>` | 服务端渲染源 |
-| 【真实浏览器】 | `eval` 中的 `browser` 对象（首次使用前读 `xd://eval/browser`）；截屏、表单提交 | 不可用时记「降级：真实浏览器→不可用」 |
-| 【问用户】 | `ask`（仅 Leader） | — |
+| 【读文件】 | `read` | `skill://` 只读。 |
+| 【跑脚本】 | `bash`：`$DM_PY $DM/scripts/<脚本>.py …` | 不用 PATH 上的解释器。 |
+| 【写成书】/【写临时】 | `write` 到授权的工作区路径 | 不将 `local://` 当作隔离区；按流程单一写盘权限执行。 |
+| 【网页检索】/【抓网页】 | 使用运行时工具表提供的 `web_search`、URL `read` 或 MCP | 具体工具以当前工具表为准；外传本案资料前检查逐项授权。 |
+| 【真实浏览器】 | `eval` 中 `browser`（先读 `xd://eval/browser`） | 工具不可用则报告无法核验，不推测结果。 |
+| 【问用户】 | Leader 的询问通道 | 仅 Leader 可问。 |
 
-## 模型分档
+## 档位与 adapter
 
-三个档位 agent 定义在 `$DM/adapters/omp/dm-{deep,research,light}.md`，软链到 `~/.omp/agent/agents/`（`doctor.py` 核验）。frontmatter 只写 omp 自带角色：
+adapter 是 `agents` 的运行模板，不改变角色职责：
 
-| agent | `model`（按序尝试） | `thinking-level`（角色无后缀时的后备） |
-|---|---|---|
-| `dm-deep` | `@slow` → `@default` | high |
-| `dm-research` | `@default` → `@slow` | medium |
-| `dm-light` | `@smol` → `@task` | low |
+| 档位 | 角色 | adapter | frontmatter `model` 顺序 |
+|---|---|---|---|
+| deep | 四位 judge、chief-judge、synthesizer、book-writer、book-finalizer | `dm-deep` | `["@slow", "@default"]` |
+| research | external-verifier、四位 analyst、love-specialist、growth-specialist、chart-director | `dm-research` | `["@default", "@slow"]` |
+| light | intake-refiner、caster、确定的机械式布局补丁 | `dm-light` | `["@smol", "@task"]` |
 
-- 角色指向哪个模型由用户 `modelRoles` 决定；角色后缀（如 `:auto`）优先于 frontmatter 的 `thinking-level`。
-- 只调一档：`task.agentModelOverrides: { dm-research: "@slow" }`（值写角色）。
-- `prewalk: false`、`advisor: false` 已写在 frontmatter；`doctor.py` 会提示是否在 `config.yml` 的 `task.agentPrewalk` / `task.agentAdvisor` 里同样锁 off（与 sil-* 做法一致，不自动改用户配置）。
-- light 档失败（脚本报错后仍无 G1 齐备 JSON）→ 同席位改用 `dm-research` 重派，trace 记录实际档位。
+- model role 解析由用户当前 `/model` roles 决定；skill 不写具体模型 ID。允许并尊重 `task.agentModelOverrides`，例如 `{"dm-research":"@slow"}` 或 `{"dm-deep":"@default:high"}`；不修改全局 roles。
+- thinking 后缀优先于 adapter 的 `thinking-level`；无后缀时才使用 frontmatter 值。`:auto` 保留为自动模式，不统一改成 high/xhigh。
+- 只有 light 能力不足且任务仍适合相邻档时，最多升级到 research 一次；输入、文件、参数或依赖错误先修原因，不能原样重跑。不得将 deep 的分析、judge 或 finalizer 任务降为 light。
+- 若模型角色之间实际上解析为相同模型，只报告无分层收益；不能据档位名称推断费用或能力。
 
-## 运行时差异要点
+## Trace 采集
 
-- omp 没有 `blockedBy`：依赖靠「一个 Stage 一批 + barrier」表达，等价且更不易漏。
-- 子代理不继承对话历史，只继承 skill/上下文文件与共享的 `local://`——判官隔离的风险点在 `local://` 与批次 `context`，不在历史。
-- 单个子代理结果超过预览上限时，正文用 `agent://<id>` 读全文，不要把截断预览当完整产出注入下游。
+Leader 按 `team-orchestration.md` 登记每项 task：`requested_role`、`configured_model`、`resolvedModel`、`resolvedModelIsFallback`、`model_observation_source`、时间、耗时、指纹、复用关系、状态、输入/输出产物及原生用量事件。未由运行时明确提供的模型/费用/token 字段为 `null`；不按字数、时间或角色档位估算。
+
+同案复用只由 `team-orchestration.md` 的 fingerprint 规则决定。判官结果在原始输入、计算方法、版本及角色配置不变时可复用；仅分析稿改写时 fresh chief 重比，不重派判官。

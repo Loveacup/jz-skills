@@ -1,0 +1,15 @@
+{
+  "artifacts": [
+    {"artifact_id": "fixture-html", "path": "reading_fixture.html", "sha256": "d53d3b57a3333290874b71bce75aa6c645da5e89f3372dcb330eaa33815ac676", "depends_on_claim_ids": [], "depends_on_artifact_ids": [], "status": "current"},
+    {"artifact_id": "fixture-plan", "path": "reading_fixture_plan.json", "sha256": "0731ff5d5edf0d6374412558568102af0633b402f1ec5d66f4677ace8eacd9ef", "depends_on_claim_ids": [], "depends_on_artifact_ids": [], "status": "current"},
+    {"artifact_id": "chart-data", "path": "reading_fixture_artifacts/chart-data.json", "sha256": "6ab500b5b7595b09e856fdc1253d53594185ea6f4ce93d2dc02b3ba623e70a97", "depends_on_claim_ids": [], "depends_on_artifact_ids": [], "status": "current"}
+  ],
+  "sources": [
+    {"source_id": "ditiansui", "kind": "traditional_text", "locator": "references/sources.json#ditiansui-q01", "version": null, "status": "verified", "excerpt": "欲識三元萬物宗，先觀帝載與神功。"}
+  ],
+  "claims": [
+    {"claim_id": "FX-C-01", "owner": "fixture", "subject_id": "primary", "kind": "computed_fact", "statement": "合成项目甲数值为12分。", "input_refs": [{"artifact_id": "chart-data", "sha256": "6ab500b5b7595b09e856fdc1253d53594185ea6f4ce93d2dc02b3ba623e70a97", "json_pointer": "/scores/item"}], "source_ids": [], "parent_claim_ids": [], "counterevidence": [], "limits": ["仅合成验收数据"], "status": "active"}
+  ],
+  "corrections": [],
+  "limitations": []
+}

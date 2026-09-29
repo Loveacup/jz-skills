@@ -2,6 +2,58 @@
 
 ---
 
+## v5.1.0 — 2026-09-28
+
+**内容与图文合同优化**：目标改为“四体系各自完整解读，以人的问题组织跨体系综合，写成有阅读价值的命书”。计算、证据链、盲判、schema、脚本与 CLI 均不变。
+
+- **独立深读**：八字、紫微、占星、认知功能 framework 各加有序推读路径与完成边界；四位 analyst 指向该路径，findings 须含连续领域论述，改为“提供领域论述素材，不写最终 HTML”。神煞/特殊格局/流年/关系参考区分传统解释与现实建议。
+- **主题综合**：`cross-analysis-patterns.md` 五步综合顺序；`matrix` 降为分析索引，新增理解写入 `synthesis_claims` 与 `required_content`；竞争解释改为分层检验（计算核方法、传统说明取法条件、个体假说才谈反例）。S5 新主张由 Leader 补 `owner/status` 登记，修正时走 `superseded/rejected`。
+- **单一作者**：S6 按有效主题集合派遣；analyst/synthesizer/specialist 产物均为作者素材；新增作者缺口回提（team-orchestration §8.2）。`book-writer.md` 删去“一句命题＋至多三行导语”，改为五条编辑原则。
+- **结构图**：P02/P06/P07/P08/P11/P13/P17 重写采用条件（紫微固定地支 4×4 盘、八字/紫微分面周期轴（两个 chart ID 紧邻）、真实宫头星盘、主题关系表）；chart-director 在 `planning_rationale` 逐项记录取舍；`data_refs` 只列可数值绑定字段，字符串来源写进 caption；P13 因无数值字段改为综合章内普通语义表，不登记 `chart_table`。output-template 增 `.ziwei-grid`、`.timeline-panels` 屏幕/打印规则与开篇顺序。
+- **验收**：样章门由“800–1200 字＋一张代表图”改为功能性样章（最易失败的领域段＋关联综合段＋适用结构图）；R1/R2/D2/D3/D4 改为读者先行、可复述判定；I3 明确 minor_mode 下能力缺陷标签与为当事人编写亲历场景即失败（合成反例探测中旧 I3 措辞曾被判 pass）。
+- **纠正轮新错可再修一次**（team-orchestration §3、chief-judge、`schemas/consistency_report.json`、`scripts/quality_contracts.py`）：round-1 复审时 chief 为每条 blocking 差异标 `introduced_in_round`（须并列 round-0/round-1 原文为证）。仍有原有问题（`0`）即 `blocked`；剩余 blocking 全为纠正稿新写入（`1`）时，同一 analyst 只就这些 claim 定点再修一次，fresh chief 记 `round:2`（新字段 `round2_trigger_discrepancy_ids`），之后仍阻断即 `blocked`。checker 拒绝对旧问题开 round 2，并补回归测试。起因：验证运行中纠正轮新写入的一处计数错误与一处越级表述使 S4 无出口阻断；中途试过“闭包撤回”规则，因连带删除人格 7 条、紫微 4 条 claim 使书无内容可写，且与 checker 冲突，已撤掉。
+- **layout 修补上限**（team-orchestration §9）：每轮成书最多两次纯 layout 修补，第二次只能套用 `output-template.md` 已有规则；第一次修补后仅剩 layout 类 fail 时判 `revise` 而非 `blocked`。模板打印规则补上“图题、`.chart-description` 与图形本体同页，数据长表可分页”，起因：验证书中星盘图题与圆盘被拆到两页（P2 fail）。
+- **合同缺口**：S3/S5/S6 claim 统一由 Leader 补 `owner/status` 登记；writer 输出统一为 `$WS/book.html`，交付副本另存 `{subject}_命书.html`。
+
+## v5.0.0 — 2026-09-27
+
+**质量优先的破坏性合同切换**：保留性格本位、人文文风、传统体系与 HTML+PDF 双交付；重做计算口径、证据链、质量门与版式合同。不兼容 v4 的 intake/判官/图表计划/终审字段，无别名。
+
+### 计算
+
+1. **单一时间管线**（`_common.normalize_birth_time`）：一次规范化出生输入，输出 `time_context`（UTC 瞬间、固定 UTC+8 节气轴、本地平/视太阳时、Swiss `time_equ` 均时差、fold/gap、公历/儒略历、农历含闰月）。删除按时区中心经线的旧公式与 UTC+8 兜底；城市重名返回候选。芝加哥例真太阳时 −56.45 分钟（旧实现差一小时）。
+2. **四柱**：年/月柱、节气与起运走节气轴，日/时柱走本地视太阳时；`--zi-hour-rule midnight|zi_start` 用 `setSect`，不再移动出生瞬间；十神/神煞等从最终柱重算；缺 `calculation_sex` 不默认女命。
+3. **紫微**：JD 适配后统一 `by_lunar`，闰月中分法主盘 + `fix_leap=False` 对照盘；删除按历史事件择盘。
+4. **占星**：UT1、逐星 flags/引擎披露；Placidus 失败只标宫位不可用（保留 ASC/MC），显式 `whole_sign` 才切换；删除 Kerykeion；`standard-v1` 相位表。
+5. **人格与合盘**：`jung_calc` 保留原分与量程，新增 `--scores16`（原值+差值，不聚合）；删除出生盘推人格、Grip 风险星数、缺陷字典、`--hints`。`synastry_calc` 删除匹配总分/星级，改为分层 available/unavailable 观察。
+6. **统一外壳** `schemas/chart_bundle.json`（schema_version 2），CLI 退出码 0/1/2；`requirements.txt` 锁定直接依赖（含 jsonschema 4.25.1）。
+
+### 证据与流程
+
+- 新增 `intake_brief`、`case_evidence`、`sources`、`runtime_trace` schema 与 `scripts/quality_contracts.py`；重订 judge/consistency/chart_plan/final_verdict。
+- 独立分析后综合：判官输入隔离、`expected_judges` 覆盖校验、每维一次纠正复审；chief 按证据分类分歧，删除一致性评级。
+- `references/sources.json` 公共引文目录；未核原话不得署名引用；取消最低引文数。
+- roles 分档与 `task_fingerprint` 同案复用、runtime_trace 成本观测。
+- 适龄合同、截图双转录、隐私默认不外传。
+
+### 成品与验收
+
+- 输出模板合并为一套 CSS：disclosure/body/appendix 语义结构，details 仅附录；次文字色加深至 ≥4.5:1；打印字号底线。
+- 图表计划删除 26 图/锚点六图配额；新增 P17 亚型哑铃图；图表数据 `data-value-ref` 回链。
+- `validate_book.py`（必需 `--plan --evidence`）、新增 `guard_book.py`（受限修订与 prepare-revision）、`export_pdf.py`（`--verdict` 前置、附录展开、tagged/outline、内容与字号核对，删除页数门槛与自动剪页）。
+- 终审改为 16 项 I/A/R/D/P，pre/post 裁决，删除降级交付。
+
+
+### 验收记录（2026-09-28）
+
+- 单元测试 70 项通过；回归 18 例（3 例有独立数值锚点 PASS，15 例 CONTRACT_OK，0 FAIL）。
+- 真实个案（13 岁、JUNGUS 16 亚型截图）omp 端完整跑通 S0–S10：S4 拦下 4 项阻断（五行最少项计算错、分值升级为行为描述、来源状态越级、占星相位推个体困难），定点修订后 fresh chief 通过、判官未重跑；PDF 复核拦下短框跨页与表格字号 9.495pt 后纯排版修补；终审 16 项 pass、HTML/PDF 哈希一致。两名独立评审未发现阻断问题，一致指出防御性否定句重复、流程术语外露削弱文气。
+- 侯稿失败机制负例（6 处注入）：终审全部定位并阻断；validate_book 机器拦截正文 details 与隐藏/注释夹带，语义类（比喻升级为能力、假想经历、盘面推疾病、NERIS 冒称实测）依赖终审。
+- 验收后修正：导出字号门槛去掉 0.05pt 容差，模板打印字号按 Chromium 实测留 0.1pt 余量；validate_book 按 JSON Pointer 段匹配后代绑定；账本唯一 `case_evidence.json`；D1 须附 canonical 账本 validator ok 输出；D4 对隐藏/折叠关键信息一律 fail；book-writer 新增文风节（命题式开篇、先结论后展开、术语转译、可证伪的竞争解释、可调整行动；剔除宿命断语与贬义原型标签）；修正两条《子平真诠》引文原文。
+- 文风重写复测（复用 S0–S4C，重跑 S5–S10）：终审 16 项 pass、22 页；八字图“五行统计口径”缺绑定已补。运行中暴露并修正三处工具问题：PDF 文本提取的 CJK 部首别名（如 ⺒→巳）误报缺块；页眉标题被当正文判字号；账本中未被引用的历史 artifact 被当作失效错误（被引用的非 current 产物仍无法解析而失败）。否定式边界句仅小幅减少，文气仍待改进。
+- 未完成：Claude Code 端未跑真实成书；六个合成 fixture 双端矩阵按用户要求改为单一真实个案；成本遥测本次无可归属 usage，未做节省比例结论。
+---
+
 ## v4.1.0 — 2026-09-27
 
 **Claude Code / omp 双端适配 + 修复 v4.0 遗留的 🔴 缺陷**。做法沿用 strategic-insight-longform 的「单源 skill + 三层间接」：编排动词、能力词、模型角色三层中立化，工具名只出现在 `runtime-{omp,cc}.md`。

@@ -1,16 +1,5 @@
 #!/usr/bin/env python3
-"""destiny-matrix 第 0 步 preflight（v4.1）。只用标准库，任何 python3 都能跑。
-
-用法:
-  python3 doctor.py            # 人读摘要
-  python3 doctor.py --json     # 结构化输出（Leader 读 dm_root / dm_py 注入派遣）
-  python3 doctor.py --regression   # 额外跑完整回归（约 15 秒）
-
-解析 $DM_PY 的顺序：环境变量 DM_PY → ~/.local/share/destiny-matrix/venv/bin/python
-→ 当前解释器 → PATH 上的 python3；取第一个依赖齐备者。
-
-退出码: 0 = 无 🔴；1 = 存在 🔴（停线报用户，不降级运行）
-"""
+"""destiny-matrix v5 preflight. Reports interpreter, contracts and a real chart smoke."""
 from __future__ import annotations
 
 import json
@@ -23,154 +12,233 @@ from pathlib import Path
 DM_ROOT = Path(__file__).resolve().parent.parent
 HOME = Path.home()
 DEFAULT_VENV_PY = HOME / '.local/share/destiny-matrix/venv/bin/python'
-
-CORE_MODULES = ['lunar_python', 'iztro_py', 'swisseph', 'sxtwl', 'geonamescache', 'timezonefinder']
+CORE_MODULES = [
+    'lunar_python', 'iztro_py', 'swisseph', 'sxtwl', 'geonamescache',
+    'timezonefinder', 'jsonschema',
+]
 EXPORT_MODULES = ['playwright', 'pypdf']
-OPTIONAL_MODULES = ['kerykeion']
 TIERS = ['dm-deep', 'dm-research', 'dm-light']
 
+DIST_NAMES = {'lunar_python': 'lunar-python', 'iztro_py': 'iztro-py',
+              'swisseph': 'pyswisseph'}
 checks: list[dict] = []
-
-
 def add(cid: str, level: str, detail: str) -> None:
     checks.append({'id': cid, 'level': level, 'detail': detail})
 
 
 def probe_modules(py: str) -> dict:
-    code = ('import importlib,json,sys\nr={}\n'
-            'for m in sys.argv[1:]:\n'
-            '    try: importlib.import_module(m); r[m]=True\n'
-            '    except Exception: r[m]=False\n'
-            'print(json.dumps({"version": sys.version.split()[0], "mods": r}))')
+    code = (
+        'import importlib,importlib.metadata,json,sys\n'
+        'mods={}\n'
+        f'dist={DIST_NAMES!r}\n'
+        'for name in sys.argv[1:]:\n'
+        ' try:\n'
+        '  mod=importlib.import_module(name)\n'
+        '  ver=getattr(mod,"__version__",None) or getattr(mod,"version",None)\n'
+        '  if not isinstance(ver,(str,int,float)): ver=importlib.metadata.version(dist.get(name,name))\n'
+        '  mods[name]={"ok":True,"version":str(ver)}\n'
+        ' except Exception as exc: mods[name]={"ok":False,"error":type(exc).__name__+": "+str(exc)}\n'
+        'print(json.dumps({"python":sys.executable,"version":sys.version.split()[0],"modules":mods}))'
+    )
     try:
-        out = subprocess.run([py, '-c', code, *CORE_MODULES, *EXPORT_MODULES, *OPTIONAL_MODULES],
-                             capture_output=True, text=True, timeout=60)
-        return json.loads(out.stdout)
-    except Exception as e:  # 解释器不存在 / 崩溃
-        return {'error': f'{type(e).__name__}: {e}'}
+        result = subprocess.run([py, '-c', code, *CORE_MODULES, *EXPORT_MODULES],
+                                capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired as exc:
+        return {'error': 'interpreter_timeout', 'detail': str(exc)}
+    except OSError as exc:
+        return {'error': 'interpreter_unavailable', 'detail': str(exc)}
+    if result.returncode:
+        return {'error': 'interpreter_failed', 'detail': result.stderr.strip()[-500:]}
+    try:
+        report = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        return {'error': 'invalid_probe_json', 'detail': f'{exc}: {result.stdout[:200]!r}'}
+    if not isinstance(report, dict) or not isinstance(report.get('modules'), dict):
+        return {'error': 'invalid_probe_shape', 'detail': result.stdout[:200]}
+    report['stderr'] = result.stderr.strip()[-300:] if result.stderr.strip() else None
+    return report
 
 
 def resolve_dm_py() -> str | None:
-    cands = []
+    candidates = []
     if os.environ.get('DM_PY'):
-        cands.append(os.environ['DM_PY'])
-    cands += [str(DEFAULT_VENV_PY), sys.executable, shutil.which('python3') or '']
+        candidates.append(os.environ['DM_PY'])
+    candidates += [str(DEFAULT_VENV_PY), sys.executable, shutil.which('python3') or '']
     seen = set()
-    for c in cands:
-        if not c or c in seen or not Path(c).exists():
+    for candidate in candidates:
+        if not candidate or candidate in seen or not Path(candidate).exists():
             continue
-        seen.add(c)
-        r = probe_modules(c)
-        mods = r.get('mods', {})
-        missing = [m for m in CORE_MODULES + EXPORT_MODULES if not mods.get(m)]
+        seen.add(candidate)
+        result = probe_modules(candidate)
+        modules = result.get('modules', {})
+        missing = [name for name in CORE_MODULES + EXPORT_MODULES
+                   if not modules.get(name, {}).get('ok')]
         if not missing:
-            opt = [m for m in OPTIONAL_MODULES if not mods.get(m)]
-            add('python', 'green', f'{c}（Python {r["version"]}）依赖齐备'
-                + (f'；可选缺 {opt}（占星 SVG 圆盘不可用）' if opt else ''))
-            return c
-        add('python.candidate', 'yellow', f'{c} 缺 {missing}' if 'error' not in r else f'{c}: {r["error"]}')
-    add('python', 'red', '没有依赖齐备的解释器。建 venv：'
-        f'python3.12 -m venv {DEFAULT_VENV_PY.parent.parent} && {DEFAULT_VENV_PY} -m pip install '
-        + ' '.join(['lunar_python', 'iztro-py', 'pyswisseph', 'sxtwl', 'geonamescache', 'timezonefinder',
-                    'kerykeion', 'playwright', 'pypdf'])
-        + f' && {DEFAULT_VENV_PY} -m playwright install chromium')
+            versions = ', '.join(f'{name}={modules[name]["version"]}'
+                                 for name in CORE_MODULES + EXPORT_MODULES)
+            add('python', 'green', f'{candidate} (Python {result["version"]}); {versions}')
+            return candidate
+        if 'error' in result:
+            add('python.candidate', 'red',
+                f'{candidate}: {result["error"]}: {result.get("detail", "")}')
+        else:
+            failed = {name: modules.get(name) for name in missing}
+            add('python.candidate', 'yellow', f'{candidate} modules unavailable: {failed}')
+    add('python', 'red',
+        f'没有依赖齐备的解释器；请使用 {DEFAULT_VENV_PY} 并按 requirements.txt 安装')
     return None
 
 
 def check_chromium(py: str) -> None:
     code = ('from playwright.sync_api import sync_playwright\n'
             'p=sync_playwright().start(); b=p.chromium.launch(); b.close(); p.stop(); print("ok")')
-    r = subprocess.run([py, '-c', code], capture_output=True, text=True, timeout=120)
-    if r.returncode == 0 and 'ok' in r.stdout:
-        add('pdf.chromium', 'green', 'playwright chromium 可启动（S10 export_pdf 可用）')
+    try:
+        result = subprocess.run([py, '-c', code], capture_output=True,
+                                text=True, timeout=120)
+    except subprocess.TimeoutExpired:
+        add('pdf.chromium', 'red', 'Chromium 启动超时')
+        return
+    if result.returncode == 0 and result.stdout.strip() == 'ok':
+        add('pdf.chromium', 'green', 'Playwright Chromium 可启动；这不代表 PDF 导出通过')
     else:
-        add('pdf.chromium', 'red', f'playwright chromium 启动失败：{r.stderr.strip()[-300:]}；'
-            f'修复：{py} -m playwright install chromium')
+        add('pdf.chromium', 'red',
+            f'Chromium 启动失败: {result.stderr.strip()[-300:]}')
+
+
+def check_chart_bundle_schema(py: str, payload: str) -> tuple[bool, str]:
+    code = (
+        'import json,sys; from jsonschema import Draft202012Validator; '
+        'schema=json.load(open(sys.argv[1],encoding="utf-8")); '
+        'data=json.load(sys.stdin); errors=list(Draft202012Validator(schema).iter_errors(data)); '
+        'print("; ".join(f"{e.json_path}: {e.message}" for e in errors)); sys.exit(bool(errors))'
+    )
+    try:
+        result = subprocess.run([py, '-c', code, str(DM_ROOT / 'schemas/chart_bundle.json')],
+                                input=payload, capture_output=True, text=True, timeout=20)
+    except subprocess.TimeoutExpired:
+        return False, 'schema validation timed out'
+    return result.returncode == 0, result.stdout.strip() or result.stderr.strip()
 
 
 def check_cast(py: str) -> None:
-    """判官隔离与时间管线自检：排一张固定样盘。"""
-    r = subprocess.run([py, str(DM_ROOT / 'scripts/cast_chart.py'), '1990-01-15', '08:30', 'm', '北京'],
-                       capture_output=True, text=True, timeout=120)
-    if r.returncode != 0:
-        add('cast', 'red', f'cast_chart.py exit={r.returncode}: {r.stderr.strip()[-300:]}')
+    """Exercise positional contract and compare astro JD with Swiss UTC conversion."""
+    script = DM_ROOT / 'scripts/cast_chart.py'
+    command = [py, str(script), '1990-07-15', '12:00', 'm', 'Chicago',
+               '--lat=41.88', '--lon=-87.63', '--tz=-5']
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=60)
+    except subprocess.TimeoutExpired:
+        add('cast', 'red', 'cast_chart.py smoke 超时')
         return
-    d = json.loads(r.stdout)
-    errs = [k for k in ('八字', '紫微', '占星') if isinstance(d.get(k), dict) and 'error' in d[k]]
-    if errs:
-        add('cast', 'red', f'子脚本失败: {errs}')
+    if result.returncode != 0:
+        add('cast', 'red', f'cast_chart.py exit={result.returncode}: {result.stderr.strip()[-300:]}')
+        try:
+            response = json.loads(result.stdout)
+            if response.get('status') == 'error':
+                add('cast.error_json', 'green', str(response.get('errors', [])))
+        except json.JSONDecodeError:
+            add('cast.error_json', 'red', '失败输出不是结构化 error JSON')
         return
-    add('cast', 'green', '样盘三体系齐备')
-    if '性格映射提示' in r.stdout:
-        add('isolation.hints', 'red', '排盘 JSON 含「性格映射提示」——会污染 S4 判官（脚本被回退到 v4.0？）')
+    try:
+        bundle = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        add('cast', 'red', f'cast 输出非 JSON: {exc}')
+        return
+    if bundle.get('schema_version') != 2 or set(bundle.get('dimensions', {})) != {'bazi', 'ziwei', 'astrology'}:
+        add('cast.bundle', 'red', '缺少 schema_version 2 或三维命盘')
+        return
+    valid, detail = check_chart_bundle_schema(py, result.stdout)
+    add('cast.schema', 'green' if valid else 'red',
+        'chart_bundle Draft 2020-12 校验通过' if valid else detail)
+    utc = bundle.get('time_context', {}).get('utc_instant')
+    astro = bundle['dimensions']['astrology'].get('data') or {}
+    birth = astro.get('出生信息', {})
+    actual_jd = birth.get('UT1 儒略日')
+    if utc != '1990-07-15T17:00:00Z' or birth.get('UTC') != utc:
+        add('astro.clock_time', 'red', f'UTC 瞬间不符: context={utc}, astro={birth.get("UTC")}')
+        return
+    expected_code = (
+        'import json,swisseph as s; print(json.dumps(s.utc_to_jd(1990,7,15,17,0,0,s.GREG_CAL)[1]))'
+    )
+    try:
+        expected_run = subprocess.run([py, '-c', expected_code], capture_output=True,
+                                      text=True, timeout=20)
+        expected_jd = json.loads(expected_run.stdout)
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError) as exc:
+        add('astro.clock_time', 'red', f'无法独立取得 Swiss UTC→UT1 JD: {exc}')
+        return
+    if expected_run.returncode or actual_jd is None or abs(float(actual_jd) - expected_jd) > 1e-10:
+        add('astro.clock_time', 'red',
+            f'UT1 JD 与 swe.utc_to_jd 不符: actual={actual_jd}, expected={expected_jd}')
     else:
-        add('isolation.hints', 'green', '排盘 JSON 不含「性格映射提示」')
-    if '时刻口径' in d.get('元数据', {}):
-        add('astro.clock_time', 'green', '占星段使用钟表时（元数据.时刻口径 存在）')
-    else:
-        add('astro.clock_time', 'red', 'cast_chart 无「时刻口径」——可能仍是 v4.0 的占星重复校正版本')
-
-
-def check_regression(py: str) -> None:
-    r = subprocess.run([py, str(DM_ROOT / 'tests/run_regression.py')], capture_output=True, text=True, timeout=600)
-    tail = r.stdout.strip().splitlines()[-12:]
-    add('regression', 'green' if r.returncode == 0 else 'red', ' | '.join(tail))
+        add('astro.clock_time', 'green', f'UTC=17:00Z; 实际 UT1 JD={actual_jd} 与 swe.utc_to_jd 一致')
+    apparent = bundle.get('time_context', {}).get('local_apparent_datetime')
+    add('cast.bundle', 'green', f'三维结果 status={bundle.get("status")}; true-solar={apparent}')
+    if any(d.get('status') == 'error' for d in bundle['dimensions'].values()):
+        add('cast.dimensions', 'red', '存在计算失败维度')
 
 
 def check_omp() -> None:
-    agents_dir = HOME / '.omp/agent/agents'
-    if not (HOME / '.omp').exists():
-        add('omp', 'yellow', '未检测到 ~/.omp（非 omp 环境可忽略）')
+    omp_cli = shutil.which('omp')
+    if not omp_cli:
+        add('omp.roles', 'yellow', '未检测到 omp CLI；无法只读确认 /model roles 可见性')
         return
-    for t in TIERS:
-        link = agents_dir / f'{t}.md'
-        target = DM_ROOT / 'adapters/omp' / f'{t}.md'
+    add('omp.roles', 'yellow',
+        f'检测到 omp CLI ({omp_cli})；未修改配置，doctor 不推断 /model roles 的 resolvedModel')
+    agents_dir = HOME / '.omp/agent/agents'
+    for tier in TIERS:
+        link = agents_dir / f'{tier}.md'
+        target = DM_ROOT / 'adapters/omp' / f'{tier}.md'
         if link.exists() and link.resolve() == target.resolve():
-            add(f'omp.agent.{t}', 'green', f'{link} → {target}')
+            add(f'omp.agent.{tier}', 'green', f'{link} → {target}')
         else:
-            add(f'omp.agent.{t}', 'red', f'缺 omp 档位 agent：ln -s {target} {link}')
-    skill_links = [HOME / '.agents/skills/destiny-matrix', HOME / '.omp/agent/skills/destiny-matrix']
-    found = [str(p) for p in skill_links if p.exists() and p.resolve() == DM_ROOT]
-    if found:
-        add('omp.skill', 'green', f'omp 可发现本 skill：{found[0]}')
-    else:
-        add('omp.skill', 'red', f'omp 发现不到本 skill：ln -s {DM_ROOT} {skill_links[0]}')
-    cfg = HOME / '.omp/agent/config.yml'
-    text = cfg.read_text(encoding='utf-8') if cfg.exists() else ''
-    unlocked = [t for t in TIERS if f'{t}: "off"' not in text and f"{t}: off" not in text]
-    if unlocked:
-        add('omp.prewalk_advisor', 'yellow',
-            f'config.yml 未显式锁 off：{unlocked}（frontmatter 已是 false；如需与 sil-* 同样双保险，'
-            '在 task.agentPrewalk / task.agentAdvisor 下各加 `dm-xxx: "off"`）')
-    else:
-        add('omp.prewalk_advisor', 'green', 'config.yml 已锁 dm-* prewalk/advisor off')
+            add(f'omp.agent.{tier}', 'yellow', f'未发现 {tier} agent 链接到本技能 adapter')
 
 
 def check_cc() -> None:
-    v = os.environ.get('CLAUDE_CODE_SUBAGENT_MODEL')
-    if v and v != 'inherit':
-        add('cc.subagent_model', 'yellow', f'CLAUDE_CODE_SUBAGENT_MODEL={v}：cc 端所有 teammate 会被改用该模型')
+    cli = shutil.which('claude')
+    model = os.environ.get('CLAUDE_CODE_SUBAGENT_MODEL')
+    if not cli:
+        add('cc.roles', 'yellow', '未检测到 Claude Code CLI；无法确认子代理 role 可见性')
+    elif model and model != 'inherit':
+        add('cc.roles', 'yellow',
+            f'检测到 Claude Code；CLAUDE_CODE_SUBAGENT_MODEL={model} 覆盖可能生效，未修改设置')
+    else:
+        add('cc.roles', 'yellow',
+            '检测到 Claude Code CLI；只读检查未能证明实际子代理 resolvedModel')
+
+
+def check_regression(py: str) -> None:
+    try:
+        result = subprocess.run([py, str(DM_ROOT / 'tests/run_regression.py')],
+                                capture_output=True, text=True, timeout=600)
+    except subprocess.TimeoutExpired:
+        add('regression', 'red', '回归执行超时')
+        return
+    tail = ' | '.join(result.stdout.strip().splitlines()[-12:])
+    add('regression', 'green' if result.returncode == 0 else 'red', tail or result.stderr[-300:])
 
 
 def main() -> int:
-    as_json = '--json' in sys.argv
+    as_json = '--json' in sys.argv[1:]
     dm_py = resolve_dm_py()
     if dm_py:
         check_chromium(dm_py)
         check_cast(dm_py)
-        if '--regression' in sys.argv:
+        if '--regression' in sys.argv[1:]:
             check_regression(dm_py)
     check_omp()
     check_cc()
-    red = [c for c in checks if c['level'] == 'red']
-    report = {'dm_root': str(DM_ROOT), 'dm_py': dm_py, 'ok': not red, 'checks': checks}
+    red = [item for item in checks if item['level'] == 'red']
+    report = {'dm_root': str(DM_ROOT), 'dm_py': dm_py,
+              'dm_py_path': dm_py, 'ok': not red, 'checks': checks}
     if as_json:
         print(json.dumps(report, ensure_ascii=False, indent=2))
     else:
         icon = {'green': '🟢', 'yellow': '🟡', 'red': '🔴'}
         print(f'DM    = {DM_ROOT}\nDM_PY = {dm_py}')
-        for c in checks:
-            print(f"{icon[c['level']]} {c['id']}: {c['detail']}")
+        for item in checks:
+            print(f"{icon[item['level']]} {item['id']}: {item['detail']}")
     return 1 if red else 0
 
 

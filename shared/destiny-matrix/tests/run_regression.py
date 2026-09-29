@@ -1,398 +1,397 @@
 #!/usr/bin/env python3
-# v4.1
-"""destiny-matrix 回归测试运行器
-
-跑遍 regression_baseline.json 中所有命例，比对 cast_chart.py 输出与期望锚点。
-
-v4.1 起每条用例额外做「占星直调对照」：用钟表时原值直接调用 astro_calc.py，
-要求与 cast_chart.py 占星段的儒略日与上升黄经完全一致——专门拦截
-「占星段被喂了真太阳时校正后时刻」这类时间管线错误（v4.0 潜伏三个月的 🔴）。
-
-用法（解释器用 venv，见 SKILL.md「运行环境」）:
-    $DM_PY tests/run_regression.py                # 跑全部
-    $DM_PY tests/run_regression.py --id 毛泽东     # 跑单条
-    $DM_PY tests/run_regression.py --category boundary  # 只跑边界用例
-    $DM_PY tests/run_regression.py --verbose      # 显示每条详情
-
-退出码:
-    0  全部 PASS / WARN
-    1  存在 FAIL
-    2  基线无法加载 / 过滤条件未匹配任何用例
-"""
+"""v5 legacy input pipeline checks; these cases do not claim chart accuracy."""
 from __future__ import annotations
 
 import argparse
 import json
-import re
+import math
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
-BASELINE = Path(__file__).parent / 'regression_baseline.json'
-SCRIPTS = Path(__file__).parent.parent / 'scripts'
+BASELINE = Path(__file__).with_name('regression_baseline.json')
+ROOT = BASELINE.parent.parent
+SCRIPTS = ROOT / 'scripts'
 CAST_CHART = SCRIPTS / 'cast_chart.py'
 ASTRO_CALC = SCRIPTS / 'astro_calc.py'
-
-# 度数级锚点容差：输出保留 2 位小数，容差取 0.02°
-DEG_TOL = 0.02
-
-import os
-
-# 中文星座关键字（占星输出形如 "天秤座 7.24° (落 7 宫)"）
-ZODIAC_KEYS = [
-    '白羊', '金牛', '双子', '巨蟹', '狮子', '处女',
-    '天秤', '天蝎', '射手', '摩羯', '水瓶', '双鱼',
-]
+CHART_SCHEMA = ROOT / 'schemas/chart_bundle.json'
+ANALYSIS_AS_OF = '2026-01-15'
 
 
-# ---------- 辅助提取函数 ----------
-
-def safe_get(d: Any, *path, default=None):
-    cur = d
-    for p in path:
-        if isinstance(cur, dict) and p in cur:
-            cur = cur[p]
+def safe_get(value: Any, *path, default=None):
+    current = value
+    for key in path:
+        if isinstance(current, dict):
+            current = current.get(key, default)
+        elif isinstance(current, list) and isinstance(key, int) and 0 <= key < len(current):
+            current = current[key]
         else:
             return default
-    return cur
+    return current
 
 
 def extract_zodiac(text: str) -> str | None:
-    """从 '天秤座 7.24° (落 7 宫)' 中提取 '天秤'"""
-    if not text or not isinstance(text, str):
+    if not isinstance(text, str):
         return None
-    for k in ZODIAC_KEYS:
-        if k in text:
-            return k
+    for sign in ('白羊', '金牛', '双子', '巨蟹', '狮子', '处女',
+                 '天秤', '天蝎', '射手', '摩羯', '水瓶', '双鱼'):
+        if sign in text:
+            return sign
     return None
 
 
-def sign_lon(sign: str | None, deg_in_sign: float | None) -> float | None:
-    """星座 + 宫内度数 → 黄经（0-360）"""
-    if sign not in ZODIAC_KEYS or deg_in_sign is None:
+def find_ming_palace(value: Any) -> dict | None:
+    if not isinstance(value, list):
         return None
-    return round(ZODIAC_KEYS.index(sign) * 30 + float(deg_in_sign), 2)
+    return next((row for row in value if isinstance(row, dict)
+                 and row.get('宫位') in {'命宫', '命宫宫'}), None)
 
 
-def extract_asc_lon(astro: dict) -> float | None:
-    """上升黄经 = 第 1 宫宫始星座 × 30 + 宫内度数"""
-    houses = safe_get(astro, '十二宫', default=[])
-    if not isinstance(houses, list) or not houses:
-        return None
-    h1 = next((h for h in houses if isinstance(h, dict) and h.get('宫位') == 1), None)
-    if not h1:
-        return None
-    return sign_lon(h1.get('宫始星座'), h1.get('宫内度数'))
+def extract_actual(key: str, bundle: dict):
+    bazi = safe_get(bundle, 'dimensions', 'bazi', 'data', default={}) or {}
+    ziwei = safe_get(bundle, 'dimensions', 'ziwei', 'data', default={}) or {}
+    astro = safe_get(bundle, 'dimensions', 'astrology', 'data', default={}) or {}
+    if key in {'bazi_year_pillar', 'bazi_month_pillar'}:
+        pillar = '年柱' if key == 'bazi_year_pillar' else '月柱'
+        row = next((item for item in bazi.get('四柱', [])
+                    if isinstance(item, dict) and item.get('柱') == pillar), None)
+        return row.get('干支') if row else None
+    if key == 'bazi_day_master':
+        return safe_get(bazi, '日主', '天干')
+    if key == 'bazi_day_master_element':
+        return safe_get(bazi, '日主', '五行')
+    if key == 'bazi_dominant_element':
+        ratios = bazi.get('五行比例', {})
+        return max(ratios, key=ratios.get) if ratios else None
+    if key == 'ziwei_ming_palace_stars':
+        palace = find_ming_palace(ziwei.get('十二宫', [])) or {}
+        return [item.get('名称') for item in palace.get('主星', [])
+                if isinstance(item, dict)]
+    if key == 'ziwei_ming_branch':
+        return safe_get(ziwei, '基础信息', '命宫地支')
+    if key == 'ziwei_wuxing_ju':
+        return safe_get(ziwei, '基础信息', '五行局')
+    if key in {'astro_sun_sign', 'astro_rising_sign', 'astro_moon_sign'}:
+        field = {'astro_sun_sign': '太阳', 'astro_rising_sign': '上升',
+                 'astro_moon_sign': '月亮'}[key]
+        return extract_zodiac(safe_get(astro, '三轴心', field, default=''))
+    if key in {'astro_asc_lon', 'astro_sun_lon', 'astro_moon_lon'}:
+        if key == 'astro_asc_lon':
+            raw = safe_get(astro, 'ASC_MC_原始黄经', 'ASC')
+        else:
+            name = '太阳' if key == 'astro_sun_lon' else '月亮'
+            raw = safe_get(astro, '十大行星+北交+凯龙+莉莉丝', name, '黄经')
+        return float(raw) if raw is not None else None
+    raise ValueError(f'未知精确锚点字段: {key}')
 
 
-def extract_planet_lon(astro: dict, planet: str) -> float | None:
-    v = safe_get(astro, '十大行星+北交+凯龙', planet, '黄经')
-    return round(float(v), 2) if v is not None else None
+def validate_anchor_metadata(case: dict) -> list[str]:
+    anchors = case.get('expected_anchors', [])
+    if not isinstance(anchors, list):
+        return [f'{case.get("id")}: expected_anchors 必须为带来源元数据的数组']
+    issues = []
+    nullable = set(case.get('nullable_anchors', []))
+    for row in anchors:
+        if not isinstance(row, dict):
+            issues.append(f'{case.get("id")}: anchor 必须为对象')
+            continue
+        key = row.get('id')
+        if not key:
+            issues.append(f'{case.get("id")}: anchor 缺少 id')
+            continue
+        try:
+            extract_actual(key, {})
+        except ValueError as exc:
+            issues.append(f'{case.get("id")}: {exc}')
+        for field in ('value', 'source', 'locator', 'method', 'dependency_version', 'tolerance'):
+            if field not in row or row[field] is None or row[field] == '':
+                issues.append(f'{case.get("id")}.{key}: 缺少锚点元数据 {field}')
+        if row.get('source_status') not in {'verified', 'disputed'}:
+            issues.append(f'{case.get("id")}.{key}: source_status 必须为 verified/disputed')
+        if row.get('source_status') == 'disputed' and key not in nullable:
+            issues.append(f'{case.get("id")}.{key}: 史料争议锚点必须列入 nullable_anchors')
+        tol = row.get('tolerance')
+        if isinstance(tol, bool) or not isinstance(tol, (int, float)) or not math.isfinite(tol) or tol < 0:
+            issues.append(f'{case.get("id")}.{key}: tolerance 必须为有限非负数')
+    if nullable - {row.get('id') for row in anchors if isinstance(row, dict)}:
+        issues.append(f'{case.get("id")}: nullable_anchors 指向不存在的锚点')
+    return issues
 
 
-def extract_dominant_element(ratios: dict) -> str | None:
-    """从 五行比例 dict 中找最大者"""
-    if not ratios or not isinstance(ratios, dict):
-        return None
+def validate_contract_metadata(case: dict) -> list[str]:
+    contracts = case.get('expected_contracts', [])
+    if not isinstance(contracts, list):
+        return [f'{case.get("id")}: expected_contracts 必须为数组']
+    known = {'placidus_unavailable', 'asc_mc_available', 'whole_sign_available'}
+    seen = set()
+    issues = []
+    for row in contracts:
+        if not isinstance(row, dict) or row.get('id') not in known:
+            issues.append(f'{case.get("id")}: expected_contracts 有未知断言')
+            continue
+        key = row['id']
+        if key in seen:
+            issues.append(f'{case.get("id")}: expected_contracts 重复 {key}')
+        seen.add(key)
+        if type(row.get('value')) is not bool:
+            issues.append(f'{case.get("id")}.{key}: value 必须为布尔值')
+    return issues
+
+
+def contract_value(key: str, bundle: dict) -> bool:
+    astro = safe_get(bundle, 'dimensions', 'astrology', 'data', default={}) or {}
+    raw_angles = astro.get('ASC_MC_原始黄经')
+    if key == 'placidus_unavailable':
+        return (astro.get('requested_house_system') == 'placidus'
+                and astro.get('宫位制') == 'unavailable'
+                and astro.get('十二宫始黄经') is None)
+    if key == 'asc_mc_available':
+        axis = astro.get('三轴心')
+        return (isinstance(raw_angles, dict)
+                and all(isinstance(raw_angles.get(name), (int, float))
+                        and not isinstance(raw_angles.get(name), bool)
+                        and math.isfinite(raw_angles[name])
+                        and 0 <= raw_angles[name] < 360
+                        for name in ('ASC', 'MC'))
+                and isinstance(axis, dict)
+                and '上升' in axis and '天顶MC' in axis)
+    if key == 'whole_sign_available':
+        cusps = astro.get('十二宫始黄经')
+        return (astro.get('requested_house_system') == 'whole_sign'
+                and astro.get('宫位制') == 'Whole Sign'
+                and isinstance(cusps, list) and len(cusps) == 12)
+    raise ValueError(f'未知合同断言: {key}')
+
+
+def compare_contracts(case: dict, bundle: dict) -> list[str]:
+    failures = []
+    for row in case.get('expected_contracts', []):
+        actual = contract_value(row['id'], bundle)
+        if actual is not row['value']:
+            failures.append(f'{row["id"]}: expected={row["value"]!r}, actual={actual!r}')
+    return failures
+
+
+def compare_anchors(case: dict, bundle: dict) -> tuple[list[str], list[str]]:
+    failures, warnings = [], []
+    nullable = set(case.get('nullable_anchors', []))
+    for row in case.get('expected_anchors', []):
+        key, expected = row['id'], row['value']
+        actual = extract_actual(key, bundle)
+        tolerance = row['tolerance']
+        if isinstance(expected, (int, float)) and not isinstance(expected, bool):
+            matched = actual is not None and abs(float(actual) - float(expected)) <= tolerance
+        elif key == 'ziwei_ming_palace_stars':
+            exp = set(expected if isinstance(expected, list) else [expected])
+            matched = bool(exp & set(actual or []))
+        else:
+            matched = actual == expected
+        if not matched:
+            message = f'{key}: expected={expected!r} ±{tolerance}, actual={actual!r}'
+            (warnings if key in nullable else failures).append(message)
+    return failures, warnings
+
+
+def make_intake(case: dict) -> dict:
+    raw = case['input']
+    location = {}
+    if raw.get('city'):
+        location['city'] = raw['city']
+    if raw.get('latitude') is not None:
+        location['latitude'] = raw['latitude']
+    if raw.get('longitude') is not None:
+        location['longitude'] = raw['longitude']
+    subject = {
+        'birth_date': raw.get('birth_date'), 'lunar_date': raw.get('lunar_date'),
+        'date_calendar': case.get('date_calendar', 'gregorian'),
+        'calculation_sex': raw.get('calculation_sex'), 'location': location,
+    }
+    precision = raw.get('precision', 'minute')
+    start = raw.get('time_input_start')
+    if start is None and raw.get('birth_date') and raw.get('birth_time'):
+        start = f"{raw['birth_date']}T{raw['birth_time']}"
+    time_input = {
+        'precision': precision, 'start': start,
+        'end': raw.get('time_input_end'), 'branch_label': raw.get('branch_label'),
+        'timezone_name': raw.get('timezone_name'),
+        'utc_offset_hours': raw.get('utc_offset_hours'), 'fold': None,
+        'clock_basis': 'civil',
+    }
+    return {
+        'analysis_as_of': ANALYSIS_AS_OF, 'subject': subject,
+        'time_input': time_input,
+        'timing_request': {'years': [], 'months': [], 'systems': []},
+    }
+
+
+def run_cast_chart(case: dict, timeout: int = 60) -> tuple[dict | None, str]:
+    intake = make_intake(case)
     try:
-        return max(ratios.items(), key=lambda kv: kv[1])[0]
-    except Exception:
-        return None
-
-
-def find_ming_palace(twelve: list) -> dict | None:
-    if not isinstance(twelve, list):
-        return None
-    for g in twelve:
-        if isinstance(g, dict) and g.get('宫位') == '命宫':
-            return g
-    return None
-
-
-# ---------- 单条用例执行 ----------
-
-def run_cast_chart(inp: dict, timeout: int = 60) -> tuple[dict | None, str]:
-    """调用 cast_chart.py，返回 (json_dict_or_None, 错误信息)
-
-    使用 sys.executable：测试与子脚本同一解释器（cast_chart.py 内部亦然）。
-    """
-    cmd = [sys.executable, str(CAST_CHART),
-           inp['date'], inp['time'], inp['gender'], inp['city']]
-    if 'lat' in inp:
-        cmd.append(f'--lat={inp["lat"]}')
-    if 'lon' in inp:
-        cmd.append(f'--lon={inp["lon"]}')
-    if 'tz' in inp:
-        cmd.append(f'--tz={inp["tz"]}')
-
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True,
-                                timeout=timeout)
+        with tempfile.TemporaryDirectory(prefix='dm-regression-') as temp_dir:
+            intake_path = Path(temp_dir) / 'intake.json'
+            intake_path.write_text(json.dumps(intake, ensure_ascii=False), encoding='utf-8')
+            command = [sys.executable, str(CAST_CHART), '--intake', str(intake_path)]
+            if case.get('house_system'):
+                command.extend(['--house-system', case['house_system']])
+            result = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
         return None, f'cast_chart.py timeout ({timeout}s)'
-    except Exception as e:
-        return None, f'subprocess 异常: {type(e).__name__}: {e}'
-
-    if result.returncode != 0:
-        return None, f'cast_chart.py exit={result.returncode}; stderr={result.stderr.strip()[:300]}'
+    except OSError as exc:
+        return None, f'cast_chart.py 无法启动: {exc}'
     try:
-        return json.loads(result.stdout), ''
-    except json.JSONDecodeError as e:
-        return None, f'输出非 JSON: {e}; head={result.stdout[:200]}'
+        output = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        return None, f'输出非 JSON: {exc}; stdout={result.stdout[:200]!r}; stderr={result.stderr[:200]!r}'
+    if result.returncode:
+        return None, f'cast_chart.py exit={result.returncode}; response={output!r}; stderr={result.stderr[:300]}'
+    return output, ''
 
 
-def astro_direct_check(inp: dict, out: dict) -> list:
-    """占星直调对照：钟表时原值直调 astro_calc.py，儒略日与上升黄经须与 cast_chart 占星段一致。
-
-    lat/lon/tz 取 cast_chart 已解析的地理结果（本检查只针对时间管线，不针对地名解析）。
-    返回失败信息列表（空 = 一致）。
-    """
-    sys.path.insert(0, str(SCRIPTS))
+def check_parameter_pipeline(case: dict, bundle: dict, timeout: int = 60) -> list[str]:
+    """Compare cast and direct astro CLI outputs; same implementation, not independent-engine evidence."""
+    context = bundle.get('time_context') or {}
+    if context.get('precision') != 'minute':
+        return []
+    raw = case['input']
+    location = context.get('location', {})
+    lat, lon = location.get('latitude'), location.get('longitude')
+    if lat is None or lon is None:
+        return ['占星参数管线检查缺少规范化坐标']
+    command = [sys.executable, str(ASTRO_CALC), raw['birth_date'], raw['birth_time'],
+               str(lat), str(lon),
+               f"--house-system={case.get('house_system', 'placidus')}"]
+    timezone_name = context.get('timezone', {}).get('name')
+    offset = raw.get('utc_offset_hours')
+    if timezone_name and offset is None:
+        command.append(f'--tz-name={timezone_name}')
+    else:
+        if offset is None:
+            offset = context.get('timezone', {}).get('utc_offset_hours')
+        command.append(f'--tz={offset}')
     try:
-        import cast_chart  # noqa: E402
-    finally:
-        sys.path.pop(0)
-    y, m, d = map(int, inp['date'].split('-'))
-    opts = {'lat': inp.get('lat'), 'lon': inp.get('lon'), 'tz': inp.get('tz'),
-            'use_true_solar_time': True}
-    geo = cast_chart._resolve_geo(inp['city'], opts, y, m, d)
-    if not geo['resolved']:
-        return [f'直调对照：城市 {inp["city"]!r} 未解析']
-    tz_arg = str(inp['tz']) if inp.get('tz') is not None else (geo['iana_tz'] or str(geo['utc_offset']))
-    cmd = [sys.executable, str(ASTRO_CALC), inp['date'], inp['time'],
-           str(geo['lat']), str(geo['lon']), tz_arg]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-    if r.returncode != 0:
-        return [f'直调对照：astro_calc exit={r.returncode}; {r.stderr.strip()[:200]}']
-    direct = json.loads(r.stdout)
-    chart = out.get('占星', {})
-    fails = []
-    jd_c = safe_get(chart, '出生信息', '儒略日')
-    jd_d = safe_get(direct, '出生信息', '儒略日')
-    if jd_c is None or jd_d is None or abs(jd_c - jd_d) > 1e-6:
-        fails.append(f'直调对照：儒略日 cast_chart={jd_c} ≠ 直调={jd_d}（占星时刻被改动）')
-    asc_c, asc_d = extract_asc_lon(chart), extract_asc_lon(direct)
-    if asc_c is None or asc_d is None or abs(asc_c - asc_d) > DEG_TOL:
-        fails.append(f'直调对照：上升黄经 cast_chart={asc_c} ≠ 直调={asc_d}')
-    return fails
-
-
-def compare_anchors(expected: dict, out: dict, nullable: set) -> tuple[list, list, list]:
-    """返回 (fails, warns, oks)。fails/warns 元素形如 '锚点名: expected=X, actual=Y'。
-    人工 review 字段（推断 MBTI / 性格签名锚点）跳过。
-    """
-    fails, warns, oks = [], [], []
-
-    skip_keys = {'推断 MBTI', '性格签名锚点'}
-
-    for key, exp_val in expected.items():
-        if key in skip_keys:
-            continue
-
-        actual = None
-
-        if key == 'bazi_day_master':
-            actual = safe_get(out, '八字', '日主', '天干')
-        elif key == 'bazi_day_master_element':
-            actual = safe_get(out, '八字', '日主', '五行')
-        elif key == 'bazi_dominant_element':
-            actual = extract_dominant_element(safe_get(out, '八字', '五行比例', default={}))
-        elif key == 'ziwei_ming_palace_stars':
-            ming = find_ming_palace(safe_get(out, '紫微', '十二宫', default=[]))
-            stars = []
-            if ming:
-                stars = [s.get('名称') for s in ming.get('主星', []) if isinstance(s, dict)]
-            actual = stars
-            # 期望可能是单字符串或数组，统一为集合比对
-            exp_set = set(exp_val) if isinstance(exp_val, list) else {exp_val}
-            act_set = set(stars)
-            if not (exp_set & act_set):  # 没有任何一个命中
-                msg = f'{key}: expected={sorted(exp_set)}, actual={sorted(act_set)}'
-                (warns if key in nullable else fails).append(msg)
-            else:
-                oks.append(f'{key}={sorted(act_set)}')
-            continue
-        elif key == 'ziwei_ming_branch':
-            actual = safe_get(out, '紫微', '基础信息', '命宫地支')
-        elif key == 'ziwei_wuxing_ju':
-            actual = safe_get(out, '紫微', '基础信息', '五行局')
-        elif key == 'astro_sun_sign':
-            actual = extract_zodiac(safe_get(out, '占星', '三轴心', '太阳', default=''))
-        elif key == 'astro_rising_sign':
-            actual = extract_zodiac(safe_get(out, '占星', '三轴心', '上升', default=''))
-        elif key == 'astro_moon_sign':
-            actual = extract_zodiac(safe_get(out, '占星', '三轴心', '月亮', default=''))
-        elif key in ('astro_asc_lon', 'astro_sun_lon', 'astro_moon_lon'):
-            astro = out.get('占星', {})
-            actual = (extract_asc_lon(astro) if key == 'astro_asc_lon'
-                      else extract_planet_lon(astro, '太阳' if key == 'astro_sun_lon' else '月亮'))
-            if actual is not None and abs(actual - float(exp_val)) <= DEG_TOL:
-                oks.append(f'{key}={actual}')
-            else:
-                msg = f'{key}: expected={exp_val!r}±{DEG_TOL}, actual={actual!r}'
-                (warns if key in nullable else fails).append(msg)
-            continue
-        else:
-            warns.append(f'{key}: 未识别的锚点字段（跳过）')
-            continue
-
-        if actual == exp_val:
-            oks.append(f'{key}={actual}')
-        else:
-            msg = f'{key}: expected={exp_val!r}, actual={actual!r}'
-            (warns if key in nullable else fails).append(msg)
-
-    return fails, warns, oks
+        result = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
+        direct = json.loads(result.stdout)
+    except (subprocess.TimeoutExpired, OSError, json.JSONDecodeError) as exc:
+        return [f'astro_calc 参数管线调用失败: {exc}']
+    if result.returncode:
+        return [f'astro_calc 参数管线 exit={result.returncode}: {direct!r}']
+    cast_astro = safe_get(bundle, 'dimensions', 'astrology', 'data', default={}) or {}
+    direct_astro = direct.get('data') or {}
+    checks = [
+        ('UTC instant', safe_get(cast_astro, '出生信息', 'UTC'),
+         safe_get(direct_astro, '出生信息', 'UTC'), 0.0),
+        ('UT1 JD', safe_get(cast_astro, '出生信息', 'UT1 儒略日'),
+         safe_get(direct_astro, '出生信息', 'UT1 儒略日'), 1e-10),
+        ('ASC longitude', safe_get(cast_astro, 'ASC_MC_原始黄经', 'ASC'),
+         safe_get(direct_astro, 'ASC_MC_原始黄经', 'ASC'), 1e-8),
+    ]
+    failures = []
+    for label, actual, expected, tolerance in checks:
+        if actual is None or expected is None:
+            failures.append(f'{label}: 缺少 cast/direct 结果 ({actual!r}, {expected!r})')
+        elif isinstance(actual, (int, float)) and isinstance(expected, (int, float)):
+            if abs(actual - expected) > tolerance:
+                failures.append(f'{label}: cast={actual!r}, direct={expected!r}')
+        elif actual != expected:
+            failures.append(f'{label}: cast={actual!r}, direct={expected!r}')
+    return failures
 
 
 def run_case(case: dict) -> dict:
-    """跑一条用例，返回 {id, status, ...}"""
     cid = case['id']
-    if case.get('skip'):
-        return {'id': cid, 'status': 'SKIP', 'reason': case.get('skip_reason', 'marked skip')}
-
-    inp = case.get('input', {})
-    expected = case.get('expected_anchors', {})
-    nullable = set(case.get('nullable', []))
-
-    out, err = run_cast_chart(inp)
-    if out is None:
-        return {'id': cid, 'status': 'FAIL', 'reason': err}
-
-    # 子脚本部分错误：判定哪些锚点关联了失效模块
-    sub_errors = {}
-    for sub in ('八字', '紫微', '占星'):
-        if isinstance(out.get(sub), dict) and 'error' in out[sub]:
-            sub_errors[sub] = out[sub].get('error')
-
-    # 模块名 → 该模块对应的锚点前缀
-    module_to_prefix = {
-        '八字': 'bazi_',
-        '紫微': 'ziwei_',
-        '占星': 'astro_',
-    }
-    # 哪些 expected 锚点受子脚本失败影响（这些字段比对会跳过）
-    affected_anchors = set()
-    for sub in sub_errors:
-        prefix = module_to_prefix[sub]
-        affected_anchors.update(k for k in expected if k.startswith(prefix))
-
-    # 过滤掉受影响的锚点后，再比对剩余锚点
-    expected_filtered = {k: v for k, v in expected.items() if k not in affected_anchors}
-    fails, warns, oks = compare_anchors(expected_filtered, out, nullable)
-
-    # 把子脚本失败本身记录到 warns/fails（按 nullable 决定降级）
-    for sub, err in sub_errors.items():
-        prefix = module_to_prefix[sub]
-        related = [a for a in expected if a.startswith(prefix)]
-        msg = f'{sub} 子脚本异常: {err}'
-        # 该模块没有声明锚点 → WARN（用例不在乎该模块）
-        # 该模块所有锚点都 nullable → WARN
-        # 其它情况 → FAIL
-        if not related or all(a in nullable for a in related):
-            warns.append(msg)
-        else:
-            fails.append(msg)
-
-    # 占星直调对照（占星子脚本正常时必做；不受 nullable 影响——这是管线一致性，不是史料问题）
-    if '占星' not in sub_errors:
-        fails.extend(astro_direct_check(inp, out))
-
-    if fails:
-        status = 'FAIL'
-    elif warns:
+    if case.get('input_status') == 'calendar_pending_confirmation':
+        return {'id': cid, 'status': 'BLOCKED', 'reason': case.get('review_reason')}
+    bundle, error = run_cast_chart(case)
+    if bundle is None:
+        return {'id': cid, 'status': 'FAIL', 'reason': error}
+    from jsonschema import Draft202012Validator
+    schema = json.loads(CHART_SCHEMA.read_text(encoding='utf-8'))
+    schema_errors = list(Draft202012Validator(schema).iter_errors(bundle))
+    if schema_errors:
+        return {'id': cid, 'status': 'FAIL',
+                'reason': '; '.join(f'{e.json_path}: {e.message}' for e in schema_errors)}
+    if bundle.get('status') == 'error' or any(
+            bundle['dimensions'][key].get('status') == 'error'
+            for key in ('bazi', 'ziwei', 'astrology')):
+        return {'id': cid, 'status': 'FAIL', 'reason': 'bundle 声明计算错误'}
+    anchor_failures, anchor_warnings = compare_anchors(case, bundle)
+    contract_failures = compare_contracts(case, bundle)
+    pipeline_failures = check_parameter_pipeline(case, bundle)
+    failures = anchor_failures + contract_failures + pipeline_failures
+    if failures:
+        return {'id': cid, 'status': 'FAIL', 'fails': failures,
+                'warns': anchor_warnings, 'dimension_statuses': {
+                    key: bundle['dimensions'][key]['status']
+                    for key in ('bazi', 'ziwei', 'astrology')}}
+    if anchor_warnings:
         status = 'WARN'
-    else:
+    elif case.get('expected_anchors') or case.get('expected_contracts'):
         status = 'PASS'
+    else:
+        status = 'CONTRACT_OK'
+    return {'id': cid, 'status': status, 'warns': anchor_warnings,
+            'dimension_statuses': {
+                key: bundle['dimensions'][key]['status']
+                for key in ('bazi', 'ziwei', 'astrology')},
+            'accuracy_claim': False}
 
-    return {
-        'id': cid,
-        'status': status,
-        'fails': fails,
-        'warns': warns,
-        'oks': oks,
-        'note': case.get('note'),
-    }
-
-
-# ---------- 主流程 ----------
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description='destiny-matrix v3 回归测试')
-    parser.add_argument('--id', help='只跑指定 id 的用例')
-    parser.add_argument('--category', help='只跑指定 category（celebrity / boundary）')
-    parser.add_argument('--verbose', '-v', action='store_true', help='显示每条用例的命中锚点')
+    parser = argparse.ArgumentParser(description='destiny-matrix v5 regression pipeline checks')
+    parser.add_argument('--id', help='只运行指定 case id')
+    parser.add_argument('--category', help='只运行指定 category')
+    parser.add_argument('--verbose', '-v', action='store_true')
     args = parser.parse_args()
-
     try:
-        with open(BASELINE, encoding='utf-8') as f:
-            baseline = json.load(f)
-    except Exception as e:
-        print(f'ERROR: 无法加载 {BASELINE}: {e}', file=sys.stderr)
+        baseline = json.loads(BASELINE.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f'ERROR: 无法加载 regression baseline: {exc}', file=sys.stderr)
         return 2
-
+    if baseline.get('_meta', {}).get('version') != '5.0.0':
+        print('ERROR: baseline version/schema 未知', file=sys.stderr)
+        return 2
+    try:
+        from jsonschema import Draft202012Validator  # noqa: F401
+    except ImportError as exc:
+        print(f'ERROR: 缺少 chart_bundle schema 验证依赖: {exc}', file=sys.stderr)
+        return 2
     cases = baseline.get('cases', [])
     if args.id:
-        cases = [c for c in cases if c.get('id') == args.id]
+        cases = [row for row in cases if row.get('id') == args.id]
     if args.category:
-        cases = [c for c in cases if c.get('category') == args.category]
-
+        cases = [row for row in cases if row.get('category') == args.category]
     if not cases:
-        print('没有匹配的用例（检查 --id / --category 拼写）。', file=sys.stderr)
+        print('ERROR: 没有匹配的用例', file=sys.stderr)
+        return 2
+    metadata_errors = [
+        issue
+        for case in cases
+        for issue in validate_anchor_metadata(case) + validate_contract_metadata(case)
+    ]
+    if metadata_errors:
+        print('ERROR: exact anchor metadata 不完整（不得从待测实现反向生成 expected）')
+        for issue in metadata_errors:
+            print(f'  {issue}')
         return 2
 
-    print(f'== destiny-matrix 回归测试 == 共 {len(cases)} 条 ==\n')
-
+    totals = {'PASS': 0, 'CONTRACT_OK': 0, 'WARN': 0, 'BLOCKED': 0, 'FAIL': 0}
     results = []
-    counters = {'PASS': 0, 'WARN': 0, 'FAIL': 0, 'SKIP': 0}
-
-    for i, case in enumerate(cases, 1):
-        cid = case.get('id', f'case#{i}')
-        print(f'[{i}/{len(cases)}] {cid} ...', end=' ', flush=True)
-        try:
-            r = run_case(case)
-        except Exception as e:
-            r = {'id': cid, 'status': 'FAIL', 'reason': f'runner 异常: {type(e).__name__}: {e}'}
-        results.append(r)
-        counters[r['status']] = counters.get(r['status'], 0) + 1
-        print(r['status'])
-        if args.verbose and r.get('oks'):
-            for ok in r['oks']:
-                print(f'    + {ok}')
-
-    print()
-    print('=' * 50)
-    print('=== 回归测试汇总 ===')
-    total = len(cases)
-    print(f'通过 PASS : {counters.get("PASS", 0):3d} / {total}')
-    print(f'警告 WARN : {counters.get("WARN", 0):3d}')
-    print(f'失败 FAIL : {counters.get("FAIL", 0):3d}')
-    print(f'跳过 SKIP : {counters.get("SKIP", 0):3d}')
-    print()
-
-    fail_results = [r for r in results if r['status'] == 'FAIL']
-    warn_results = [r for r in results if r['status'] == 'WARN']
-
-    if fail_results:
-        print('--- FAIL 详情 ---')
-        for r in fail_results:
-            print(f'  [{r["id"]}]')
-            if r.get('reason'):
-                print(f'    reason: {r["reason"]}')
-            for f in r.get('fails', []):
-                print(f'    FAIL: {f}')
-            if r.get('note'):
-                print(f'    note: {r["note"]}')
-
-    if warn_results:
-        print('--- WARN 详情 ---')
-        for r in warn_results:
-            print(f'  [{r["id"]}]')
-            for w in r.get('warns', []):
-                print(f'    WARN: {w}')
-
-    return 0 if counters.get('FAIL', 0) == 0 else 1
+    for index, case in enumerate(cases, 1):
+        result = run_case(case)
+        results.append(result)
+        totals[result['status']] += 1
+        print(f'[{index}/{len(cases)}] {result["id"]}: {result["status"]}')
+        if args.verbose:
+            for key in ('reason', 'fails', 'warns', 'dimension_statuses'):
+                if result.get(key):
+                    print(f'  {key}: {result[key]}')
+    print('汇总:', json.dumps(totals, ensure_ascii=False))
+    print('说明: CONTRACT_OK 仅表示 chart_bundle v2 与参数管线通过，不证明命例资料或解释准确。')
+    if totals['FAIL'] or totals['BLOCKED']:
+        return 1
+    return 0
 
 
 if __name__ == '__main__':
