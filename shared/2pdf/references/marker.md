@@ -86,6 +86,7 @@ Failure modes seen in local smoke runs (Marker 2.0.0, macOS, fast mode), so chec
 - A simple vector drawing can be classified as a `Form` block and replaced by a VLM description with an **empty image link** `![…]()` and no image file. Photo-like figures were extracted as `_page_N_Picture_M.jpeg`.
 - CJK full-width punctuation may come back as ASCII (`，` → `,`, `：` → `:`).
 - HTML tables may flatten into headings/text; XLSX title rows can merge into the table header.
+- Tables with merged cells (row-group labels like date / 上午 / 下午) lose those labels on the text-layer path, in both `fast` and `balanced`. Re-run with `--force_ocr`: the VLM rebuilds the table with the labels in their own columns (verified on a real schedule PDF). Markdown cannot express merges, so labels appear once with blank cells below; use `--force_ocr --output_format html` to keep real `rowspan`/`colspan`. Check merged-cell tables every time.
 
 ## 5. Combining with the typesetting engine
 
