@@ -145,6 +145,7 @@ sync_hermes() {
   deploy_shared_multi "$REPO_ROOT/shared/2md"   # document-to-Markdown parsing and image assets
   deploy_shared_multi "$REPO_ROOT/shared/vault-keeper"   # Obsidian 知识库生命周期治理引擎（多 CLI：cc/codex/cursor/hermes）
   copy_skill_dir "$REPO_ROOT/shared/strategic-insight-longform"  "$base/productivity"
+  copy_skill_dir "$REPO_ROOT/shared/destiny-matrix"             "$base/productivity"   # 命书流水线；运行时映射目前只有 cc/omp（references/runtime-*.md）
   copy_shared_skill "$REPO_ROOT/shared/bookmark-organizer"     "$base"
   copy_skill_dir "$REPO_ROOT/shared/github"                   "$base"
   copy_skill_dir "$REPO_ROOT/shared/xhs-tech-writer"    "$base/hermes"
@@ -239,6 +240,8 @@ sync_cc() {
   cp -r "$REPO_ROOT/shared/grill-with-docs/SKILL.md"      "$base/grill-with-docs.md"
   cp -r "$REPO_ROOT/shared/skill-authoring/SKILL.md"      "$base/skill-authoring.md"
   cp -r "$REPO_ROOT/shared/goalgen/SKILL.md"             "$base/goalgen.md"
+  # shared/destiny-matrix 不在此部署：~/.claude/skills/destiny-matrix 是它的开发源（含不入库的 memory/），
+  # 入库方向为 rsync 该目录 → shared/destiny-matrix，排除 memory/ _archive/ cache/ __pycache__/。
 
   if [ -d "$REPO_ROOT/cc" ] && [ "$(ls -A "$REPO_ROOT/cc" 2>/dev/null)" ]; then
     for skill in "$REPO_ROOT/cc"/*/; do
@@ -259,6 +262,7 @@ sync_pi() {
   cp -r "$REPO_ROOT/shared/grill-with-docs"  "$base/"
   cp -r "$REPO_ROOT/shared/skill-authoring"  "$base/"
   cp -r "$REPO_ROOT/shared/goalgen"  "$base/"
+  copy_skill_dir "$REPO_ROOT/shared/destiny-matrix" "$base"   # rm+cp，避免 cp -r 在已有目录下嵌套
 
   if [ -d "$REPO_ROOT/pi" ] && [ "$(ls -A "$REPO_ROOT/pi" 2>/dev/null)" ]; then
     for skill in "$REPO_ROOT/pi"/*/; do

@@ -120,6 +120,7 @@ PAIRS=(
   "shared/2pdf|2pdf"
   "shared/2md|2md"
   "shared/strategic-insight-longform|productivity/strategic-insight-longform"
+  "shared/destiny-matrix|productivity/destiny-matrix"   # 开发源在 ~/.claude/skills，Hermes 副本通常不应有漂移
   "shared/bookmark-organizer|bookmark-organizer"
   "shared/github|github"
   "shared/xhs-tech-writer|hermes/xhs-tech-writer"
