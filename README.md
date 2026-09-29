@@ -9,6 +9,16 @@
 >
 > 一个面向多 CLI AI Agent 的个人技能中心：技能由 AI Agent 自行编写、审计与演进，同时部署至 Hermes、Claude Code、OMP 与 pi (Windows) 四个平台。
 
+`2pdf` and `2md` are maintained in [Loveacup/2pdf](https://github.com/Loveacup/2pdf) and [Loveacup/2md](https://github.com/Loveacup/2md). This hub pins them as submodules; their own license terms apply, not this hub's MIT license.
+
+```bash
+git clone --recurse-submodules https://github.com/Loveacup/jz-skills.git
+# Existing checkout:
+git submodule update --init --recursive
+```
+
+Edit/commit/push each skill in its own repository, then commit the updated submodule pointer here. Reverse synchronization from runtime copies is disabled for these two skills. Full deployment is not needed for existing source symlinks.
+
 ---
 
 ## 📂 Structure
@@ -52,7 +62,8 @@ shared/                              🧩 26 skills (+1 archived)
 ├── methodology-writer           # 经验→结构化方法论
 ├── obsidian                     # Vault 操作、CLI、Bases、Defuddle
 ├── obsidian-md-ac               # OFM + Mermaid + JSON Canvas 参考
-├── 2pdf                         # PDF 全处理：OCR/提取/Markdown→PDF
+├── 2pdf                         # PDF editing/forms/light extraction/typesetting
+├── 2md                          # document→Markdown, image assets/transcription, Marker parsing
 ├── skill-authoring              # 技能合规创作+七维评分（v4.0.0）
 ├── supermemory-maintenance      # Supermemory v7 参考
 ├── surge-gateway                # Surge 家庭代理网关
@@ -215,8 +226,8 @@ Hermes 通过 RPC / Shell / 实验性 ACP 调用 OMP 做独立审计与证据化
 | 📋 | [grill-with-docs](shared/grill-with-docs/) | Design review against governance docs / 设计审查 |
 | ✍️ | [skill-authoring](shared/skill-authoring/) | v4.0.0 11-step, 7-dim scoring / 合规创作 |
 | 🎯 | [goalgen](shared/goalgen/) | Multi-CLI goal instruction generator / 通用 goal 生成器 |
-| 📄 | [2pdf](shared/2pdf/) | OCR, extract, markdown→PDF / PDF 全处理 |
-| | [voice-to-markdown-workflow](https://github.com/Loveacup/jz-meeting-skills/tree/main/voice-to-markdown-workflow) | 已迁至独立仓库 jz-meeting-skills，不再由此仓库同步 |
+| 📄 | [2pdf](https://github.com/Loveacup/2pdf) | Independent submodule: PDF editing/forms and Markdown→PDF / 独立排版与 PDF 工具 |
+| 📝 | [2md](https://github.com/Loveacup/2md) | Independent submodule: document→Markdown, assets/vision, Marker / 独立文档解析 |
 | | [audio-transcriber](https://github.com/Loveacup/jz-meeting-skills/tree/main/audio-transcriber) | 已迁至独立仓库 jz-meeting-skills，不再由此仓库同步 |
 | 📺 | [video-analysis-engine](shared/video-analysis-engine/) | Bilibili/YouTube/Douyin evidence-grounded analysis / 多平台视频分析 |
 | ↪️ | [bilibili-video-analyzer](shared/bilibili-video-analyzer/) | Deprecated compatibility shim / 旧入口转发 |

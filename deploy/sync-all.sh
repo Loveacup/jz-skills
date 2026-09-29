@@ -109,13 +109,14 @@ deploy_shared_multi() {
   local name="$(basename "$src")"
   local pool_base="$REAL_HOME/.agents/shared"
   local target="$pool_base/$name"
-  if [ ! -d "$src" ]; then
-    echo "  ⚠️  skip missing: ${src#$REPO_ROOT/}"
-    return
+  if [ ! -f "$src/SKILL.md" ]; then
+    echo "ERROR: missing skill source: ${src#$REPO_ROOT/}" >&2
+    echo "Initialize submodules first: git submodule update --init --recursive" >&2
+    return 1
   fi
   mkdir -p "$pool_base"
   rm -rf "$target"
-  cp -r "$src" "$pool_base/"
+  rsync -a --exclude='.git' "$src/" "$target/"
   # 部署产物不保留 python 缓存
   find "$target" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
   find "$target" -name .pytest_cache -type d -prune -exec rm -rf {} + 2>/dev/null || true
@@ -141,6 +142,7 @@ sync_hermes() {
   copy_skill_dir "$REPO_ROOT/shared/skill-authoring"        "$base/governance"
   copy_skill_dir "$REPO_ROOT/shared/goalgen"               "$base/governance"
   deploy_shared_multi "$REPO_ROOT/shared/2pdf"   # blocker#2: canonical + 4-runtime symlinks（不再造 legacy pdf shadow）
+  deploy_shared_multi "$REPO_ROOT/shared/2md"   # document-to-Markdown parsing and image assets
   deploy_shared_multi "$REPO_ROOT/shared/vault-keeper"   # Obsidian 知识库生命周期治理引擎（多 CLI：cc/codex/cursor/hermes）
   copy_skill_dir "$REPO_ROOT/shared/strategic-insight-longform"  "$base/productivity"
   copy_shared_skill "$REPO_ROOT/shared/bookmark-organizer"     "$base"
