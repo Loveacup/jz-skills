@@ -10,5 +10,11 @@
     "build": "20260923163338",
     "verified_on": "2026-09-25",
     "evidence": "outgoing exact-UUID Completed (8) RPC send by this adapter"
+  },
+  {
+    "version": "1.2.3",
+    "build": "20260927200815",
+    "verified_on": "2026-09-30",
+    "evidence": "outgoing exact-UUID Completed (8) RPC send by this adapter"
   }
 ]
