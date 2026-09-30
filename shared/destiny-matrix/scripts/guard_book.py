@@ -12,6 +12,9 @@ from book_html import BookHTML, Node, is_hidden, normalize_text, limitation_text
 
 # Voice/condition markers whose loss can raise a sentence's certainty (review hint for S9, not an issue).
 CERTAINTY_MARKERS = (("在…的读法里", r"在[^，。；！？]{1,16}的读法里"), ("传统上", r"传统上"), ("常见的讲法", r"常见的讲法"),
+                     ("依…的看法", r"[依按照][^，。；！？]{1,12}的(?:看法|讲法|说法|读法)"),
+                     ("…看来", r"(?:子平家|命理家|占星师|斗数家)[^，。；！？]{0,4}(?:看来|会说|眼里)"),
+                     ("在…眼里", r"在[^，。；！？]{1,8}眼里"), ("假说", r"假说"), ("假如", r"假如|要是"),
                      ("如果", r"如果"), ("可能", r"可能"), ("倾向", r"倾向"), ("多半", r"多半"), ("例如", r"例如"))
 
 

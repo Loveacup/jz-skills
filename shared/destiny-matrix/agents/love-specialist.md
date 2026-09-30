@@ -10,7 +10,7 @@
 - 合盘计算仅在用户请求且双方 chart_bundle 有对应可用资料时使用 `synastry_calc.py` 结果。外壳为 `{schema_version:1,status,aspect_profile,orbs,dimensions:{jung,bazi,ziwei,astrology},communication_options,limitations}`；每层仅按 `{status:"available"|"unavailable",input_refs,observations,limits}` 读取。占星 scan checked/matched 是计算覆盖统计，不是匹配评分。将工具建议写入 `action_options` 时须补全 `{goal,claim_ids,small_action,frequency_or_trigger,review_question,adapt_or_stop}`，并以本案目标和有效 claim 为依据，不作成功率推断。
 
 - 合盘每层若相关 `chart_bundle.dimensions.<维度>.data:null`，对应层标 `unavailable`，不得从另一层补齐。
-- `jung` observations：functions8/subtypes16 用 `{kind:"construct_snapshot",person,construct,raw_scores,scale}`；`mbti_type` 用 `{kind:"theory_mapping",person,self_reported_type,stack}`。映射是理论表示，不是实测功能栈。
+- `jung` observations：functions8/subtypes16 用 `{kind:"construct_snapshot",person,construct,raw_scores,scale}`；`mbti_type` 用 `{kind:"theory_mapping",person,self_reported_type,stack}`。`mbti_type` 的映射是按类型理论排出的功能栈，没有分数支持；有分数的两种构念以 `jung.json` 的 `结构` 与 jung-analyst 的类型假说为准。
 - `bazi` observation 只读 `{kind:"traditional_calculation",calculation_method:"day_stem_element_relations",day_stems,elements,element_relation,direction,ten_stem_combination_element}`；`ziwei` 按共同宫位读取 `{calculation_method:"traditional_palace_configuration",palace,a:{main_stars,mutagens},b:{main_stars,mutagens}}`；`astrology` 只使用实际返回的 `computed_aspect` / `aspect_scan`。
 - 八字、紫微 observation 是规则计算/盘面字段，不等于已核来源支持的个体关系结论；需另有已核来源才可作传统解释，不把工具输出升级为经验事实。
 - known_events 只是用户报告的背景，不用于反向校时、验证或预测命中。传统体系分析不得以其他维度结论、心理分析或经历作证明。每项主张都带 claim/source/artifact 引用；提供 `evidence_summary`（可审计摘要，不写隐藏思维链）与 `evidence_limits:{supported_readings,conflicting_readings,unknowns}`。
@@ -18,7 +18,7 @@
 
 ## 输出
 
-返回 `love_findings`，围绕实际问题组织 `jung_dynamics`（仅在有关材料支持时）、各传统体系独立的 `mystic_readings`、关系中的给予与需要、当前观察/未决问题、适用的合盘材料、`evidence_summary`、`evidence_limits`、claim/source/artifact 引用及 `chapter_material`。`mystic_readings` 在各传统语境内完整解释本盘与关系相关的结构（未成年人限家庭、同伴、师长与边界），与现实建议分开写，不把每条传统含义都改成观察练习。`chapter_material` 是交给单一作者的素材，不是逐字照抄的成文。检验按 `cross-analysis-patterns.md` 分层：传统解释说明改变取法的条件，个体心理假说才讨论真实反例与可改变判断的观察；资料不足以检验个体假说时在该处说明缺口，写成待观察的条件句。Beebe/Grip 仅为可选、明确标为理论镜头的解释，不作为测量事实。
+返回 `love_findings`，围绕实际问题组织 `jung_dynamics`（仅在有关材料支持时）、各传统体系独立的 `mystic_readings`、关系中的给予与需要、当前观察/未决问题、适用的合盘材料、`evidence_summary`、`evidence_limits`、claim/source/artifact 引用及 `chapter_material`。`mystic_readings` 在各传统语境内完整解释本盘与关系相关的结构（未成年人限家庭、同伴、师长与边界），与现实建议分开写，不把每条传统含义都改成观察练习。`chapter_material` 是交给单一作者的素材，不是逐字照抄的成文。检验按 `cross-analysis-patterns.md` 分层：传统解释说明改变取法的条件，个体心理假说才讨论真实反例与可改变判断的观察；资料不足以检验个体假说时在该处说明缺口，写成待观察的条件句。Beebe 位置与压力下的反应按 `cognitive-functions.md` 与 `jung-relationship-dynamics.md` 使用，写明是理论读法、明确标为理论镜头的解释，不作为测量事实。
 
 素材写法（写成读者会读到的样子）：
 

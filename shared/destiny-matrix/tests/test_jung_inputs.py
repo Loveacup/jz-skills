@@ -33,7 +33,7 @@ def json_keys(value: object) -> set[str]:
         return set().union(*(json_keys(item) for item in value)) if value else set()
     return set()
 class JungInputTests(unittest.TestCase):
-    def test_subtypes16_retains_raw_pairs_and_reports_no_derived_functions(self):
+    def test_subtypes16_retains_raw_pairs_and_adds_structure(self):
         scores = {
             "TiA": 10, "TiH": 12, "TeA": 9, "TeH": 11,
             "FiA": 13, "FiH": 15, "FeA": 12, "FeH": 20,
@@ -45,6 +45,7 @@ class JungInputTests(unittest.TestCase):
         output = parse_stdout(result)
 
         self.assertEqual(output["construct"], "subtypes16")
+        self.assertIn("结构", output)
         self.assertEqual(output["raw_scores"], scores)
         self.assertEqual(output["scale"], 20)
         pairs = {pair["function"]: pair for pair in output["pairs"]}

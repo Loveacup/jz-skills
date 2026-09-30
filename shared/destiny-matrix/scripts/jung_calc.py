@@ -151,25 +151,29 @@ def _ranked_tiers(scores: dict[str, float], scale: float) -> list[dict[str, Any]
     ]
 
 
-def calculate_functions8(raw_scores: dict[str, float], scale: float | None) -> dict[str, Any]:
+def calculate_functions8(raw_scores: dict[str, float], scale: float | None,
+                         reported_type: str | None = None) -> dict[str, Any]:
     scores = _validate_mapping(raw_scores, FUNCTIONS)
     full_scale = validate_scale(scale, scores)
+    from jung_structure import build_structure
     return {
         "construct": "functions8",
         "raw_scores": scores,
         "scale": full_scale,
         "normalized_scores": {key: round(scores[key] / full_scale * 10.0, 4) for key in FUNCTIONS},
         "ranked_tiers": _ranked_tiers(scores, full_scale),
+        "结构": build_structure(scores, full_scale, reported_type=reported_type),
         "reflection_prompts": REFLECTION_PROMPTS,
         "interpretation_limits": [
             "Normalization is only a linear display transform and does not assess measurement reliability.",
-            "Tied scores remain tied; no type, dominant function, ability ranking, or diagnosis is inferred.",
+            "Tied scores remain tied. The type fit under 结构 is a hypothesis about the score profile, not an ability ranking or diagnosis.",
             "Scores are only interpretable in the context of their named instrument and documented scale.",
         ],
     }
 
 
-def calculate_subtypes16(raw_scores: dict[str, float], scale: float | None) -> dict[str, Any]:
+def calculate_subtypes16(raw_scores: dict[str, float], scale: float | None,
+                          reported_type: str | None = None) -> dict[str, Any]:
     keys = tuple(key for function in FUNCTIONS for key in SUBTYPE_KEYS[function][:2])
     scores = _validate_mapping(raw_scores, keys)
     full_scale = validate_scale(scale, scores)
@@ -187,16 +191,18 @@ def calculate_subtypes16(raw_scores: dict[str, float], scale: float | None) -> d
             "right": right,
             "delta": delta,
         })
+    from jung_structure import build_structure
     return {
         "construct": "subtypes16",
         "raw_scores": scores,
         "scale": full_scale,
         "pairs": pairs,
         "derived_functions": None,
+        "结构": build_structure(None, full_scale, scores16=scores, reported_type=reported_type),
         "reflection_prompts": REFLECTION_PROMPTS,
         "interpretation_limits": [
             "Pair deltas use the supplied raw values: T/F are H−A and N/S are B−O.",
-            "No 16-to-8 aggregation rule is applied; deltas do not measure ability, certainty, development, or risk.",
+            "Function scores under 结构 are pair means by this skill's convention (see 取法); deltas do not measure ability, certainty, development, or risk.",
             "Every score must be supplied explicitly within the declared scale; missing values are not imputed.",
         ],
     }
@@ -230,9 +236,11 @@ def _validate_mapping(scores: dict[str, float], required_keys: tuple[str, ...]) 
 
 
 def calculate_type_mapping(type_code: str) -> dict[str, Any]:
-    normalized_type = type_code.upper()
-    if normalized_type not in STANDARD_STACKS:
+    from jung_structure import build_type_structure, parse_type_code
+    parsed = parse_type_code(type_code)
+    if parsed is None:
         raise InputError(f"unknown type code: {type_code}")
+    normalized_type = parsed["四字母"]
     top_four = STANDARD_STACKS[normalized_type]
     functions = top_four + [OPPOSITE[function] for function in top_four]
     return {
@@ -245,6 +253,7 @@ def calculate_type_mapping(type_code: str) -> dict[str, Any]:
                 for index, function in enumerate(functions)
             ],
         },
+        "结构": build_type_structure(normalized_type, parsed["后缀"], type_code.strip().upper()),
         "reflection_prompts": REFLECTION_PROMPTS,
         "interpretation_limits": [
             "This is a theoretical mapping of the supplied type, not a measured function score or diagnosis.",
@@ -258,8 +267,10 @@ def build_parser() -> argparse.ArgumentParser:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--scores", metavar="JSON", help="JSON object with the eight functions8 keys")
     mode.add_argument("--scores16", metavar="JSON", help="JSON object with the sixteen subtype keys")
-    mode.add_argument("--type", dest="type_code", metavar="XXXX", help="user-supplied four-letter type")
+    mode.add_argument("--type", dest="type_code", metavar="XXXX", help="user-supplied four-letter type, or a six-letter code whose last two letters are kept as suffix")
     parser.add_argument("--scale", type=_finite_positive_scale, help="explicit score maximum; required for score inputs")
+    parser.add_argument("--reported-type", metavar="CODE",
+                        help="type printed on the test report (e.g. INFJ or INFJBH); score inputs only")
     return parser
 
 
@@ -279,14 +290,16 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.scores is not None:
             scores = parse_scores(args.scores, FUNCTIONS)
-            result = calculate_functions8(scores, args.scale)
+            result = calculate_functions8(scores, args.scale, args.reported_type)
         elif args.scores16 is not None:
             keys = tuple(key for function in FUNCTIONS for key in SUBTYPE_KEYS[function][:2])
             scores = parse_scores(args.scores16, keys)
-            result = calculate_subtypes16(scores, args.scale)
+            result = calculate_subtypes16(scores, args.scale, args.reported_type)
         else:
             if args.scale is not None:
                 raise InputError("--scale is only valid with --scores or --scores16")
+            if args.reported_type is not None:
+                raise InputError("--reported-type is only valid with --scores or --scores16")
             result = calculate_type_mapping(args.type_code)
     except InputError as exc:
         _emit_error(str(exc))

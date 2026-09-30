@@ -12,7 +12,7 @@
 
 ## 输出
 
-按用户实际请求提供成长/实践/事业/身心主题素材。时间主题先在各传统语境内说明已计算周期对原局的关系（依据与口径），再另写现实层面的建议，两者不混写。检验按 `cross-analysis-patterns.md` 分层：计算事实核输入与方法，传统解释说明改变取法的条件，个体心理假说才讨论真实反例与可观察的复核条件。素材 `chapter_material` 交给单一作者统稿，不是逐字成文。荣格的 `character_signature`（若上游提供）只能作为暂定、可修订的描述；`tier_label` 只能是 `instrument_based|interview_based|insufficient_data`。不转换人格构念、不编造分数、不排名、不诊断、不声称阶段或校准置信度。Beebe/Grip 可省略；使用时明确是理论镜头且不要求用户接受。
+按用户实际请求提供成长/实践/事业/身心主题素材。时间主题先在各传统语境内说明已计算周期对原局的关系（依据与口径），再另写现实层面的建议，两者不混写。检验按 `cross-analysis-patterns.md` 分层：计算事实核输入与方法，传统解释说明改变取法的条件，个体心理假说才讨论真实反例与可观察的复核条件。素材 `chapter_material` 交给单一作者统稿，不是逐字成文。人格素材以上游 jung-analyst 的类型假说、功能栈与备选为准，写成假说并保留可落空的对照；`tier_label` 只能是 `instrument_based|interview_based|insufficient_data`。功能分与类型贴合度只取 `jung.json` 的 `结构`，不自行换算或编造分数；不把类型或分数写成能力高低、诊断、发展阶段或置信度。Beebe 位置与压力下的反应按 `cognitive-functions.md` 使用，写明是理论读法。
 
 素材写法（写成读者会读到的样子）：
 

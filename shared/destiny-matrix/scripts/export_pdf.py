@@ -15,7 +15,30 @@ from typing import Any
 from book_html import BookHTML, Node, normalize_text, is_hidden
 from quality_contracts import check
 
-PDF_MARGIN = {"top": "18mm", "bottom": "16mm", "left": "14mm", "right": "14mm"}
+PDF_MARGIN = {"top": "20mm", "bottom": "18mm", "left": "14mm", "right": "14mm"}
+FOOTER_FONT = "'Songti SC',STSong,'Noto Serif CJK SC',SimSun,serif"
+
+
+def _strip_cover_chrome(pdf_path: Path, bare_path: Path) -> bool:
+    """Replace page 1 with the same page rendered without header/footer.
+
+    Chromium cannot suppress header/footer templates per page. Both renders come
+    from the same DOM and margins, so pagination and marked-content IDs match.
+    """
+    from pypdf import PdfReader, PdfWriter
+    from pypdf.generic import NameObject
+    main, bare = PdfReader(str(pdf_path)), PdfReader(str(bare_path))
+    if len(main.pages) != len(bare.pages) or not main.pages:
+        return False
+    writer = PdfWriter(clone_from=main)
+    source, target = bare.pages[0], writer.pages[0]
+    # Clone only the two entries; cloning the page would drag in its whole page tree via /Parent.
+    for key in ("/Contents", "/Resources"):
+        if key in source:
+            target[NameObject(key)] = source.raw_get(key).clone(writer)
+    with pdf_path.open("wb") as stream:
+        writer.write(stream)
+    return True
 
 
 def sha256(path: Path) -> str:
@@ -143,6 +166,7 @@ def _font_audit(page) -> list[dict[str, Any]]:
           }
         }
         const pt=px*scale*0.75;
+        if (pt + 1e-6 < limit) out.push({text:text.slice(0,120), role, actual_pt:+pt.toFixed(3), minimum_pt:limit, source:'dom'});
       });
       return out;
     }""")
@@ -281,11 +305,22 @@ def render_pdf(html_path: Path, pdf_path: Path, title: str,
                 raise RuntimeError("appendix text changed while expanding details")
             font_violations = _font_audit(page)
             safe_title = html.escape(title, quote=True)
-            header = ('<div style="width:100%;font-size:8.1pt;color:#666;text-align:center;">' + safe_title + '</div>')
-            footer = ('<div style="width:100%;font-size:8.1pt;color:#666;text-align:center;">'
-                      '&mdash; <span class="pageNumber"></span> / <span class="totalPages"></span> &mdash;</div>')
+            header = ('<div style="width:100%;padding:0 26mm;font-family:' + FOOTER_FONT +
+                      ';font-size:8.5pt;letter-spacing:.2em;color:#6b6256;text-align:right;">' + safe_title + '</div>')
+            footer = ('<div style="width:100%;font-family:' + FOOTER_FONT +
+                      ';font-size:9pt;color:#574f44;text-align:center;"><span class="pageNumber"></span></div>')
             page.pdf(path=str(pdf_path), format="A4", print_background=True, tagged=True, outline=True,
                      display_header_footer=True, header_template=header, footer_template=footer, margin=PDF_MARGIN)
+            if page.query_selector("header.book-cover"):
+                bare_path = pdf_path.with_suffix(".cover.tmp.pdf")
+                try:
+                    page.pdf(path=str(bare_path), format="A4", print_background=True, tagged=True,
+                             outline=True, display_header_footer=False, margin=PDF_MARGIN)
+                    if not _strip_cover_chrome(pdf_path, bare_path):
+                        raise RuntimeError("cover page could not be rendered without header/footer: "
+                                           "page count differs between the two renders")
+                finally:
+                    bare_path.unlink(missing_ok=True)
             dom_manifest = page.evaluate("""() => [...document.querySelectorAll(
               'section[data-content-kind="disclosure"],p,li,a,figcaption,caption,th,td,blockquote,q,h2,h3,svg text,svg tspan,aside[data-disclosure-id]')]
               .filter(e => e.getClientRects().length && !e.closest('[hidden]'))

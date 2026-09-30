@@ -21,7 +21,7 @@ SENTENCE_DELIMITERS = "。！？；\n"
 # Style-spec §2.7: pipeline vocabulary that must not reach reader-facing prose (appendix excluded).
 # Hits are review_required hints only, never issues.
 PROCESS_TERMS = ("本次", "工具虚岁", "工具", "字段", "口径", "未核", "绑定", "浮点", "引擎回退", "MOSEPH",
-                 "artifact", "JSON Pointer", "claim", "judge", "chief", "parallel", "tension",
+                 "artifact", "JSON Pointer", "claim", "judge", "chief", "convergent", "parallel", "tension",
                  "not_comparable", "跨会话记忆", "外部提交", "未采用", "不裁定", "审稿", "星历文件")
 PROCESS_PATTERNS = (("S0–S10", r"(?<![A-Za-z0-9])S(?:10|[0-9])(?:\.5)?(?![A-Za-z0-9])"),
                     ("sect1/2", r"sect[12]"),
@@ -29,7 +29,7 @@ PROCESS_PATTERNS = (("S0–S10", r"(?<![A-Za-z0-9])S(?:10|[0-9])(?:\.5)?(?![A-Za
 # Style-spec §2.4 / D3: a paragraph should open with a judgement about the reader, not a denial or a method note.
 OPENING_NEGATIONS = ("不是", "并不", "并非", "不代表", "不等于", "不意味着", "不能说明", "不能", "不证明",
                      "这不是", "这并不", "这不", "这里不", "本书不", "这些不是", "它不是")
-OPENING_METHODS = ("这张盘该怎么读", "该怎么读", "读法上", "按照", "按本书", "本节", "这一节", "本章", "以下",
+OPENING_METHODS = ("这张盘该怎么读", "该怎么读", "读法上", "按本书", "本节", "这一节", "本章", "以下",
                    "下面先", "先说明", "需要说明", "说明一下", "严格来说", "在解读之前", "方法上")
 OPENING_LIMITATION_ADVISORY = 5
 

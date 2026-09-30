@@ -2,17 +2,21 @@
 name: destiny-matrix
 description: 以人为本的传统文化与心理反思命书技能：八字、紫微、占星与人格资料各自完整解读，再围绕读者的问题做跨体系综合，写成有阅读价值、按证据边界发布的 HTML+PDF 命书；支持完整或专题任务，含关系与指定时间主题。触发词：命运分析、命理解析、命书、八字、紫微斗数、星盘、荣格八维、认知功能、人格分析、大运流年、合盘、BaZi、cognitive functions。
 metadata:
-  version: 5.2.0
+  version: 5.3.0
   last_updated: 2026-09-29
 ---
 
-# Destiny Matrix · v5.2.0
+# Destiny Matrix · v5.3.0
 
 ## 目标
 
-四体系各自完整解读，以人的问题组织跨体系综合，写成有阅读价值的命书（HTML 与 PDF）。八字、紫微、占星各按本体系的推读路径讲清本盘结构、推读依据与含义；人格资料按原构念解释；综合回答读者关心的同一问题，说明各视角各自增加了什么理解。人格可以是默认阅读入口，但不是其他体系必须围绕的主答案；默认八主题是导航，不是等分篇幅或八章配额。保留传统体系的文化解释、人文文风和非决定论表达。正文的主语是读者本人：先写看见的你与依据，再写会改变读法的条件；护栏写成条件句放在起作用的地方，审计记录留在附录。
+写一本专业、可读、拿得出手的命书（HTML 与 PDF）。读者读完应当觉得：这本书出自懂行的人，读得下去，说的是自己。
 
-严格区分用户报告、测量结果、计算事实、传统解释、心理假说和实践选项。计算正确不代表个体解释已获科学验证；体系间相似也不构成效度证据。
+- **各体系在传统内部下判断。** 八字断旺衰、取格、定用神与喜忌；紫微断格局、宫位强弱与四化重心；占星断盘面重心、命主星去向与关键相位主题；人格资料给出类型假说、功能栈与备选。每个体系按默认取法读，结论以“在子平的读法里”“按三合派”“这组分数最贴合”这类声源标签说出，说得明确。
+- **综合是全书最有分量的部分。** 围绕读者的问题，写出各体系在哪里汇聚、在哪里各拉一边、合起来多理解了什么，具体到点得出盘面依据。
+- **正文的主语是读者本人。** 先写看见的你与依据，再写会改变读法的条件；术语首现即释，之后放心使用；审计记录留在附录。
+
+判断越线与否的标准：说的是“这个传统怎么读这张盘”，可以说得肯定；说的是“现实里一定会发生什么”或“你的身体、能力有什么毛病”，不可以。
 
 ## 启动
 
@@ -25,7 +29,8 @@ metadata:
 ## 关键红线
 
 - 用户请求和 `scope` 决定主题。资料不足时补问或列明待接受限制，不静默缩小范围，不填造输入、量表、经历、计算值、来源或测量精度。
-- NERIS 五维、自述类型、16 亚型及八功能分数保持原构念；无核准换算规则时不得相互推导。出生盘不能生成八维人格测量、能力评分或心理诊断。
+- 人格资料如实记录工具、版本、原始分数与量程；类型、功能栈与备选由分数轮廓按 `cognitive-functions.md` 的方法推出，写成假说并配可落空的对照。NERIS 五维不换算成八功能。出生盘不生成人格分数、能力评分或心理诊断。
+- 不从盘面或分数推断疾病、身体部位、寿命、生育结果；不承诺确定事件，不给投资吉日、关系成功率或匹配总分。传统解释不说成科学事实。
 - 用户历史事件只作背景，不反向校准出生时刻或宣称预测命中。未计算的月份、行运、推运不得写成已完成分析。
 - 默认不向外部服务提交个案数据，不自动保存原始个案。外传需用户针对具体站点与字段明确授权；无授权不得宣称完成个案独立验盘。
 - 按输入年龄与受众执行适龄合同。未成年人关系主题谈家庭、同伴、师长与边界，事业主题谈学习和兴趣；不推测未来婚恋、性化结论、疾病或生育结果。
@@ -53,12 +58,12 @@ metadata:
 
 | 任务 | 阅读 |
 |---|---|
-| 人格资料、Beebe 理论、访谈或认知功能 | `references/character-first-manifesto.md`、`character-inference-workflow.md`、`cognitive-functions.md`、`jung-classical-texts.md`（推读路径在 `cognitive-functions.md`） |
-| 八字 | `references/bazi-framework.md`（独立推读路径）、`shensha-table.md`、`classical-texts.md` |
-| 紫微 | `references/ziwei-framework.md`（独立推读路径）、`special-patterns.md` |
-| 占星 | `references/astrology-framework.md`（独立推读路径）、`classical-texts.md` |
-| 多体系综合 | `references/cross-analysis-patterns.md`（主题综合顺序与新增理解要求） |
-| 成书文风、作者素材与缺口回提 | `agents/book-writer.md`（文风唯一依据）；S8.5 措辞编辑见 `agents/reader-editor.md`；呈现与版式见 `references/output-template.md` |
+| 人格资料、类型假说、Beebe 理论、访谈 | `references/cognitive-functions.md`（知识卡与推读路径）、`character-first-manifesto.md`、`character-inference-workflow.md`、`jung-classical-texts.md` |
+| 八字 | `references/bazi-framework.md`（推读路径与默认取法）、`bazi-symbolism.md`（知识卡）、`special-patterns.md`、`shensha-table.md`、`classical-texts.md` |
+| 紫微 | `references/ziwei-framework.md`（推读路径与默认取法）、`ziwei-symbolism.md`（知识卡） |
+| 占星 | `references/astrology-framework.md`（推读路径与默认取法）、`astrology-symbolism.md`（知识卡） |
+| 多体系综合 | `references/theme-crosswalk.md`（各主题在四个体系里看什么）、`cross-analysis-patterns.md`（综合顺序与合格标准） |
+| 成书文风、作者素材与缺口回提 | `agents/book-writer.md`（文风唯一依据）、`references/exemplars.md`（整段范文）；S8.5 措辞编辑见 `agents/reader-editor.md`；呈现与版式见 `references/output-template.md` |
 | 双人关系 / 合盘 | `references/relationship-analysis.md`、`jung-relationship-dynamics.md` |
 | 指定年份或月份 | `references/liunian-analysis.md` 与已实际计算的时间数据 |
 | 健康、事业、行动建议 | `references/character-inference-workflow.md` 及本案明确请求、claims 与限制 |

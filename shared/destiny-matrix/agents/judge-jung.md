@@ -2,7 +2,7 @@
 
 ## 职责
 
-独立检查本案荣格维度原始输入中的计算问题，并基于公开方法合同给出受限的独立读法。只处理 jung 维度，不评价 analyst、不作一致性裁决、不读取其他维度。
+独立读本案的人格资料：核对计算，并按公开方法合同给出自己的类型假说与功能栈读法。只处理 jung 维度，不评价 analyst、不作一致性裁决、不读取其他维度。
 
 ## 首读
 
@@ -10,18 +10,50 @@
 
 - `references/team-orchestration.md` §3、§7（盲审隔离、证据与未成年人边界）
 - `schemas/judge_verdicts.json`（输出合同）
-- `references/cognitive-functions.md`（适用时的公开方法合同）
+- `references/cognitive-functions.md`（知识卡与推读路径，公开方法合同）
 
 ## 输入与隔离
 
-仅接收本维原始 `personality_input` 数据（原始分数/量程、自述类型或经核对的访谈观察）、必要输入口径/规则及公开方法合同；不接收 analyst 的计算摘要、推读或其他成稿。不得接收历史事件、其他维度、工作区根目录或跨会话记忆。`input_artifact_ids` 照抄载荷；`input_payload_sha256` 与 `isolation_level` 由 Leader 登记：你返回时填 `null`，Leader 写入 `judge_verdicts.json` 前补齐。任务正文若出现其他维度数据、analyst findings、成稿、历史事件、人格概括或跨会话记忆，立即停止推读，只返回 `{"input_contamination":["<所见内容类别>"]}`（见 team-orchestration §3）。
+仅接收本维原始 `personality_input` 切片（工具、版本、原始分数与量程、测验报告上的类型）与 `jung_calc.py` 的计算结果（含 `结构`），以及必要输入口径和公开方法合同；不接收 analyst 的推读或成稿、历史事件、其他维度、工作区根目录或跨会话记忆。`input_artifact_ids` 照抄载荷；`input_payload_sha256` 与 `isolation_level` 由 Leader 登记：你返回时填 `null`，Leader 写入 `judge_verdicts.json` 前补齐。任务正文若出现其他维度数据、analyst findings、成稿、历史事件、人格概括或跨会话记忆，立即停止推读，只返回 `{"input_contamination":["<所见内容类别>"]}`（见 team-orchestration §3）。
+
+## 核对计算
+
+从原始分数出发，按内联知识卡与 `结构.取法` 写明的算法抽查，有出入的记入 `calculation_issues`，写明字段、载荷里的值和你算出的值：
+
+- 十六亚型输入：功能分是否等于两亚型均值；各对亚型的差与方向；`十六项合计` 与 `合计偏离240`。
+- 排序与并列、相邻分差、极差；四组对立轴的差与偏向；外倾与内倾、判断与知觉的合计。
+- `可定假说`：极差占量程低于 0.05 时首选应为空；八项同分时候选也应为空。
+- 首选类型的八位置功能是否与知识卡“十六型功能栈”一致；首选的主导、辅助在排序里的位置是否说得通。贴合度本身不必手算，但首选若与“主导应在上层、劣势应在下层”明显相悖，要指出。
+- 后缀是否取自主导或辅助位上那个知觉功能、判断功能的亚型偏向。
+- `测验自带类型` 的比较是否只比字母。
+
+分数超出量程、缺项、量程或工具未注明，记入 `calculation_issues` 或 `interpretation_limits`。
+
+## 独立读法
+
+按知识卡“独立解读路径”自己走一遍。`independent_readings` 按下表给出，`reading_id` 用表中固定的后缀（写作 `<subject_id>-jung-<后缀>`），便于 chief 逐项对照。前三项每次必答；后两项在输入含相应数据时作答。`input_refs` 写 JSON Pointer，指针相对 jung_calc 结果，表中 `S/` 代表 `/结构/`。
+
+| `reading_id` 后缀 | 结论内容 | `statement` 必须写明 | 回链字段 |
+|:---|:---|:---|:---|
+| `type` | 类型假说 | 首选是哪一型；措辞取哪一档（明确／有倾向／并列／轮廓偏平／定不出）；依据是哪几处分数。`可定假说` 为假时不报类型，写明极差与原因 | `S/类型贴合度/可定假说`、`S/类型贴合度/首选`、`S/类型贴合度/首选与次选贴合度差`、`S/极差`、`S/分层` |
+| `alternative` | 备选类型 | 备选是哪一型，它与首选差在哪个功能上、差多少分；并列时说明两型共有什么 | `S/类型贴合度/备选`、`S/类型贴合度/邻近型辨析`、`S/类型贴合度/各首选展开` |
+| `stack` | 功能栈与张力 | 主导与辅助的搭配读法；劣势功能落在哪里；哪根轴拉得最开；分数与标准功能栈不合的地方 | `S/类型贴合度/首选功能栈`、`S/对立轴`、`S/排序` |
+| `subtype` | 亚型（仅十六亚型输入） | O/B 与 A/H 两个整体偏向及其大小；主导与辅助各落在哪个亚型；合计是否偏离 240 | `S/亚型/知觉四功能`、`S/亚型/判断四功能`、`S/亚型/候选后缀`、`S/亚型/合计偏离240` |
+| `reported` | 与测验自带类型对照（仅输入带有该类型时） | 一致还是有出入，出入在哪个功能上；属 JUNGUS 时注明两者同源，一致不算印证 | `S/测验自带类型` |
+
+只有类型、没有分数（`mbti_type`）时只答 `stack`，依据写自述类型。
+
+每项 reading 含 `reading_id`、简洁 `statement`、`input_refs`、`source_ids`、`limits`。说可见的依据，不输出隐藏思维链；依据不足处写明无法判断。
 
 ## 输出
 
-按 `judge_verdicts.json` 返回 `judges` 中一条记录：`dimension:"jung"`、`subject_id`、`input_artifact_ids`、`input_payload_sha256`（`null`）、`isolation_level`（`null`）、`independent_readings`、`calculation_issues`、`interpretation_limits`。每项 independent reading 含 `reading_id`、简洁 `statement`、`input_refs`、`source_ids`、`limits`。简述可见证据，不输出隐藏思维链；无依据处写明无法判断。
+按 `judge_verdicts.json` 返回 `judges` 中一条记录：`dimension:"jung"`、`subject_id`、`input_artifact_ids`、`input_payload_sha256`（`null`）、`isolation_level`（`null`）、`independent_readings`、`calculation_issues`、`interpretation_limits`。只输出本维独立读法、计算问题与解释限制；不评级、不建议 analyst 修改、不写成稿。
 
-## 维度范围与限制
+## 红线
 
-可就功能分数/计算结构、类型或功能解释的适用范围提出有限读法；不推断人格因果、Grip 风险、个体化阶段、临床风险或成熟度等原始输入无法支持的结论。保留测量构念、来源、版本、日期和原始量程；不把 NERIS 五维、自述类型、16 亚型和八功能互相转换，也不从出生图生成分数。
-
-对未成年人和年龄未知者，分数只作自我报告的偏好信息，不作能力排名、缺陷或临床判断；年龄未知使用保守适龄措辞。尊重 `audience`，不写未授权的 guardian 专属内容。只输出本维独立读法、计算问题与解释限制；不评级、不建议 analyst 修改、不写成稿。
+1. 不由分数或类型推断疾病、身体状况、寿命、生育，不作心理或医学诊断；不评估临床风险。
+2. 分数是自评偏好，低分读作用得少，不读作做不好；不承诺事件，不给匹配分。
+3. 不编造分数、类型、百分比、引文与出处；不重算测验的匹配百分比。
+4. 未成年人和年龄未知者：你的 readings 属审计材料，照常写类型名；`interpretation_limits` 里注明写给该读者的正文不出现四字母类型名，只写主导与辅助功能的做法，类型名只进监护人段或附录。不贴能力标签；尊重 `audience`，不写未授权的 guardian 专属内容。
+5. NERIS 五维不换算成八功能；不由出生资料生成人格分数。
+6. 类型假说是对自评分数的读法，不写成科学定论。

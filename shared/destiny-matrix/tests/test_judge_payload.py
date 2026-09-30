@@ -112,9 +112,10 @@ class JudgePayloadTests(unittest.TestCase):
 
     def test_first_read_contracts_are_inlined_from_judge_contract(self):
         report, text = self.payload("--dimension", "bazi", "--subject", "primary", "--input", str(self.bundle_path))
-        self.assertEqual(report["included"][:5], [
+        self.assertEqual(report["included"][:6], [
             "agents/judge-bazi.md", "references/team-orchestration.md#§3,§7",
-            "schemas/judge_verdicts.json", "references/bazi-framework.md", "references/classical-texts.md"])
+            "schemas/judge_verdicts.json", "references/bazi-framework.md", "references/classical-texts.md",
+            "references/bazi-symbolism.md"])
         self.assertIn("## 3. 判官输入隔离与 chief 复核", text)
         self.assertIn("## 7. 主题与专业边界", text)
         self.assertNotIn("## 4. 证据、artifact 与复用", text)
@@ -206,3 +207,57 @@ class JudgePayloadTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SplitLayoutTests(unittest.TestCase):
+    """The static contracts live in dm-judge-<dimension>; the split payload carries case data only."""
+
+    def run_payload(self, *extra):
+        import subprocess
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/judge_payload.py"), "--dimension", "bazi",
+             "--subject", "primary", "--input", str(ROOT / "tests/fixtures/chart_bundle.example.json"),
+             *extra], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout)
+
+    def test_split_payload_has_case_data_but_no_contracts(self):
+        inline, split = self.run_payload(), self.run_payload("--layout", "split")
+        self.assertEqual((inline["layout"], inline["adapter"]), ("inline", "dm-judge"))
+        self.assertEqual((split["layout"], split["adapter"]), ("split", "dm-judge-bazi"))
+        self.assertEqual(split["static_sha256"], inline["static_sha256"])
+        self.assertNotEqual(split["input_payload_sha256"], inline["input_payload_sha256"])
+        self.assertLess(split["payload_bytes"], 40_000)
+        self.assertIn("本维原始数据", split["payload"])
+        self.assertIn('"四柱"', split["payload"])
+        self.assertNotIn("角色合同", split["payload"].split("=====")[1])
+        self.assertNotIn("独立解读路径与完成边界", split["payload"])
+        self.assertIn("独立解读路径与完成边界", inline["payload"])
+
+    def test_adapter_body_plus_split_payload_covers_the_inline_payload(self):
+        sys.path.insert(0, str(ROOT / "scripts"))
+        from build_judge_adapters import adapter_text
+        from judge_payload import static_text
+        static, included = static_text("bazi", ROOT)
+        inline = self.run_payload()
+        self.assertEqual(included, inline["included"])
+        for runtime in ("cc", "omp"):
+            text = adapter_text(runtime, "bazi", ROOT)
+            self.assertTrue(text.endswith(static))
+            self.assertIn("name: dm-judge-bazi", text)
+            self.assertIn(inline["static_sha256"], text)
+        self.assertIn("tools: ToolSearch", adapter_text("cc", "bazi", ROOT))
+        self.assertIn("tools: []", adapter_text("omp", "bazi", ROOT))
+        for section in static.split("\n\n===== 第")[1:3]:
+            self.assertIn(section[:200], inline["payload"])
+
+    def test_adapters_on_disk_match_current_contracts(self):
+        import subprocess
+        result = subprocess.run([sys.executable, str(ROOT / "scripts/build_judge_adapters.py"), "--check"],
+                                capture_output=True, text=True)
+        report = json.loads(result.stdout)
+        self.assertEqual(result.returncode, 0,
+                         f"判官席位定义过期，运行 build_judge_adapters.py 重新生成: {report['stale']}")
+        self.assertEqual(len(report["adapters"]), 8)
+        self.assertNotIn("SENTINEL", "".join(
+            (ROOT / row["path"]).read_text(encoding="utf-8") for row in report["adapters"]))

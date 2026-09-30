@@ -26,7 +26,7 @@
 - `full` 默认主题为 personality、bazi、ziwei、astrology、synthesis、timing、relationships、practice；用户另有 career 或 wellbeing 请求时加入。`focused` 只列明确请求主题。synastry 仅作为 relationships 内模块。
 - 不因缺少依赖、材料或成本而删主题。缺少必要资料时列出明确问题或待用户接受的 `accepted_limits`；不可接受的限制不能伪装成完成。
 - 截图必须由两位转录者分别查看原图；第二位不得看第一份转录。逐项比较按键、分值、量程；有差异则回到原图局部复核，不投票、不取平均。仍无法辨认的值为 `null` 并提出问题。非截图输入仍将 `personality_input.transcription` 显式设为 `null`；没有视觉能力时如实说明限制，不声称核验。
-- `instrument_based`、`interview_based`、`insufficient_data` 仅在需要标注资料基础时使用；未知或无资料保留 `null`/`none`。不把 NERIS 五维、自述类型、16 亚型与八功能互相转换；保留构念、来源、版本、日期、原始分值。
+- `instrument_based`、`interview_based`、`insufficient_data` 仅在需要标注资料基础时使用；未知或无资料保留 `null`/`none`。intake 阶段只记录，不换算：保留构念、来源、版本、日期、原始分值与测验自带的类型结论。十六亚型取两亚型均值作功能分是本技能的约定算法，由 S1 的 `jung_calc.py` 完成；NERIS 五维不换算成八功能。
 - 默认 audience 为 `subject`；年龄未知时保留未知并使用保守适龄措辞。未满 18 岁时 `minor_mode:true`：关系仅谈家庭、同伴、师长与边界；career 改谈学习/兴趣；不作未来婚恋预测、性化解读或健康诊断。仅 audience 含 guardian 时写家长内容。
 - 不向外部站点提交个案，不自动留存个案记忆。外部提交授权由用户明确指定具体站点和字段后方可记录；默认隐私字段仍为 false。
 - 不推断或补造出生时间、事件、人格分数、回答或用户授权。问题写入 `questions_for_user`，由 Leader 收集答案后重新冻结输入。

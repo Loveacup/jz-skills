@@ -6,7 +6,7 @@
 
 | 动词 | Claude Code 实现 |
 |---|---|
-| `dispatch(stage, roles)` | 每个席位一次 `Agent` 调用，`name` 含席位、subject 及修订轮次。判官用 `subagent_type:"dm-judge"`，prompt 为 `judge_payload.py` 载荷全文；其他席位用 `general-purpose`，prompt 首步读取 `agents/<seat>.md` 全文与其中列明的合同，再接收该席位专属输入切片。`model` 按下方档位表；同批席位在同一条消息里并行发出。 |
+| `dispatch(stage, roles)` | 每个席位一次 `Agent` 调用，`name` 含席位、subject 及修订轮次。判官用 `subagent_type:"dm-judge-<dimension>"`，prompt 为 `judge_payload.py --layout split` 的个案载荷全文（未安装分维度席位时用 `"dm-judge"` 配 `--layout inline`）；其他席位用 `general-purpose`，prompt 首步读取 `agents/<seat>.md` 全文与其中列明的合同，再接收该席位专属输入切片。`model` 按下方档位表；同批席位在同一条消息里并行发出。 |
 | `barrier(stage)` | 交互会话中子代理默认后台运行，每个完成时自动送达完成通知；本批必要席位的通知全部到齐即 barrier，不轮询、不 sleep。只派遣 DAG 中已满足依赖的后续阶段。当前工具表有团队任务工具（`TaskCreate` 等）时可用任务依赖表达 DAG；没有时由 Leader 按 barrier 顺序派遣。 |
 | `collect(role)` | 从完成通知取结构化结果及实际可观察的模型/遥测字段；由 Leader 按唯一 runtime_trace 合同登记。 |
 | `message(to)` | `SendMessage`（`to` 为该子代理 `name`）续用同一上下文，只传递依赖或已登记的产物 ID。不向判官续发任何材料；修订任务使用干净的新 writer 上下文，不把被拒稿交给 writer。 |
@@ -29,7 +29,7 @@
 
 | 档位 | 席位 | `subagent_type` | `model` |
 |---|---|---|---|
-| deep（隔离） | 四位 judge | `dm-judge` | 省略；定义内 `inherit` |
+| deep（隔离） | 四位 judge | `dm-judge-jung`、`dm-judge-bazi`、`dm-judge-ziwei`、`dm-judge-astro` | 省略；定义内 `inherit` |
 | deep | chief-judge、synthesizer、book-writer、reader-editor（S8.5）、book-finalizer | `general-purpose` | 省略（继承主会话） |
 | research | external-verifier、analysts、专题角色、chart-director | `general-purpose` | 省略（继承主会话） |
 | light | intake-refiner、caster、受限布局补丁 | `general-purpose` | `"haiku"` |
@@ -45,14 +45,19 @@
 
 ```bash
 mkdir -p ~/.claude/agents
-ln -s "$DM/adapters/cc/dm-judge.md" ~/.claude/agents/dm-judge.md
+"$DM_PY" "$DM/scripts/build_judge_adapters.py"
+for f in dm-judge dm-judge-jung dm-judge-bazi dm-judge-ziwei dm-judge-astro; do
+  ln -sf "$DM/adapters/cc/$f.md" ~/.claude/agents/$f.md
+done
 ```
+
+四个分维度席位由 `build_judge_adapters.py` 生成，正文里已有该维的判官合同、framework、知识卡与来源索引，Leader 只需发出十几 KB 的个案载荷。合同或知识卡改动后重新运行该脚本；`doctor.py` 的 `judge.adapters.fresh` 会核对。Claude Code 在会话开始时载入 agent 定义，新装或重新生成后要开新会话才生效。通用的 `dm-judge` 留作未安装分维度席位时的退路。
 
 `doctor.py --json` 的 `cc.agent.dm-judge` 与 `cc.agent.dm-judge.tools` 检查链接和 frontmatter。定义要点：
 
 - `tools: ToolSearch`。Claude Code 拒绝派生工具列表解析为空的子代理（报 “would be spawned with zero tools”），`TodoWrite` 与任务工具在当前模型上默认不提供，列它们同样被拒。`ToolSearch` 只检索子代理自身工具池里的延迟工具，而该池没有文件、Shell、网络或派遣工具，因此读不到工作区。冒烟中子代理实际只见到运行时注入的 `SubagentHandback`，未见 `Read`/`Bash`。
 - `disallowedTools: mcp__*` 去掉全部 MCP 工具；`omitClaudeMd: true` 不加载用户、项目和本地 CLAUDE.md；不设 `skills`、`memory`、`mcpServers`。`maxTurns: 4` 限制轮次。
-- 判官只看到定义正文、Leader 的派遣 prompt 和运行时环境段。要标 `input_only`，prompt 必须与 `judge_payload.py` 输出的载荷逐字一致（§3）。
+- 判官只看到定义正文、Leader 的派遣 prompt 和运行时环境段。要标 `input_only`，prompt 必须与 `judge_payload.py` 输出的载荷逐字一致，split 时席位定义还须与现行合同一致（§3）。
 
 不为 light/research/deep 另建 Claude Code 定义：`general-purpose` 已继承主会话模型和完整工具，light 只需在派遣时传 `model:"haiku"`，席位纪律已在 `agents/<seat>.md`。另建定义只会复制 omp adapter 的纪律文本，还要多装三条软链，没有额外的隔离或模型收益。
 

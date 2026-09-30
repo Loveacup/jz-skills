@@ -6,7 +6,7 @@
 
 | 动词 | omp 实现 |
 |---|---|
-| `dispatch(stage, roles)` | 每席位一个 `task` item，使用本文件下方规定的 adapter；共享 `context` 只放同批均可见的中性说明（`task` 不接受空 context），席位专属原始输入仅放该 task 的内容。判官 item 用 `dm-judge`，内容为 `judge_payload.py` 载荷全文。 |
+| `dispatch(stage, roles)` | 每席位一个 `task` item，使用本文件下方规定的 adapter；共享 `context` 只放同批均可见的中性说明（`task` 不接受空 context），席位专属原始输入仅放该 task 的内容。判官 item 用 `dm-judge-<dimension>`，内容为 `judge_payload.py --layout split` 的个案载荷全文（未安装分维度席位时用 `dm-judge` 配 `--layout inline`）。 |
 | `barrier(stage)` | 等待 DAG 中本批所需任务结果全部送达后再派遣下游，不轮询后台任务。omp 18.4.3 起批量 `task` 默认预启动（`task.speculativeLaunch`：每个 item 流式写完即启动，整批调用无效时已启动者被中止）；同批 item 本就互不依赖，barrier 语义不变，但 runtime_trace 的 `started_at` 可能早于整批调用结束。 |
 | `collect(role)` | 读取完整 task 结果；schema 任务核验结构化输出。Leader 是 runtime_trace 唯一写入者，登记实际可观察模型、用量、状态和输入/输出产物 ID。 |
 | `message(to)` | `write agent://<id>` 传递必要依赖、纠错或产物 ID；不得用共享文件路径替代判官输入隔离，也不向判官续发材料。 |
@@ -31,7 +31,7 @@ adapter 是 `agents` 的运行模板，不改变角色职责：
 
 | 档位 | 角色 | adapter | frontmatter `model` 顺序 |
 |---|---|---|---|
-| deep（隔离） | 四位 judge | `dm-judge` | `["@slow", "@default"]` |
+| deep（隔离） | 四位 judge | `dm-judge-jung`、`dm-judge-bazi`、`dm-judge-ziwei`、`dm-judge-astro` | `["@slow", "@default"]` |
 | deep | chief-judge、synthesizer、book-writer、reader-editor（S8.5）、book-finalizer | `dm-deep` | `["@slow", "@default"]` |
 | research | external-verifier、四位 analyst、love-specialist、growth-specialist、chart-director | `dm-research` | `["@default", "@slow"]` |
 | light | intake-refiner、caster、确定的机械式布局补丁 | `dm-light` | `["@smol", "@task"]` |
@@ -43,6 +43,8 @@ adapter 是 `agents` 的运行模板，不改变角色职责：
 - 安装：`ln -s "$DM/adapters/omp/dm-<档>.md" ~/.omp/agent/agents/dm-<档>.md`（`light`、`research`、`deep`、`judge` 各一条）；`doctor.py --json` 检查链接。
 
 ## 判官隔离 adapter（dm-judge）
+
+分维度席位 `dm-judge-<dimension>` 由 `"$DM_PY" "$DM/scripts/build_judge_adapters.py"` 生成，正文里已有该维的判官合同、framework、知识卡与来源索引；安装方式与 `dm-judge` 相同，把 `adapters/omp/dm-judge-*.md` 软链到 `~/.omp/agent/agents/`。合同或知识卡改动后重新生成；`doctor.py` 的 `judge.adapters.fresh` 会核对。它们的 frontmatter 与隔离纪律同 `dm-judge`，下文对 `dm-judge` 的说明同样适用。
 
 `dm-judge` 与 `dm-deep` 同档（frontmatter `thinking-level: high`），frontmatter 为 `tools: []` 且不设 `spawns`：omp 此时只给内置 `yield`，没有 read/bash/write/task，判官只能消费 task 正文里的载荷。`doctor.py` 的 `omp.agent.dm-judge.tools` 检查该 frontmatter。
 

@@ -210,6 +210,50 @@ def frontmatter(path: Path) -> dict[str, str]:
     return fields
 
 
+def check_dimension_adapters() -> None:
+    """dm-judge-<dimension> carry the static contracts; they must be fresh, tool-less and linked."""
+    sys.path.insert(0, str(DM_ROOT / 'scripts'))
+    try:
+        from build_judge_adapters import adapter_text, targets
+        rows = [(runtime, dimension, path, adapter_text(runtime, dimension, DM_ROOT))
+                for runtime, dimension, path in targets(DM_ROOT)]
+    except Exception as exc:  # contracts unreadable or malformed
+        add('judge.adapters.fresh', 'red', f'无法生成判官席位定义: {exc}')
+        return
+    stale = [str(path.relative_to(DM_ROOT)) for _, _, path, text in rows
+             if not path.exists() or path.read_text(encoding='utf-8') != text]
+    if stale:
+        add('judge.adapters.fresh', 'red',
+            f'判官席位定义与合同不同步: {stale}；运行 "$DM_PY" scripts/build_judge_adapters.py 重新生成')
+    else:
+        add('judge.adapters.fresh', 'green', f'{len(rows)} 份 dm-judge-<dimension> 与现行合同一致')
+    homes = {'cc': HOME / '.claude/agents', 'omp': HOME / '.omp/agent/agents'}
+    required = {'cc': {'tools': 'ToolSearch', 'disallowedTools': 'mcp__*', 'omitClaudeMd': 'true'},
+                'omp': {'tools': '[]'}}
+    for runtime in ('cc', 'omp'):
+        missing, wrong = [], []
+        for rt, dimension, path, _ in rows:
+            if rt != runtime:
+                continue
+            link = homes[runtime] / path.name
+            if not (link.exists() and link.resolve() == path.resolve()):
+                missing.append(f'ln -s "{path}" "{link}"')
+            if path.exists():
+                fields = frontmatter(path)
+                bad = {k: fields.get(k) for k, v in required[runtime].items() if fields.get(k) != v}
+                if runtime == 'omp' and 'spawns' in fields:
+                    bad['spawns'] = fields['spawns']
+                if bad:
+                    wrong.append(f'{path.name}: {bad}')
+        if wrong:
+            add(f'{runtime}.agent.dm-judge-dimension.tools', 'red', f'frontmatter 破坏判官隔离: {wrong}')
+        cid = f'{runtime}.agent.dm-judge-dimension'
+        if missing:
+            add(cid, 'yellow', '未链接分维度判官席位（split 载荷需要）；安装：' + ' && '.join(missing))
+        else:
+            add(cid, 'green', f'四个 dm-judge-<dimension> 已链接到 {homes[runtime]}')
+
+
 def check_judge_adapters() -> None:
     """dm-judge must be linked on both runtimes and must stay tool-less (see runtime-*.md)."""
     runtimes = (
@@ -235,6 +279,7 @@ def check_judge_adapters() -> None:
             add(f'{cid}.tools', 'red', f'{target.name} frontmatter 破坏判官隔离: {wrong}；期望 {required}')
         else:
             add(f'{cid}.tools', 'green', f'frontmatter {required}' + (f'，无 {"/".join(forbidden)}' if forbidden else ''))
+    check_dimension_adapters()
     if shutil.which('omp'):
         add('omp.agent.dm-judge.mcp', 'yellow',
             'omp 不按 agent tools 过滤用户配置的 MCP 工具；dm-judge 无文件/Shell，但可能仍见网络类 MCP，'

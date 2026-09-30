@@ -79,17 +79,17 @@ S3 与 S4 并行，二者共同依赖 S2；不等待 S3 才启动判官。chief 
 | 阶段 | 负责席位 | 主要输入 → 产物 |
 |---|---|---|
 | S0 | intake-refiner | 原始请求 → `intake_brief` |
-| S1 | caster | 冻结的 intake → schema v2 `chart_bundle`、方法和原始计算 artifact |
+| S1 | caster | 冻结的 intake → schema v2 `chart_bundle`、方法和原始计算 artifact；人格资料为 `functions8`、`subtypes16` 或 `mbti_type` 时另运行 `jung_calc.py`（有测验自带类型时加 `--reported-type`），产出 `$WS/jung.json` 并登记 artifact，供 jung-analyst 与 `judge_payload.py --dimension jung --input` 使用 |
 | S2 | external-verifier | chart_bundle + 公共依据/获准的核验输入 → 计算差异、来源与限制 |
 | S3 | jung/bazi/ziwei/astro analysts（仅适用维度） | 本维原始输入 + intake 中本维必要请求 → 按本维 framework 推读路径形成的领域论述素材、claims、`evidence_summary`、`evidence_limits` |
 | S4 | 对应 judges（仅适用维度） | 本维原始 JSON、输入口径、公共方法合同 → 独立推读、核算问题与解释限制 |
 | S4 chief | chief-judge | 本维 judge 与 analyst 产物 → 分类后的 `consistency_report`、修订责任 |
 | S4C | external-verifier | 实际将使用的引用/外部声明 → 核验过的来源、支持范围与限制 |
-| S5 | synthesizer | 各维 findings、chief 分类、请求 → 围绕同一读者问题的新增理解（`synthesis_claims`）、行动选项、outline，以及全书 3–5 条 `core_propositions:[{proposition_id:"CP-01",image:string\|null,statement,claim_ids:[]}]`（`statement` 是带对象/条件的判断，`claim_ids` 回链已登记的 active claim；`image` 可空，不得升级为能力/命运结论） |
+| S5 | synthesizer | 各维 findings、chief 分类、请求 → 围绕同一读者问题的新增理解（`synthesis_claims`）、行动选项、outline，以及全书 3–5 条 `core_propositions:[{proposition_id:"CP-01",image:string\|null,statement,claim_ids:[]}]`（`statement` 是带对象/条件的判断，`claim_ids` 回链已登记的 active claim；`image` 可空，不得升级为能力/命运结论）。产出存为 `$WS/synthesis.json`，矩阵关系取 `convergent|tension|parallel|not_comparable`；须通过 `synthesis_contract.py`（见 §4）后 Leader 才登记综合主张 |
 | S6 | love-specialist / growth-specialist | 本专题请求、有关 findings 和计算材料 → relationships/career/wellbeing/timing/practice 专题覆盖 |
 | S7 | chart-director | intake、claim/evidence、专题和 chart_bundle → 冻结 `chart_plan.sections` 与 `chart_table` |
 | S8 | book-writer（全书唯一作者） | 已审事实摘录及 artifact 定位、领域论述、综合主张、`core_propositions`、专题素材、冻结计划、输出模板 → HTML |
-| S8.5 | reader-editor | S8 的 `$WS/book.html`、冻结计划、`case_evidence.json`（只读）、文风合同 → 同路径改写后的 HTML 与 `$WS/reader_edit_report.json`（`{guard_ok,patterns:[{pattern,count}],notes}`） |
+| S8.5 | reader-editor | S8 的 `$WS/book.html`、冻结计划、`case_evidence.json`（只读）、`$WS/prose_metrics-s8-r{N}.json`（只读）、文风合同 → 同路径改写后的 HTML 与 `$WS/reader_edit_report.json`（`{guard_ok,patterns:[{pattern,count}],notes}`） |
 | S9 | book-finalizer | HTML、计划、evidence、checklist、验证器与真实浏览器证据 → `verdict-rN-pre.json`（含 `reader_takeaways`） |
 | S10 | Leader + book-finalizer | 合格 pre、HTML → PDF 技术导出；finalizer 检视真实 PDF → `verdict-rN-post.json` |
 
@@ -104,8 +104,9 @@ S3 与 S4 并行，二者共同依赖 S2；不等待 S3 才启动判官。chief 
 
 - S0/S2 确定每个 `subject_id` 的适用维度集合；真正不适用的维度才省略。S4 派遣前 Leader 将完整 `(subject_id,dimension)` 对写入必填 `judge_verdicts.json.expected_judges`（`subject_id` 为 `primary|partner`，`dimension` 为 `jung|bazi|ziwei|astro`）；chief 必须逐项核对每对均有对应 analyst finding 与 judge 结果。适用席位缺失、重复或覆盖不完整均为 `blocked`；checker 对缺失项发 `missing_applicable_judge`。不得把遗漏伪装成“不适用”。仅当无适用 judge 且 `judges` 为空时 `expected_judges` 才可为空；B1 的 `quality_contracts` 校验 expected 与实际 judge 覆盖。
 - 每位 judge 在独立上下文中只接收本体系原始 JSON、必要输入口径与公开方法合同。不得接收历史事件、人格概括、其他体系数据、analyst findings、成稿、通用案例工作区根目录或跨会话记忆。
-- 判官载荷只由 `scripts/judge_payload.py` 生成：本维原始切片、判官合同“首读”所列合同与公共来源 ID 索引，不含其他维度、历史事件或 intake 其余字段。Leader 把载荷文本原样作为该 task 的全部正文，派给本端无文件/Shell/派遣工具的 `dm-judge` adapter（见 runtime 文件），不附加其他材料。
-- Leader 记录该任务实际字段，并从脚本输出登记 `input_artifact_ids`、`input_payload_sha256`。`isolation_level:"input_only"` 仅当以 `dm-judge` 派遣、正文与该哈希对应的载荷逐字一致、且判官未返回 `input_contamination` 时成立；使用通用子代理或带文件工具的 adapter、改写或补充载荷、判官报告污染，或运行时不能限制输入时，一律标 `unavailable`，并停止“独立盲审”声称。omp 端若判官工具表含可联网的 MCP 工具，runtime_trace 该 task 另记 `egress_tools`（实际可见的工具名清单），供隐私审计复核；判官若实际调用了其中任何工具，按输入污染处理：该判官标 `unavailable`、结果不用，fresh 重派。
+- 判官的输入分两部分，都由脚本确定性生成。**静态部分**是判官合同、其“首读”所列合同（含本维 framework 与知识卡）与公共来源 ID 索引，不含任何个案内容，由 `scripts/build_judge_adapters.py` 写进分维度的席位定义 `dm-judge-<dimension>`（`jung|bazi|ziwei|astro`）。**个案部分**是输入口径与本维原始切片，由 `scripts/judge_payload.py --layout split` 生成，不含其他维度、历史事件或 intake 其余字段。Leader 把个案载荷原样作为该 task 的全部正文，派给本端的 `dm-judge-<dimension>`（见 runtime 文件），不附加其他材料。合同或知识卡有改动后须重新运行 `build_judge_adapters.py`；`doctor.py` 的 `judge.adapters.fresh` 为 red 时不得派判官。
+- 没有安装分维度席位定义时，退回 `--layout inline`：静态与个案两部分都在载荷里，派给通用的 `dm-judge`。此时载荷约 70–180 KB，Leader 须逐字发出；做不到逐字一致就标 `unavailable`。
+- Leader 记录该任务实际字段，并从脚本输出登记 `input_artifact_ids`、`input_payload_sha256`、`static_sha256`、`layout` 与所用 adapter。`isolation_level:"input_only"` 仅当以下条件全部成立：以 `dm-judge-<dimension>`（split）或 `dm-judge`（inline）派遣；正文与该哈希对应的载荷逐字一致；split 时席位定义与现行合同一致（`build_judge_adapters.py --check` 通过）；判官未返回 `input_contamination`。使用通用子代理或带文件工具的 adapter、改写或补充载荷、判官报告污染，或运行时不能限制输入时，一律标 `unavailable`，并停止“独立盲审”声称。omp 端若判官工具表含可联网的 MCP 工具，runtime_trace 该 task 另记 `egress_tools`（实际可见的工具名清单），供隐私审计复核；判官若实际调用了其中任何工具，按输入污染处理：该判官标 `unavailable`、结果不用，fresh 重派。
 - judge 返回 `independent_readings`、每项的输入引用/来源/限制、`calculation_issues` 与 `interpretation_limits`；简明证据摘要，不输出隐藏思维链。不得评 analyst 或写一致性评级。
 - chief 的差异按 `calculation_error|source_error|unsupported_inference|method_difference|wording_difference` 分类，严重度 `blocking|disclose|editorial`。前三类证据成立即阻断；流派方法差异披露，文字差异不强行统一。
 - chief 只在有支持证据时定 `pass|revise|blocked`。若需 AB/BA 检查顺序偏好，在同一 chief 任务内交换材料；不另开判官投票。
@@ -119,8 +120,8 @@ Leader 是唯一 `$WS/case_evidence.json` 工作账本的写入者，并原地�
 
 - artifact 注册路径相对本案 `$WS`，并记录 SHA-256、claim/artifact 依赖和 `current|stale`。更正后只失效直接及传递依赖；未受影响资产保留。verdict 不自注册，须绑定证据修订和实际产物哈希。
 - claims 有全案唯一 ID、subject、kind、输入引用、来源、父 claim、反证、限制和状态；输入引用含 artifact ID、文件哈希与 JSON Pointer。修正以 correction 登记，不能让旧失效 claim 继续 active。
-- 角色 claim 登记：S3 analyst、S5 synthesizer、S6 specialist 只返回 claim 增量，不写账本。Leader 审查父 claim（须为 active）、来源和限制，补齐 ledger 必需的 `owner:<席位名>`、`status:"active"` 后登记到唯一 `case_evidence.json`；引入新来源时先走 S4C 核验，未核来源的主张不登记。S3 首稿若经 chief 判 revise，只登记纠正轮后经 chief 复核的 claims，首稿 findings 保留为 `stale` artifact。
-- S5 新综合主张（`owner:"synthesizer"`）：S7 在相应 `sections[].claim_ids` 引用这些已登记主张，writer 段落用 `data-claim-ids` 回链。综合稿不送盲判官；终审 A3/R2 审核推论是否越级。父主张被修正时，下游综合 claim 依 corrections 置 `superseded` 或 `rejected`、相关 artifact 置 `stale`（claim 没有 `stale` 状态），再重做受影响的综合、计划与正文；父 claim 的限制与反例对子 claim 继续有效。登记综合 claim 时，Leader 把其父 claim 所受的 `changes_reading:true` 限制的 `affected_claim_ids` 扩展到该子 claim（checker：`inherited_limitation_missing`）；综合章以短从句回扣，由 S9 A3 核对。
+- 角色 claim 登记：S3 analyst、S5 synthesizer、S6 specialist 只返回 claim 增量，不写账本。Leader 审查父 claim（须为 active）、来源和限制，补齐 ledger 必需的 `owner:<席位名>`、`status:"active"` 后登记到唯一 `case_evidence.json`（analyst 主张的 `owner` 用含体系名的席位名 `jung-analyst`、`bazi-analyst`、`ziwei-analyst`、`astro-analyst`，`synthesis_contract.py` 据此判定综合主张的父主张来自哪个体系）；引入新来源时先走 S4C 核验，未核来源的主张不登记。S3 首稿若经 chief 判 revise，只登记纠正轮后经 chief 复核的 claims，首稿 findings 保留为 `stale` artifact。
+- S5 新综合主张（`owner:"synthesizer"`）：S7 在相应 `sections[].claim_ids` 引用这些已登记主张，writer 段落用 `data-claim-ids` 回链。综合稿不送盲判官。S5 返回后、登记前，Leader 运行 `"$DM_PY" scripts/synthesis_contract.py --synthesis "$WS/synthesis.json" --evidence "$WS/case_evidence.json" --intake "$WS/intake_brief.json" --json`；退出码非 0 时把 `issues` 原样退回 synthesizer 修订，不登记任何综合主张。登记后对 `case_evidence.json` 重跑 `quality_contracts.py case_evidence`，再以同一命令复跑一次 `synthesis_contract.py`。终审 A3/R2 审核推论是否越级、综合判断是否具体。父主张被修正时，下游综合 claim 依 corrections 置 `superseded` 或 `rejected`、相关 artifact 置 `stale`（claim 没有 `stale` 状态），再重做受影响的综合、计划与正文；父 claim 的限制与反例对子 claim 继续有效。登记综合 claim 时，Leader 把其父 claim 所受的 `changes_reading:true` 限制的 `affected_claim_ids` 扩展到该子 claim（checker：`inherited_limitation_missing`）；综合章以短从句回扣，由 S9 A3 核对。
 - **限制分两层。** 审计层是 `claims[].limits`、`counterevidence` 与 judge/chief 措辞，只供评审和附录，writer 不原样渲染进正文。读者层是 `limitations[]`，每条必填 `changes_reading`（删掉它读者会不会形成具体误读，或某句结论会不会变）、`reader_text`（面向读者的正向/条件句，不含流程词）与 `required_placement`。Leader 登记时按以下规则定落点。`changes_reading` 由 Leader 判定并把理由写入 `impact`；chief 判为 `disclose` 的差异默认 `changes_reading:true`，改标 `false` 须在 `impact` 写明它不改变哪一句结论；S9 可推翻该判定（见 `locked-checklist.md` A3）。schema 以 `limitation_placement` / `reader_limitation_in_appendix` 报错：`changes_reading:false` 只能 `appendix`；`changes_reading:true` 只能 `opening` 或 `adjacent`；`opening` 只用于全书通用边界（性质、非预测、资料范围），建议全书不超过 5 条（checker 不设门禁，validator 超过时给 `review_required` 提示）。chief 的 `disclose` 差异先改写成 `reader_text` 再登记，不把回应判官的口吻带进读者层。
 - S7 `sections[].limitation_ids` 只收 `adjacent` 限制，同一 ID 只进一个 section；`adjacent` 限制的 `affected_claim_ids` 与计划中任一 claim 相交时必须有落点。`quality_contracts.py chart_plan --evidence` 分别报 `section_limitation_not_reader_layer`、`section_limitation_not_adjacent`、`limitation_multiple_sections`、`adjacent_limitation_unplanned`、`dangling_limitation`。正文以可见元素的 `data-limitation-id`（可空格分隔多个）标记限制：计划限制在所属 section 恰好一次，`opening` 在必要披露恰好一次，`appendix` 不以该属性进正文；标记元素去掉编号后须写出限制本身（不少于 6 个汉字，否则 `limitation_empty`）；后文回扣用不带标记的短从句。
 - 公共引文目录在 `references/sources.json`；案例证据账本记录本案使用和核验状态。任何来源不明、版本不明或未核原话均不得伪装 verified。
@@ -130,14 +131,14 @@ Leader 是唯一 `$WS/case_evidence.json` 工作账本的写入者，并原地�
 
 ## 5. 派遣与档位
 
-每个 task 首步完整读取自己的 `agents/<seat>.md` 与其中明确要求的合同。prompt 说明目标、输出 schema、必需来源/工具、任务边界、上游 artifact ID 和验收方式；不要反复粘贴全局流程。batch 共享 context 仅放本批全员可见的中性内容，原始输入、私人字段和判官 payload 放各自 task；判官 task 不读角色文档，其正文就是 §3 的载荷全文。
+每个 task 首步完整读取自己的 `agents/<seat>.md` 与其中明确要求的合同。prompt 说明目标、输出 schema、必需来源/工具、任务边界、上游 artifact ID 和验收方式；不要反复粘贴全局流程。batch 共享 context 仅放本批全员可见的中性内容，原始输入、私人字段和判官 payload 放各自 task；判官 task 不读角色文档：合同在其席位定义里，正文就是 §3 的个案载荷。
 
 | 档位 | 席位 | OMP adapter/model 顺序 | Claude Code |
 |---|---|---|---|
 | light | intake-refiner、caster；受限机械布局修补 | `dm-light`：`["@smol","@task"]` | 通用子代理，派遣时 `model:"haiku"` |
 | research | external-verifier、四 analyst、love/growth、chart-director | `dm-research`：`["@default","@slow"]` | 通用子代理，省略 `model`（继承） |
 | deep | chief-judge、synthesizer、book-writer、reader-editor、book-finalizer | `dm-deep`：`["@slow","@default"]` | 通用子代理，省略 `model`（继承） |
-| deep（隔离） | 四 judge | `dm-judge`：`["@slow","@default"]`，`tools: []` | `subagent_type:"dm-judge"`，`model: inherit` |
+| deep（隔离） | 四 judge | `dm-judge-<dimension>`（未安装时 `dm-judge`）：`["@slow","@default"]`，`tools: []` | `subagent_type:"dm-judge-<dimension>"`（未安装时 `"dm-judge"`），`model: inherit` |
 
 模型档位表示任务深度，不承诺费用高低或输出质量。纯机械布局改动可由 light 执行，但原 finalizer 复核。light 能力不足最多升 research 一次；输入/文件/依赖错误要先修原因；deep/judge/终审不降档。按运行时规则尊重 thinking 后缀及 `task.agentModelOverrides`；不改全局 model roles。具体工具名和后缀语义见本端 runtime 文件。
 
@@ -153,8 +154,8 @@ Leader 每个阶段和 task 记录：
 
 ## 7. 主题与专业边界
 
-- 以人为本，不是以某份量表结论为本：四个体系按各自 framework 的推读路径独立完整解读，再围绕同一读者问题综合。人格资料是默认阅读入口之一，不构成其他体系必须围绕的主答案，也不要求传统体系证明人格结论。综合说明各视角增加了什么、真实的并行、张力或不可比，不建置信度评分或因果公式。
-- 缺测量时先给一次访谈机会；用户不接受则说明人格资料边界并给开放观察问题。16Personalities/NERIS 五维、自述类型、16 亚型和八功能分数保持原构念，不互相伪转换。
+- 以人为本，不是以某份量表结论为本：四个体系按各自 framework 的推读路径独立完整解读，再围绕同一读者问题综合。各体系在自己的传统内部下明确判断（八字断旺衰、格局、用神；紫微断格局与四化重心；占星断盘面重心与命主星去向；人格给出类型假说与备选），按各 framework 写明的默认取法读，其他取法进附录。人格资料是默认阅读入口之一，不构成其他体系必须围绕的主答案。综合说明各视角增加了什么，写明汇聚、张力、并列或各答各的；汇聚是叙事上落到一处，综合章开头说明一次“体系之间是各自独立的传统，相近不等于科学证明”，此后不逐处声明。不建置信度评分或因果公式。
+- 缺测量时先给一次访谈机会；用户不接受则说明人格资料边界并给开放观察问题。原始分数、量程与工具如实保留；类型假说、功能栈与备选按 `cognitive-functions.md` 的方法由分数轮廓推出，十六亚型按 `jung_calc.py` 的 `结构` 取两亚型均值作功能分。16Personalities/NERIS 五维不换算成八功能。
 - 人生事件仅作用户给出的背景，不反向校准出生时间或计算预测命中率。出生时间更正必须有新的出生记录/原始记忆依据，并保留前后候选差异。
 - 未成年约束进入所有相关席位任务，不依赖 Leader 临时提醒。健康专题仅回应用户主动提供的生活习惯、压力与求助问题，不从排盘推出疾病或生育结论；事业、关系和流年不承诺事件、收益、成功率或吉日。
 - 合盘不产生匹配总分或成功概率；伴侣称谓、现实身份不由传统排盘性别参数推断。
@@ -185,7 +186,7 @@ S5 输出请求覆盖、主题综合、claim 回链和章节 outline；S6 处理
 
 终审 JSON 形状见 `schemas/final_verdict.json`。每次裁决不可变保存 `verdict-rN-pre.json` 或 `verdict-rN-post.json`；`final_verdict.json` 是最新完整裁决副本。
 
-- **S8.5 reader-editor。** S8 成稿后、S9 前，Leader 先把 S8 稿存为不可变的当轮基准稿 `$WS/book-s8-r{N}.html`（N 为 `revision_round`，fresh writer 修订后的第二次 S8.5 用新文件，不覆盖上一轮），再派 reader-editor 改写 `$WS/book.html`：只做去重、否定→条件句、主语回到人、流程词替换、删除宣告式“未核”、合并重复停止条件、审计口吻改读者口吻；不得增删 claim/限制、改数字/引文/图表或写新推论。出口由 Leader 运行 `guard_book.py --before "$WS/book-s8-r{N}.html" --after "$WS/book.html" --scope prose --targets <全部 body section_id> --plan "$WS/chart_plan.json" --json`：`ok:true` 才以改后稿进入 S9；否则把 `book-s8-r{N}.html` 恢复为 `book.html` 进入 S9，并在 runtime_trace 该 task 记 `status:"reverted"` 与 guard issue code。prose scope 允许改带 `data-claim-ids` 段落的措辞与合并段落（每节 claim ID 集合不变），数字按集合比较（可删重复出现，不可新增或改值），`data-value-ref` 与引文节点原样，图表与隐藏状态不可变，每节 `data-limitation-id` 集合不变且计划限制恰好一次。guard 输出的 `certainty_review`（声源/条件标记减少的 section 及改前/改后计数）与 `reader_edit_report.json` 一并交 S9 对照。S8.5 不占 fresh writer 修订额度，也不开新的修订轮；S9 可因 S8.5 引入的退步（确定程度升高、声源标签被删、限制条件被削）判回退，由 Leader 把当轮基准稿恢复为 `book.html`，回退不计修订轮；回退后由 fresh finalizer 对恢复稿重做 pre 裁决，原裁决保留为不可变记录。S8.5 结束（含回退）后，Leader 按实际文件更新 `book.html` 的 artifact 哈希；`book-s8-r{N}.html` 另行登记或不登记，不得以 current 与正文并存。
+- **S8.5 reader-editor。** S8 成稿后、S9 前，Leader 先把 S8 稿存为不可变的当轮基准稿 `$WS/book-s8-r{N}.html`（N 为 `revision_round`，fresh writer 修订后的第二次 S8.5 用新文件，不覆盖上一轮），并运行 `prose_metrics.py "$WS/book-s8-r{N}.html" --json > "$WS/prose_metrics-s8-r{N}.json"`，随派遣交给 reader-editor，再派 reader-editor 改写 `$WS/book.html`：只做去重、否定→条件句、主语回到人、流程词替换、删除宣告式“未核”、合并重复停止条件、审计口吻改读者口吻；不得增删 claim/限制、改数字/引文/图表或写新推论。出口由 Leader 运行 `guard_book.py --before "$WS/book-s8-r{N}.html" --after "$WS/book.html" --scope prose --targets <全部 body section_id> --plan "$WS/chart_plan.json" --json`：`ok:true` 才以改后稿进入 S9；否则把 `book-s8-r{N}.html` 恢复为 `book.html` 进入 S9，并在 runtime_trace 该 task 记 `status:"reverted"` 与 guard issue code。prose scope 允许改带 `data-claim-ids` 段落的措辞与合并段落（每节 claim ID 集合不变），数字按集合比较（可删重复出现，不可新增或改值），`data-value-ref` 与引文节点原样，图表与隐藏状态不可变，每节 `data-limitation-id` 集合不变且计划限制恰好一次。guard 输出的 `certainty_review`（声源/条件标记减少的 section 及改前/改后计数）与 `reader_edit_report.json` 一并交 S9 对照。S8.5 不占 fresh writer 修订额度，也不开新的修订轮；S9 可因 S8.5 引入的退步（确定程度升高、声源标签被删、限制条件被削）判回退，由 Leader 把当轮基准稿恢复为 `book.html`，回退不计修订轮；回退后由 fresh finalizer 对恢复稿重做 pre 裁决，原裁决保留为不可变记录。S8.5 结束（含回退）后，Leader 按实际文件更新 `book.html` 的 artifact 哈希；`book-s8-r{N}.html` 另行登记或不登记，不得以 current 与正文并存。
 - `pre_export` 检查 HTML。所有适用非 PDF 项通过且 P1–P3 标 `deferred` 才能是 `awaiting_export`。此阶段不允许 `pass`；deferred 仅可用于 P1–P3。D1 必须基于 `validate_book.py "$WS/book.html" --plan "$WS/chart_plan.json" --evidence "$WS/case_evidence.json" --json` 的 `ok:true` 输出，并在 D1 evidence 附该次 stdout JSON 的哈希；若怀疑 validator 误报，只能 `blocked` 并报告工具缺陷，不得豁免为 pass。
 - S10 只接受与当前 HTML 哈希相符、decision 为 `awaiting_export` 的 pre verdict。导出后 finalizer 亲自核验真实 PDF；post 必须有 HTML/PDF 哈希、实际视觉证据、16 项齐全且均通过或合法 `na` 才能为 `pass` / released。
 - 最终 decision 仅 `awaiting_export|revise|blocked|pass`。内容错误、来源错误、请求未回答、缺少实际 PDF、未验证真实 PDF、哈希不匹配或任何阻断项失败均不得放行。
@@ -205,24 +206,30 @@ cast_chart.py DATE TIME m|f|- CITY [--lat=<deg> --lon=<deg> --tz=<offset>|--tz-n
 bazi_calc.py --intake <file> [--subject ..] [--zi-hour-rule ..]
 ziwei_calc.py --intake <file> [--subject ..]
 astro_calc.py DATE TIME LAT LON --tz=<UTC偏移小时>|--tz-name=<IANA> [--house-system placidus|whole_sign] [--mean-node] [--orbs=<JSON对象>]
-jung_calc.py --scores <JSON> --scale <max> | --scores16 <JSON> --scale <max> | --type <XXXX>
+jung_calc.py --scores <JSON> --scale <max> [--reported-type <CODE>] | --scores16 <JSON> --scale <max> [--reported-type <CODE>] | --type <四字母或六字母类型>
 synastry_calc.py --a <chart_bundle A> --b <chart_bundle B> [--a-jung <jung.json>] [--b-jung <jung.json>] [--orbs <JSON>]
 chart_data.py {radar,wheel,timeline,arc,dumbbell}
-chart_data.py wheel --cusps <12个互异有限且位于[0,360)的宫始黄经> --asc <[0,360)度> [--planets <K=位于[0,360)度的黄经,...>]
+chart_data.py wheel --cusps <12个互异有限且位于[0,360)的宫始黄经> --asc <[0,360)度> --planets <K=位于[0,360)度的黄经,...>
+book_html.py pillars|ziwei|wheel --bundle <chart_bundle.json> [见 output-template.md §5]
 chart_data.py dumbbell --pairs <JSON数组> --min 0 --max <scale>
 quality_contracts.py <kind> <json_path> [--evidence <case_evidence.json>] [--json]
 validate_book.py <html> --plan <chart_plan.json> --evidence <case_evidence.json> [--sources <references/sources.json 默认技能内>] --json
 export_pdf.py <html> <pdf> --verdict <verdict-rN-pre.json> --json
 guard_book.py --before <html> --after <html> --scope prose|layout|citations|charts|content --targets <id,...> [--plan <chart_plan.json>] [--revision <instructions.json> --evidence <case_evidence.json>] --json
 guard_book.py --prepare-revision --before <html> --revision <instructions.json> --evidence <case_evidence.json> --output <new_dir> --json
-judge_payload.py --dimension jung|bazi|ziwei|astro --subject primary|partner [--input <chart_bundle.json | jung_calc 结果>] [--intake <intake_brief.json>] [--evidence <case_evidence.json>] [--ws <dir>] [--dm <dir>] [--output <payload.txt>]
+prose_metrics.py <html> [--json] [--terms <file>] [--terms-only] [--top N] [--no-snippets]
+synthesis_contract.py --synthesis <synthesis.json> --evidence <case_evidence.json> [--intake <intake_brief.json>] --json
+judge_payload.py --dimension jung|bazi|ziwei|astro --subject primary|partner [--input <chart_bundle.json | jung_calc 结果>] [--intake <intake_brief.json>] [--evidence <case_evidence.json>] [--ws <dir>] [--dm <dir>] [--output <payload.txt>] [--layout split|inline]
+build_judge_adapters.py [--check] [--dm <dir>]
 ```
 
 `astro_calc.py` 的 `--tz` 与 `--tz-name` 必须且只能给一个；没有时区时不默认 UTC+8。
 `validate_book.py` 的 `review_required` 只作人工复核提示，不进 `issues`、不影响 `ok`：`forbidden_term`（硬禁词）、`process_term`（流程词词表，扫必要披露与正文，不扫附录）、`opening_negation` / `opening_method`（正文段首否定或方法句）、`opening_limitation_count`（必要披露中 opening 限制超过 5 条）。词表是 `validate_book.py` 顶部的模块常量。
 `guard_book.py --plan` 只作用于 prose scope：给出时每个改动 section 的计划 `limitation_ids` 须恰好出现一次（`prose_limitation_count`）；不给时仍检查每节 `data-limitation-id` 集合不变（`prose_limitation_changed`）。prose scope 另拒绝把限制标记删到只剩编号（`prose_limitation_emptied`），并在输出中给 `certainty_review:[{section,before,after,before_total,after_total}]`：声源/条件标记（“在…的读法里”“传统上”“常见的讲法”“如果”“可能”“倾向”“多半”“例如”）减少的 section，只作 S9 对照提示，不影响 `ok`。
-`judge_payload.py` 返回 `{ok,status,dimension,subject_id,input_payload_sha256,input_artifact_ids,artifact_id_source:"case_evidence"|"content_hash",included,payload_bytes,payload_path|payload}`；三传统维度必须给该 subject 的 chart_bundle，且该维 status 为 ok/partial，否则 exit 1 `dimension_unavailable`。jung 取 `jung_calc` 结果和/或 intake 的 `personality_input` 白名单字段（访谈构念才带观察与反例），两者构念不一致即 exit 1。`--intake` 只贡献年龄/受众口径与 jung 切片；给 `--evidence` 时按文件 SHA-256 取 current artifact_id，未登记即 exit 1。哈希为载荷 UTF-8 字节的 SHA-256，同输入逐字节确定。
-`jung_calc.py --scores` 返回 `{construct:"functions8",raw_scores,scale,normalized_scores,ranked_tiers:[{functions,raw_score,normalized_score}],reflection_prompts:[{theory_basis,question,needs_observation:true}],interpretation_limits}`；并列分数放入同一 tier。`--scores16` 返回 `{construct:"subtypes16",raw_scores,scale,pairs:[{function,left_key,right_key,left,right,delta}],derived_functions:null,reflection_prompts,interpretation_limits}`；T/F 的 delta=H−A、N/S 的 delta=B−O。`--type` 返回 `{construct:"mbti_type",self_reported_type,theory_mapping:{basis,stack:[{position,function,role}×8]},reflection_prompts,interpretation_limits}`。三种模式互斥，不输出主导类型/未校准置信度。
+`prose_metrics.py` 只出诊断：退出码 0 表示跑完，2 表示输入错误，没有“不通过”。它统计正文（不含必要披露、附录、图表与数据表）的否定限定句、流程词、标题否定式、首句类型、声源标签、假设镜像、虚词连用、术语密度、句长段长与限制框占比，并按章给出编辑优先度。所有阈值只用于排序和提示；它不进 `issues`，不影响任何 verdict，不得作为放行或阻断的理由。S8.5 结束后 Leader 对最终的 `book.html` 再运行一次，输出存 `$WS/prose_metrics.json`，交 book-finalizer 作 D3 定位参考。样章写完后也运行一次，只看流程词、标题否定式和首句类型三项。
+
+`judge_payload.py` 返回 `{ok,status,dimension,subject_id,layout,adapter,input_payload_sha256,static_sha256,input_artifact_ids,artifact_id_source:"case_evidence"|"content_hash",included,payload_bytes,payload_path|payload}`；三传统维度必须给该 subject 的 chart_bundle，且该维 status 为 ok/partial，否则 exit 1 `dimension_unavailable`。jung 取 `jung_calc` 结果和/或 intake 的 `personality_input` 白名单字段（访谈构念才带观察与反例），两者构念不一致即 exit 1。`--intake` 只贡献年龄/受众口径与 jung 切片；给 `--evidence` 时按文件 SHA-256 取 current artifact_id，未登记即 exit 1。哈希为载荷 UTF-8 字节的 SHA-256，同输入逐字节确定。
+`jung_calc.py --scores` 返回 `{construct:"functions8",raw_scores,scale,normalized_scores,ranked_tiers:[{functions,raw_score,normalized_score}],reflection_prompts:[{theory_basis,question,needs_observation:true}],interpretation_limits}`；并列分数放入同一 tier。`--scores16` 返回 `{construct:"subtypes16",raw_scores,scale,pairs:[{function,left_key,right_key,left,right,delta}],derived_functions:null,reflection_prompts,interpretation_limits}`；T/F 的 delta=H−A、N/S 的 delta=B−O。`--type` 返回 `{construct:"mbti_type",self_reported_type,theory_mapping:{basis,stack:[{position,function,role}×8]},reflection_prompts,interpretation_limits}`。三种模式互斥。有分数的两种模式另返回 `结构`（功能排序、对立轴、类型贴合度候选等；十六亚型按两亚型均值作功能分，属本技能约定算法）；`personality_input` 里有测验自带类型时以 `--reported-type` 传入，`结构` 会注明与首选候选是否一致。类型假说的依据在 `结构.类型贴合度`（键集合固定，无值时为 null 或空列表；极差占量程低于 0.05 时 `可定假说` 为假、首选置空），不输出置信度。`--type` 给六字母时前四位作类型，后两位记在 `结构.后缀`。
 `synastry_calc.py` 返回 `{schema_version:1,status:"ok"|"partial",aspect_profile:"standard-v1",orbs,dimensions:{jung,bazi,ziwei,astrology},communication_options:[{action,trigger,review_question,adapt_or_stop}],limitations}`。每层为 `{status:"available"|"unavailable",input_refs,observations,limits}`；关联 chart_bundle 维度 `data:null` 时映为 `unavailable`。
 Jung 的 functions8/subtypes16 observation 为 `{kind:"construct_snapshot",person,construct,raw_scores,scale}`；`mbti_type` 为 `{kind:"theory_mapping",person,self_reported_type,stack}`。Bazi 为 `{kind:"traditional_calculation",calculation_method:"day_stem_element_relations",day_stems,elements,element_relation,direction,ten_stem_combination_element}`；Zi Wei 按共同宫位为 `{calculation_method:"traditional_palace_configuration",palace,a:{main_stars,mutagens},b:{main_stars,mutagens}}`。
 Astrology 使用实际返回的 `computed_aspect` / `aspect_scan`；相位字段含 `a_point,b_point,aspect,angle,orb_used,exact_diff,profile`。扫描 checked/matched 仅为覆盖统计，不是关系评分。Bazi/Zi Wei 只报告规则计算或盘面字段，不冒称来源已核的个体关系解释。
