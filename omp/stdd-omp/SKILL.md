@@ -76,7 +76,7 @@ scenarios:
 - 在 Build 前写逐条可证伪 checklist。
 - 用户已经明确授权且 scope 无歧义时，记录 checklist 后继续，不重复要求确认。
 - scope、不可逆动作或验收口径存在真实分叉时才请求决定。
-- L3 在 Build 前让独立 auditor 检查契约可证伪性。
+- L3 在 Build 前让独立 auditor 检查契约可证伪性；缺这份证据则相关 Build 阻塞。Build 后的最终 Verify 仍由独立 auditor 裁决，契约审计不能替代它。
 
 形式见 `references/acceptance-forms.md`。
 
@@ -84,7 +84,8 @@ scenarios:
 
 - L1 由当前 agent 内联执行。
 - L2/L3 才按需要委派；从当前 runtime 实际列出的 agent 中按能力选择，不假定任何固定名称存在。找不到满足能力的 agent 时，使用可用的独立 session/模型路径；L3 缺少独立审计能力则 BLOCKED。
-- 单一文件/工作区同时只允许一个 writer。并行只用于所有权不重叠的 slice。
+- 单一文件/工作区同时只允许一个 writer。并行只用于所有权不重叠的 slice；并发容量只限制同时运行数，不限制总任务数。
+- 有前置依赖时，前置任务执行完成不等于交付可用：前置产出通过当前契约的验收、证据可达且版本匹配，才解除依赖。依赖与合流规则见 `references/goal-loop.md`。
 - executor 只做已授权 scope；不得把 full-auto 解释为授权 publish/push/deploy/install、认证/登录/密钥、权限提升或运行时配置变更。
 
 角色和 capability 选择见 `references/agent-roles.md`。
@@ -93,10 +94,11 @@ scenarios:
 
 - 只运行与变更相关的证据动作；没有新变更、失败或未决风险时不重复验证。
 - 客观门使用 `scripts/gates.mjs` 的真实 API：`verifyArtifact`、`verifyTest`、`scanDanger`、`bumpCounter`；也可按表面使用 `lsp`、`browser`、`debug` 或实际命令。
-- 每条 verdict 附 `file:line`、exit code、日志行或 `agent://<id>` 等可定位锚；无人值守时不可锚率 >40% 整轮作废。
+- 每条 verdict 附 `file:line`、exit code、日志行或 `agent://<id>` 等可定位锚；无人值守时不可锚率 >40% 整轮作废并计入 regen（即使产物没改）。
 - 证据缺失、命令崩溃、部分产出或超时使相关验收项 **BLOCKED**。无依赖的其他 slice 可以继续；依赖该项的 Build、Acceptance、合并、发布或交付不能继续。
 - 超时只证明未收到完成证据，不证明 writer 已停止。重新分配前必须取得 stop acknowledgement、进程退出、锁/租约释放或其他可定位的 writer 终止证据；否则保持单 writer 并升级人工。
-- regen 达 3 或 slice 达 2：停止自动循环，升级人工。
+- 可选 advisor 不替代 auditor：advisor 超时或不可用只记录，不新增阻塞；必需的 auditor 证据缺失则 BLOCKED。
+- regen 达 3 或 slice 达 2：不再开新一轮；进行中的一轮可完成 Verify，仍失败或被作废则停止自动循环并升级人工。计数事件见 `references/verify-evidence.md`。
 
 证据与失败语义见 `references/verify-evidence.md`。
 
@@ -150,5 +152,6 @@ node scripts/gates.mjs counter --key <task> --kind slice --max 2 --incr
 - [ ] L1 内联、L2 独立上下文、L3 独立 auditor 的强度匹配。
 - [ ] 每条 verdict 有相关证据；缺证据项为 BLOCKED。
 - [ ] timeout 后未在缺少 stop proof 时重派 writer。
-- [ ] regen ≤3、slice ≤2。
+- [ ] regen ≤3、slice ≤2；整轮作废已计入 regen。
+- [ ] 有依赖时，前置产出已验收才启动后继；合流后的组合产物单独验收。
 - [ ] 未把 full-auto 扩张成 publish/install/auth/config 授权。

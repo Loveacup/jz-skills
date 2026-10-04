@@ -22,8 +22,8 @@ anchor: <file:line | exit code | log line | agent://id>
 blocks: <依赖项/acceptance/release>
 ```
 
-- 无锚、锚不可达或证据不覆盖论断 → BLOCKED，不得 PASS。
-- 无人值守整轮不可锚率 >40% → 整轮作废；计入 regen。
+- 无锚、锚不可达或证据不覆盖论断 → BLOCKED，不得 PASS。锚能打开不等于锚定内容支持当前论断与当前版本。
+- 无人值守整轮不可锚率 >40% → 整轮作废；计入 regen（即使产物没改、只重跑 Verify）。
 - `scripts/gates.mjs` 的现有 API 是 `verifyArtifact`、`verifyTest`、`scanDanger`、`bumpCounter`。
 
 ## 夹逼证据
@@ -57,4 +57,14 @@ node scripts/gates.mjs counter --key <task> --kind regen --max 3 --incr
 node scripts/gates.mjs counter --key <task> --kind slice --max 2 --incr
 ```
 
-计数器命令的 exit code 和输出应作为证据保存；满硬顶停止，不自动重试。
+计数器命令的 exit code 和输出应作为证据保存。
+
+计数事件：
+
+- **regen**：首次 Build 不计；每开启一次新产物再生计 1；无人值守整轮不可锚率 >40% 使该轮作废，计 1。同一事件只计一次：作废后为下一轮重新生成产物，仍只算这一次。
+- **slice**：每次 slice 整体打回（回 Accept/Spec 重开契约）计 1。
+- **不计数**：未触发整轮作废时，同一轮内的等待、局部补证和重取建议不消耗尝试次数；不得用轮询消耗预算，也不得重置预算。
+
+停止规则：regen 达 3 或 slice 达 2 后，不再开启任何新一轮（新产物或重跑 Verify 都不行）。进行中的一轮可完成它的 Verify；仍 FAIL 或被作废则停止自动循环并升级人工。
+
+`bumpCounter` 的 `incr` 先写入新计数，计数 ≤ max 返回 code 0，超过才返回 20。因此计数等于上限时仍返回 0：停止判断由 coordinator 按上述规则执行，不能只看 exit code 继续循环。
