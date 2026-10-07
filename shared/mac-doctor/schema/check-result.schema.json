@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mac-doctor.local/schema/check-result.schema.json",
+  "title": "mac-doctor check report",
+  "type": "object",
+  "required": ["schema_version", "tool_version", "collected_at", "host", "results", "scores"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "1.0"},
+    "tool_version": {"type": "string"},
+    "collected_at": {"type": "string", "format": "date-time"},
+    "host": {
+      "type": "object",
+      "required": ["model", "os", "arch"],
+      "properties": {"model": {"type": "string"}, "os": {"type": "string"}, "arch": {"type": "string"}},
+      "additionalProperties": false
+    },
+    "results": {"type": "array", "items": {"$ref": "#/$defs/checkResult"}},
+    "scores": {
+      "type": "object",
+      "required": ["security", "performance", "storage", "coverage"],
+      "properties": {
+        "security": {"type": ["number", "null"], "minimum": 0, "maximum": 100},
+        "performance": {"type": ["number", "null"], "minimum": 0, "maximum": 100},
+        "storage": {"type": ["number", "null"], "minimum": 0, "maximum": 100},
+        "coverage": {"type": "number", "minimum": 0, "maximum": 100}
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "checkResult": {
+      "type": "object",
+      "required": ["id", "category", "status", "title", "value", "unit", "evidence", "source", "duration_ms", "recommendation", "collected_at"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "category": {"enum": ["performance", "storage", "security", "hardware", "network", "devenv"]},
+        "status": {"enum": ["pass", "warn", "crit", "unknown", "error", "skip"]},
+        "title": {"type": "string"},
+        "value": {},
+        "unit": {"type": ["string", "null"]},
+        "evidence": {"type": "string"},
+        "source": {"type": "string"},
+        "duration_ms": {"type": "integer", "minimum": 0},
+        "recommendation": {"type": ["string", "null"]},
+        "collected_at": {"type": "string", "format": "date-time"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

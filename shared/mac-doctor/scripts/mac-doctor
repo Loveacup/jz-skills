@@ -1,0 +1,305 @@
+#!/usr/bin/env python3
+"""mac-doctor v3 command line entry point."""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sqlite3
+import subprocess
+import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+SCRIPTS_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(SCRIPTS_DIR))
+from macdoctor import __version__, paths
+import preferences
+
+COLLECTOR = SCRIPTS_DIR / "collector-daemon.py"
+INSTALL_DAEMON = SCRIPTS_DIR / "install-daemon.sh"
+JOB_NAMES = ("mac-doctor-quick", "mac-doctor-triage", "mac-doctor-deep", "mac-doctor-weekly")
+
+
+def _json(value):
+    print(json.dumps(value, ensure_ascii=False, indent=2, default=str))
+
+
+CRON_SPEC_FILE = paths.SKILL_DIR / "adapters" / "hermes" / "cron-jobs.json"
+
+
+def _launchctl_state():
+    uid = os.getuid()
+    label = paths.LAUNCHAGENT_LABEL
+    try:
+        proc = subprocess.run(["launchctl", "print", f"gui/{uid}/{label}"], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {"state": "UNKNOWN", "error": str(exc), "last_exit": None, "run_interval": None}
+    if proc.returncode:
+        return {"state": "not loaded", "last_exit": None, "run_interval": None,
+                "observation": proc.stderr.strip() or f"launchctl exit {proc.returncode}"}
+    output = proc.stdout
+    def find(pattern):
+        import re
+        match = re.search(pattern, output, re.MULTILINE)
+        return match.group(1).strip() if match else None
+    return {"state": "loaded", "last_exit": find(r"\blast exit code\s*=\s*(.+)"),
+            "run_interval": find(r"\b(?:run interval|interval)\s*=\s*(.+)")}
+
+
+def _latest_snapshot(db_path=None):
+    path = Path(db_path or paths.history_db())
+    if not path.is_file():
+        return None
+    try:
+        with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as db:
+            row = db.execute("SELECT MAX(timestamp) FROM snapshots").fetchone()
+        return row[0] if row else None
+    except (sqlite3.Error, OSError):
+        return None
+
+
+def _snapshot_health(timestamp, now=None):
+    if not timestamp:
+        return {"timestamp": None, "age_seconds": None, "health": "unknown"}
+    try:
+        parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        current = now or datetime.now(timezone.utc)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        age = max(0, int((current - parsed).total_seconds()))
+    except (ValueError, TypeError):
+        return {"timestamp": timestamp, "age_seconds": None, "health": "unknown"}
+    return {"timestamp": timestamp, "age_seconds": age, "health": "ok" if age <= 900 else "stale"}
+
+
+def collect_status():
+    launchd = _launchctl_state()
+    hermes = paths.hermes_home()
+    adapter = {"state": "not installed"}
+    if hermes is not None:
+        state_file = hermes / "profiles" / "cron-worker" / "state" / "mac-doctor-watchdog-state.json"
+        if state_file.is_file():
+            try:
+                adapter = {"state": "installed", **json.loads(state_file.read_text(encoding="utf-8"))}
+            except (OSError, ValueError):
+                adapter = {"state": "unknown", "error": "adapter state file unreadable"}
+        else:
+            adapter = {"state": "not configured"}
+    return {"launchagent": launchd, "last_snapshot": _snapshot_health(_latest_snapshot()), "hermes_adapter": adapter}
+
+
+def cmd_status(args):
+    result = collect_status()
+    if args.json:
+        _json(result)
+    else:
+        print(f"LaunchAgent: {result['launchagent']['state']} (last exit {result['launchagent']['last_exit']}, interval {result['launchagent']['run_interval']})")
+        snap = result['last_snapshot']
+        print(f"Last snapshot: {snap['timestamp'] or 'unknown'} ({snap['health']}, age {snap['age_seconds']}s)")
+        print(f"Hermes adapter: {result['hermes_adapter']['state']}")
+    return 1 if result["last_snapshot"]["health"] in ("stale", "unknown") or result["launchagent"]["state"] != "loaded" else 0
+
+
+def _verify_observations():
+    checks = []
+    launchd = _launchctl_state()
+    checks.append({"name": "launchagent_loaded", "status": "PASS" if launchd["state"] == "loaded" else "FAIL" if launchd["state"] == "not loaded" else "UNKNOWN", "observation": launchd})
+    timestamp = _latest_snapshot()
+    snap = _snapshot_health(timestamp)
+    checks.append({"name": "recent_snapshot", "status": "PASS" if snap["health"] == "ok" else "FAIL" if snap["health"] == "stale" else "UNKNOWN", "observation": snap})
+    hermes = paths.hermes_home()
+    if hermes is None:
+        checks.append({"name": "hermes_cron_jobs", "status": "UNKNOWN", "observation": "Hermes not installed"})
+    else:
+        jobs_path = hermes / "profiles" / "cron-worker" / "cron" / "jobs.json"
+        try:
+            jobs = json.loads(jobs_path.read_text(encoding="utf-8"))
+            records = jobs.get("jobs", jobs) if isinstance(jobs, dict) else jobs
+            if isinstance(records, dict):
+                records = [dict(value, name=value.get("name", key)) for key, value in records.items()
+                           if isinstance(value, dict)]
+            by_name = {job.get("name"): job for job in records if isinstance(job, dict)}
+            missing = [name for name in JOB_NAMES if name not in by_name]
+            disabled = [name for name in JOB_NAMES if name in by_name and by_name[name].get("enabled") is False]
+            enabled_unknown = [name for name in JOB_NAMES if name in by_name and not isinstance(by_name[name].get("enabled"), bool)]
+            status = "FAIL" if missing or disabled else "UNKNOWN" if enabled_unknown else "PASS"
+            checks.append({"name": "hermes_cron_jobs", "status": status,
+                           "observation": {"missing": missing, "disabled": disabled, "enabled_unknown": enabled_unknown}})
+        except FileNotFoundError:
+            checks.append({"name": "hermes_cron_jobs", "status": "UNKNOWN", "observation": f"{jobs_path} absent"})
+        except (OSError, ValueError, TypeError) as exc:
+            checks.append({"name": "hermes_cron_jobs", "status": "UNKNOWN", "observation": str(exc)})
+    return checks
+
+
+def cmd_verify(args):
+    checks = _verify_observations()
+    if args.json:
+        _json({"checks": checks})
+    else:
+        for check in checks:
+            print(f"[{check['status']}] {check['name']}: {check['observation']}")
+    return 1 if any(c["status"] == "FAIL" for c in checks) else 0
+
+
+def cmd_install(args):
+    if not COLLECTOR.is_file():
+        print(f"collector missing: {COLLECTOR}", file=sys.stderr)
+        return 1
+    try:
+        proc = subprocess.run(["bash", str(INSTALL_DAEMON)], check=False)
+    except OSError as exc:
+        print(f"LaunchAgent install failed: {exc}", file=sys.stderr)
+        return 1
+    if proc.returncode:
+        return proc.returncode or 1
+    launchd = _launchctl_state()
+    if launchd["state"] != "loaded":
+        print(f"LaunchAgent verification failed: {launchd}", file=sys.stderr)
+        return 1
+    print("LaunchAgent installed and observed loaded.")
+    try:
+        specs = json.loads(CRON_SPEC_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        print(f"Hermes cron specs unavailable: {exc}", file=sys.stderr)
+        return 1
+    for spec in specs:
+        print(json.dumps(spec, ensure_ascii=False))
+    print("Specs printed only; Hermes cron registration was NOT performed.")
+    return 0
+
+
+def cmd_uninstall(args):
+    plist = paths.launchagent_plist()
+    if not args.force:
+        print(f"[dry-run] Would boot out LaunchAgent {plist}; Hermes cron jobs are unchanged.")
+        return 0
+    try:
+        proc = subprocess.run(["launchctl", "bootout", f"gui/{os.getuid()}", str(plist)], check=False)
+    except OSError as exc:
+        print(f"LaunchAgent uninstall failed: {exc}", file=sys.stderr)
+        return 1
+    if proc.returncode:
+        return proc.returncode or 1
+    if _launchctl_state()["state"] == "loaded":
+        print("LaunchAgent remains loaded after bootout.", file=sys.stderr)
+        return 1
+    return 0
+
+
+def cmd_preferences(args):
+    target = args.target or "show"
+    if target == "show":
+        _json(preferences.load_preferences())
+        return 0
+    if target == "edit":
+        editor = os.environ.get("EDITOR", "vi")
+        return subprocess.run([editor, str(paths.preferences_file())]).returncode
+    value = preferences.load_preferences()
+    for part in target.split("."):
+        if not isinstance(value, dict) or part not in value:
+            print(f"preference path not found: {target}", file=sys.stderr)
+            return 1
+        value = value[part]
+    print(json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else value)
+    return 0
+
+
+def cmd_triage(args):
+    hermes = paths.hermes_home()
+    if hermes is None:
+        print("Hermes is not installed; triage adapter is unavailable.", file=sys.stderr)
+        return 1
+    script = hermes / "profiles" / "cron-worker" / "scripts" / "mac-doctor-triage.py"
+    if not script.is_file():
+        print(f"Hermes triage adapter not found: {script}", file=sys.stderr)
+        return 1
+    return subprocess.run([sys.executable, str(script)]).returncode
+
+
+def cmd_history(args):
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=args.hours)).strftime("%Y-%m-%d %H:%M:%S")
+    db_path = paths.history_db()
+    result = {"hours": args.hours, "metrics": {}, "disk_full_forecast_days": None}
+    metrics = ("cpu_percent", "swap_used_mb", "swap_total_mb", "disk_free_gb", "disk_total_gb",
+               "battery_health", "battery_cycles", "thermal_throttled", "load_avg_1min",
+               "load_avg_5min", "load_avg_15min")
+    try:
+        with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as db:
+            for metric in metrics:
+                row = db.execute(f"SELECT MIN({metric}), AVG({metric}), MAX({metric}) FROM snapshots WHERE timestamp >= ?", (cutoff,)).fetchone()
+                result["metrics"][metric] = {"min": row[0], "avg": row[1], "max": row[2]}
+            rows = db.execute("SELECT timestamp, disk_free_gb FROM snapshots WHERE timestamp >= ? AND disk_free_gb IS NOT NULL ORDER BY timestamp", (cutoff,)).fetchall()
+        if len(rows) >= 2:
+            first, last = rows[0], rows[-1]
+            try:
+                start = datetime.fromisoformat(first[0].replace("Z", "+00:00"))
+                end = datetime.fromisoformat(last[0].replace("Z", "+00:00"))
+                days = (end - start).total_seconds() / 86400
+                daily_drop = (first[1] - last[1]) / days if days > 0 else 0
+                if daily_drop > 0:
+                    result["disk_full_forecast_days"] = last[1] / daily_drop
+            except (ValueError, TypeError):
+                pass
+    except (sqlite3.Error, OSError) as exc:
+        print(f"history unavailable: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        _json(result)
+    else:
+        print(f"Trend over {args.hours}h")
+        for metric, values in result["metrics"].items():
+            print(f"{metric}: min={values['min']} avg={values['avg']} max={values['max']}")
+        print(f"Disk-full forecast (days): {result['disk_full_forecast_days']}")
+    return 0
+
+
+def _lazy_register(subparsers, module_name):
+    try:
+        module = __import__(f"macdoctor.{module_name}", fromlist=["register"])
+    except ImportError as exc:
+        detail = str(exc)
+        def unavailable(_args):
+            print(f"Command unavailable because macdoctor.{module_name} could not be loaded: {detail}", file=sys.stderr)
+            return 3
+        subparsers.add_parser(module_name.removeprefix("cli_"), help=f"Unavailable: {detail}").set_defaults(func=unavailable)
+        return
+    module.register(subparsers)
+
+
+def build_parser():
+    parser = argparse.ArgumentParser(prog="mac-doctor")
+    parser.add_argument("--version", action="version", version=__version__)
+    sub = parser.add_subparsers(dest="command", required=True)
+    status = sub.add_parser("status", help="Observed LaunchAgent and snapshot status")
+    status.add_argument("--json", action="store_true")
+    status.set_defaults(func=cmd_status)
+    verify = sub.add_parser("verify", help="Verify observed system and Hermes state")
+    verify.add_argument("--json", action="store_true")
+    verify.set_defaults(func=cmd_verify)
+    sub.add_parser("install", help="Install and verify LaunchAgent").set_defaults(func=cmd_install)
+    uninstall = sub.add_parser("uninstall", help="Dry-run by default; use --force to boot out")
+    uninstall.add_argument("--force", action="store_true")
+    uninstall.set_defaults(func=cmd_uninstall)
+    pref = sub.add_parser("preferences", help="Read or edit preferences")
+    pref.add_argument("target", nargs="?", default="show")
+    pref.set_defaults(func=cmd_preferences)
+    sub.add_parser("triage", help="Run Hermes triage adapter").set_defaults(func=cmd_triage)
+    history = sub.add_parser("history", help="Summarize snapshot trends")
+    history.add_argument("--hours", type=float, default=24)
+    history.add_argument("--json", action="store_true")
+    history.set_defaults(func=cmd_history)
+    _lazy_register(sub, "cli_check")
+    _lazy_register(sub, "cli_clean")
+    _lazy_register(sub, "cli_jev")
+    return parser
+
+
+def main(argv=None):
+    args = build_parser().parse_args(argv)
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

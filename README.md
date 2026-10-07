@@ -60,6 +60,7 @@ shared/                              🧩 26 skills (+1 archived)
 ├── grill-with-docs              # 基于治理文档的设计审查
 ├── memory-hub                   # CC×CQI 自动归集回路（Jz-Plugin内核）
 ├── methodology-writer           # 经验→结构化方法论
+├── mac-doctor                   # Portable macOS diagnostics and gated cleanup
 ├── obsidian                     # Vault 操作、CLI、Bases、Defuddle
 ├── obsidian-md-ac               # OFM + Mermaid + JSON Canvas 参考
 ├── 2pdf                         # PDF editing/forms/light extraction/typesetting
@@ -77,7 +78,7 @@ shared/                              🧩 26 skills (+1 archived)
 ├── xiaohongshu-cards            # 文章→小红书图文卡片
 └── _archived-strategic-insight-longform-slim  ← 🗄️ 已归档
 
-hermes/                              ⚡ 20 skills
+hermes/                              ⚡ 19 skills
 ├── arxiv                        # arXiv + Semantic Scholar 论文检索
 ├── auto-diary                   # 自动化日记：日→周→月→年金字塔聚合
 ├── calendar-manager             # 智能日历+提醒
@@ -89,7 +90,6 @@ hermes/                              ⚡ 20 skills
 ├── dingtalk-message-monitor     # 钉钉本地DB解密+消息监控
 ├── kanban-codex-lane            # Kanban→Codex CLI 通道
 ├── kanban-orchestrator          # 任务分解+Kanban 编排
-├── mac-doctor                   # macOS 六级健康巡检
 ├── morning-news-briefing        # 每日早新闻简报
 ├── openwrt-router               # OpenWrt/iStoreOS 路由器运维
 ├── supermemory-hermes           # Hermes Supermemory 配置
@@ -218,7 +218,7 @@ Hermes 通过 RPC / Shell / 实验性 ACP 调用 OMP 做独立审计与证据化
 > **49 skills** across four platforms — shared foundations, Hermes agent operations, OMP methodology & operations, and pi extensions.
 > **49 个技能**覆盖四大平台 — 共享基础层、Hermes 智能体操作层、OMP 方法论与运维层、pi 扩展层。
 
-### shared/ — Cross-Platform Foundations · 跨平台基础技能 (25 skills)
+### shared/ — Cross-Platform Foundations · 跨平台基础技能 (26 skills)
 
 | | Skill | Purpose · 用途 |
 |---|-------|----------------|
@@ -226,6 +226,7 @@ Hermes 通过 RPC / Shell / 实验性 ACP 调用 OMP 做独立审计与证据化
 | 📋 | [grill-with-docs](shared/grill-with-docs/) | Design review against governance docs / 设计审查 |
 | ✍️ | [skill-authoring](shared/skill-authoring/) | v4.0.0 11-step, 7-dim scoring / 合规创作 |
 | 🎯 | [goalgen](shared/goalgen/) | Multi-CLI goal instruction generator / 通用 goal 生成器 |
+| 🍎 | [mac-doctor](shared/mac-doctor/) | Read-only macOS diagnostics and gated native cleanup / macOS 巡检与受限原生清理 |
 | 📄 | [2pdf](https://github.com/Loveacup/2pdf) | Independent submodule: PDF editing/forms and Markdown→PDF / 独立排版与 PDF 工具 |
 | 📝 | [2md](https://github.com/Loveacup/2md) | Independent submodule: document→Markdown, assets/vision, Marker / 独立文档解析 |
 | | [audio-transcriber](https://github.com/Loveacup/jz-meeting-skills/tree/main/audio-transcriber) | 已迁至独立仓库 jz-meeting-skills，不再由此仓库同步 |
@@ -254,12 +255,11 @@ Hermes 通过 RPC / Shell / 实验性 ACP 调用 OMP 做独立审计与证据化
 
 > 🗄️ `shared/_archived-strategic-insight-longform-slim/` — 已归档的战略洞察长文技能
 
-### hermes/ — Agent Operations · 智能体操作技能 (20 skills)
+### hermes/ — Agent Operations · 智能体操作技能 (19 skills)
 
 | | Skill | Purpose · 用途 |
 |---|-------|----------------|
 | 📔 | [auto-diary](hermes/auto-diary/) | Daily→yearly diary pyramid / 自动化日记 |
-| 🍎 | [mac-doctor](hermes/mac-doctor/) | 6-tier macOS health / macOS 巡检 |
 | ⏰ | [cron-worker](hermes/cron-worker/) | Cron profile + pool watchdog / 定时任务 |
 | 🤖 | [claude-code](hermes/claude-code/) | CC orchestration v4.2.1 / CC 编排 |
 | 🖥️ | [cc-tmux](hermes/cc-tmux/) | Drive CC via tmux v1.31.0 / tmux 驱动 CC |

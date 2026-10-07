@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["ts", "plan_id", "item", "action", "method", "phase", "result", "reason", "size_bytes", "trash_path"],
+  "properties": {
+    "ts": {"type": "string", "format": "date-time"},
+    "plan_id": {"type": "string"},
+    "approved_plan_id": {"type": "string"},
+    "renewed_from": {"type": "string"},
+    "item": {"type": ["string", "null"]},
+    "action": {"type": "string"},
+    "method": {"type": "string"},
+    "phase": {"enum": ["attempt", "outcome"]},
+    "result": {"enum": ["attempt", "done", "refused", "failed"]},
+    "reason": {"type": "string"},
+    "size_bytes": {"oneOf": [{"type": "integer", "minimum": 0}, {"const": "unknown"}]},
+    "trash_path": {"type": ["string", "null"]},
+    "actual_location": {"type": ["string", "null"]},
+    "approved_object_location": {"type": ["string", "null"]},
+    "manual_recovery": {"type": "boolean"}
+  },
+  "additionalProperties": false
+}

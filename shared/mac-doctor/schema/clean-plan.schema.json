@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["plan_id", "host", "created_at", "expires_at", "items"],
+  "properties": {
+    "plan_id": {"type": "string", "minLength": 1},
+    "host": {"type": "string"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "items": {"type": "array", "items": {"type": "object", "required": ["target", "path", "size_bytes", "dev", "inode", "mtime", "file_type", "class", "action", "native_cmd", "native_env", "native_scope", "inuse_check", "min_age_days", "rebuildable"], "properties": {
+      "target": {"type": "string"}, "path": {"type": "string"}, "size_bytes": {"oneOf": [{"type": "integer", "minimum": 0}, {"const": "unknown"}]},
+      "dev": {"type": "integer"}, "inode": {"type": "integer"}, "mtime": {"type": "number"}, "file_type": {"enum": ["directory", "file", "other"]}, "class": {"enum": ["SAFE", "CAUTION"]}, "action": {"enum": ["native", "trash"]},
+      "native_cmd": {"type": ["array", "null"], "items": {"type": "string"}}, "native_env": {"type": "object", "additionalProperties": {"type": "string"}},
+      "native_scope": {"type": ["string", "null"]}, "inuse_check": {"type": "boolean"}, "min_age_days": {"type": "number", "minimum": 0}, "rebuildable": {"type": "boolean"}
+    }, "additionalProperties": false}}
+  },
+  "additionalProperties": false
+}

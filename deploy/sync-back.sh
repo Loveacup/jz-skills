@@ -145,7 +145,7 @@ PAIRS=(
   "hermes/cqi-plan-writer|governance/cqi-plan-writer"
   "hermes/supermemory-hermes|governance/supermemory-hermes"
   "hermes/memory-hub|governance/memory-hub"
-  "hermes/mac-doctor|apple/mac-doctor"
+  "shared/mac-doctor|apple/mac-doctor"
   "hermes/tts-manager|hermes/tts-manager"
   "hermes/tech-support-email|hermes/tech-support-email"
   "hermes/news-assembly|productivity/news-assembly"

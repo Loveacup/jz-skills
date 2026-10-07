@@ -1,0 +1,38 @@
+[
+  {
+    "name": "mac-doctor-quick",
+    "schedule": "0 */2 * * *",
+    "script": "mac-doctor-watchdog.py",
+    "no_agent": true,
+    "skills": [],
+    "enabled": true,
+    "prompt": ""
+  },
+  {
+    "name": "mac-doctor-triage",
+    "schedule": "0 10 * * *",
+    "script": null,
+    "no_agent": false,
+    "skills": ["mac-doctor"],
+    "enabled": true,
+    "prompt": "加载 mac-doctor skill（CLI 为该 skill 目录下 scripts/mac-doctor）。读取数据目录（默认账户 home 下 .hermes/inspection）中的 .triage-trigger，运行 `scripts/mac-doctor preferences show`、`scripts/mac-doctor history --hours 24 --json`、`scripts/mac-doctor check --json`，对触发的异常判断 persistent / transient / critical；只有需要推送时才输出，否则不输出任何内容。只读，不得执行清理或杀进程。"
+  },
+  {
+    "name": "mac-doctor-deep",
+    "schedule": "0 3 * * *",
+    "script": null,
+    "no_agent": false,
+    "skills": ["mac-doctor"],
+    "enabled": true,
+    "prompt": "加载 mac-doctor skill（CLI 为该 skill 目录下 scripts/mac-doctor）。运行 `scripts/mac-doctor check --json`、`scripts/mac-doctor history --hours 168`、`scripts/mac-doctor storage --json`，输出结论、带 check id 的证据、unknown/coverage、建议动作和未执行事项。只读，不得执行 clean apply。"
+  },
+  {
+    "name": "mac-doctor-weekly",
+    "schedule": "0 9 * * 1",
+    "script": null,
+    "no_agent": false,
+    "skills": ["mac-doctor"],
+    "enabled": true,
+    "prompt": "加载 mac-doctor skill（CLI 为该 skill 目录下 scripts/mac-doctor）。用 `scripts/mac-doctor history --hours 168`、`scripts/mac-doctor score --json`、`scripts/mac-doctor storage --json` 生成 Mac 健康周报：区分实测趋势与 unknown，列出建议，不做任何变更。"
+  }
+]

@@ -171,7 +171,7 @@ sync_hermes() {
   copy_skill_dir "$REPO_ROOT/hermes/cqi-plan-writer"                "$base/governance"
   copy_skill_dir "$REPO_ROOT/hermes/supermemory-hermes"              "$base/governance"
   copy_skill_dir "$REPO_ROOT/hermes/memory-hub"                      "$base/governance"   # Phase 1 记忆-日志回路（全局；暂不进 per-profile 循环，start narrow）
-  copy_skill_dir "$REPO_ROOT/hermes/mac-doctor"                     "$base/apple"
+  copy_skill_dir "$REPO_ROOT/shared/mac-doctor"                     "$base/apple"
   copy_skill_dir "$REPO_ROOT/hermes/tts-manager"                    "$base/hermes"
   copy_skill_dir "$REPO_ROOT/hermes/tech-support-email"             "$base/hermes"
   copy_skill_dir "$REPO_ROOT/hermes/news-assembly"                  "$base/productivity"
@@ -216,7 +216,7 @@ sync_hermes() {
     copy_skill_dir "$REPO_ROOT/hermes/cccmux"                         "$pd/hermes"
     copy_skill_dir "$REPO_ROOT/hermes/cqi-plan-writer"                "$pd/governance"
     copy_skill_dir "$REPO_ROOT/hermes/supermemory-hermes"              "$pd/governance"
-    copy_skill_dir "$REPO_ROOT/hermes/mac-doctor"                     "$pd/apple"
+    copy_skill_dir "$REPO_ROOT/shared/mac-doctor"                     "$pd/apple"
     copy_skill_dir "$REPO_ROOT/hermes/tts-manager"                    "$pd/hermes"
     copy_skill_dir "$REPO_ROOT/hermes/tech-support-email"             "$pd/hermes"
     copy_skill_dir "$REPO_ROOT/hermes/news-assembly"                  "$pd/productivity"
