@@ -1,6 +1,6 @@
 # Jev shadow 执行与收据
 
-Jev 是已明确许可后的、只读 `pick_context_file` shadow，不是计划器或控制器。正常 STDD、协调者选择、依赖判断、权限、AC、风险、计数与 PASS 不依赖 Jev。Jev 建议永不替换已提交的协调者选择。默认禁用；不得仅因安装脚本存在而调用。
+Jev 是已明确许可后的、只读 `pick_context_file` shadow，不是计划器或控制器。正常 STDD、协调者选择、依赖判断、权限、AC、风险、计数与 PASS 不依赖 Jev。Jev 建议永不替换已提交的协调者选择。默认禁用；不得仅因安装脚本存在而调用。唯一的常设例外是下文「可行性试验」节：Alex 已授权，只在合格的已许可项目检查点上调用。
 
 ## 触发与正式样本条件
 
@@ -126,7 +126,7 @@ JSONL 收据是 append-only，进程间独占锁，文件权限 0600、目录权
 
 ## Calibration 与结果解释（J1–J7）
 
-- J1 未启用/未授权：零 key read、零请求；默认 STDD 不受影响。
+- J1 未启用/未授权（包括可行性试验中被排除的检查点）：零 key read、零请求；默认 STDD 不受影响。
 - J2 真实验收要求从已加载 STDD 入口经过候选冻结、prepare、独立 coordinator commit、真实脚本请求和同一 sample id 收据；直接调用成功或 fixture 通过不等于 hosted 服务实证。Jev 不覆盖 commit 选择。
 - J3 基线/标签收据及送达/提交事件在 shadow 前冻结；没基线、缺事件或事后补填的数据不评估收益；重复提交不可覆写。
 - J4 需验证无授权/敏感/未知数据许可时不读 key/不发请求、HTTP 错误与超时后主流程继续、任务重复不再采样；shadow 时 current contractRef 与当前 inputDigest 必须再次匹配，不匹配在 key/network/claim consumption 前 BLOCKED；越界/畸形/未知 identity/过期输入不转成功；无自动 fallback/retry。
