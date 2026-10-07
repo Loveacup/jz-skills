@@ -104,6 +104,7 @@ scenarios:
 - Spec/Accept/Build/Verify 阶段及独立验收工作单元结束、失败或阻塞后，协调者都校准现有计划；新指令、事实、授权或所有权风险立即触发校准。无需制造计划差异；默认只更新受影响部分。
 - 计划修订不改验收契约、授权、regen/slice 或所有权。Jev 仅在明确获准、敏感级别允许且存在冻结候选与基线时按需用于 `pick_context_file` shadow；永不控制计划或协调者选择。按需读取 `references/dynamic-plan.md` 与 `references/jev.md`。
 - 仅在候选集首次交付给协调者时运行 `node scripts/jev.mjs prepare`，再用 `node scripts/jev.mjs commit-choice` 冻结协调者选择；之后才可调用 `node scripts/jev.mjs shadow`。shadow 失败不会阻止正常协调者流程，也不代表候选/任务验收通过。命令 JSON 输入/回执字段见 `references/jev.md`。
+- **托管可行性试验（Alex 2026-10-07 启用）**：STDD 任务中遇到「从多个检索结果中决定先读哪个文件」的检查点时，按 `references/jev.md` 的「可行性试验」节写筛选台账，并在合格时采一个样本。默认只放行公开 GitHub 仓库；私有、无远端、家庭/未成年人与知识库内容不发送，除非 Alex 逐个放行。达到上限或截止即停；结果不改变任何路由。
 - regen 达 3 或 slice 达 2：不再开新一轮；进行中的一轮可完成 Verify，仍失败或被作废则停止自动循环并升级人工。计数事件见 `references/verify-evidence.md`。
 
 证据与失败语义见 `references/verify-evidence.md`。

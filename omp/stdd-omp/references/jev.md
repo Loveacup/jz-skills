@@ -114,6 +114,16 @@ JSONL 收据是 append-only，进程间独占锁，文件权限 0600、目录权
 
 不要把 Jev 结果写入协调者后续推理输入后，再声称原始选择盲标。`candidate_delivery` 和 `commit-choice` 必须先于 `shadow-start`；shadow 输出仅给独立评估/仪器关联，不改写已冻结协调者选择。工具不承担人工真值、候选授权或记录未被篡改的真实性证明。
 
+## 可行性试验（托管，2026-10-07 启用）
+
+完整方案以 Obsidian `01-Staging/Jev托管路线Pilot预注册_20261004.md` 第七节为准；下面是执行要点，冲突时以预注册为准。
+
+1. **检查点**：STDD 任务中协调者需要从多个检索结果里决定先读哪个文件的时刻。每个不同的 (project, task, checkpoint) 首次遇到时，向 `~/.stdd/jev/feasibility-screening.jsonl`（0600）追加一行：`at, project_id, task_id, checkpoint_id, sampled, exclusion_reason, sample_id`。
+2. **排除原因**（取第一个命中）：`project_not_permitted` → `sensitive` → `candidates_lt_2` → `task_already_sampled` → `budget_exhausted` → `other:<短码>`。只有公开 GitHub 仓库默认许可；其他项目需 Alex 逐个放行；凭据、私密内容、家庭/未成年人、知识库 `50-Self` 与关系类内容永不发送。被排除时不读 key、不请求。
+3. **冻结**：`samplePurpose: formal_pilot`、`templateVersion: pick-context-feas-v1`、`candidateStrategyVersion: path-summary-feas-v1`，hosted 固定配置。候选为检索结果前 2–8 个路径，ID `c001`…`c008` 加 `no-match`；description 只写路径，外加确认安全的自然语言 Markdown 标题，绝不取文件首行或正文。state 为不超过 500 字符的任务摘要，不含代码、凭据或个人信息。问句按任务语言使用预注册 7.3 的原文。
+4. **顺序**：写受限基线快照 `~/.stdd/jev/baselines/<baselineId>.json`（含 ID↔路径映射）→ 起 fresh 只读标注 agent，只看 state 与候选，把正确集合与必须 split 条件写入 `~/.stdd/jev/labels/<labelId>.json`（0600，含标注者名与运行时长），真值不回传协调者 → `prepare`（`labelReceipt.source` = `labeler:<sampleId>`）→ 协调者独立选择 → `commit-choice` → `shadow`。失败不重试，协调者照常继续。
+5. **上限**：有效样本 60 条，或实际请求（`request_started_at` 非空）60 次，或 2027-01-04，或 Alex 叫停，先到即停。之后台账只记 `budget_exhausted`。连续 5 次服务失败或出现任何 key/隐私事件，立即暂停并报告 Alex。不得因 Jev 与协调者是否一致、或标注结果而暂停、延长或挑选样本。
+
 ## Calibration 与结果解释（J1–J7）
 
 - J1 未启用/未授权：零 key read、零请求；默认 STDD 不受影响。
