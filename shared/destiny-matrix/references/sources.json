@@ -1,0 +1,1375 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "source_id": "ditiansui",
+      "author": "相传京图撰，版本及注者依具体底本",
+      "title": "滴天髓",
+      "edition": "维基文库《滴天髓辑要》转录本（繁体），题清陈之遴辑",
+      "locator": "《通天论》开篇；通天论（滴天髓/01）；地支论（/03）；格局论（/06）；从化论－真（/07）；从化论－假（/08）；岁运论（/09）；衰旺论（/12）；寒暖论（/16）；均为各篇红字正文句，非小字注",
+      "url": "https://zh.wikisource.org/wiki/%E6%BB%B4%E5%A4%A9%E9%AB%93/01",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "ditiansui-q01",
+          "original": "欲識三元萬物宗，先觀帝載與神功。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ditiansui-q02",
+          "original": "能知衰旺之真機，其於立命之奧，思過半矣。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ditiansui-q03",
+          "original": "從得真者只論從，從神又有吉和凶。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ditiansui-q04",
+          "original": "真從之像有幾人，假從亦可發其身。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ditiansui-q05",
+          "original": "休咎係乎運，尤係乎歲，衝戰視其孰降，和好視其孰切。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ditiansui-q06",
+          "original": "支神祇以沖為重，刑與害兮動不動。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ditiansui-q07",
+          "original": "旺者沖衰衰者拔，衰者沖旺旺神發。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ditiansui-q08",
+          "original": "傷官見官果難辨，可見不可見。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ditiansui-q09",
+          "original": "五陽從氣不從勢，五陰從勢無情義。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ditiansui-q10",
+          "original": "天道有寒暖，發育萬物，人道得之，不可過也。",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": [
+        "该句见《通天论》开篇所录文本。",
+        "所列九句均在对应分篇页面逐字读到（2026-09-29 访问）；文字以该页为准，其中“支神祇以沖為重”“真從之像”等用字与通行本（只、象）不同，属该转录本面貌。",
+        "从化论－真的注文说明真从的条件是日主孤弱无气、全无生扶而财官强甚；从化论－假的注文说明日主弱而局中有所助者为假从；岁运论注文以大运重地支、太岁重天干；天干论逐干有四言歌诀及注。以上为核到的篇意。"
+      ],
+      "does_not_support": [
+        "出处只证明该句见于所核文本，不证明命理解释对个体具有经验效度。",
+        "出处只证明这些句子见于所核转录本，不证明命理解释对个体具有经验效度；作者归属各说不一，不能据页面题署确定。",
+        "该页天干论注文含以性别论贵贱、刑克的断语，属历史语境，不用于个案。"
+      ]
+    },
+    {
+      "source_id": "ziping-zhenquan",
+      "author": "沈孝瞻；徐乐吾评注",
+      "title": "子平真诠评注",
+      "edition": "中华典藏网页转录本（简体）；底本未标明",
+      "locator": "第八章《论用神》（https://www.diancang.xyz/xuanxuewushu/zipingzhenquanpingzhu/53678.html）；第九章《论用神成败救应》（https://www.diancang.xyz/xuanxuewushu/zipingzhenquanpingzhu/53679.html）；第十二章《论用神格局高低》（https://www.diancang.xyz/xuanxuewushu/zipingzhenquanpingzhu/53682.html）原文栏；第七章《论刑冲会合解法》（53677.html）；第八章《论用神》（53678.html）；第九章《论用神成败救应》（53679.html）；第十四章《论用神配气候得失》（53684.html）；第二十一章《论星辰无关格局》（53691.html）；第二十五章《论行运》（53695.html）；第三十九章《论偏官》（53709.html）；第四十一章《论伤官》（53711.html）；第四十三章《论阳刃》（53713.html）；均为各章标“原文：”的段落，URL 前缀 https://www.diancang.xyz/xuanxuewushu/zipingzhenquanpingzhu/",
+      "url": "https://www.diancang.xyz/xuanxuewushu/zipingzhenquanpingzhu/53679.html",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "ziping-zhenquan-q01",
+          "original": "八字用神，专求月令，以日干配月令地支，而生克不同，格局分焉。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziping-zhenquan-q02",
+          "original": "成中有败，必是带忌；败中有成，全凭救应。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziping-zhenquan-q03",
+          "original": "然其理之大纲，亦在有情无情、有力无力之间而已。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziping-zhenquan-q04",
+          "original": "财官印食，此用神之善而顺用之者也；煞伤劫刃，用神之不善而逆用之者也。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziping-zhenquan-q05",
+          "original": "八字妙用，全在成败救应，其中权轻权重，甚是活泼。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziping-zhenquan-q06",
+          "original": "八字支中，刑冲俱非美事，而三合六合，可以解之。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziping-zhenquan-q07",
+          "original": "论命惟以月令用神为主，然亦须配气候而互参之。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziping-zhenquan-q08",
+          "original": "八字格局，专以月令配四柱，至于星辰好歹，既不能为生克之用，又何以操成败之权？",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziping-zhenquan-q09",
+          "original": "论运与看命无二法也。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziping-zhenquan-q10",
+          "original": "煞以攻身，似非美物，而大贵之格，多存七煞。盖控制得宜，煞为我用",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziping-zhenquan-q11",
+          "original": "伤官虽非吉神，实为秀气，故文人学士，多于伤官格内得之。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziping-zhenquan-q12",
+          "original": "阳刃者，劫我正财之神，乃正财之七煞也。禄前一位，惟五阳有之，故为阳刃。",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": [
+        "所列句子可在网页对应章节中核对；徐乐吾评注与沈孝瞻原文须区分。",
+        "所列九句均在对应章节标“原文：”的段落中逐字读到（2026-09-29 访问）。",
+        "第九章原文栏逐格列出八格与建禄月劫、阳刃的成格、败格、带忌与救应条件；第十章《论用神变化》（53680.html）原文栏讲月令藏干透出与会合使格局变化；第十六章《论杂气如何取用》（53686.html）原文栏讲四库月透干会支取用；第四十五章《论建禄月劫》（53715.html）原文栏讲禄劫别取财官煞食为用；第四十七章《论杂格》（53717.html）原文栏讲弃命从财、弃命从煞的成立条件，并把魁罡、金神、日贵、日德等列为不取之格。以上为核到的章意，未登记逐字引句。",
+        "第八章列举扶抑、病药、调候、专旺、通关五种取用法的一段，以及第六章讲“旺衰强弱四字”的一段，网页标为“原文”，但行文与所举民国命造表明属徐乐吾评注；只可作为徐乐吾评注的意思转述。"
+      ],
+      "does_not_support": [
+        "出处只证明这些句子见于所核文本，不证明格局判断对个体具有经验效度；古籍中的命定、疾病、性别和社会身份论断不构成现代事实。",
+        "网页的“原文／徐注”标注有误标情形，不能仅凭该标注把某段归于沈孝瞻；本条所登记的九句均取自章首或通行本公认的沈氏原文位置，但未与刻本对校。",
+        "出处只证明这些句子见于所核文本，不证明格局判断对个体具有经验效度；书中以性别指称配偶子女、以官爵论贵贱的内容属历史语境。"
+      ]
+    },
+    {
+      "source_id": "qiongtong-baojian",
+      "author": "余春台编订（具体文本源流有版本差异）",
+      "title": "穷通宝鉴",
+      "edition": "维基文库转录本（简体）；页面未填题署信息",
+      "locator": "《论木·八月甲木》；《五行总论》末段",
+      "url": "https://zh.wikisource.org/wiki/%E7%A9%B7%E9%80%9A%E5%AE%9D%E9%89%B4",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "qiongtong-baojian-q01",
+          "original": "八月甲木，木囚金旺。丁火为先，次用丙火，庚金再次。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "qiongtong-baojian-q02",
+          "original": "所以贵在折衷，归於中道，使无有余不足之累",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": [
+        "该句见《论甲木》之八月甲木条；条目将九月甲木单独处理，不能改写成秋季通则。",
+        "该句在《五行总论》末段逐字读到（2026-09-29 访问），“於”字以页面为准。",
+        "《论甲木》《论乙木》逐月条目按月列出所取天干的先后（如正月甲木取丙癸、四月甲木先癸后丁、十月乙木取丙为用戊土次之），可支持“调候按日主与月份逐条取用、顺序即主次”的说法。计算器调候表注明据徐乐吾《穷通宝鉴评注》整理，本次未逐条与此页核对。"
+      ],
+      "does_not_support": [
+        "出处只证明该句见于所核文本，不证明调候或行运判断对个体具有经验效度；书中疾病、寿命、婚配和性别断语仅能作为历史语境材料。",
+        "未核到“调候”总纲句；不得把调候总纲归于该书作直接引文。",
+        "逐月条目含科甲、贫夭、残疾、刑克等断语，属历史语境，不得用于个案。"
+      ]
+    },
+    {
+      "source_id": "ptolemy-tetrabiblos-robbins",
+      "author": "Claudius Ptolemy；译者 F. E. Robbins",
+      "title": "Tetrabiblos",
+      "edition": "Loeb Classical Library 435, 1940 英译；LacusCurtius 校读转录",
+      "locator": "Book I, chapters 2–3; web text includes Loeb page markers",
+      "url": "https://penelope.uchicago.edu/Thayer/E/Roman/Texts/Ptolemy/Tetrabiblos/1A*.html",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "ptolemy-tetrabiblos-robbins-q01",
+          "original": "In addition to this, all aforesaid conditions being equal, rearing and customs contribute to influence the particular way in which a life is lived.",
+          "translation": "此外，即使其他条件都一样，一个人怎样被养育、养成了什么习惯，也会影响他具体过上怎样的生活。",
+          "translation_kind": "own"
+        },
+        {
+          "quote_id": "ptolemy-tetrabiblos-robbins-q02",
+          "original": "even with events that will necessarily take place their unexpectedness is very apt to cause excessive panic and delirious joy, while foreknowledge accustoms and calms the soul by experience of distant events as though they were present, and prepares it to greet with calm and steadiness whatever comes.",
+          "translation": "即便是必然会发生的事，突如其来时也最容易让人过度惊慌，或者狂喜到失态；预先知道，则让心灵把远处的事当作眼前的事来体会，从而习惯、平静下来，准备好用镇定和稳重去迎接将要到来的一切。",
+          "translation_kind": "own"
+        },
+        {
+          "quote_id": "ptolemy-tetrabiblos-robbins-q03",
+          "original": "we should not believe that separate events attend mankind as the result of the heavenly cause as if they had been originally ordained for each person by some irrevocable divine command and destined to take place by necessity without the possibility of any other cause whatever interfering.",
+          "translation": "我们不应认为，人一生中的各件事都出自天上的原因，好像早已由不可撤回的神谕为每个人定下，必然发生，其他任何原因都无法介入。",
+          "translation_kind": "own"
+        },
+        {
+          "quote_id": "ptolemy-tetrabiblos-robbins-q04",
+          "original": "but if they are recognized ahead of time and remedies are provided, again quite in accord with nature and fate, they either do not occur at all or are rendered less severe.",
+          "translation": "如果事先认出它们并采取应对，那么这些事要么根本不会发生，要么会轻得多；这本身也顺应自然与命运。",
+          "translation_kind": "own"
+        }
+      ],
+      "supports": [
+        "该网页转录并标明 Loeb 1940 英译；四条英文均在所列章节核对，摘录跨越的页码标记不属于句子。"
+      ],
+      "does_not_support": [
+        "出处只证明 Ptolemy 在该文本中这样论述，不证明占星学预测对个体具有经验效度，也不构成医学建议。"
+      ]
+    },
+    {
+      "source_id": "jung-cw15-main-2018",
+      "author": "C. G. Jung；由 Roderick Main 学术论文引述",
+      "title": "Richard Wilhelm: In Memoriam（引自 Main, ‘Research on synchronicity: status and prospects’）",
+      "edition": "Jung, Collected Works vol. 15, The Spirit in Man, Art, and Literature, trans. R. F. C. Hull, §82；二手核引于 Main 2018, pp. 135–156",
+      "locator": "Jung CW 15 §82；Main 2018, discussion of qualitative time, PDF p. 9",
+      "url": "https://repository.essex.ac.uk/23721/1/Roderick%20Main%20--%20Research%20on%20synchronicity.pdf",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "jung-cw15-main-2018-q01",
+          "original": "whatever is born or done at this particular moment of time has the quality of this moment of time.",
+          "translation": "在这一特定时刻诞生或发生的一切，都带有这一时刻的质地。",
+          "translation_kind": "own"
+        }
+      ],
+      "supports": [
+        "只依据 Roderick Main 的学术二手文献确认此英文引句及 CW 15 §82 定位；尚未核对 CW 15 原书页面。"
+      ],
+      "does_not_support": [
+        "出处只证明二手文献如此引述 Jung，不证明荣格理论、占星或同时性对个体具有经验效度。"
+      ]
+    },
+    {
+      "source_id": "sanming-tonghui",
+      "author": "万民英",
+      "title": "三命通会",
+      "edition": "维基文库转录本（简体，存卷一至卷九，缺卷十至卷十二）；底本未标明",
+      "locator": "卷二《论冲击》；卷三《总论诸神煞》；卷五《论偏官》",
+      "url": "https://zh.wikisource.org/wiki/%E4%B8%89%E5%91%BD%E9%80%9A%E6%9C%83",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "sanming-tonghui-q01",
+          "original": "故有制谓之偏官，无制谓之七煞。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "sanming-tonghui-q02",
+          "original": "神煞，古有百二十名，其说穿凿支离，造化恐不如是。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "sanming-tonghui-q03",
+          "original": "地支取七位为冲，犹天干取七位为煞之义。",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": [
+        "三句分别在卷五《论偏官》、卷三《总论诸神煞》、卷二《论冲击》页面读到（2026-09-29 访问）；页面原文按固定字数硬换行，引句跨行处已去掉换行符，其余逐字。",
+        "卷三另有《论十干禄》《论驿马》《论天乙贵人》《论天月德》《论劫煞亡神》《论羊刃》《论孤辰寡宿》各篇，卷二有《论将星华盖》《论咸池》，分别说明各神煞的取义与查法（如驿马取三合局、孤辰寡宿取三会方前后一辰、咸池取三合局沐浴之位）；卷二《论大运》《总论岁运》论行运。以上为核到的篇意，未登记逐字引句。"
+      ],
+      "does_not_support": [
+        "当前没有对本任务所涉原句完成可追溯的一手核对；不得以该书署名直接引文。",
+        "出处只证明这些句子见于所核转录本；该书神煞诸篇含大量疾病、灾伤、寿夭、婚配与性别断语，属历史语境，不得用于个案。",
+        "旧稿中署名《三命通会》的神煞歌诀未在本次逐条核对，仍不得作为直接引文。"
+      ]
+    },
+    {
+      "source_id": "shenfeng-tongkao",
+      "author": "张楠（作者归属按传统书目题署）",
+      "title": "神峰通考",
+      "edition": "维基文库转录本（简体）；底本未标明，文字有明显录入讹误",
+      "locator": "《病药说类》",
+      "url": "https://zh.wikisource.org/wiki/%E7%A5%9E%E5%B3%B0%E9%80%9A%E8%80%83",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "shenfeng-tongkao-q01",
+          "original": "何以为之病？原八字中原所害之神也",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "shenfeng-tongkao-q02",
+          "original": "有病方为贵，无伤不是奇；格中如去病，财禄两相随。",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": [
+        "两句在该页《病药说类》逐字读到（2026-09-29 访问）。q02 在该书中以“故书云”引出，是张楠转引前人之语，不是张楠自撰。",
+        "《总论子平谬说类》批评日贵、日德、魁罡等格“不以理论”，可支持“子平家内部对这类杂格本有争议”的说法；《动静说》主张天干之动只攻天干、地支之静只攻地支。以上为核到的篇意。"
+      ],
+      "does_not_support": [
+        "本目录不为未核的通行歌诀或网络转述背书；不得保留未核的署名原话。",
+        "页面录入讹误较多（如“谓了”“储备字”），引句只取文字通顺处；不能据此页校定原书文字。",
+        "出处只证明这些说法见于所核转录本，不证明病药取用对个体具有经验效度；书中合婚、女命与夭寿断语属历史语境。"
+      ]
+    },
+    {
+      "source_id": "yuanhai-ziping",
+      "author": "传统题署及成书归属存在版本问题",
+      "title": "渊海子平",
+      "edition": null,
+      "locator": "本次未核对到可引用原文的具体篇章定位",
+      "url": "https://zh.wikisource.org/wiki/%E6%B7%B5%E6%B5%B7%E5%AD%90%E5%B9%B3",
+      "verification_status": "unverified",
+      "quotes": [],
+      "supports": [],
+      "does_not_support": [
+        "所见维基文库页面标示来源不明且未完成；不能据此核准本任务中的署名原话。古代疾病、性别和亲属对应只可置于历史语境，不作现代事实或个体预测。"
+      ]
+    },
+    {
+      "source_id": "guolao-xingzong",
+      "author": "托名张果老；成书及作者归属未核",
+      "title": "果老星宗",
+      "edition": null,
+      "locator": "本次未核对到可引用原文的具体篇章定位",
+      "url": null,
+      "verification_status": "unverified",
+      "quotes": [],
+      "supports": [],
+      "does_not_support": [
+        "‘命主以四柱为体，星宗以七政为用’未核到原书，不得作为原典引文或声称其为唯一系统性合参来源。"
+      ]
+    },
+    {
+      "source_id": "ptolemy-tetrabiblos-robbins-book1",
+      "author": "Claudius Ptolemy；译者 F. E. Robbins",
+      "title": "Tetrabiblos",
+      "edition": "Loeb Classical Library 435, 1940 英译；LacusCurtius 校读转录",
+      "locator": "Book I, chapters 5, 7, 13, 17, 19, 24（网页含 Loeb 页码标记 p39–p117）",
+      "url": "https://penelope.uchicago.edu/Thayer/E/Roman/Texts/Ptolemy/Tetrabiblos/1B*.html",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "ptolemy-tetrabiblos-robbins-book1-q01",
+          "original": "the ancients accepted two of the planets, Jupiter and Venus, together with the moon, as beneficent because of their tempered nature and because they abound in the hot and the moist",
+          "translation": "古人把木星和金星这两颗行星连同月亮视为吉星，因为它们性质调和，又富于热与湿",
+          "translation_kind": "own"
+        },
+        {
+          "quote_id": "ptolemy-tetrabiblos-robbins-book1-q02",
+          "original": "Thus they assigned Saturn, which is cold, to the warmth of the day, and Mars, which is dry, to the moisture of the night, for in this way each of them attains good proportion through admixture and becomes a proper member of its sect, which provides moderation.",
+          "translation": "于是他们把性冷的土星配给白昼的温暖，把性燥的火星配给夜晚的湿润；这样两者各自经由调和而得其分寸，成为所属一派里合宜的成员，由这一派给它节制。",
+          "translation_kind": "own"
+        },
+        {
+          "quote_id": "ptolemy-tetrabiblos-robbins-book1-q03",
+          "original": "Of these aspects trine and sextile are called harmonious because they are composed of signs of the same kind, either entirely of feminine or entirely of masculine signs; while quartile and opposition are disharmonious because they are composed of signs of opposite kinds.",
+          "translation": "这些相位里，三分相与六分相称为和谐，因为它们由同类星座构成，要么全是阴性星座，要么全是阳性星座；四分相与对分相则不和谐，因为它们由相反类别的星座构成。",
+          "translation_kind": "own"
+        }
+      ],
+      "supports": [
+        "I.5：木星、金星与月亮归为吉星，土星、火星归为凶星，太阳与水星兼具两性、随所会合的行星而定。",
+        "I.7：月亮、金星属夜间一派，太阳、木星属白昼一派；土星归白昼、火星归夜间，理由是以相反性质调和其偏。",
+        "I.13：只取对分、三分、四分、六分四种相位，并说明三分、六分和谐，四分、对分不和谐。合相不在此章的相位列表内。",
+        "I.17：七星的本垣（house）分配：狮子归太阳、巨蟹归月亮，摩羯与水瓶归土星，射手与双鱼归木星，天蝎与白羊归火星，天秤与金牛归金星，双子与处女归水星。",
+        "I.19：七星的擢升与其对宫的落陷（depression）：太阳白羊/天秤，土星天秤/白羊，月亮金牛/天蝎，木星巨蟹/摩羯，火星摩羯/巨蟹，金星双鱼/处女，水星处女/双鱼。",
+        "I.24：入相（application）与出相（separation）的定义；行星在中天或接近中天时最有力，其次是在地平线上或续宫。",
+        "三条引句从网页逐字核对；核对时去除了网页排版用的软连字符与脚注编号，它们不属于句子。"
+      ],
+      "does_not_support": [
+        "出处只证明作者在该文本中这样论述，不证明占星解释或预测对个体具有经验效度，也不构成医学或心理诊断依据。",
+        "该书只论七颗可见行星，不支持天王星、海王星、冥王星的守护或象义；也不支持现代心理占星对相位的心理学解释。",
+        "书中吉凶、性别与体液论述属其历史语境，不作现代事实。"
+      ]
+    },
+    {
+      "source_id": "ptolemy-tetrabiblos-robbins-book3-soul",
+      "author": "Claudius Ptolemy；译者 F. E. Robbins",
+      "title": "Tetrabiblos",
+      "edition": "Loeb Classical Library 435, 1940 英译；LacusCurtius 校读转录",
+      "locator": "Book III, chapter 13 “Of the Quality of the Soul”（网页含 Loeb 页码标记 p333–p339）",
+      "url": "https://penelope.uchicago.edu/Thayer/E/Roman/Texts/Ptolemy/Tetrabiblos/3D*.html",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "ptolemy-tetrabiblos-robbins-book3-soul-q01",
+          "original": "Of the qualities of the soul, those which concern the reason and the mind are apprehended by means of the condition of Mercury observed on the particular occasion; and the qualities of the sensory and irrational part are discovered from the one of the luminaries which is the more corporeal, that is, the moon, and from the planets which are configurated with her in her separations and applications.",
+          "translation": "灵魂的各种品质里，关乎理性与心智的部分，要从当时水星的状态来把握；感受的、非理性的部分，则要从两颗发光体里更近于形体的那一颗，也就是月亮，以及在她出相与入相中与她成相位的行星来看。",
+          "translation_kind": "own"
+        },
+        {
+          "quote_id": "ptolemy-tetrabiblos-robbins-book3-soul-q02",
+          "original": "The solid signs make them just, unaffected by flattery, persistent, firm, intelligent, patient, industrious, stern, self-controlled, tenacious of grudges, extortionate, contentious, ambitious, factious, grasping, hard, inflexible.",
+          "translation": "固定星座使人公正，不为奉承所动，坚持，稳固，聪明，有耐心，勤勉，严厉，自制，记仇，苛索，好争，有野心，好结党，贪取，强硬，不肯弯折。",
+          "translation_kind": "own"
+        }
+      ],
+      "supports": [
+        "该章以水星看理性与心智，以月亮及与月亮成相位的行星看感受与非理性的部分。",
+        "该章分述至点（开创）、双体（变动）、固定三类星座各自造就的心性；固定星座一条含正反两面的特质。",
+        "该章说明：主管灵魂的行星落在自己的或亲近的本垣、同派时，心性开放而有效；落在相异之处则其性质隐晦、不完整。",
+        "两条引句从网页逐字核对；核对时去除了网页排版用的软连字符与脚注编号。"
+      ],
+      "does_not_support": [
+        "出处只证明作者在该文本中这样论述，不证明占星解释或预测对个体具有经验效度，也不构成医学或心理诊断依据。",
+        "该章所说是古典占星对心性的分类，不是心理测量；其后一章论“灵魂的疾病”，属历史语境，不得用于对个体作心理或医学判断。"
+      ]
+    },
+    {
+      "source_id": "ptolemy-tetrabiblos-robbins-book4-action",
+      "author": "Claudius Ptolemy；译者 F. E. Robbins",
+      "title": "Tetrabiblos",
+      "edition": "Loeb Classical Library 435, 1940 英译；LacusCurtius 校读转录",
+      "locator": "Book IV, chapter 4 “Of the Quality of Action”（网页含 Loeb 页码标记 p381–p387）",
+      "url": "https://penelope.uchicago.edu/Thayer/E/Roman/Texts/Ptolemy/Tetrabiblos/4A*.html",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "ptolemy-tetrabiblos-robbins-book4-action-q01",
+          "original": "The quality of the action, however, is to be discerned from the character of the three planets, Mars, Venus, and Mercury, and from that of the signs through which they happen appear to be passing.",
+          "translation": "不过，行动的性质要从火星、金星、水星这三颗行星的性格，以及它们当时所经过的星座的性格来辨别。",
+          "translation_kind": "own"
+        }
+      ],
+      "supports": [
+        "该章以两条途径取“行动之主”：太阳之前最近晨出的行星，以及位于中天的行星，尤其是月亮入相的那一颗。",
+        "该章以水星、金星、火星三星及其所在星座辨别行动（职业活动）的性质，并以土星、木星的见证加以修饰。",
+        "引句从网页逐字核对，原文如此（“happen appear”为网页转录文字）。"
+      ],
+      "does_not_support": [
+        "出处只证明作者在该文本中这样论述，不证明占星解释或预测对个体具有经验效度，也不构成医学或心理诊断依据。",
+        "书中所列职业为公元二世纪的行当，不支持对现代个体的职业能力、成败或收入作判断。"
+      ]
+    },
+    {
+      "source_id": "lilly-christian-astrology-1647",
+      "author": "William Lilly",
+      "title": "Christian Astrology",
+      "edition": "London: Tho. Brudenell for John Partridge and Humph. Blunden, 1647；Wellcome Library 藏本扫描，Internet Archive 识别文本",
+      "locator": "Book I “An Introduction to Astrologie”，Chap. VI “Of the twelve Houses of Heaven, and some Names or Termes of Astrologie”；同书术语部分 Reception 条（页眉 111 之后）",
+      "url": "https://archive.org/details/b30338724",
+      "verification_status": "verified",
+      "quotes": [],
+      "supports": [
+        "Chap. VI：第一、十、七、四宫称角宫，第十一、二、八、五宫称续宫，第三、十二、九、六宫称果宫；角宫最有力，续宫次之，果宫力弱。",
+        "Chap. VI：给出十二宫力量的先后次序，并说明两星尊贵相等时，在上升者比在第十宫者略更有力。",
+        "Chap. VI：“上升之主”即上升星座的守护星；某宫之事以该宫宫头星座的守护星为征象星。",
+        "Reception 条：两颗征象星各在对方的尊贵位置即为互容，以本垣互容为最强；征象星之间相位不利或无相位时，互容可使事情成就。",
+        "所读为十七世纪印本的机器识别文本，长 s 与连字多有误识，因此只登记核到的意思，不登记逐字引句。",
+        "只核到意思，无可引原句；所读为 1647 年印本的 OCR 文本"
+      ],
+      "does_not_support": [
+        "出处只证明作者在该文本中这样论述，不证明占星解释或预测对个体具有经验效度，也不构成医学或心理诊断依据。",
+        "该处所论多属卜卦占星的判断规则，移用于本命盘的心理解读是现代做法，不由此书背书。",
+        "书中关于疾病、寿命、婚姻与财富的断语属历史语境，不作个体判断。"
+      ]
+    },
+    {
+      "source_id": "leo-art-of-synthesis",
+      "author": "Alan Leo",
+      "title": "The Art of Synthesis",
+      "edition": "London: “Modern Astrology” Office, 1926 年印本；Internet Archive 扫描（Brigham Young University 藏本）识别文本",
+      "locator": "Chapter III “The Planets and the Seven Principles”，“The Individuality”一节，页码标记 47 之前；引句只见于该条目的全文文本（_djvu.txt），页码标记以全文文本为准，未逐页核对印本页码",
+      "url": "https://archive.org/details/artofsynthesis00leoa",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "leo-art-of-synthesis-q01",
+          "original": "In its astrological relationship the Sun is taken as representing the individuality, just as the Moon does the personality",
+          "translation": "在占星的对应关系里，太阳被当作个体性的代表，正如月亮代表人格",
+          "translation_kind": "own"
+        }
+      ],
+      "supports": [
+        "该节以太阳对应个体性（individuality）、月亮对应人格（personality），并随即说明这一对应不可看得过于绝对。",
+        "同书第五章另述：在这一对应里起作用的主要是太阳、月亮与上升各自所在的星座。",
+        "引句从识别文本逐字核对，止于分号之前；识别文本的多余空格已规整。"
+      ],
+      "does_not_support": [
+        "出处只证明作者在该文本中这样论述，不证明占星解释或预测对个体具有经验效度，也不构成医学或心理诊断依据。",
+        "Leo 的论述建立在神智学的“七本原”与轮回观上，不是心理学研究；这里的 personality 不等同于现代人格心理学或人格量表的构念。"
+      ]
+    },
+    {
+      "source_id": "rudhyar-houses-and-signs-1950",
+      "author": "Dane Rudhyar",
+      "title": "Astrological Houses and the Zodiacal Signs",
+      "edition": "首刊于 The Astrologer Magazine，1950 年 10 月；Rudhyar Archival Project 网页存档（2004 年 11 月 26 日收录）",
+      "locator": "全文单页；引句在文章后半，论宫位与星座之别的小结处",
+      "url": "https://khaldea.com/rudhyar/astroarticles/housesandsigns.php",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "rudhyar-houses-and-signs-1950-q01",
+          "original": "The houses are psychological factors; then, by extension, they refer to the types of circumstances in which these psychological categories of experiences are normally met by the individual person.",
+          "translation": "宫位是心理层面的因素；引申开去，它们指的是一个人通常在哪几类情境里遇到这些类别的经验。",
+          "translation_kind": "own"
+        },
+        {
+          "quote_id": "rudhyar-houses-and-signs-1950-q02",
+          "original": "The zodiac is a field of forces; the circle of the houses is a framework",
+          "translation": "黄道是一个力场；宫位之环是一副框架",
+          "translation_kind": "own"
+        }
+      ],
+      "supports": [
+        "文章区分星座与宫位：星座是能量的样式，宫位是经验的领域；十二宫对应十二类基本经验。",
+        "文章说明宫内所含黄道度数多（含截夺星座）时，该领域的经验更集中，并强调任何单一因素都不能孤立解读。",
+        "两条引句从网页逐字核对。"
+      ],
+      "does_not_support": [
+        "出处只证明作者在该文本中这样论述，不证明占星解释或预测对个体具有经验效度，也不构成医学或心理诊断依据。",
+        "文章讨论的是宫位的一般原理，不给出十二宫各自的详细象义，也不支持任何事件预测。",
+        "Rudhyar 本人偏好 Campanus 宫制，此文不为 Placidus 宫制背书。"
+      ]
+    },
+    {
+      "source_id": "jungus-16func",
+      "author": "荣格斯（JUNGUS）团队",
+      "title": "16功能总览：从荣格八维到荣格斯16功能",
+      "edition": "荣格斯理论库网页，访问日期 2026-09-29",
+      "locator": "“主体-背景偏好”“第六偏好：方正-圆融”“16功能与64型”三节",
+      "url": "https://www.jungus.cn/theory/16func.html",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "jungus-16func-q01",
+          "original": "我们在 MBTI 的基础上引入第五对偏好：主体-背景偏好（Object-Background），记为 O 和 B，用来描绘人们感知世界时的不同。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "jungus-16func-q02",
+          "original": "主要的感知功能，也就是主导功能或辅助功能，更偏向主体的人，我们一般认为他们具有主体偏好，在类型描述的第五个字母用 O 描述，例如 INTJOX。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "jungus-16func-q03",
+          "original": "由于 S 和 P 在 MBTI 中已经有记录，所以我们采用分析性和整体性（A 和 H）来描绘判断功能。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "jungus-16func-q04",
+          "original": "O/B 与 A/H 并不是地域标签，而是人格内部可以被测量、被比较、被组合的认知偏好。",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": [
+        "O/B（主体/背景）作用于四种知觉功能，A/H（分析/整体，又称方正/圆融）作用于四种判断功能，合成十六个功能符号。",
+        "六字母类型的第五字母取主导或辅助位上的知觉功能的偏向；六个偏好组成 16×4=64 型。",
+        "页面称感知与判断两对偏好在其数据中较为独立，感知偏东方不能预测判断也偏东方。"
+      ],
+      "does_not_support": [
+        "荣格斯理论页是测验方对自家模型的说明，不是经同行评议的效度证据；页面自述“尚在完善之中”，内容可能更新。",
+        "页面所述文化心理学研究是群体层面的发现，不能据此推断某位受测者的文化身份或能力。"
+      ]
+    },
+    {
+      "source_id": "jungus-test-page",
+      "author": "荣格斯（JUNGUS）团队",
+      "title": "荣格斯第二代认知功能测试（测试页）",
+      "edition": "页面标注量表版本“荣格斯2026-v0.81”，访问日期 2026-09-29",
+      "locator": "欢迎页说明与结果页栏目",
+      "url": "https://www.jungus.cn/test/",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "jungus-test-page-q01",
+          "original": "本测试不评估能力高低，只用于了解你的认知风格偏好。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "jungus-test-page-q02",
+          "original": "专业版结果会给出最接近你的三个 64 型原型。",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": [
+        "测验自述测量 16 认知功能与 64 型人格，题型含结构选择题、1–5 分陈述题与 1–4 分辨析题。",
+        "结果页给出十六功能分数与最接近的三个 64 型原型。",
+        "完成测试会生成一个结果链接，获得链接的人可以查看结果。"
+      ],
+      "does_not_support": [
+        "荣格斯理论页是测验方对自家模型的说明，不是经同行评议的效度证据；页面自述“尚在完善之中”，内容可能更新。",
+        "页面未公布信度、效度的具体数据；量表版本会更新，早先的报告未必出自同一版本。"
+      ]
+    },
+    {
+      "source_id": "jungus-interaction",
+      "author": "荣格斯（JUNGUS）团队",
+      "title": "八种互动模式",
+      "edition": "荣格斯理论库网页，访问日期 2026-09-29",
+      "locator": "“偏好回顾”“八种互动类型总览”",
+      "url": "https://www.jungus.cn/theory/interaction/",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "jungus-interaction-q01",
+          "original": "J-P描绘对外使用判断还是感知；O-B深化收集信息时关注主体还是背景；H-A深化形成态度时适应场合还是坚持一致性。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "jungus-interaction-q02",
+          "original": "相比前三个维度，后三个维度更容易受到文化、环境、教育和成长经历影响，尤其是O-B和H-A。",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": [
+        "六字母类型的后三字母（如 JBH）称互动模式，共八种；前三字母称外显气质。",
+        "JBH 对应 Je-H 与 Pi-B 的组合，POA 对应 Pe-O 与 Ji-A 的组合，余类推。"
+      ],
+      "does_not_support": [
+        "荣格斯理论页是测验方对自家模型的说明，不是经同行评议的效度证据；页面自述“尚在完善之中”，内容可能更新。",
+        "页面列举的代表人物属测验方的举例，不是可核实的测量结果。"
+      ]
+    },
+    {
+      "source_id": "jungus-temperaments",
+      "author": "荣格斯（JUNGUS）团队",
+      "title": "八种外显气质",
+      "edition": "荣格斯理论库网页，访问日期 2026-09-29",
+      "locator": "“根据外显气质建立八种人格画像”“矩阵组合与64型”",
+      "url": "https://www.jungus.cn/theory/temperaments/",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "jungus-temperaments-q01",
+          "original": "我们将基础类型和互动类型进行两两组合，就得到了64种人格类型。",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": [
+        "前三字母（E/I、N/S、T/F）组成八种外显气质，与八种互动模式交叉成 64 型。"
+      ],
+      "does_not_support": [
+        "荣格斯理论页是测验方对自家模型的说明，不是经同行评议的效度证据；页面自述“尚在完善之中”，内容可能更新。"
+      ]
+    },
+    {
+      "source_id": "jungus-senses",
+      "author": "荣格斯（JUNGUS）团队",
+      "title": "感觉功能：Se-O、Se-B、Si-O、Si-B",
+      "edition": "荣格斯理论库网页，访问日期 2026-09-29",
+      "locator": "四种感觉功能形态",
+      "url": "https://www.jungus.cn/theory/senses.html",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "jungus-senses-q01",
+          "original": "O意味着“场独立”——强调感官刺激和精确细节，B意味着“场依存”——强调情境适应和场域记忆。",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": [
+        "Se-O 称探索，Se-B 称适应，Si-O 称规章，Si-B 称舒适区；页面给出各自的定义。"
+      ],
+      "does_not_support": [
+        "荣格斯理论页是测验方对自家模型的说明，不是经同行评议的效度证据；页面自述“尚在完善之中”，内容可能更新。"
+      ]
+    },
+    {
+      "source_id": "jungus-intuition",
+      "author": "荣格斯（JUNGUS）团队",
+      "title": "直觉功能：Ne-O、Ne-B、Ni-O、Ni-B",
+      "edition": "荣格斯理论库网页，访问日期 2026-09-29",
+      "locator": "四种直觉功能形态",
+      "url": "https://www.jungus.cn/theory/intuition.html",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "jungus-intuition-q01",
+          "original": "Ne-B 基于相似性或联系将外部对象相互关联。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "jungus-intuition-q02",
+          "original": "Ni-B 在潜意识空间内想象和抽象出世界的内部蓝图。",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": [
+        "Ne-O 称概念化，Ne-B 称联想，Ni-O 称原型，Ni-B 称蓝图；页面称 Ne-O 与 Ne-B 的差别在各功能里最小。"
+      ],
+      "does_not_support": [
+        "荣格斯理论页是测验方对自家模型的说明，不是经同行评议的效度证据；页面自述“尚在完善之中”，内容可能更新。"
+      ]
+    },
+    {
+      "source_id": "jungus-thinking",
+      "author": "荣格斯（JUNGUS）团队",
+      "title": "思考功能：Te-A、Te-H、Ti-A、Ti-H",
+      "edition": "荣格斯理论库网页，访问日期 2026-09-29",
+      "locator": "四种思考功能形态",
+      "url": "https://www.jungus.cn/theory/thinking.html",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "jungus-thinking-q01",
+          "original": "Te-H 设定可衡量的目标和灵活的计划，并根据环境的变化动态调整计划。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "jungus-thinking-q02",
+          "original": "Ti-A 通过从定义、公理和原则进行演绎，来理解世界并寻找绝对真理。",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": [
+        "Te-A 称按部就班，Te-H 称实用主义，Ti-A 称演绎，Ti-H 称归纳。"
+      ],
+      "does_not_support": [
+        "荣格斯理论页是测验方对自家模型的说明，不是经同行评议的效度证据；页面自述“尚在完善之中”，内容可能更新。"
+      ]
+    },
+    {
+      "source_id": "jungus-feeling",
+      "author": "荣格斯（JUNGUS）团队",
+      "title": "情感功能：Fe-A、Fe-H、Fi-A、Fi-H",
+      "edition": "荣格斯理论库网页，访问日期 2026-09-29",
+      "locator": "“形成基础与反馈回路”与四种情感功能形态",
+      "url": "https://www.jungus.cn/theory/feeling.html",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "jungus-feeling-q01",
+          "original": "Fe-H 是较传统意义上的 Fe，Fi-A 是较传统意义上的 Fi，而 Fe-A 与 Fi-H 则是不那么传统、但在现实中非常重要的形态。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "jungus-feeling-q02",
+          "original": "Fe-H 吸收社会价值和整体人际环境，并在决策时纳入复杂的人际纽带。",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": [
+        "情感功能用“价值的形成基础”与“合情平衡的反馈回路”两个概念来分：Fe/Fi 标反馈回路在外还是在内，A/H 标形成基础偏独立还是偏场域依存。",
+        "Fe-A 称亲密，Fe-H 称和谐，Fi-A 称独立，Fi-H 称传承。"
+      ],
+      "does_not_support": [
+        "荣格斯理论页是测验方对自家模型的说明，不是经同行评议的效度证据；页面自述“尚在完善之中”，内容可能更新。"
+      ]
+    },
+    {
+      "source_id": "jungus-engine",
+      "author": "荣格斯（JUNGUS）团队",
+      "title": "第二代测验前端计分脚本 pmas_engine.js 与原型矩阵 proto_data.js",
+      "edition": "测试页引用的 pmas_engine.js?v=4 与 proto_data.js，访问日期 2026-09-29",
+      "locator": "pmas_engine.js 的 posteriorToMatchPct、AdaptiveState.topN 与 getResult；proto_data.js 的 PROTO_DATA（64 型 × 16 项）",
+      "url": "https://www.jungus.cn/pro_build/pmas_engine.js",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "jungus-engine-q01",
+          "original": "return Math.cbrt(Math.max(0, probability || 0)) * 100;",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "jungus-engine-q02",
+          "original": "// func_scores: posterior-weighted",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "jungus-engine-q03",
+          "original": "const FUNC_NAMES = ['SeO','SeB','SiO','SiB','NeO','NeB','NiO','NiB', 'TeA','TeH','TiA','TiH','FeA','FeH','FiA','FiH'];",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": [
+        "类型结论取 64 型后验概率最高者；页面上的匹配百分比是后验概率的立方根乘以 100。",
+        "页面展示的十六项分数是 64 型原型分数按后验概率加权的和；每型原型十六项合计 240。",
+        "原型矩阵按位置给功能合计：主导 42、辅助 37、第三 33、劣势 24、第五第六位各 31、第七位 20、第八位 22；主导功能按 62:38、辅助按 60:40、其余按 55:45 拆给两个亚型，四个知觉功能同偏 O 或同偏 B，四个判断功能同偏 A 或同偏 H（本次对 64 型逐项复算，全部吻合）。",
+        "脚本把同一功能的两个亚型称为一对（DUAL_PAIRS）。"
+      ],
+      "does_not_support": [
+        "脚本是某一时点的线上版本，随时可能更新；无法据此确认某份既有报告出自同一版本。",
+        "计分规则不证明测验的信度与效度。",
+        "脚本没有给出“两亚型合成一个功能分”的展示规则；本技能取均值属自定约定。"
+      ]
+    },
+    {
+      "source_id": "jung-psychological-types-ch10",
+      "author": "C. G. Jung；H. G. Baynes 英译",
+      "title": "Psychological Types，Chapter X: General Description of the Types",
+      "edition": "1921 年德文初版，1923 年 Baynes 英译本；Classics in the History of Psychology（York University）网页转录，访问日期 2026-09-29",
+      "locator": "第十章 §B.4 The Extraverted Feeling-Type（原书页码 448–452）；§C.11 The Principal and Auxiliary Functions（原书页码 513–517）",
+      "url": "https://psychclassics.yorku.ca/Jung/types.htm",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "jung-psychological-types-ch10-q01",
+          "original": "This absolute sovereignty always belongs, empirically, to one function alone, and can belong only to one function",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "jung-psychological-types-ch10-q02",
+          "original": "Experience shows that the secondary function is always one whose nature is different from, though not antagonistic to, the leading function",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "jung-psychological-types-ch10-q03",
+          "original": "Hence the auxiliary function is possible and useful only in so far as it serves the leading function, without making any claim to the autonomy of its own principle.",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "jung-psychological-types-ch10-q04",
+          "original": "We have already seen that the extraverted feeling type, as a rule, represses his thinking, just because thinking is the function most liable to disturb feeling.",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": [
+        "主导功能只有一个；辅助功能性质不同而不相对立：判断型主导配知觉型辅助，反之亦然。",
+        "荣格说纯粹的类型在实际中并不常见，类型描述是把共同特征叠加起来的画像。",
+        "外倾情感型压抑思考，被压抑的思考以否定、贬低的念头闯入意识。",
+        "荣格认为通向最受压抑的功能，经由辅助功能较为稳妥。"
+      ],
+      "does_not_support": [
+        "荣格在本章没有写明辅助功能的态度必与主导相反，也没有给出四字母类型、十六型或八位置功能栈；这些出自 Myers 与 Beebe 等后来者。",
+        "本章把各型与特定神经症及性别相联系，属历史文本的说法，不作为对个人的健康或性别推断依据。",
+        "网页转录有个别排印错误；引句以该网页文字为准，未与 Collected Works 第 6 卷（Hull 修订译本）对校。",
+        "本次通读的是 §B.4 与 §C.11 两节，其余各型小节只作了定位，没有逐段细读。"
+      ]
+    },
+    {
+      "source_id": "beebe-evolving-eight-function",
+      "author": "John Beebe",
+      "title": "Evolving the Eight-Function Model",
+      "edition": "原载 APTi Bulletin 2005 年冬季号 pp. 34–39；Association for Psychological Type International 网站转载，访问日期 2026-09-29",
+      "locator": "“Basic orientation”与“The shadow personality”两节",
+      "url": "https://www.aptinternational.org/psychological-type/evolving-the-eight-function-model/",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "beebe-evolving-eight-function-q01",
+          "original": "I suggested that these should be thought of, respectively, as the heroic function, the father or mother function, the puer or puella function, and the anima or animus function",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "beebe-evolving-eight-function-q02",
+          "original": "I decided to call the archetype carrying this bag of oppositional behaviors the opposing personality.",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "beebe-evolving-eight-function-q03",
+          "original": "I no longer view the type profile of an individual as expressing a hierarchy of differentiation of the various functions of consciousness.",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": [
+        "前四个位置依次由英雄、父/母、永恒少年/少女、阿尼玛/阿尼姆斯承载；后四个位置依次为对立人格、长者/女巫、捣蛋鬼、魔性人格，各是前四位功能的反向态度。",
+        "Beebe 说阴影位置的研究只能是尝试性的；位置编号是为了称呼方便，他把八个位置看作一组相互作用的角色，而不是分化程度的等级。",
+        "Beebe 转述 von Franz：第三功能的发展可以选择，劣势功能的整合很大程度上由无意识决定。",
+        "Beebe 指出荣格并未写明主导与辅助的态度交替，这一点来自 Myers 对荣格一句话的解读。"
+      ],
+      "does_not_support": [
+        "文中图 7.1、7.2 与表 7.1 在网页上没有显示内容，十六型八位置对照表未能从本页核到。",
+        "原型位置是解释框架，不是对个人的测量或诊断。"
+      ]
+    },
+    {
+      "source_id": "mbf-type-dynamics-overview",
+      "author": "The Myers & Briggs Foundation",
+      "title": "Type Dynamics: Overview",
+      "edition": "基金会官网页面，访问日期 2026-09-29",
+      "locator": "“Order of the Mental Processes”一节",
+      "url": "https://www.myersbriggs.org/unique-features-of-myers-briggs/type-dynamics-overview/",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "mbf-type-dynamics-overview-q01",
+          "original": "Dominant Process (first process)—the process we rely on the most, typically the most conscious and developed",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "mbf-type-dynamics-overview-q02",
+          "original": "Inferior Process or (fourth process)—receives the least amount of energy, is less conscious and developed, opposite the first process",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": [
+        "类型动力学按四字母类型确定主导、辅助、第三、劣势四个过程的次序；辅助平衡主导，第三与辅助相对，劣势与主导相对。",
+        "J/P 是 Myers 在荣格基础上增加的取向。",
+        "页面注明第三过程可表现为外倾或内倾。"
+      ],
+      "does_not_support": [
+        "本页讲的是类型理论的框架，不提供八功能分数的计分或由分数定类型的方法。",
+        "Myers 的 Gifts Differing 原书本次没有读到。"
+      ]
+    },
+    {
+      "source_id": "tmb-core-characters-grip",
+      "author": "The Myers-Briggs Company",
+      "title": "Core Characters and severe stress",
+      "edition": "公司官网页面；经网页抓取工具读到正文，直接请求该网址会被转到产品页，访问日期 2026-09-29",
+      "locator": "“What does in the grip mean”与“How personality changes under severe stress”",
+      "url": "https://eu.themyersbriggs.com/en-IE/tools/MBTI/Type-Dynamics-made-easy/Core-Characters-and-severe-stress",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "tmb-core-characters-grip-q01",
+          "original": "If the stress is extreme or goes on for too long, we exhaust the energy of our dominant function and our psyche flips into the opposite Core Character: our inferior function.",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": [
+        "压力分两段：日常压力下过度使用主导功能；极端或持久压力下落入劣势功能的掌控（in the grip），表现为该功能不成熟、不熟练的形式。",
+        "页面称这一主题的主要著述者是 Naomi Quenk，并举 Ne 主导落入 Si、Ti 主导落入 Fe 两例；恢复时借助辅助功能。",
+        "直接访问该地址会被转到产品页；引句核自抓取工具返回的页面文本"
+      ],
+      "does_not_support": [
+        "这是出版方对 Quenk 理论的转述，Quenk 的 In the Grip 与 Was That Really Me? 原书本次没有读到，不登记其原话。",
+        "压力反应的描述是类型理论的说法，不是临床评估，也不能据类型推定某人会出现何种行为。"
+      ]
+    },
+    {
+      "source_id": "vonfranz-inferior-function-role",
+      "author": "Marie-Louise von Franz",
+      "title": "The Inferior Function，第四讲 The Role of the Inferior Function in Psychic Development",
+      "edition": "收入 von Franz & Hillman, Lectures on Jung's Typology（Spring Publications, 1971）；Association of Jungian Analysts 网站所载扫描件，访问日期 2026-09-29",
+      "locator": "扫描件页眉“IV Inferior Function and Psychic Development”",
+      "url": "https://www.jungiananalysts.org.uk/wp-content/uploads/2024/09/von-Franz-M-L-1971-Role-of-the-Inferior-Function-1.pdf",
+      "verification_status": "unverified",
+      "quotes": [],
+      "supports": [
+        "劣势功能无法被提升到与其他意识功能同样的水平，硬拉只会把意识整体往下拽。",
+        "劣势功能是通向无意识更深层的桥；她用“四扇门的房间”作比，第四扇门锁不上，无意识的内容从这里进来。",
+        "人在劣势功能所在之处容易不确定、易受影响、敏感而固执；在优势功能所在之处则从容灵活。",
+        "内倾者落入劣势的外倾、外倾者落入劣势的内倾时，都带有不受控制的性质。"
+      ],
+      "does_not_support": [
+        "扫描件的文字层有大量识别错误，无法逐字核对，故不登记引句。",
+        "第一讲（劣势功能的一般特征）的同站扫描件链接返回 404，本次没有读到。",
+        "文中有以族群、“原始人”作比的过时说法，不予采用。",
+        "讲稿谈的是分析心理学的发展观，不是对个人的测量或诊断。",
+        "PDF 为扫描件，文字层识别错误多，内容未能核实；不得署名引用或转述"
+      ]
+    },
+    {
+      "source_id": "ziwei-quanshu-j1",
+      "kind": "traditional_text",
+      "author": "传统题陈抟（希夷）撰，罗洪先序；作者与成书归属为传统题署，未考证",
+      "title": "紫微斗数全书·卷一",
+      "edition": "维基文库录文，页面未标明底本；核对所据页面版本 revid 7913704（2026-08-07）",
+      "locator": "卷一 太微赋；卷一 形性赋；卷一 重补斗数彀率；卷一 增补太微赋；卷一 诸星问答论·问紫微；卷一 诸星问答论·问天马；卷一 诸星问答论·问化禄；卷一 诸星问答论·问化权；卷一 诸星问答论·问化科；卷一 诸星问答论·问化忌；卷一 斗数骨髓赋；卷一 定贵局·贪火相逢",
+      "url": "https://zh.wikisource.org/wiki/%E7%B4%AB%E5%BE%AE%E6%96%97%E6%95%B8%E5%85%A8%E6%9B%B8/%E5%8D%B7%E4%B8%80",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "ziwei-quanshu-j1-q01",
+          "original": "日月最嫌反背，祿馬最喜交馳。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j1-q02",
+          "original": "紫微天府全依輔弼之功，七殺破軍專依羊鈴之虐。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j1-q03",
+          "original": "貪狼為善惡之星，入廟必應長聳，出垣必定頑囂。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j1-q04",
+          "original": "諸星吉多逢凶也吉，諸星惡多逢吉也凶。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j1-q05",
+          "original": "前後兩凶神為兩鄰，加會尚可撐持，同室與謀最難堤防。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j1-q06",
+          "original": "主強賓弱可保無虞，主弱賓強凶危立見。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j1-q07",
+          "original": "君子命中亦有羊陀火鈴，小人命內豈無科祿權星。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j1-q08",
+          "original": "要看得垣失垣，專論入廟失廟。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j1-q09",
+          "original": "無輔弼同行則為孤君，雖美玉不足。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j1-q10",
+          "original": "能制火鈴為善，能降七殺為權。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j1-q11",
+          "original": "如与禄存同宫，谓之禄马交驰",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j1-q12",
+          "original": "禄为福德之神。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j1-q13",
+          "original": "权星掌判生杀之神。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j1-q14",
+          "original": "科星上界应试，主掌文墨之星。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j1-q15",
+          "original": "忌为多管之神。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j1-q16",
+          "original": "第一先看福德，再三细考迁移，分对宫之体用，定三合之源流。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j1-q17",
+          "original": "夹贵夹禄少人知，夹权夹科世所宜。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j1-q18",
+          "original": "科权禄拱名誉昭彰，武曲庙垣威名赫奕。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j1-q19",
+          "original": "七杀破军宜出外，机月同梁作吏人。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j1-q20",
+          "original": "子午巨门石中隐玉，明禄暗禄锦上添花。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j1-q21",
+          "original": "日月最嫌反背乃为失辉，命身定要精求恐差分数。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j1-q22",
+          "original": "谓二星守命同居庙旺是也。",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": [
+        "所列句子均见于该页面源文本的对应篇目（太微赋、形性赋、重补斗数彀率、增补太微赋、诸星问答论、斗数骨髓赋、定贵局）。",
+        "该卷《太微赋》《骨髓赋》可支持：日月反背、禄马交驰、科权禄拱、石中隐玉、机月同梁、夹宫等名目确见于此书。",
+        "该卷《诸星问答论》可支持：化禄、化权、化科、化忌各自的古称与大意；紫微需辅弼、能制火铃七杀之说。",
+        "核对方式：2026-09-29 读取该页面源文本（同一 URL 加 action=raw），引句逐字取自源文本。页面显示会随读者的繁简转换设置变化；卷一前半为繁体、其余为简体，引句照录源文本原字。"
+      ],
+      "does_not_support": [
+        "出处只证明这些句子见于所核录文，不证明紫微斗数的解释对个体具有经验效度。",
+        "维基文库页面未注明底本与校勘，不能据此断定明清刻本的原貌或各版本异文。",
+        "书中关于夭寿、疾病、残疾、刑克、生育、性别与社会身份的断语属历史文本，不构成现代事实，不用于个案判断。"
+      ]
+    },
+    {
+      "source_id": "ziwei-quanshu-j2",
+      "kind": "traditional_text",
+      "author": "传统题陈抟（希夷）撰，罗洪先序；作者与成书归属为传统题署，未考证",
+      "title": "紫微斗数全书·卷二",
+      "edition": "维基文库录文，页面未标明底本；核对所据页面版本 revid 1963110（2020-09-04）",
+      "locator": "卷二 安禄权科忌四星变化诀；卷二 化忌；卷二 巨门",
+      "url": "https://zh.wikisource.org/wiki/%E7%B4%AB%E5%BE%AE%E6%96%97%E6%95%B8%E5%85%A8%E6%9B%B8/%E5%8D%B7%E4%BA%8C",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "ziwei-quanshu-j2-q01",
+          "original": "甲廉破武阳为伴，乙机梁紫月交侵，丙同机昌廉贞位，丁月同机巨门寻，",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j2-q02",
+          "original": "戊贪月弼机为主，己武贪梁曲最平，庚日武阴同为首，辛巨阳曲昌至临，",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j2-q03",
+          "original": "壬梁紫府武宿是，癸破巨阴贪狼停。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j2-q04",
+          "original": "如甲生人廉贞化禄、破军化权、武曲化科、太阳化忌是也，余仿此。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j2-q05",
+          "original": "若太阳在寅卯辰巳午化忌，太阴在酉戌亥子化忌为福论。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j2-q06",
+          "original": "身命居子午宫为石中隐玉格，更会科权禄，终身福厚",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": [
+        "安星诀中的十干四化歌诀见于该页；戊干作贪月弼机、庚干作日武阴同、壬干作梁紫府武。",
+        "据此可支持：本技能计算器的四化表与该文本在戊、庚两干一致，壬干化科不同（文本作天府，计算器作左辅）。",
+        "巨门条可支持石中隐玉格以身命居子午、会科权禄为条件。",
+        "核对方式：2026-09-29 读取该页面源文本（同一 URL 加 action=raw），引句逐字取自源文本。页面显示会随读者的繁简转换设置变化；卷一前半为繁体、其余为简体，引句照录源文本原字。"
+      ],
+      "does_not_support": [
+        "出处只证明这些句子见于所核录文，不证明紫微斗数的解释对个体具有经验效度。",
+        "维基文库页面未注明底本与校勘，不能据此断定明清刻本的原貌或各版本异文。",
+        "书中关于夭寿、疾病、残疾、刑克、生育、性别与社会身份的断语属历史文本，不构成现代事实，不用于个案判断。"
+      ]
+    },
+    {
+      "source_id": "ziwei-quanshu-j3",
+      "kind": "traditional_text",
+      "author": "传统题陈抟（希夷）撰，罗洪先序；作者与成书归属为传统题署，未考证",
+      "title": "紫微斗数全书·卷三",
+      "edition": "维基文库录文，页面未标明底本；核对所据页面版本 revid 2268626（2023-03-15）",
+      "locator": "卷三 谈星要论；卷三 论人命入格；卷三 论诸星同垣·天机；卷三 论诸星同垣·天府；卷三 论诸星同垣·太阳太阴拱照；卷三 论诸星同垣·天梁；卷三 论诸星同垣·贪狼；卷三 论诸星同垣·擎羊；卷三 论诸星同垣·武曲；卷三 论流年太岁吉凶星杀",
+      "url": "https://zh.wikisource.org/wiki/%E7%B4%AB%E5%BE%AE%E6%96%97%E6%95%B8%E5%85%A8%E6%9B%B8/%E5%8D%B7%E4%B8%89",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "ziwei-quanshu-j3-q01",
+          "original": "第一看命宫吉凶庙旺化吉化忌生克。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j3-q02",
+          "original": "若命宫无正曜者，财官二宫有吉星拱照，富贵全美",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j3-q03",
+          "original": "若居陷地又加杀化忌，为下格之命，不以入格而论也。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j3-q04",
+          "original": "命在寅申方论，加吉不论，无吉无杀亦是平常人，凶杀空劫化忌为下格。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j3-q05",
+          "original": "命寅申，府相在财帛宫，禄官朝者，上格别宫次之。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j3-q06",
+          "original": "若反背日戌月辰，子月午。若出外离宗成家也吉。勿概以反背论。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j3-q07",
+          "original": "日卯月亥安命未宫多折桂",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j3-q08",
+          "original": "日巳月酉丑宫命步蟾宫",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j3-q09",
+          "original": "天梁太阳昌禄会胪传第一名",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j3-q10",
+          "original": "辰戌宫佳，丑未宫次之，若守照俱可论吉。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j3-q11",
+          "original": "羊陀夹忌为败局",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j3-q12",
+          "original": "武曲禄马交驰发财远郡",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j3-q13",
+          "original": "凡太岁看三方对照星辰吉凶何如以定祸福，太岁在命宫行者祸福尤紧。",
+          "translation": null,
+          "translation_kind": "none"
+        },
+        {
+          "quote_id": "ziwei-quanshu-j3-q14",
+          "original": "身命迁移财官福德六宫名曰八座",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": [
+        "《谈星要论》可支持：看盘先命宫、次身主、再迁移财帛官禄、再福德的次第；命无正曜时看财官二宫；身命迁移财官福德六宫被单独提出。",
+        "《论人命入格》可支持：陷地加煞化忌不以入格论。",
+        "《论诸星同垣各司所宜分别富贵贫贱夭寿》可支持：机月同梁、府相朝垣、日月反背、羊陀夹忌、火贪铃贪等格的成格条件与注文。",
+        "该卷各星条目下列有庙旺陷地支，与本技能计算器的亮度表不尽相同（例如该文本以太阴在酉为旺）。",
+        "核对方式：2026-09-29 读取该页面源文本（同一 URL 加 action=raw），引句逐字取自源文本。页面显示会随读者的繁简转换设置变化；卷一前半为繁体、其余为简体，引句照录源文本原字。"
+      ],
+      "does_not_support": [
+        "出处只证明这些句子见于所核录文，不证明紫微斗数的解释对个体具有经验效度。",
+        "维基文库页面未注明底本与校勘，不能据此断定明清刻本的原貌或各版本异文。",
+        "书中关于夭寿、疾病、残疾、刑克、生育、性别与社会身份的断语属历史文本，不构成现代事实，不用于个案判断。"
+      ]
+    },
+    {
+      "source_id": "iztro-docs-mutagen",
+      "kind": "instrument_documentation",
+      "author": "iztro 开源库作者（紫微研习社 docs.iztro.com，署名“笔者”）",
+      "title": "紫微斗数四化（iztro 文档·紫微斗数知识）",
+      "edition": "网页，2026-09-29 读取；页面导航显示文档版本 v2.6.1。本技能计算器使用的是 Python 移植版 iztro_py 0.5.0，其四化表已在本地逐干实测，与该页表格一致",
+      "locator": "“十天干四化表”一节",
+      "url": "https://docs.iztro.com/learn/mutagen.html",
+      "verification_status": "verified",
+      "quotes": [
+        {
+          "quote_id": "iztro-docs-mutagen-q01",
+          "original": "天干四化每个门派都有些差异，因为笔者开源库是以《紫微斗数全书》（陈希夷）为准，所以仅列出这一种四化排法。",
+          "translation": null,
+          "translation_kind": "none"
+        }
+      ],
+      "supports": [
+        "该页列出的十天干四化表为：甲廉破武阳、乙机梁紫阴、丙同机昌廉、丁阴同机巨、戊贪阴弼机、己武贪梁曲、庚阳武阴同、辛巨阳曲昌、壬梁紫辅武、癸破巨阴贪，与本技能计算器的实测输出逐干一致。",
+        "作者自述各门派四化有差异，该库只采用这一种排法。"
+      ],
+      "does_not_support": [
+        "作者称以《紫微斗数全书》为准，但维基文库所录《全书》卷二歌诀壬干作“壬梁紫府武”（天府化科），与该表的左辅化科不同；该页不能证明《全书》各版本壬干均作左辅。",
+        "不证明任何一种四化排法对个体具有经验效度。"
+      ]
+    },
+    {
+      "source_id": "ziwei-common-reading",
+      "kind": "common_reading",
+      "author": "通行读法（无单一作者）",
+      "title": "紫微斗数三合派通行读法（本技能知识卡 references/ziwei-symbolism.md 所依据）",
+      "edition": null,
+      "locator": "通行参考：紫微研习社文档 https://docs.iztro.com/learn/basis.html（术语：三方四正、对宫、空宫、夹宫、会照）、https://docs.iztro.com/learn/astrolabe.html（空宫借对宫主星）、https://docs.iztro.com/learn/palace.html（十二宫职掌、身宫只落六宫及各自读法）、https://docs.iztro.com/learn/mutagen.html（禄权科忌的意象、化忌冲对宫）、https://docs.iztro.com/learn/major-star.html（十四主星的五行、斗分、化气与星性）、https://docs.iztro.com/learn/pattern.html（杀破狼、机月同梁、府相朝垣、日月并明、日月反背、明珠出海、阳梁昌禄、火贪铃贪、石中隐玉、三奇加会、禄马交驰等格局的构成）、https://docs.iztro.com/learn/horoscope.html（大限、小限、流年的排法与主次）；2026-09-29 读取",
+      "url": "https://docs.iztro.com/learn/basis.html",
+      "verification_status": "verified",
+      "quotes": [],
+      "supports": [
+        "以下各项是紫微斗数中常见的读法，已在所列通行参考中见到同义表述：三方四正与对宫、夹宫的定义；空宫借对宫主星来看；十二宫各自的职掌；身宫只落在命、夫妻、财帛、迁移、官禄、福德六宫，代表后天着力处；化禄主增加、化权主掌控与责任、化科主名声与贵人、化忌主执念与在意，化忌冲对宫；十四主星的化气（如天机善、武曲财、廉贞囚、天相印、天梁荫、破军耗）与基本星性；所列格局的构成条件；大限十年为主轴、阳男阴女顺行、起运岁数由五行局决定、流年命宫按当年地支落宫。",
+        "该参考同时说明三奇加会、铃贪格不见于《紫微斗数全书》，属后人归纳。"
+      ],
+      "does_not_support": [
+        "不证明古籍原话，不证明三合派是唯一取法，不证明对个体有效。",
+        "知识卡中以下内容本次没有在通行参考里逐条核对，仍属编写者依通行知识整理，个案使用到且分量重时宜由 S4C 另核：借星力量约当七成等折算比例；禄随忌走、叠禄叠忌、权科制忌的具体读法；四化入十二宫的逐宫读法；各主星入夫妻、财帛、官禄、迁移、福德等宫的逐宫读法；双星组合的逐组读法；杂曜与十二神的逐颗读法；刑忌夹印、财荫夹印。",
+        "星曜五行阴阳各家有出入（例如该参考以七杀为阴辛金），知识卡不据五行阴阳作推论。"
+      ]
+    }
+  ]
+}

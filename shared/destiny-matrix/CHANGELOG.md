@@ -1,0 +1,537 @@
+# Destiny Matrix · 版本演进
+
+---
+
+## v5.3.0 — 2026-09-30
+
+**立场调整：成品质量优先，专业、可读、有格调。** 用户原话：“以最终成品的质量为先，方向是显得专业，可读，b 格高就可以了”“允许类型假说”。由七个席位并行完成（jung、synthesis、bazi-knowledge、ziwei-knowledge、astro-knowledge、prose、design），Leader 整合；各体系席位交叉复核了范文与彼此的条目。
+
+### 起因
+
+对 v5.1 成品正文（约 1.15 万字）的量化体检（`prose_metrics.py` 基线）：首句为判断的占比 13%；否定限定每千字 8.7 处；流程词每千字 5.6 处；声源标签全书 6 次；限制框占正文 24%；八字、占星、流年、关系四章没有任何假设镜像。人格章只报分数不解读；综合章的核心结论换任何盘都成立；八字章写“这些判断仍未定”，占星章写“并列方法差别，不裁定”。根因：合同里禁令远多于可用的知识，分析师拿不到可以下判断的材料，也不被允许下判断。
+
+### 放开的
+
+1. **在传统内部下判断。** 八字断旺衰、格局、用神与喜忌；紫微断格局、命宫强弱与四化重心；占星断盘面重心、命主星去向、最紧密相位的主题、主要张力与资源；人格给类型假说、功能栈与备选。结论以声源标签说出。
+2. **人格类型假说。** `jung_calc.py` 新增 `结构`（功能分、排序、对立轴、类型贴合度候选、邻近型辨析、亚型方向、与测验自带类型是否一致）与 `--reported-type`；十六亚型按两亚型均值作功能分（本技能约定）。贴合度用“位置期望分相关法”。
+3. **综合可以写汇聚。** 矩阵关系新增 `convergent`；综合章开头说明一次“体系之间是各自独立的传统，相近不等于科学证明”，此后不逐处声明。
+4. **每个体系定默认取法**（写入各 framework）：八字子平格局法为主、扶抑与调候为辅；紫微三合派、空宫借对宫、生年四化为主；占星现代守护为主、传统守护作副守护、Placidus；人格荣格八功能加 Beebe 八原型。其他取法进附录。
+5. **术语是专业底色**：首现即释，之后放心使用。
+
+### 不变的红线
+
+不推断疾病、身体部位、寿命、生育；不承诺确定事件，不给吉日、成功率、匹配总分；不编造引文、来源、计算值、经历；未成年人保护；隐私；不把传统解释说成科学事实，不由出生盘生成人格分数。各文件集中写一次，不逐段重复。
+
+### 新增文件
+
+- 知识卡：`references/bazi-symbolism.md`、`ziwei-symbolism.md`、`astrology-symbolism.md`；`cognitive-functions.md` 重写为知识卡。
+- 综合：`references/theme-crosswalk.md`（10 个主题在四个体系里各看什么，附 40 个合成示例）、`schemas/synthesis.json`、`scripts/synthesis_contract.py`。
+- 文风：`scripts/prose_metrics.py`（只出诊断，不拦截）、`references/exemplars.md`（十段整段范文，用一张真排出来的合成盘）。
+- 人格：`scripts/jung_structure.py`。
+- 版式：`references/output-template.md`、`chart-patterns.md` 重写；`scripts/book_html.py` 新增四柱盘、十二宫盘、星盘的渲染函数与命令行。
+
+### 合同
+
+- 四个体系的 framework、analyst、judge 合同重写：各列必出结论，判官用固定 `reading_id` 后缀独立给出同样几项，chief 逐项对照；相邻档位算措辞差异，差两档以上、格局名不同、喜忌相反、命主星不同或首选类型不同算实质差异。
+- `book-writer.md`：要求下结论、类型假说写法、汇聚写法、引用范文、封面与章首章末部件；反向情形的落空一支不得再搬出本盘另一处结构来接。
+- `reader-editor.md`：先看诊断；作者下的结论不得被改弱。
+- `locked-checklist.md`：R1 新增“各体系下了结论”，以“未定”“不裁定”“并列几种取法”代替结论的判 fail；R2 改为综合判断三条合格标准；D3 引用诊断报告作定位，不作判定依据。
+- `team-orchestration.md`：S5 后运行 `synthesis_contract.py`；S8.5 前后运行 `prose_metrics.py`；§7、§10 同步。
+
+### 来源
+
+`sources.json` 由 9 个来源扩到 34 个，可引原句 115 条，全部由席位在页面原文里逐字核对。新增《紫微斗数全书》三卷、《三命通会》、《神峰通考》、Ptolemy 三处、Alan Leo、Rudhyar、荣格《心理类型》第十章、Beebe、JUNGUS 官方页面与计分脚本等。未并入：《渊海子平》（页面自标未完成）、Greene、Arroyo、Hand（只核到书目）、《紫微斗数全集》（未找到全文）。
+
+### 研究中查清的事实
+
+- **JUNGUS**：页面百分比是 64 型后验概率的立方根乘 100；十六项分数与类型结论同源（合计恒为 240），两者一致不写成相互印证；“八对亚型全同向”是计分方式带来的常态。
+- **紫微四化表**：以计算器（iztro_py 0.5.0）实际采用的为准；戊、庚、壬三干各家有出入，壬干计算器作左辅化科而所核《全书》作天府化科。庚年生人或庚干大限而化忌落在强宫时登记读者层限制。亮度表同样以计算器为准，与《全书》有出入。
+- **《子平真诠评注》**所据网页有“原文／徐注”误标，登记的引句已避开。
+
+### 修掉的缺陷
+
+- **调候表**：120 组对照维基文库《穷通宝鉴》核过一遍。12 组 reason 有干支关系硬错（阴干被套用阳干的禄刃位置等）、9 组 reason 措辞与原文或盘面不合，已改；13 组用神与所核原文不符，改从原文，原写法留在 `通行表用神`；6 组标 `存疑`。
+- **封面页眉页脚**：`export_pdf.py` 对有封面的书另渲染一次无页眉页脚的版本，替换第一页的内容流。页边距上下各加 2mm；页眉页脚改宋体、页码只留数字。
+- **DOM 字号审计失效**：`_font_audit` 算出字号后从未写入返回值，已补。
+- **六宫标签**去掉“健康”。
+- `special-patterns.md` 的紫微格局表删去，改为指向 `ziwei-symbolism.md` §6（原表 6 项里 5 项与知识卡有出入）。
+- `validate_book.py` 的 `OPENING_METHODS` 去掉“按照”（会误标带声源标签的判断句）。
+
+### 独立红线审稿与修复
+
+未参与改造的审稿员对照备份做了七项审查（红线、合同矛盾、文档与代码、脚本探针、来源抽查、隐私、范文质量），报 2 条阻断、17 条应修，均已修复。
+
+- **阻断 1**：`theme-crosswalk.md` 把“按性别取配偶星”写成亲密关系的默认读法，与八字知识卡红线冲突。改为以日支为主位，按性别取星只作历史语境。
+- **阻断 2**：人格类型假说依赖的 `jung_calc.py` 没有责任席位。写明由 caster 在 S1 运行并登记 `$WS/jung.json`。
+- **知识卡的红线自查**：紫微知识卡改掉人生历程断语、“刑克”字眼、按性别指派亲属与贵人、描述对方特征的读法共 40 余处，并加总则“六亲宫只读当事人这一侧的相处方式与感受”；占星知识卡改掉“早年”“大器晚成”等 25 处；八字知识卡 1 处；主题对照表的确定性结论与描述对方的示例同步改。
+- **裁定**：写给未成年读者的正文不出现类型名，只写主导与辅助功能的做法；“最紧密的相位”分两级取（两端都是个人行星或命主星的优先，一端是世代行星的相位另提“度数最紧”）；紫微四化在戊、壬两干的出入进附录、正文不提。
+- **范文**：经四个体系席位用同一张合成盘重算复核后修改两轮。改正火贪的因果、Ne 低分的解读、盘面重心的归位、卯戌合的分量（会方先论，隔位之合不作合绊）；综合章不再按字面做跨体系等同；反向情形示范六种说法、三种位置；拆掉不属于盘面结构的三项并列。
+- **脚本**：`synthesis_contract.py` 补未成年人词表（繁简与空白归一）、职业判定与能力标签检查、类型名检查、真正的环检测，升级词扩到综合主张与提纲；`jung_structure.py` 在极差占量程低于 0.05 时不给类型假说，类型贴合度键集合固定；`prose_metrics.py` 排除固定词组、书名号与引号内的否定；`guard_book.py` 的声源标记词表扩充。
+- **残留旧立场**：`growth-specialist`、`love-specialist`、`intake-refiner`、`chart-director`、`relationship-analysis`、`liunian-analysis`、`memory/conventions` 里与新立场冲突的旧说法已改。
+- **隐私**：测试夹具里与一个真实个案相同的六字母类型和高分次序已换掉；将被同步的文件里真实姓名、出生资料、分数零命中。
+- **来源**：115 条引句全部对页面比对，未发现编造；修正 5 条元数据（自相矛盾的 locator、被改动的首字母等）；von Franz 的扫描件内容未能核实，降为 `unverified`，知识卡里的署名转述改为不署名。
+
+### 判官输入拆分
+
+知识卡内联进判官载荷后，载荷达到 70–175 KB。判官没有文件工具，Leader 必须把载荷逐字作为派遣正文发出，这个长度下做不到。改为：
+
+- **静态部分**（判官合同、首读合同、framework、知识卡、来源索引，不含个案内容）由 `scripts/build_judge_adapters.py` 写进分维度席位定义 `dm-judge-jung|bazi|ziwei|astro`（cc 与 omp 各四份）。
+- **个案部分**（输入口径与本维原始切片）由 `judge_payload.py --layout split` 生成，约 7–30 KB。
+- `--layout inline`（默认，原行为）配通用 `dm-judge`，留作未安装分维度席位时的退路。
+- `isolation_level:"input_only"` 的条件增加一条：split 时席位定义须与现行合同一致。`doctor.py` 新增 `judge.adapters.fresh`（过期为 red）与两端的链接检查；测试在席位定义过期时失败。合同或知识卡改动后须重新运行 `build_judge_adapters.py`。
+
+### 验证
+
+单元测试 247 项通过；回归 18 例 0 FAIL；doctor ok；`sources.json` 通过 schema 校验；合成样张用现行导出器重导：12 页、1.53 MB、封面无页眉页码、书签与 tagged 结构保留、无丢块、无字号违规，五个视口宽度无横移。
+
+### 已知未决
+
+1. **未跑真实成书。** 知识卡、合同、范文、版式都没有经过一次完整流水线。
+2. 分维度判官席位定义的正文为 54–138 KB，未在 `dm-judge-<dimension>` 上实测；Claude Code 在会话开始时载入 agent 定义，装好后要开新会话才可用。
+3. 综合主张仍没有判官审，`synthesis_contract.py` 只查结构、引用与词表；未成年人检查是词表兜底，不能代替终审。主题对照表只与四份知识卡的主题章节对齐，星曜与行星的逐条象义未逐一核对。
+4. 八字旺衰参照表的数值阈值、人格措辞分档阈值、紫微借星折算比例都是本技能的操作约定，不出自古籍或文献，未用真实个案校准。
+5. 计算器局限：紫微流曜字段为空，且只算当前一个大限和一个流年；占星无行运推运；八字“天干地支俱冲”不含戊己参与的相克。
+6. 未写：合盘的占星读法、福点与 Vertex 的读法。
+7. 版式只在 macOS 的 Chromium 上渲染过；两万字级长篇的分页表现未知；P01–P17 里只有 P02、P06、P07、P08 做了样图。
+8. 现代心理占星的核心著作、Quenk 与 Myers 原书未读到正文，相关内容按常见读法写。
+9. v5.2.0 遗留的两条未决（guard 与 validator 对个别改写不报、`inherited_limitation_missing` 作用于 opening 限制）仍未处理。
+
+---
+
+## v5.2.1 — 2026-09-29
+
+### 三体系派生结构层
+
+**起因**：三份 framework 的推读路径要求读得令、根气、透干、合冲刑害、三方四正、四化牵连、命主星、相位组合，但计算器不输出这些构成事实，analyst 合同又禁止重算，只能靠模型手排或读浅（v5.1 成书中的“两组三合闭环”“T 三角”“宫主链”均为手排）。
+
+- **八字** `scripts/bazi_structure.py` → `dimensions.bazi.data.结构`：`月令`（本气、十神、旺相休囚死；季月另给按所属季节五行论的状态）、`藏干明细`（层次、权重、十神、透干）、`日主十二长生`、`禄刃`、`天干通根`（含自坐十二长生）、`十神分组固定权重合计`、`原局关系`（天干五合/相冲，地支六合/六冲/刑/害/破/同支/半合/拱合/半会/拱会，三支齐全的三合局/三会方/三刑，干支全同的伏吟）、`大运与原局`、`流年与原局`（含伏吟、天干地支俱冲）。三支齐全时不重复列同一局/方的两支关系。
+- **紫微** `scripts/ziwei_structure.py` → `dimensions.ziwei.data.结构`：`命宫`、`身宫`、`空宫`、`宫位关系`（对宫、三合宫、邻宫、`借对宫主星`、`三方四正四化`）、`生年四化`、`当前大限四化`、`当前流年四化`（四化星曜在本命盘的落宫）。闰月两套盘各带自己的 `结构`。
+- **占星** `scripts/astro_structure.py` → `dimensions.astrology.data.结构`：`盘别`（按地平线，不依宫制）、`命主星`、`守护`（传统与现代两套的定位星、定位星链、终点定位星、互容）、`先天尊贵`（七星的入庙/擢升/失势/落陷）、`宫主落宫`、`宫内行星`、`宫界距离`、`轴点合相`、`相位趋势`（入相/出相）、`相位图形`（大三角/T 三角/大十字及最宽偏差）、`星群`、`元素分布`、`模式分布`。星体条目新增 `黄经日速`。
+- **不输出判断**：旺衰定级、格局成立、合化成败、用神、夹宫成格、强弱评分均不在字段内，仍由 analyst 作为传统解释给出。每个 `结构.取法` 写明采用的查表与未采用的取法（八字：阴干羊刃、阴阳同生同死、月令分日用事；紫微：宫干飞化、自化；占星：三分主星、界、面、擢升互容）。
+- **合同**：三份 framework 各增“步骤—字段”对照表；三位 analyst 合同指向对应 `结构` 指针。判官载荷取整个维度切片，`结构` 随原始 JSON 送达，无需改 `judge_payload.py`。
+- **独立审稿与修复**：审稿员凭独立规则核对并实跑探针，报 2 条阻断、8 条应修，均已修复。(B1) `astro_calc.py` 原按太阳落 7–12 宫判日夜盘，whole sign 下与地平线判定相反，福点公式随之用反（存量缺陷）；改为按地平线判定，`福点.盘别` 与 `结构.盘别` 一致。(B2) 辰戌丑未的藏干层名按权重次序标成了“中气、余气”，与传统相反；改为逐支写明层名（四库以上月残留为余气、墓库所藏为中气），权重不变。应修：缺旺支的三会两支改记 `拱会`；原局增 `同支` 与干支全同的 `伏吟`；季月增 `季月`、`所属季节五行`、`按季节五行状态`；`十神分组权重` 更名并在 framework 表中只对应步骤 3，步骤 4–5 标明无对应字段；大十字内含的 T 三角不另列；两星同速记 `持平`；三刑全时不重复列两支相刑；`合化五行` 改为列表（午未列火、土两说）；`取法` 增“同柱”说明；三份 framework 写明取法选择记在 claim 方法说明与 `limits`，读者正文仍按两层限制规则；`known-issues.md` 作废“自行补算”的旧 Workaround。
+- **合盘占星层键名失配（存量缺陷，审稿员发现）**：`synastry_calc.py` 读 `十大行星+北交+凯龙`，`astro_calc.py` 写出的是 `十大行星+北交+凯龙+莉莉丝`，回退链又落到 data 顶层，结果一颗星都取不到，合盘占星层静默为 `unavailable`；原测试用的也是旧键名，所以一直通过。键名收为 `_common.ASTRO_POSITIONS_KEY` 两端共用，删去 `planets` 与 data 顶层的回退；新增以真实 `calc_chart` 输出喂合盘的测试。
+- **验证**：新增 `tests/test_bazi_structure.py`（11 项）、`tests/test_chart_structures.py`（17 项），查表类按通行对照表核对，不以实现输出作期望；单元测试 128 项通过；回归 18 例 0 FAIL；doctor ok。`chart_bundle` schema 不变（`data` 为开放对象）。
+- **未做**：`tests/fixtures/chart_bundle.example.json` 未重生成，不含 `结构`；默认守护体系等取法的表态（质量审查第 3 项）未定；未跑真实成书。
+
+---
+
+## v5.2.0 — 2026-09-29
+
+### 运行时适配
+
+**判官隔离落到运行时**：此前两端判官都用带完整文件/Shell 工具的通用子代理（CC 的 general-purpose、omp 的 dm-deep），能读到整个 `$WS`，严格说只能标 `isolation_level:"unavailable"`。
+
+- **dm-judge adapter（两端）**：`adapters/omp/dm-judge.md` 为 deep 档（`["@slow","@default"]`、thinking high）、`tools: []`、不开 `spawns`，omp 只给内置 `yield`。`adapters/cc/dm-judge.md` 用 `tools: ToolSearch`、`disallowedTools: mcp__*`、`omitClaudeMd: true`、`model: inherit`、`maxTurns: 4`。Claude Code 拒绝派生零工具子代理，`TodoWrite` 在当前模型上不提供，列它同样被拒；`ToolSearch` 只检索子代理自身工具池，读不到工作区。安装方式为软链到 `~/.claude/agents/`、`~/.omp/agent/agents/`。
+- **判官载荷脚本** `scripts/judge_payload.py`：确定性拼接判官合同全文、其“首读”所列合同（team-orchestration §3/§7 摘录、`judge_verdicts.json`、本维 framework，八字另含 classical-texts）、公共来源 ID 索引、输入口径与本维原始切片，并输出 `input_payload_sha256`、`input_artifact_ids`（给 `--evidence` 时取登记的 artifact_id）。不带其他维度，也不带 bundle 顶层 limitations（它汇总了三维限制）、intake 历史事件、`time_context` 中出生资料以外的 subject 字段；方法键按维度白名单；jung 只取 personality_input 白名单字段，访谈构念才带观察与反例。新增 `tests/test_judge_payload.py`（10 项：跨维哨兵不泄漏、哈希确定且等于写出文件、首读合同来源、jung/伴侣切片、构念冲突、evidence 取 ID、维度不可用、缺文件/坏 JSON/参数错误 exit 2）。
+- **规范**：team-orchestration §3 规定只有“`dm-judge` 派遣 + 正文与脚本载荷逐字一致 + 判官未报污染”才可标 `input_only`，其余一律 `unavailable`；§5 档位表拆出“deep（隔离）”行，§10 登记 CLI。runtime-cc 写明 subagent_type/model（省略即继承，light 用 `haiku`）、后台完成通知即 barrier、`SendMessage` 对应 message，并说明为何不另建 CC 端 light/research/deep 定义。runtime-omp 加 dm-judge 行、安装命令与 MCP 限制；dm-deep 描述不再含判官。
+- **doctor**：新增 `omp.agent.dm-judge`、`cc.agent.dm-judge`（链接，缺失为 yellow 并给 `ln -s` 命令）与 `*.dm-judge.tools`（frontmatter 与隔离要求不符为 red）；另以 yellow `omp.agent.dm-judge.mcp` 提示 omp 不按 agent `tools` 过滤 MCP。
+- **冒烟**：CC `claude -p` 派 dm-judge，子代理只见 `SubagentHandback`，无 Read/Bash。omp `omp -p --no-session` 派 dm-judge，工具只有 `yield`、`multi_tool_use.parallel` 和用户 MCP（context7、exa），无 read/bash。omp 的 `task` 不接受空共享 context。
+- **memory/MEMORY.md**：由 v3 索引改为 v5 简短索引；v3 决策标为已废弃。
+- **omp 18.4.3 复核（2026-09-29）**：新版 agent frontmatter 解析（`tools`/`spawns`/`thinkingLevel`）与 18.4.2 相同，`tools: []` 隔离仍有效，doctor 通过。18.4.3 批量 `task` 默认预启动（`task.speculativeLaunch`），barrier 语义不变，runtime-omp 已注明。思考深度：用户 role 带 `:auto` 后缀时由模型自适应，按用户决定视为正常而非缺陷。MCP：omp 没有按 agent 关闭 MCP 的开关（只看父会话 `restrictToolNames`/plan mode 与全局 `disabledServers`），用户选择维持 adapter 纪律 + runtime_trace 记 `egress_tools`；§3 补“判官实际调用联网工具即按污染处理、标 `unavailable` 并 fresh 重派”。
+
+### 文风与表达有效性
+
+**起因**：对 v5.1 同案新旧稿做文本诊断（样本内部稿，未随技能发布）：否定/限定句占比新旧稿都是 24%；“本次/工具/字段/未核”密度是旧稿的 5–10 倍；长段首句讲方法或限制的占 29%（旧稿 7%）；35 个限制框占正文约 18%；章首命题的主语是“这张盘该怎么读”，没有一句能让读者认出自己。根因不在文风节，在流水线：claim 的 limits 一路传到正文；漏一条限制会阻断发布，多写十条只扣 D3 软分；模板示例本身示范否定句；framework 的“核不到就省去”被执行成逐条宣布“未核”；16 项验收没有一项检查写得有没有用。红线（非决定论、分层、不互证、不虚构亲历、适龄、引文核实、隐私、终审与哈希）全部不变，改的是放置层级、措辞方向与正向验收。
+
+- **限制两层**（`schemas/case_evidence.json`、`scripts/quality_contracts.py`、`scripts/validate_book.py`、team-orchestration §4）：`limitations[]` 新增必填 `changes_reading`、`reader_text`；`changes_reading:false` 只能进附录，`adjacent` 必须改变读法；计划中的读者层限制以 `data-limitation-id` 在所属章节恰好出现一次，opening 在必要披露出现一次，appendix 不进正文。`claims[].limits` 与 judge/chief 措辞为审计层，不原样渲染。A3 与阻断条件改为“读者层缺失会改变结论的限制”。删除按 impact 关键词判定的旧规则。
+- **通行读法**：source kind 新增 `common_reading`（`excerpt` 必须为 null，只能支持 `traditional_interpretation`，正文不得用 `<q>` 引用）。正文以“传统上常见的讲法是……”写入，不加引号、不挂古籍名；冒充古籍出处仍是 `source_error`。
+- **省去即沉默**：未核取法按 framework 省去后，正文不宣告“本次未核”，未采用的读法集中列在附录；只有改变已读结论时才作为读者层限制写一次。
+- **S8.5 reader-editor**（新席位，deep 档）：S8 后、S9 前只改措辞（去重、否定改条件句、主语回到人、流程词替换、合并重复的停止条件），出口为 `guard_book.py --scope prose --plan`；guard 失败则以 S8 原稿进 S9。fresh writer 修订后再过一次，不占修订额度。`guard_book` prose scope 改为只比较数值节点、引文节点、每节 claim ID 集合与 limitation ID 集合，不再比较段落全文（原实现下带 `data-claim-ids` 的段落一字不能改）；数字按集合保护（不得新增、原有每个数字至少保留一处）。已知缺口：同节同一数字指不同事物时删去一处不会被拦，由 S9 核对。
+- **写作合同**（`agents/book-writer.md` 文风节重写）：主语是你；判断→依据→条件；声源标签（事实/传统/假说/选项）；限制写成条件句并用“去留三问”取舍；标明的假设镜像与可落空的反向情形（区分冷读的“彩虹诡计”）；Finn 1→2→3 反馈顺序；倾向写成模式而非身份；行动“因—行—判”，停止条件每章一次，未成年读者附可直接说出口的原话；开篇三件事、结尾回到读者本人；流程词词典。删去“不设免责声明密度上限”。
+- **核心命题**：S5 产出 3–5 条 `core_propositions:[{proposition_id,image,statement,claim_ids}]`，须过换盘测试；writer 在导读预告、各章回扣、综合对照、结尾收束。目前无 schema 校验。
+- **素材源头**：四位 analyst 与四个 framework 先写看见的结构与含义，为核心判断各给 1–2 条标明的生活镜像；`cognitive-functions.md` 边界列改为“什么情况下这条不太适用”的条件句；chief 的 disclose 措辞只进审计层；模板骨架与图注示例清除否定示范，图注只写来源、单位、量程、缺值。
+- **正向验收**（`locked-checklist.md`，仍 16 项）：R1 加人称命题与换盘测试；R3 要求行动有因；D3 用“有效段落”八条判定；I3/A3 区分亲历与标明的假设镜像；`final_verdict.reader_takeaways`（3–5 句）必填，写不出时 R1 与 D3 均须 fail（checker 联动）；样章门改选最容易写成审计口吻的段落。
+- **研究依据**：否定句先激活被否定概念（Mayo 等 2004）、辟谣须给替代解释（Debunking Handbook 2020）、具体的不确定性不损信任而笼统措辞损信任（van der Bles 等 2020）、Barnum 效应（Forer 1949；Dickson & Kelly 1985）、治疗性评估的分级反馈（Finn）、泛指句标签对儿童动机的影响（Cimpian 等 2007）、动机式访谈/焦点解决/执行意图、ISAR 伦理守则。
+- **memory**：`README.md` 与 `analysis-sessions/README.md` 改为 v5：默认不写个案，删去星级印证度、反向校准与应期吻合度模板；`conventions.md` 增“隐私运维记录不进正文”。
+- **独立红线审稿与修复**：审稿发现 2 条阻断并已修复。(B1) 阻断条件与 A3 一度只认 `changes_reading:true` 标签，错标无人兜底——改回按实质判断：会改变读者已读结论的限制无论漏写、错标或从未登记都阻断；终审抽查审计层，错标即 A3 fail；chief `disclose` 默认 `changes_reading:true`，改标须在 `impact` 写明理由。(B2) 探针证实把条件句改成断言、把限制框掏空为空标签时 guard 与 validator 均放行——reader-editor 增“不提高确定程度”禁止项（声源标签、情态词、条件部分、分数≠能力、镜像标注），validator 增 `limitation_empty`、guard 增 `prose_limitation_emptied`，声源/条件标记减少时输出 `certainty_review` 提示；S9 对照当轮基准稿 `book-s8-r{N}.html` 与编辑报告，S8.5 退步判 A3 fail 并回退、不计修订轮。另修 10 条一致性问题：`reader_takeaways` 失败须 R1 与 D3 同时 fail（checker 同步）；标明镜像后写具体过去事件按亲历虚构；反向情形须有一支“这条读法不太贴合你”，否则按冷读判 R1 fail；传统象义落到“你”时同句须保留声源标签；常见读法不替代取法核验；综合 claim 继承父 claim 的读者层限制（`inherited_limitation_missing`）；文风规则副本收回 book-writer。并采纳建议：S8.5 后更新 book.html 哈希、omp 判官记录 `egress_tools`、`common_reading_unverified`、样章加入一条行动。
+- **纸面试写**（审稿人用新合同改写 v5.1 稿两段，未跑流水线）：紫微段 R1 由 fail 变 pass，D3 八条约由 2 条满足升到 7 条；实践段的“为什么是你”、未成年原话脚本与生活镜像依赖 S3/S5 素材，措辞编辑补不出来，故样章门加入一条行动以提前暴露。
+- **验证**：单元测试 100 项通过；回归 18 例 0 FAIL；doctor ok。未做真实成书测试（按用户要求本轮只研究与调整）。
+- **已知未决（留 v5.2.1）**：(1) 只删一句否定限定、或把限制框换成 ≥6 字的无关文字，guard 与 validator 都不报（审稿探针 P-3/P-4），目前靠 S9 对照基准稿；可在 `certainty_review` 增否定限定词计数与限制框改前/改后文字对照。(2) `inherited_limitation_missing` 也作用于 opening 限制，Leader 登记负担偏重；可只对 `adjacent` 执行。
+
+## v5.1.0 — 2026-09-28
+
+**内容与图文合同优化**：目标改为“四体系各自完整解读，以人的问题组织跨体系综合，写成有阅读价值的命书”。计算、证据链、盲判、schema、脚本与 CLI 均不变。
+
+- **独立深读**：八字、紫微、占星、认知功能 framework 各加有序推读路径与完成边界；四位 analyst 指向该路径，findings 须含连续领域论述，改为“提供领域论述素材，不写最终 HTML”。神煞/特殊格局/流年/关系参考区分传统解释与现实建议。
+- **主题综合**：`cross-analysis-patterns.md` 五步综合顺序；`matrix` 降为分析索引，新增理解写入 `synthesis_claims` 与 `required_content`；竞争解释改为分层检验（计算核方法、传统说明取法条件、个体假说才谈反例）。S5 新主张由 Leader 补 `owner/status` 登记，修正时走 `superseded/rejected`。
+- **单一作者**：S6 按有效主题集合派遣；analyst/synthesizer/specialist 产物均为作者素材；新增作者缺口回提（team-orchestration §8.2）。`book-writer.md` 删去“一句命题＋至多三行导语”，改为五条编辑原则。
+- **结构图**：P02/P06/P07/P08/P11/P13/P17 重写采用条件（紫微固定地支 4×4 盘、八字/紫微分面周期轴（两个 chart ID 紧邻）、真实宫头星盘、主题关系表）；chart-director 在 `planning_rationale` 逐项记录取舍；`data_refs` 只列可数值绑定字段，字符串来源写进 caption；P13 因无数值字段改为综合章内普通语义表，不登记 `chart_table`。output-template 增 `.ziwei-grid`、`.timeline-panels` 屏幕/打印规则与开篇顺序。
+- **验收**：样章门由“800–1200 字＋一张代表图”改为功能性样章（最易失败的领域段＋关联综合段＋适用结构图）；R1/R2/D2/D3/D4 改为读者先行、可复述判定；I3 明确 minor_mode 下能力缺陷标签与为当事人编写亲历场景即失败（合成反例探测中旧 I3 措辞曾被判 pass）。
+- **纠正轮新错可再修一次**（team-orchestration §3、chief-judge、`schemas/consistency_report.json`、`scripts/quality_contracts.py`）：round-1 复审时 chief 为每条 blocking 差异标 `introduced_in_round`（须并列 round-0/round-1 原文为证）。仍有原有问题（`0`）即 `blocked`；剩余 blocking 全为纠正稿新写入（`1`）时，同一 analyst 只就这些 claim 定点再修一次，fresh chief 记 `round:2`（新字段 `round2_trigger_discrepancy_ids`），之后仍阻断即 `blocked`。checker 拒绝对旧问题开 round 2，并补回归测试。起因：验证运行中纠正轮新写入的一处计数错误与一处越级表述使 S4 无出口阻断；中途试过“闭包撤回”规则，因连带删除人格 7 条、紫微 4 条 claim 使书无内容可写，且与 checker 冲突，已撤掉。
+- **layout 修补上限**（team-orchestration §9）：每轮成书最多两次纯 layout 修补，第二次只能套用 `output-template.md` 已有规则；第一次修补后仅剩 layout 类 fail 时判 `revise` 而非 `blocked`。模板打印规则补上“图题、`.chart-description` 与图形本体同页，数据长表可分页”，起因：验证书中星盘图题与圆盘被拆到两页（P2 fail）。
+- **合同缺口**：S3/S5/S6 claim 统一由 Leader 补 `owner/status` 登记；writer 输出统一为 `$WS/book.html`，交付副本另存 `{subject}_命书.html`。
+
+## v5.0.0 — 2026-09-27
+
+**质量优先的破坏性合同切换**：保留性格本位、人文文风、传统体系与 HTML+PDF 双交付；重做计算口径、证据链、质量门与版式合同。不兼容 v4 的 intake/判官/图表计划/终审字段，无别名。
+
+### 计算
+
+1. **单一时间管线**（`_common.normalize_birth_time`）：一次规范化出生输入，输出 `time_context`（UTC 瞬间、固定 UTC+8 节气轴、本地平/视太阳时、Swiss `time_equ` 均时差、fold/gap、公历/儒略历、农历含闰月）。删除按时区中心经线的旧公式与 UTC+8 兜底；城市重名返回候选。芝加哥例真太阳时 −56.45 分钟（旧实现差一小时）。
+2. **四柱**：年/月柱、节气与起运走节气轴，日/时柱走本地视太阳时；`--zi-hour-rule midnight|zi_start` 用 `setSect`，不再移动出生瞬间；十神/神煞等从最终柱重算；缺 `calculation_sex` 不默认女命。
+3. **紫微**：JD 适配后统一 `by_lunar`，闰月中分法主盘 + `fix_leap=False` 对照盘；删除按历史事件择盘。
+4. **占星**：UT1、逐星 flags/引擎披露；Placidus 失败只标宫位不可用（保留 ASC/MC），显式 `whole_sign` 才切换；删除 Kerykeion；`standard-v1` 相位表。
+5. **人格与合盘**：`jung_calc` 保留原分与量程，新增 `--scores16`（原值+差值，不聚合）；删除出生盘推人格、Grip 风险星数、缺陷字典、`--hints`。`synastry_calc` 删除匹配总分/星级，改为分层 available/unavailable 观察。
+6. **统一外壳** `schemas/chart_bundle.json`（schema_version 2），CLI 退出码 0/1/2；`requirements.txt` 锁定直接依赖（含 jsonschema 4.25.1）。
+
+### 证据与流程
+
+- 新增 `intake_brief`、`case_evidence`、`sources`、`runtime_trace` schema 与 `scripts/quality_contracts.py`；重订 judge/consistency/chart_plan/final_verdict。
+- 独立分析后综合：判官输入隔离、`expected_judges` 覆盖校验、每维一次纠正复审；chief 按证据分类分歧，删除一致性评级。
+- `references/sources.json` 公共引文目录；未核原话不得署名引用；取消最低引文数。
+- roles 分档与 `task_fingerprint` 同案复用、runtime_trace 成本观测。
+- 适龄合同、截图双转录、隐私默认不外传。
+
+### 成品与验收
+
+- 输出模板合并为一套 CSS：disclosure/body/appendix 语义结构，details 仅附录；次文字色加深至 ≥4.5:1；打印字号底线。
+- 图表计划删除 26 图/锚点六图配额；新增 P17 亚型哑铃图；图表数据 `data-value-ref` 回链。
+- `validate_book.py`（必需 `--plan --evidence`）、新增 `guard_book.py`（受限修订与 prepare-revision）、`export_pdf.py`（`--verdict` 前置、附录展开、tagged/outline、内容与字号核对，删除页数门槛与自动剪页）。
+- 终审改为 16 项 I/A/R/D/P，pre/post 裁决，删除降级交付。
+
+
+### 验收记录（2026-09-28）
+
+- 单元测试 70 项通过；回归 18 例（3 例有独立数值锚点 PASS，15 例 CONTRACT_OK，0 FAIL）。
+- 真实个案（13 岁、JUNGUS 16 亚型截图）omp 端完整跑通 S0–S10：S4 拦下 4 项阻断（五行最少项计算错、分值升级为行为描述、来源状态越级、占星相位推个体困难），定点修订后 fresh chief 通过、判官未重跑；PDF 复核拦下短框跨页与表格字号 9.495pt 后纯排版修补；终审 16 项 pass、HTML/PDF 哈希一致。两名独立评审未发现阻断问题，一致指出防御性否定句重复、流程术语外露削弱文气。
+- 侯稿失败机制负例（6 处注入）：终审全部定位并阻断；validate_book 机器拦截正文 details 与隐藏/注释夹带，语义类（比喻升级为能力、假想经历、盘面推疾病、NERIS 冒称实测）依赖终审。
+- 验收后修正：导出字号门槛去掉 0.05pt 容差，模板打印字号按 Chromium 实测留 0.1pt 余量；validate_book 按 JSON Pointer 段匹配后代绑定；账本唯一 `case_evidence.json`；D1 须附 canonical 账本 validator ok 输出；D4 对隐藏/折叠关键信息一律 fail；book-writer 新增文风节（命题式开篇、先结论后展开、术语转译、可证伪的竞争解释、可调整行动；剔除宿命断语与贬义原型标签）；修正两条《子平真诠》引文原文。
+- 文风重写复测（复用 S0–S4C，重跑 S5–S10）：终审 16 项 pass、22 页；八字图“五行统计口径”缺绑定已补。运行中暴露并修正三处工具问题：PDF 文本提取的 CJK 部首别名（如 ⺒→巳）误报缺块；页眉标题被当正文判字号；账本中未被引用的历史 artifact 被当作失效错误（被引用的非 current 产物仍无法解析而失败）。否定式边界句仅小幅减少，文气仍待改进。
+- 未完成：Claude Code 端未跑真实成书；六个合成 fixture 双端矩阵按用户要求改为单一真实个案；成本遥测本次无可归属 usage，未做节省比例结论。
+---
+
+## v4.1.0 — 2026-09-27
+
+**Claude Code / omp 双端适配 + 修复 v4.0 遗留的 🔴 缺陷**。做法沿用 strategic-insight-longform 的「单源 skill + 三层间接」：编排动词、能力词、模型角色三层中立化，工具名只出现在 `runtime-{omp,cc}.md`。
+
+### 缺陷修复（先修后适配：回归不可信时无法判断适配是否引入差异）
+
+1. **占星段重复经度校正**（`cast_chart.py`）：占星改传钟表时。回归新增「占星直调对照」后，v4.0 脚本在 17 条命例上**全部 FAIL**（上升偏 0.4°–10.2°），v4.1 全部一致。新增 `元数据.时刻口径` 说明八字/紫微（真太阳时）与占星（钟表时）的口径差。
+2. **判官隔离数据层**：`bazi/ziwei/astro_calc.py` 默认不再输出 `性格映射提示`（预置荣格结论），需显式 `--hints`；判官链路永不使用。
+3. **JUNGUS 0-30 量程**（`jung_calc.py`）：新增 `--scale`（缺省按最高分推断），置信度/预警/Grip/可塑性按 0-10 归一后判定；输出新增 `量程` 字段。0-10 输入的输出与 v4.0 逐字节一致。
+4. **`--tz` 未传给占星**：显式 `--tz` 时占星段仍用 IANA 推导的偏移（1911 年前为 LMT），与八字口径不一致；现以显式 `--tz` 为准。
+5. **子脚本解释器**：`cast_chart.py` 调子脚本改用 `sys.executable`；八字 JSON 的「真太阳时状态」不再误标「未校正」。
+6. **S7→S9 契约不通**：chart-director 产出 `chart_plan.chart_table`，`validate_book.py --plan` 只认 `charts` 并在该形状上崩溃（AttributeError）；现直接读 `chart_table`，结构不符时 exit 2 并给出提示。
+7. `astro_calc.py` 的 `from __future__` 位于 docstring 之前导致 `__doc__` 为 None、用法说明打印为「None」；已调整顺序。
+
+### 回归套件
+
+- 撤销 14 处早已过期的 astro nullable；每条命例新增度数级锚点（上升/太阳黄经，±0.02°）。
+- 新增「占星直调对照」：钟表时直调 `astro_calc.py`，儒略日与上升黄经须与 `cast_chart.py` 一致——专拦时间管线错误。
+- 过滤条件未匹配任何用例时 exit 2（原为 exit 0 的假绿）。
+
+### 双端适配
+
+- `references/team-orchestration.md`：中立动词（dispatch/barrier/collect/message/fresh_spawn/ask_user/teardown），新增 §9 能力词、§10 运行环境与工作区（`$DM` / `$DM_PY` / `$WS`，不用共享的 `local://`/scratchpad）、§11 模型分档、§12 schemas；§1 判官隔离补数据层/任务层/通道层封堵与污染分级处置。
+- `references/runtime-omp.md` / `runtime-cc.md`：两端工具映射的唯一出处。
+- `adapters/omp/dm-{deep,research,light}.md`：omp 三档 teammate agent，只写 omp 角色（`@slow/@default/@smol`），软链到 `~/.omp/agent/agents/`；skill 软链到 `~/.agents/skills/` 供 omp 发现。
+- `schemas/`：judge_verdicts / consistency_report / chart_plan / final_verdict 四份 JSON Schema，派遣时挂载强校验。
+- `scripts/doctor.py`：第 0 步 preflight（解析依赖齐备的 `$DM_PY`、实际启动 Chromium、样盘判官隔离自检、omp 适配件、可选完整回归），🔴 非 0 退出。
+- agent 契约里的 `Read/Write/Bash/WebFetch/WebSearch/Playwright/AskUserQuestion/scratchpad` 全部改为能力词；intake-refiner 不再直接问用户，改为产出 `questions_for_user` 由 Leader 代问。
+- 运行环境：本机 PATH 上没有依赖齐备的 python3（系统 3.9 缺 playwright/geo，homebrew 3.12 缺排盘库），统一用 venv `~/.local/share/destiny-matrix/venv`。
+
+### 验收脚本加固（与 locked-checklist 对齐）
+
+- `validate_book.py`：恰好 8 章（多于 8 → M-EXTRA 🔴）；C2/C3 只数带 `data-chart-id` 的图表容器；C1 必须提供 `--plan`，缺失/计划外/重复 id 均判 fail；W1 覆盖卷首与正文，否定豁免改为「同句 40 字内有否定/禁止提示词」（含「未使用」「严禁」「不得」等，列表形式整体豁免）——案例B成书 W1 误报从 8 处降为 1 处真实命中；E4 每章最多计一次评级块。
+- `export_pdf.py`：`MIN_PAGES` 6→20（P1）；裁掉末尾空白页时打印数量；参数个数错误、输出与输入同路径 → exit 2；渲染/启动错误单行 `ERROR:`；pypdf 改为必需依赖。
+- `chart_data.py`：`--step`/`--max` ≤0、非有限数、畸形键值、重复标签 → exit 2（原先死循环/除零）。
+- `synastry_calc.py` / `jung_calc.py`：用户提供的 JSON 读不了即报错退出，不再静默当作缺省继续。
+
+### 已交付命书复核与文档勘误
+
+- 复核三份已交付命书的占星三轴心（记录见 `memory/analysis-sessions/2026-09-27-占星复核.md`）：案例A命书上升应为摩羯 3.34°（原书射手 29.9° 系本次修复的 bug 所致），案例C（v2）月亮应为天蝎（原书射手），案例B一致。
+- 文档原把「案例A上升 29.87° 交界」当作交界警戒范例；该交界是错盘产物。SKILL.md、astro-analyst、external-verifier、external-verification、astrology-framework、chart-patterns 已更正，并新增教训：触发交界警戒时先核时间口径（占星钟表时、八字/紫微真太阳时），外部验盘也须输入钟表时。
+
+---
+
+## v4.0.0 — 2026-07-15
+
+**Agent Team 重构**：从「单上下文按 Phase 自觉执行」→「Leader + 18 teammate 的 Stage DAG（S0-S10），质量门由阶段交接验收」。参照 strategic-insight-longform 架构。设计契约 `V4_PLAN.md`。
+
+直接动因（案例A命书实测三问题 + 一新需求）：模块缺失靠人眼发现、无自动外部交叉比对、图表生成不稳定；新增 PDF 交付需求。
+
+### 五大主线改动
+
+1. **Stage DAG + 18 agent**（`agents/*.md` + `references/team-orchestration.md`）：三铁律（task I/O 不落盘/依赖显式/写盘所有权单一）、判官隔离铁律（S4 只喂 JSON 防叙事传染）、fresh-writer 修订流（max 1）、委派五要素、键序铁律。Leader 只路由不代笔。
+2. **图表体系**（`references/chart-patterns.md`）：P01-P16 十六模式库（骨架+坐标公式+案例A版 31 图已验证实例）、运行时图表规划表契约、配额下限（全书 ≥26）、锚点六图、data-chart-id 核销、组合与发明授权条款。辅助脚本 `scripts/chart_data.py`（radar/wheel/timeline/arc 纯坐标计算）。
+3. **外部验盘 S2**（`references/external-verification.md`）：7 校验点固定表、8 个 2026-07-15 实测可用在线源（含引擎独立性警告：ziwei.pub=iztro 同源）、交界警戒硬触发（±1°/±10min，案例A上升 29.87° 教训）、分歧仲裁三步、时辰反查三档。
+4. **机器验收 + 双产物**：`scripts/validate_book.py`（M/C/W/E 机检，案例A回归实测抓出人眼漏掉的 r="0" 缺陷）+ `references/locked-checklist.md`（M/C/W/E/P 五组固定 ID，🔴/🟠 两级后果）+ `scripts/export_pdf.py`（Playwright，实测 84 页无劈断）+ output-template.md v4 增补 @media print。
+5. **知识增强**（R1-R4 联网调研，全部带来源，以「v4 增补（2026-07-15）」小节追加）：Beebe 2016 核准表与引文勘误（A/H 编码「整体型」禁译「人本型」、"you will call it fate" 真出处 Aion CW 9ii §126）、《子平真诠》章次核对表与「调候之神」出处勘误、神煞出处分档、子时换日两派梳理（旧「early=主流」注释勘误）、紫微四化四版本与 iztro 偏差表与 37 杂耀清单、交界上升惯例与分宫制边界。
+
+### 新增红线
+
+- 典籍引用规范：伪引用 = 最高级 🔴；数量基线（玄学三章各 ≥3 处、性格章 ≥3 处、感情 ≥2 处）；未核实页码降级章节级引用。
+- 调性红线：工程约束不得侵蚀文气；融合体 5 技法为 writer 硬契约；图表标题必须叙事性；机器校验不得要求诗性标题含固定关键词。
+
+---
+
+## v3.0.0 — 2026-05-11
+
+**哲学骨架翻转**：从「四维平权 · 交叉验证」 → 「**性格本位 · 玄学辅证 · 命运可塑**」
+
+v2 把荣格八维与八字/紫微/占星视为四维平权，横向投票得出共振结论。v3 翻转为纵向递进：**荣格八维是「主语」，玄学三维是「谓语与状语」**。玄学不"决定"任何事，只"印证 / 映照 / 解释"性格的展开；性格可发展（Jung 个体化进程），所以命运可塑。
+
+### 三大主线改动
+
+#### ① 哲学骨架层（核心理念落地）
+
+| 维度 | v2 实现 | v3 实现 |
+|:---|:---|:---|
+| 定位 | 四维平权 · 共振投票 | 性格本位 · 玄学辅证 |
+| Phase 2 | 四维并行独立分析 | Phase 2.0 性格画像（必先） → 2.1/2.2/2.3 玄学三维围绕性格签名 |
+| Phase 3 | "一致性评级" = 信心度 | "玄学三维印证性格签名" = 文化坐标清晰度 |
+| 命运密码公式 | 四维证据共振 | **性格底色 × 玄学时机** |
+| 终极课题 | 含糊综合 | 必出自荣格劣势/阴影整合 |
+| 输出章节 | 散乱并列 | **8 章固定结构**（性格 35-45% + 玄学三维各 15%）|
+
+新增哲学文档：
+- `references/character-first-manifesto.md` — Heraclitus + Jung + 萨特 + 神经可塑性 + 《了凡四训》
+- `references/character-inference-workflow.md` — Tier 1（必测）/ Tier 2（访谈反推 10 题）/ Tier 3（玄学反推规则表）
+
+《果老星宗》"体用相参"被重新解读：「**体**」= 性格本质（荣格），「**用**」= 玄学时机注解。
+
+#### ② 计算引擎层（脚本工具链工程化平权）
+
+| 维度 | v2 | v3 |
+|:---|:---|:---|
+| 荣格八维 | ❌ 无脚本 | ✅ `jung_calc.py`（性格签名 + Beebe 8 原型 + Grip 五档评估 + 16 类型 SIGNATURES）|
+| 公共工具 | ❌ 无 | ✅ `_common.py`（geonamescache + timezonefinder + DST + 真太阳时校正）|
+| 八字 | 12 组调候（仅甲木）| **120 组调候**（10 日主全覆盖）+ **17 神煞**（按四柱分列）+ 早/夜子时参数 + 跨节气警告 |
+| 紫微 | 默认派别隐式 | 派别明示（三合派）+ 闰月双盘（中分法 / 正玄山人法）+ 性格映射提示 |
+| 占星 | P0 bug + 仅基础配点 | 修 bug + 高纬度 Whole Sign fallback + Lilith/福点/Vertex/True Node 全配点 + kerykeion SVG 圆盘 |
+| 合盘 | ❌ 无 | ✅ `synastry_calc.py`（性格层主语 + 玄学三层辅证 + 16×16 配对矩阵）|
+| 城市覆盖 | 70 硬编码 | geonamescache 25000+ 城市 + 模糊匹配 + zoneinfo DST-aware |
+
+#### ③ 文档体系层
+
+| 文件 | v2 | v3 | 增量 |
+|:---|---:|---:|:---|
+| `cognitive-functions.md` | 123 行 | **1100+ 行** | 9 倍扩展（8 功能子模式 + Beebe 临床 + Grip 16 类型 + 个体化进程 + 阿尼玛/阿尼姆斯）|
+| `jung-classical-texts.md` | — | **~600 行** | Jung CW 6/9i/9ii/14/16 + Beebe + von Franz + Quenk + Thomson + Hartzler |
+| `jung-relationship-dynamics.md` | — | **~1100 行** | 8 桥接对 + 16×16 矩阵 + 阿尼玛 4 阶段 + Beebe Child + Inferior 投射 |
+| `cross-analysis-patterns.md` | 212 行 | **~600 行** | 三精细映射表（十神↔功能 / 紫微 14 主星↔Beebe / 行星↔功能）+ 玄学解释力评级 |
+| `shensha-table.md` | — | **~360 行** | 17 神煞详解 + 性格映射 + 女命解读硬性规则 |
+| `output-template.md` | 652 行 | **1050 行** | 8 章结构 + 3 SVG 资产（雷达图/Beebe 环/Grip 仪表盘）+ 64 主导功能隐喻 |
+
+#### ④ 防幻觉机制（v3 新增）
+
+借鉴 `weizeW/mingli-skills` 的 Phase-Gating + Adversarial Evaluator：
+
+- **6 道 Phase Gate**：Phase 1→1.5→2.0→2.x→3→5 每层禁止跳过
+- **4 判官独立审查**（八字/紫微/占星/荣格）：仅看原始 JSON 重新推论一次，分歧 > 1 必须披露
+- **禁词清单**：`克夫/真命天子/这辈子注定/改命` 等 7 条禁止表述
+- **质量自检 10 项**：性格章占比、玄学解释力评级、命运密码公式、可塑路径、判官分歧披露、未承诺具体年份事件等
+
+#### ⑤ 评估与质量保障
+
+- `tests/regression_baseline.json` 17 用例（12 名人 + 5 边界）
+- `tests/run_regression.py` graceful 运行器
+- `tests/README.md` 用法 + 失败处理指引
+- **回归测试 16/17 PASS**（毛泽东命宫 WARN，公开命例本身有争议）
+
+---
+
+### 文件结构变化
+
+```
+新增（13 个）：
+├── V3_PLAN.md                              # 施工蓝图
+├── references/
+│   ├── character-first-manifesto.md        # ★ 哲学宣言
+│   ├── character-inference-workflow.md     # ★ Tier 1-3 性格采集
+│   ├── jung-classical-texts.md             # ★ 荣格典籍
+│   ├── jung-relationship-dynamics.md       # ★ 关系动力学
+│   └── shensha-table.md                    # 八字神煞
+├── scripts/
+│   ├── _common.py                          # 公共工具
+│   ├── jung_calc.py                        # ★ 荣格计算引擎
+│   └── synastry_calc.py                    # 合盘脚本
+├── tests/
+│   ├── regression_baseline.json            # 17 用例
+│   ├── run_regression.py
+│   └── README.md
+└── memory/                                 # skill 内部记忆系统
+
+重写：
+├── SKILL.md                                # v3 性格本位骨架
+├── references/
+│   ├── cognitive-functions.md              # 123 → 1100+ 行
+│   ├── cross-analysis-patterns.md          # 212 → 600+ 行
+│   └── output-template.md                  # 652 → 1050 行
+└── scripts/
+    ├── bazi_calc.py                        # 调候补全 + 神煞 + 子时规则
+    ├── astro_calc.py                       # P0 bug 修复 + 扩展配点 + SVG
+    ├── ziwei_calc.py                       # 派别明示 + 闰月双盘
+    └── cast_chart.py                       # geonamescache + DST + 真太阳时
+
+不变：
+├── references/astrology-framework.md
+├── references/bazi-framework.md
+├── references/classical-texts.md
+├── references/liunian-analysis.md
+├── references/relationship-analysis.md
+├── references/special-patterns.md
+├── references/ziwei-framework.md
+└── _archive/v1/
+```
+
+注：v2 没有专门归档（直接演进到 v3）；v1 完整备份保留在 `_archive/v1/`。
+
+---
+
+### 依赖变化
+
+```bash
+# v3 新增
+pip install geonamescache timezonefinder kerykeion --break-system-packages
+
+# v2 保留
+pip install lunar_python iztro-py pyswisseph sxtwl --break-system-packages
+```
+
+---
+
+### 工程指标对比
+
+| 指标 | v2 | v3 |
+|:---|---:|---:|
+| 计算脚本数 | 4 | **7** |
+| references 文档数 | 10 | **15** |
+| 总代码行 | ~3800 | **~9500+** |
+| 荣格框架行数 | 123 | **1100+** |
+| 调候用神组数 | 12 | **120** |
+| 神煞数 | 0 | **17** |
+| Phase Gate | 0 | **6** |
+| 回归测试覆盖 | 0 | **17 用例 / 94% PASS** |
+
+---
+
+### v3 已知尾巴（待 v3.1 处理）
+
+- 毛泽东命宫地支 WARN（公开命例本身争议，需人工核定真实出生时辰）
+- geonamescache 缺县级城市（湘乡/余姚/淮安/绍兴/Seattle/SF），目前用显式 lat/lon 绕过
+- Chiron 凯龙星报错 `seas_18.se1 not found`（swisseph asteroid 星历表缺失）
+- 飞星派紫微校验未做（v3 默认三合派）
+
+---
+
+### 致谢与参考
+
+新增致谢：
+- [g-battaglia/kerykeion](https://github.com/g-battaglia/kerykeion) — 占星 SVG 圆盘
+- [weizeW/mingli-skills](https://github.com/weizeW/mingli-skills) — Phase-Gating + Adversarial Evaluator 范式
+- [smogievogie/ziwei_iztro-mcpserver](https://github.com/smogievogie/ziwei_iztro-mcpserver) — 真太阳时算法
+- [DestinyLinker/MingLi-Bench](https://github.com/DestinyLinker/MingLi-Bench) — 命例回归测试启发
+
+---
+
+## v2.0.0 — 2026-05-02
+
+**核心定位升级**：从「自助算命工具」 → 「分析师的命书生成框架」
+
+v1 假设对话方为命主本人；v2 改为「分析师代他人分析」场景：使用者掌握命主完整信息（含已知历史事件），最终输出为给命主本人阅读的成品命书。
+
+---
+
+### 三大主线改动
+
+#### ① 计算引擎层
+
+| 维度 | v1 实现 | v2 实现 | 主要增益 |
+|:---|:---|:---|:---|
+| 八字 | sxtwl + 自写起运 | `lunar_python` (主) + sxtwl (校验) | 起运精度从「整数岁」到「年-月-日」；内置纳音/藏干/十神/空亡/大运/流年 |
+| 紫微 | 自写安星诀 (260 行) | `iztro-py` | 完整十四主星 + 杂耀 + 亮度（庙旺得利平不陷）+ 长生/博士/将前/岁前十二神 + `horoscope()` 一键拿大限/流年/流月/流日/流时 |
+| 占星 | 无脚本（手算） | `pyswisseph` (新建 `astro_calc.py`) | 上升 + 10 大行星 + 12 宫 + 相位（瑞士星历，业界标准）|
+| 调度 | 各脚本分别调用 | `cast_chart.py` 统一调度 | 一次输出三体系 JSON |
+
+#### ② 方法论层
+
+- **新增 `references/classical-texts.md`**：九大命理典籍按 destiny-matrix 框架重组
+  - 《滴天髓》《子平真诠》《渊海子平》《穷通宝鉴》《三命通会》《神峰通考》《果老星宗》《千里命稿》《协纪辨方书》
+  - 每条命理论断要求标注典籍出处，提升专业性与可追溯性
+- **《果老星宗》"星命合参"** 写入概述：占星×四柱在传统命理中的理论根据，非现代拼接
+- **Phase 1.5 时辰反查校准**：用分析师已知的命主历史事件反推时辰准确度
+  - 应期吻合 → 排盘可信，进入完整分析
+  - 不吻合 → 提示时辰修正方向（早/晚一时辰、夜子时归属、真太阳时校正）
+
+#### ③ 输出层
+
+- **「融合体专业叙事」取代信息堆叠**——技术内容直接化作叙事的肌理，无折叠分层
+- **新增 `references/output-template.md`**：
+  - HTML 骨架（CSS 模板，黑红灰审美）
+  - 术语词典 60+ 条（6 个域：性格 / 感情 / 事业 / 财运 / 健康 / 流年）
+  - 措辞柔化对照表 35+ 条
+- **5 个写作技法**编码进模板：
+  1. 术语带电出场（专业术语第一次出现时即时携带解释）
+  2. 数据嵌入叙事（年龄/度数/权重作为句子骨头）
+  3. 典籍作为重音（古文引用是高潮锤音，非脚注）
+  4. 判断—解释—行动暗示三段式
+  5. 古典化收束（章节末"四字短语+一句注解"）
+
+---
+
+### 文件结构变化
+
+```
+新增：
+├── CHANGELOG.md
+├── _archive/v1/                    # v1 完整备份
+├── references/
+│   ├── classical-texts.md          # 九大典籍
+│   └── output-template.md          # HTML 骨架 + 术语词典 + 柔化表
+└── scripts/
+    ├── astro_calc.py               # pyswisseph 占星
+    └── cast_chart.py               # 统一调度
+
+重写：
+├── SKILL.md                         # 重构为分析师模式
+├── references/
+│   ├── astrology-framework.md      # 重写（接入 pyswisseph）
+│   ├── bazi-framework.md           # 更新（lunar_python 调用）
+│   ├── cross-analysis-patterns.md  # 加入《果老星宗》星命合参段
+│   └── ziwei-framework.md          # 更新（iztro-py 调用）
+└── scripts/
+    ├── bazi_calc.py                # 重写（lunar_python 主）
+    └── ziwei_calc.py               # 重写（iztro-py）
+
+不变：
+├── references/cognitive-functions.md
+├── references/liunian-analysis.md
+├── references/relationship-analysis.md
+└── references/special-patterns.md
+```
+
+---
+
+### 不再支持的功能
+
+| 项目 | 移除原因 |
+|:---|:---|
+| 交互式信息收集（9 步问答） | 分析师模式下，分析师掌握信息，无需 Claude 一步步问 |
+| 历史事件校准（用户层版） | 朋友只看一次成品；已反向用为时辰校准 |
+| 双版本输出（友好+专业） | 已被融合体叙事替代 |
+| 折叠技术档案 | 已被融合体叙事替代 |
+
+---
+
+### 依赖变化
+
+```bash
+# v2 新增依赖
+pip install lunar_python iztro-py pyswisseph --break-system-packages
+
+# v1 依赖（保留作交叉校验）
+pip install sxtwl --break-system-packages
+```
+
+---
+
+## v1.x — 2025
+
+初始版本。核心架构（四维交叉、感情专题、双轨时间线、调候用神）成熟于此版本。完整文件保存于 `_archive/v1/`。
+
+主要参考与致谢：
+- [SylarLong/iztro](https://github.com/SylarLong/iztro) — 紫微安星权威实现
+- [6tail/lunar-python](https://github.com/6tail/lunar-python) — 八字标准库
+- [jinchenma94/bazi-skill](https://github.com/jinchenma94/bazi-skill) — 九大典籍论命方法论

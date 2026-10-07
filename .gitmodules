@@ -1,0 +1,6 @@
+[submodule "shared/2pdf"]
+	path = shared/2pdf
+	url = https://github.com/Loveacup/2pdf.git
+[submodule "shared/2md"]
+	path = shared/2md
+	url = https://github.com/Loveacup/2md.git

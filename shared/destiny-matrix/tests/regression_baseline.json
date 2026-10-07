@@ -1,0 +1,357 @@
+{
+  "_meta": {
+    "version": "5.0.0",
+    "fixed_analysis_as_of": "2026-01-15",
+    "purpose": "legacy pipeline smoke inputs only; no expected chart values or accuracy claims",
+    "anchor_policy": "Any exact anchor must include verified independent source, calculation method, dependency/version, and tolerance. Missing metadata is a configuration error.",
+    "calendar_policy": "Pre-1582 solar dates require a confirmed calendar; explicit lunar dates use lunar-python mixed-calendar conversion and retain the unverified source status.",
+    "status_semantics": {
+      "CONTRACT_OK": "CLI output is valid chart_bundle v2; does not verify historical birth data or interpretive accuracy.",
+      "BLOCKED": "input evidence/calendar is insufficient and needs source review.",
+      "FAIL": "process, dependency, contract, or declared anchor failed."
+    }
+  },
+  "cases": [
+    {
+      "id": "毛泽东",
+      "category": "celebrity",
+      "mode": "pipeline_only",
+      "input": {
+        "birth_date": "1893-12-26",
+        "birth_time": "08:00",
+        "calculation_sex": "m",
+        "city": "韶山",
+        "latitude": 27.915,
+        "longitude": 112.527,
+        "utc_offset_hours": 8.0
+      },
+      "input_source_status": "unverified",
+      "unverified_source_note": "公历 1893-12-26 辰时（《毛泽东年谱》）",
+      "unverified_coordinate_note": "韶山近似坐标 27.915°N,112.527°E 来自集成者本次提供的估值，未独立核定。",
+      "input_status": "legacy_input_only"
+    },
+    {
+      "id": "曾国藩",
+      "category": "celebrity",
+      "mode": "pipeline_only",
+      "input": {
+        "birth_date": "1811-11-26",
+        "birth_time": "06:00",
+        "calculation_sex": "m",
+        "city": "湘乡",
+        "latitude": 27.74,
+        "longitude": 112.55,
+        "utc_offset_hours": 8.0
+      },
+      "input_source_status": "unverified",
+      "unverified_source_note": "嘉庆十六年十月十一日（公历 1811-11-26）卯时",
+      "input_status": "legacy_input_only"
+    },
+    {
+      "id": "王阳明",
+      "category": "celebrity",
+      "mode": "pipeline_only",
+      "date_calendar": "julian",
+      "input": {
+        "birth_date": null,
+        "lunar_date": {
+          "year": 1472,
+          "month": 9,
+          "day": 30,
+          "is_leap_month": false
+        },
+        "birth_time": null,
+        "precision": "branch",
+        "branch_label": "亥",
+        "calculation_sex": "m",
+        "city": "余姚",
+        "latitude": 30.04,
+        "longitude": 121.16,
+        "utc_offset_hours": 8.0
+      },
+      "input_source_status": "unverified",
+      "unverified_source_note": "成化八年（1472）九月三十日亥时；史料未独立核实。",
+      "input_status": "legacy_input_only"
+    },
+    {
+      "id": "爱因斯坦",
+      "category": "celebrity",
+      "mode": "pipeline_only",
+      "input": {
+        "birth_date": "1879-03-14",
+        "birth_time": "11:30",
+        "calculation_sex": "m",
+        "city": "Ulm",
+        "latitude": 48.4,
+        "longitude": 9.99,
+        "utc_offset_hours": 0.6
+      },
+      "input_source_status": "unverified",
+      "unverified_source_note": "Ulm, Germany 上午 11:30（自传）",
+      "input_status": "legacy_input_only"
+    },
+    {
+      "id": "乔布斯",
+      "category": "celebrity",
+      "mode": "pipeline_only",
+      "input": {
+        "birth_date": "1955-02-24",
+        "birth_time": "19:15",
+        "calculation_sex": "m",
+        "city": "San Francisco",
+        "latitude": 37.7749,
+        "longitude": -122.4194,
+        "utc_offset_hours": -8.0
+      },
+      "input_source_status": "unverified",
+      "unverified_source_note": "出生证明：1955-02-24 19:15 San Francisco",
+      "input_status": "legacy_input_only"
+    },
+    {
+      "id": "周恩来",
+      "category": "celebrity",
+      "mode": "pipeline_only",
+      "input": {
+        "birth_date": "1898-03-05",
+        "birth_time": "06:00",
+        "calculation_sex": "m",
+        "city": "淮安",
+        "latitude": 33.62,
+        "longitude": 119.02,
+        "utc_offset_hours": 8.0
+      },
+      "input_source_status": "unverified",
+      "unverified_source_note": "光绪二十四年二月十三日（公历 1898-03-05）卯时",
+      "input_status": "legacy_input_only"
+    },
+    {
+      "id": "鲁迅",
+      "category": "celebrity",
+      "mode": "pipeline_only",
+      "input": {
+        "birth_date": "1881-09-25",
+        "birth_time": "10:00",
+        "calculation_sex": "m",
+        "city": "绍兴",
+        "latitude": 30.0,
+        "longitude": 120.58,
+        "utc_offset_hours": 8.0
+      },
+      "input_source_status": "unverified",
+      "unverified_source_note": "光绪七年八月初三日（公历 1881-09-25）",
+      "input_status": "legacy_input_only"
+    },
+    {
+      "id": "蒋介石",
+      "category": "celebrity",
+      "mode": "pipeline_only",
+      "input": {
+        "birth_date": "1887-10-31",
+        "birth_time": "12:00",
+        "calculation_sex": "m",
+        "city": "宁波",
+        "latitude": null,
+        "longitude": null,
+        "utc_offset_hours": null
+      },
+      "input_source_status": "unverified",
+      "unverified_source_note": "光绪十三年九月十五日（公历 1887-10-31）午时",
+      "input_status": "legacy_input_only"
+    },
+    {
+      "id": "比尔盖茨",
+      "category": "celebrity",
+      "mode": "pipeline_only",
+      "input": {
+        "birth_date": "1955-10-28",
+        "birth_time": "22:00",
+        "calculation_sex": "m",
+        "city": "Seattle",
+        "latitude": 47.6062,
+        "longitude": -122.3321,
+        "utc_offset_hours": -8.0
+      },
+      "input_source_status": "unverified",
+      "unverified_source_note": "Seattle 1955-10-28 晚（公开传记）",
+      "input_status": "legacy_input_only"
+    },
+    {
+      "id": "马斯克",
+      "category": "celebrity",
+      "mode": "pipeline_only",
+      "input": {
+        "birth_date": "1971-06-28",
+        "birth_time": "07:30",
+        "calculation_sex": "m",
+        "city": "Pretoria",
+        "latitude": -25.75,
+        "longitude": 28.19,
+        "utc_offset_hours": 2.0
+      },
+      "input_source_status": "unverified",
+      "unverified_source_note": "Pretoria, South Africa 1971-06-28（公开传记）",
+      "input_status": "legacy_input_only"
+    },
+    {
+      "id": "马云",
+      "category": "celebrity",
+      "mode": "pipeline_only",
+      "input": {
+        "birth_date": "1964-09-10",
+        "birth_time": "00:00",
+        "calculation_sex": "m",
+        "city": "杭州",
+        "latitude": null,
+        "longitude": null,
+        "utc_offset_hours": null
+      },
+      "input_source_status": "unverified",
+      "unverified_source_note": "1964-09-10 杭州（自述）",
+      "input_status": "legacy_input_only"
+    },
+    {
+      "id": "张爱玲",
+      "category": "celebrity",
+      "mode": "pipeline_only",
+      "input": {
+        "birth_date": "1920-09-30",
+        "birth_time": "12:00",
+        "calculation_sex": "f",
+        "city": "上海",
+        "latitude": null,
+        "longitude": null,
+        "utc_offset_hours": null
+      },
+      "input_source_status": "unverified",
+      "unverified_source_note": "1920-09-30 上海（家族回忆录）",
+      "input_status": "legacy_input_only"
+    },
+    {
+      "id": "boundary_high_latitude",
+      "category": "boundary",
+      "mode": "pipeline_only",
+      "input": {
+        "birth_date": "1980-06-21",
+        "birth_time": "12:00",
+        "calculation_sex": "m",
+        "city": "Tromsø",
+        "latitude": 69.65,
+        "longitude": 18.96,
+        "utc_offset_hours": 2.0
+      },
+      "expected_contracts": [
+        {"id": "placidus_unavailable", "value": true},
+        {"id": "asc_mc_available", "value": true}
+      ],
+      "input_source_status": "unverified",
+      "input_status": "legacy_input_only"
+    },
+    {
+      "id": "boundary_high_latitude_whole_sign",
+      "category": "boundary",
+      "mode": "pipeline_only",
+      "house_system": "whole_sign",
+      "input": {
+        "birth_date": "1980-06-21",
+        "birth_time": "12:00",
+        "calculation_sex": "m",
+        "city": "Tromsø",
+        "latitude": 69.65,
+        "longitude": 18.96,
+        "utc_offset_hours": 2.0
+      },
+      "input_source_status": "unverified",
+      "input_status": "legacy_input_only",
+      "expected_contracts": [
+        {"id": "whole_sign_available", "value": true},
+        {"id": "asc_mc_available", "value": true}
+      ]
+    },
+    {
+      "id": "boundary_jieqi_5min",
+      "category": "boundary",
+      "mode": "pipeline_only",
+      "input": {
+        "birth_date": "2024-02-04",
+        "birth_time": "16:30",
+        "calculation_sex": "m",
+        "city": "北京",
+        "latitude": null,
+        "longitude": null,
+        "utc_offset_hours": null
+      },
+      "input_source_status": "unverified",
+      "input_status": "legacy_input_only",
+      "expected_anchors": [
+        {
+          "id": "bazi_year_pillar",
+          "value": "甲辰",
+          "source": "香港天文台2024年历",
+          "locator": "2024年2月历页：立春为2024-02-04 16:27 UTC+08；来源精度为分钟（±60秒）。",
+          "method": "测试输入北京时间2024-02-04 16:30，在HKO所列立春后；按固定UTC+08节气轴判年柱。",
+          "dependency_version": "lunar-python==1.4.8",
+          "tolerance": 0,
+          "source_status": "verified"
+        },
+        {
+          "id": "bazi_month_pillar",
+          "value": "丙寅",
+          "source": "香港天文台2024年历",
+          "locator": "2024年2月历页：立春为2024-02-04 16:27 UTC+08；来源精度为分钟（±60秒）。",
+          "method": "测试输入北京时间2024-02-04 16:30，在立春后进入寅月；按八字节气月干支规则计算。",
+          "dependency_version": "lunar-python==1.4.8",
+          "tolerance": 0,
+          "source_status": "verified"
+        }
+      ]
+    },
+    {
+      "id": "boundary_leap_month",
+      "category": "boundary",
+      "mode": "pipeline_only",
+      "input": {
+        "birth_date": "2023-03-22",
+        "birth_time": "10:00",
+        "calculation_sex": "f",
+        "city": "广州",
+        "latitude": null,
+        "longitude": null,
+        "utc_offset_hours": null
+      },
+      "input_source_status": "unverified",
+      "input_status": "legacy_input_only"
+    },
+    {
+      "id": "boundary_overseas_dst",
+      "category": "boundary",
+      "mode": "pipeline_only",
+      "input": {
+        "birth_date": "1985-07-15",
+        "birth_time": "14:00",
+        "calculation_sex": "m",
+        "city": "纽约",
+        "latitude": null,
+        "longitude": null,
+        "utc_offset_hours": null
+      },
+      "input_source_status": "unverified",
+      "input_status": "legacy_input_only"
+    },
+    {
+      "id": "boundary_zi_hour_23",
+      "category": "boundary",
+      "mode": "pipeline_only",
+      "input": {
+        "birth_date": "1990-05-15",
+        "birth_time": "23:00",
+        "calculation_sex": "f",
+        "city": "上海",
+        "latitude": null,
+        "longitude": null,
+        "utc_offset_hours": null
+      },
+      "input_source_status": "unverified",
+      "input_status": "legacy_input_only"
+    }
+  ]
+}

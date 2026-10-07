@@ -1,0 +1,417 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "synthesis.json",
+  "title": "synthesis",
+  "description": "S5 synthesizer 的产出。语义规则（跨体系父主张、命题覆盖、矩阵行与综合主张的对应）由 scripts/synthesis_contract.py 结合 case_evidence 校验。",
+  "type": "object",
+  "required": [
+    "matrix",
+    "synthesis_claims",
+    "core_propositions",
+    "outline"
+  ],
+  "properties": {
+    "matrix": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "theme",
+          "personality_claim_ids",
+          "bazi_claim_ids",
+          "ziwei_claim_ids",
+          "astro_claim_ids",
+          "relationship",
+          "limits"
+        ],
+        "properties": {
+          "theme": {
+            "type": "string",
+            "minLength": 1
+          },
+          "personality_claim_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "bazi_claim_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "ziwei_claim_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "astro_claim_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "relationship": {
+            "enum": [
+              "convergent",
+              "parallel",
+              "tension",
+              "not_comparable"
+            ],
+            "x-issue-code": "relationship_enum",
+            "x-issue-message": "relationship must be convergent, parallel, tension or not_comparable"
+          },
+          "limits": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "minItems": 1,
+      "x-issue-code": "matrix_empty",
+      "x-issue-message": "matrix must contain at least one theme row"
+    },
+    "synthesis_claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "claim_id",
+          "subject_id",
+          "kind",
+          "statement",
+          "input_refs",
+          "source_ids",
+          "parent_claim_ids",
+          "counterevidence",
+          "limits"
+        ],
+        "properties": {
+          "claim_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "owner": {
+            "const": "synthesizer"
+          },
+          "subject_id": {
+            "enum": [
+              "primary",
+              "partner",
+              "joint"
+            ]
+          },
+          "kind": {
+            "enum": [
+              "traditional_interpretation",
+              "psychological_hypothesis",
+              "practical_option"
+            ],
+            "x-issue-code": "synthesis_claim_kind",
+            "x-issue-message": "a synthesis claim is traditional_interpretation, psychological_hypothesis or practical_option; observations and computed facts belong to their own dimension"
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 1
+          },
+          "input_refs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "artifact_id",
+                "sha256",
+                "json_pointer"
+              ],
+              "properties": {
+                "artifact_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-fA-F0-9]{64}$"
+                },
+                "json_pointer": {
+                  "type": "string",
+                  "pattern": "^(|/.*)$"
+                }
+              }
+            }
+          },
+          "source_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "parent_claim_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "counterevidence": {
+            "type": "array"
+          },
+          "limits": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "enum": [
+              "active",
+              "superseded",
+              "rejected"
+            ]
+          }
+        }
+      }
+    },
+    "core_propositions": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 5,
+      "x-issue-code": "proposition_count",
+      "x-issue-message": "core_propositions must contain 3 to 5 propositions",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "proposition_id",
+          "image",
+          "statement",
+          "claim_ids"
+        ],
+        "properties": {
+          "proposition_id": {
+            "type": "string",
+            "pattern": "^CP-[0-9]{2}$"
+          },
+          "image": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "statement": {
+            "type": "string",
+            "pattern": "\\S",
+            "x-issue-code": "proposition_statement_empty",
+            "x-issue-message": "core proposition statement must not be empty"
+          },
+          "claim_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "x-issue-code": "proposition_claims_empty",
+            "x-issue-message": "core proposition must link at least one claim"
+          }
+        }
+      }
+    },
+    "outline": {
+      "type": "object",
+      "required": [
+        "sections"
+      ],
+      "properties": {
+        "sections": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "section_id",
+              "title",
+              "question_ids",
+              "claim_ids",
+              "required_content",
+              "limitation_ids"
+            ],
+            "properties": {
+              "section_id": {
+                "enum": [
+                  "personality",
+                  "bazi",
+                  "ziwei",
+                  "astrology",
+                  "synthesis",
+                  "timing",
+                  "relationships",
+                  "career",
+                  "wellbeing",
+                  "practice"
+                ]
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "question_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "claim_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "required_content": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "pattern": "\\S",
+                  "x-issue-code": "required_content_empty",
+                  "x-issue-message": "every outline section states the relationship and new understanding it must explain"
+                },
+                "x-issue-code": "required_content_empty",
+                "x-issue-message": "every outline section states the relationship and new understanding it must explain"
+              },
+              "limitation_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "action_options": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "goal",
+          "claim_ids",
+          "small_action",
+          "frequency_or_trigger",
+          "review_question",
+          "adapt_or_stop"
+        ],
+        "properties": {
+          "goal": {
+            "type": "string",
+            "minLength": 1
+          },
+          "claim_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "small_action": {
+            "type": "string",
+            "minLength": 1
+          },
+          "frequency_or_trigger": {
+            "type": "string",
+            "minLength": 1
+          },
+          "review_question": {
+            "type": "string",
+            "minLength": 1
+          },
+          "adapt_or_stop": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "limitation_increments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "affected_claim_ids",
+          "impact",
+          "changes_reading",
+          "reader_text",
+          "required_placement"
+        ],
+        "properties": {
+          "affected_claim_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "impact": {
+            "type": "string",
+            "minLength": 1
+          },
+          "changes_reading": {
+            "const": true
+          },
+          "reader_text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required_placement": {
+            "enum": [
+              "opening",
+              "adjacent"
+            ]
+          }
+        }
+      }
+    },
+    "evidence_summary": {
+      "type": "string"
+    },
+    "evidence_limits": {
+      "type": "object",
+      "properties": {
+        "supported_readings": {
+          "type": "array"
+        },
+        "conflicting_readings": {
+          "type": "array"
+        },
+        "unknowns": {
+          "type": "array"
+        }
+      }
+    }
+  }
+}

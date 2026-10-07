@@ -118,8 +118,9 @@ PAIRS=(
   "shared/grill-with-docs|governance/grill-with-docs"
   "shared/skill-authoring|governance/skill-authoring"
   "shared/2pdf|2pdf"
+  "shared/2md|2md"
   "shared/strategic-insight-longform|productivity/strategic-insight-longform"
-  "shared/voice-to-markdown-workflow|productivity/voice-to-markdown-workflow"
+  "shared/destiny-matrix|productivity/destiny-matrix"   # 开发源在 ~/.claude/skills，Hermes 副本通常不应有漂移
   "shared/bookmark-organizer|bookmark-organizer"
   "shared/github|github"
   "shared/xhs-tech-writer|hermes/xhs-tech-writer"
@@ -167,6 +168,18 @@ for pair in "${PAIRS[@]}"; do
     src="$HERMES_BASE/$herm_path"
   fi
   dst="$REPO_ROOT/$repo_path"
+
+  # Independent repositories own these skills; runtime copies cannot replace
+  # submodule worktrees or their Git metadata.
+  if [[ "$repo_path" == "shared/2pdf" || "$repo_path" == "shared/2md" ]]; then
+    if in_scope "$repo_path" && [ "$DRY_RUN" = false ]; then
+      echo "ERROR: reverse sync is forbidden for independent $repo_path" >&2
+      echo "Edit and commit in the submodule, then update the hub pointer." >&2
+      exit 3
+    fi
+    echo "  $repo_path (independent repository; reverse sync disabled)"
+    continue
+  fi
 
   # Canonical video-analysis source is repository-owned. Runtime may contain
   # credentials, private evidence, or drift and must never replace the repo.

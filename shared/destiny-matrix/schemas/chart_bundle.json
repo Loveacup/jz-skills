@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://destiny-matrix.local/schemas/chart_bundle.json",
+  "title": "destiny-matrix chart bundle v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status", "time_context", "methods", "dimensions", "errors", "limitations"],
+  "properties": {
+    "schema_version": {"const": 2},
+    "status": {"enum": ["ok", "partial", "error"]},
+    "time_context": {"oneOf": [{"type": "object"}, {"type": "null"}]},
+    "methods": {"type": "object"},
+    "dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bazi", "ziwei", "astrology"],
+      "properties": {
+        "bazi": {"$ref": "#/$defs/dimension"},
+        "ziwei": {"$ref": "#/$defs/dimension"},
+        "astrology": {"$ref": "#/$defs/dimension"}
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/error"}
+    },
+    "limitations": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "data", "candidates", "limitations"],
+      "properties": {
+        "status": {"enum": ["ok", "partial", "missing_input", "not_applicable", "error"]},
+        "data": {"oneOf": [{"type": "object"}, {"type": "null"}]},
+        "candidates": {"type": "array"},
+        "limitations": {"type": "array", "items": {"type": "string"}},
+        "methods": {"type": "object"}
+      }
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "path", "message"],
+      "properties": {
+        "code": {"type": "string", "minLength": 1},
+        "path": {"type": "string"},
+        "message": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

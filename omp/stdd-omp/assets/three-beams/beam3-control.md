@@ -61,6 +61,16 @@ L2 使用 fresh-context evaluator；L3 使用独立 auditor。agent 名必须来
 - stop acknowledgement / process exit / lock or lease release: <anchor or BLOCKED>
 - 缺少 stop proof 时不得重派同一 ownership；独立 slice 可继续。
 
+### 计划校准事件（复用此执行日志）
+
+每个四步阶段或独立工作单元结束/失败/阻塞后，及新指令/事实/授权/所有权风险到达时，记录：
+
+| time | phase/unit | observation + evidence anchor | contract ref | plan revision | affected work/owner | decision + next action |
+|---|---|---|---|---|---|---|
+| <time> | <phase/unit> | <new fact or no-change basis + anchor> | <contract> | <plan revision> | <affected task/ownership> | continue / delta / replan candidate / BLOCKED / escalate; <next> |
+
+计划版本、契约版本、产物/证据版本分开；无变化时记原计划及依据。未获 stop proof 不得重派所有权。细则见 `references/dynamic-plan.md`。
+
 ## 执行日志
 
 <!-- 每次 loop 记录：时间、动作、证据、结果、ownership、下一步 -->

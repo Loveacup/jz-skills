@@ -68,3 +68,5 @@ node scripts/gates.mjs counter --key <task> --kind slice --max 2 --incr
 停止规则：regen 达 3 或 slice 达 2 后，不再开启任何新一轮（新产物或重跑 Verify 都不行）。进行中的一轮可完成它的 Verify；仍 FAIL 或被作废则停止自动循环并升级人工。
 
 `bumpCounter` 的 `incr` 先写入新计数，计数 ≤ max 返回 code 0，超过才返回 20。因此计数等于上限时仍返回 0：停止判断由 coordinator 按上述规则执行，不能只看 exit code 继续循环。
+
+计划日常增量调整和同一事实的 no-change 校准不计 regen/slice，也不重置或延长等待截止。冻结契约后整体打回/重开按 slice 计，即使被标成“计划修订”；交付物本身是计划/研究/方法论时，修正失败产物仍按 regen 计。单纯重排未开始工作不失效无关 PASS；有契约或上游产物变化时，仅冻结受影响依赖闭包。无新证据且无合法就绪工作时 BLOCKED，不得反复新建计划版本推进。完整动态计划语义见 `dynamic-plan.md`。
