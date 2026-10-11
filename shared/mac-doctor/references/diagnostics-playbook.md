@@ -43,6 +43,7 @@ If a swap increase coincides with gateway termination, treat it as an incident s
 
 - Inspect caches individually and review the actual path, owner, and contents before planning. The cleanup catalogue is intentionally narrow; unlisted data is not implicitly safe.
 - `clean plan` gives exact candidate objects. Display and review it with the user before a same-turn explicit approval and gated apply. Never manually replace a refused action with raw deletion or a wider glob.
+- If the owner explicitly authorizes native-interface cleanup, use the separate reviewed workflow in `cleanup.md`; delegated-review authority avoids repeated per-item confirmation but does not bypass use, scope, protection or driver gates. This playbook alone grants no deletion authority.
 - For local Time Machine snapshots, `storage` reports dates and per-date commands only. Consider at most one exact snapshot command after user review; never bulk-thin/delete snapshots as part of a routine.
 
 ## Profile cache duplication and models

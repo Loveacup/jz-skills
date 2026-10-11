@@ -4,9 +4,9 @@ description: >-
   Read-only macOS health, performance, storage, security, hardware, network and
   development-environment checks, with explicitly gated cleanup planning. Use for
   “check my mac”, “mac slow”, “disk full”, “cleanup mac”, “巡检”, “磁盘空间”,
-  “清理缓存”, “安全检查”, “健康评分”, or related Mac diagnostics. Do not use
-  for GUI operation, live network troubleshooting (ping/traceroute), or managing
-  orphaned app data outside the cleanup catalogue.
+  “清理缓存”, “安全检查”, “健康评分”, or related Mac diagnostics. Explicitly
+  authorized reviewed cleanup may route to a native desktop operator; this skill
+  does not itself drive the GUI or troubleshoot live networks.
 type: routine
 author: Hermes Agent
 platforms: [macos]
@@ -24,13 +24,14 @@ mac-doctor is a read-only macOS CLI for evidence-based checks, scoped subsystem 
 ## Safety contract
 
 - Checks, score, storage, history, status, and verify are observational. No `sudo` or automatic cleanup. Unknown, error, and skip are not zero and never mean pass.
-- Cleanup is only: `clean plan` → show the exact plan to the user → get explicit approval in this turn → `clean apply PLAN_ID --yes`. A prior approval, plan display alone, or approval for another target is insufficient. Never use raw `rm`, `sudo`, or prune commands.
+- CLI cleanup remains: `clean plan` → show the exact plan → explicit approval in the current turn → `clean apply PLAN_ID --yes`. Do not infer CLI approval or renewal from delegated GUI authority. Never use raw `rm`, `sudo`, prune, or filesystem-deletion scripts.
 - If approval in the current turn explicitly includes renewal of that exact manifest, use `clean apply PLAN_ID --yes --renew-if-unchanged`. For an expired, nonempty SAFE/native plan only, the engine checks its host and plan-ID binding, creates a fresh one-hour plan for the same target IDs, and immediately applies it only when every complete item matches. Any mismatch refuses without cleanup; the old plan is not rewritten. Do not add this flag for ordinary approval, unclear approval, or a prior-turn approval. CAUTION/protected/report-only targets gain no permission.
 - Renewal additionally requires known, nonnegative integer sizes in both the approved and fresh scans. Two `"unknown"` measurements are not proof of equality and refuse renewal. Ordinary non-renewing apply policy is unchanged.
-- Only SAFE targets execute, via their tool-native cleanup command. The sole owner-authorized Hermes-profile exception is exactly four native package caches: `hermes-regent-uv-cache` (`regent/home/.cache/uv`, `UV_CACHE_DIR`), `hermes-regent-npm-cache` (`regent/home/.npm/_cacache`, scope `regent/home/.npm`, `npm_config_cache`), `hermes-regent-pip-cache` (`regent/home/Library/Caches/pip`, `PIP_CACHE_DIR`), and `hermes-cron-worker-pip-cache` (`cron-worker/home/Library/Caches/pip`, `PIP_CACHE_DIR`). Each uses its tool-native cache resolver/clean command, requires an in-use check, and retains the 30-day minimum age. These exact paths are excluded from legacy `hermes-profile-dev-cache`; every other profile cache remains CAUTION/review-only and manual. Chrome caches, old Hermes backups, models, indexes, databases, and other runtime data are unchanged/protected/manual. No wildcard or broad automatic deletion is authorized. CAUTION targets remain review-only by design: `clean plan --include-caution` lists them, `apply` always refuses them with a receipt, and the user moves them to Trash in Finder if they choose. NEVER targets are never cleaned. REPORT targets (Time Machine snapshots and Homebrew) are inventory-only: show the exact printed command/report, and let the user review and decide whether to run it. Homebrew's printed `brew cleanup` can affect old installed formula versions and dependencies, so review its dry-run output first.
-- Apply rechecks the hard-deny list, declared-root containment and symlink escape, device/inode/mtime fingerprint, class authorization, in-use status (unknown or timeout refuses), and receipt-log writability. Plans expire after one hour. Any refused gate means do not improvise another deletion method.
+- Only SAFE targets execute inside the CLI, through catalogued tool-native commands. The four Hermes-profile native exceptions and their scope/in-use/30-day gates remain defined in `references/cleanup.md`. CAUTION remains review-only inside the CLI; `apply` always refuses it. REPORT remains inventory-only. NEVER targets remain protected. No catalogue, engine flag, or runtime permission is changed by a conversational authorization.
+- Owner-authorized native-interface cleanup is a separate supervised workflow, not a CLI bypass. Read `references/cleanup.md` → “Owner-authorized native-interface cleanup”. With explicit delegated-review authority for the current cleanup task, an independent reviewer approves an exact manifest and the agent may operate the approved native UI without asking again for each item. This includes reviewed inactive Hermes backups and, only when separately named by the owner, the whole Trash. A skill-edit request alone grants no cleanup permission; a generic cleanup request grants no whole-Trash permission.
+- Apply rechecks the hard-deny list, declared-root containment and symlink escape, identity fingerprint, class, in-use status, and receipt-log writability. Plans expire after one hour. A refused CLI gate is not permission to switch methods; native-interface review must independently refuse changed, in-use, unknown, or protected targets. The sole disposal exception is the owner's explicitly authorized whole-Trash operation described in the reference.
 - Optional Jev push gating is fail-open and informational only; Jev never authorizes cleanup, process kills, security verdicts, or other actions.
-- Report measured APFS Data-volume free-byte delta separately from nominal item sizes. Moving to Trash frees no space until Trash is emptied; emptying Trash is not part of this workflow.
+- Report measured APFS container free-byte delta separately from nominal sizes. Moving to Trash frees no space until emptied. Emptying Trash is irreversible and requires its own explicit scope authorization and independent review; GUI delivery alone is not proof of deletion.
 
 ## Resolve and run the CLI
 

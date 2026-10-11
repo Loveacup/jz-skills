@@ -1,6 +1,6 @@
 # Cleanup catalogue and safety gates
 
-`storage` and `clean targets` are read-only. The source of truth is `scripts/macdoctor/targets.json`; `clean plan` accepts only SAFE/CAUTION targets, writes a host-bound plan under the resolved data directory's `plans/`, and expires it after one hour. Default planning includes SAFE targets only. `--include-caution` explicitly includes CAUTION candidates in the displayed plan; it does not authorize application. `--target ID` is repeatable. NEVER targets cannot be planned; REPORT targets are inventory-only and have no execution path.
+`storage` and `clean targets` are read-only. The source of truth for the CLI is `scripts/macdoctor/targets.json`; `clean plan` accepts only SAFE/CAUTION targets, writes a host-bound one-hour plan, and defaults to SAFE. `--include-caution` lists review candidates but cannot authorize CLI execution. NEVER targets cannot be planned; REPORT targets have no CLI execution path. The separately authorized native-interface workflow below changes who may operate an existing native UI, not the CLI catalogue or its gates.
 
 ## Current target catalogue
 
@@ -10,12 +10,12 @@
 | `uv-cache` | SAFE | `uv cache clean` with `UV_CACHE_DIR=<scope>`; scope `.cache/uv`, resolved by `uv cache dir`; in-use check required. |
 | `pip-cache` | SAFE | `python3 -m pip --cache-dir <scope> cache purge`; scope `Library/Caches/pip`, resolved by `python3 -m pip cache dir`. |
 | `brew-cache` | REPORT | `storage` resolves `brew --cache`, measures the cache, and includes the bounded `brew cleanup --dry-run` output, parsed item count/size where available, and manual command `brew cleanup`. Not plannable. The manual command can remove prefix/older formula versions and autoremove dependencies; user must review the dry-run output before deciding. |
-| `playwright-browsers` | CAUTION (review-only) | Browser runtimes in `Library/Caches/ms-playwright` older than 30 days; user moves them in Finder. |
-| `xcode-derived-data` | CAUTION (review-only) | DerivedData older than 14 days; user moves it in Finder. |
-| `ios-devicesupport` | CAUTION (review-only) | DeviceSupport older than 90 days; user moves it in Finder. |
-| `npm-npx-stale` | CAUTION (review-only) | `_npx` items older than 30 days; user moves them in Finder. |
-| `chrome-cache` | CAUTION (review-only) | Chrome cache older than 7 days; quit Chrome first; user moves it in Finder. |
-| `hermes-profile-dev-cache` | CAUTION (review-only) | Per-profile development caches older than 30 days, excluding exactly the four owner-authorized native exceptions listed below. Every other profile cache remains manual; model/index paths are excluded. |
+| `playwright-browsers` | CAUTION (CLI review-only) | Browser runtimes older than 30 days; Finder by the user or an authorized reviewed native-interface operator. |
+| `xcode-derived-data` | CAUTION (CLI review-only) | DerivedData older than 14 days; same native-interface rule. |
+| `ios-devicesupport` | CAUTION (CLI review-only) | DeviceSupport older than 90 days; same native-interface rule. |
+| `npm-npx-stale` | CAUTION (CLI review-only) | `_npx` items older than 30 days; same native-interface rule. |
+| `chrome-cache` | CAUTION (CLI review-only) | Chrome cache older than 7 days; quit Chrome first only with service-stop authority, then the same native-interface rule. |
+| `hermes-profile-dev-cache` | CAUTION (CLI review-only) | Per-profile development caches older than 30 days, excluding the four native exceptions below; models/indexes remain protected. |
 | `hermes-regent-uv-cache` | SAFE | `regent/home/.cache/uv`; `UV_CACHE_DIR` set to that exact scope; resolve with `uv cache dir`, clean with `uv cache clean`; in-use check and 30-day minimum age required. |
 | `hermes-regent-npm-cache` | SAFE | `regent/home/.npm/_cacache`; scope is `regent/home/.npm`, `npm_config_cache` set to that scope; resolve with `npm config get cache`, clean with `npm cache clean --force --cache <scope>`; in-use check and 30-day minimum age required. |
 | `hermes-regent-pip-cache` | SAFE | `regent/home/Library/Caches/pip`; `PIP_CACHE_DIR` set to that exact scope; resolve with `python3 -m pip cache dir`, clean with `python3 -m pip --cache-dir <scope> cache purge`; in-use check and 30-day minimum age required. |
@@ -35,12 +35,35 @@ Homebrew report-only caution: `brew cleanup --dry-run` is the preview, not proof
 
 Paths above are rooted at the account home, not an assumed user path. CAUTION minimum-age rules use each target's catalogue policy. Native targets declare `scope_path`, `resolve_cmd`, `native_env`, and `native_cmd`; effective scope must match the declared scope when planning and again when applying. Check `clean targets --json` for live definitions before presenting a plan.
 
+## Owner-authorized native-interface cleanup
+
+This is an owner-approved supervised disposal workflow, not a new CLI command. CAUTION apply remains disabled. Native Finder operations also use mutable paths/selections: they do **not** solve macOS pathname ABA or provide atomic approved-inode binding. Fresh observation and independent review reduce operational risk, not eliminate it; never claim otherwise. Use this route only where the owner chose native-interface operation, not to work around a refused gate.
+
+### Authority and scope
+
+- The owner must authorize the current cleanup task. They may delegate exact-manifest approval to an independent reviewer (“full authority, only review required”); within that task, a reviewer-approved manifest needs no further per-item user confirmation. This is not standing permission for unrelated future cleanups, permission changes, process termination, publication, or arbitrary paths.
+- Without delegated-review authority, show exact targets, operations and consequences and obtain explicit owner approval. Editing this skill alone is not authorization to delete anything.
+- Resolve the real account home and inventory exact absolute paths, allocated sizes, age, purpose, active-use evidence, intended UI operation, irreversibility, and exclusions. No broad parent-folder removal, recursive path-deletion scripts, globs, symlink traversal, or guessed targets. Directory age alone does not prove inactivity. Unknown purpose/use or changed targets block that item.
+- Inactive Hermes backup archives and offline database backup copies may be individually approved; they are not live databases. Review recovery value and whether a newer usable recovery point exists. Keep current upgrade rollback archives and Git bundles unless their recovery/unique-commit value has been reviewed and deletion is specifically approved. No bulk deletion of `~/.hermes/backups`.
+- Active models/indexes/databases, credentials, system data, application containers, Docker volumes/VMs, and live runtime state remain protected, even with general delegated authority. No privilege escalation or TCC/security-setting changes. REPORT targets remain report-only.
+- Whole Trash is the only collection-wide exception: the owner must explicitly request it, separately from moving items to Trash. Inventory the fresh contents and call out personal files, offline databases/models, workspaces and backups; the reviewer must account for those irreversible losses. This authorization covers only already-disposed items in the owner's native Trash, including offline copies of otherwise protected assets; it never authorizes deleting their originals or traversing symlinks. New or changed contents require a new review before confirmation. Trash on other volumes is excluded unless separately inventoried and authorized; if Finder cannot constrain its operation to the approved Trash scope, block rather than empty additional volumes.
+
+### Review, execution and proof
+
+1. Before any mutation, persist the manifest, current owner authorization, exclusions, read-only evidence, and a true/false acceptance checklist under a dated local audit directory. The checklist covers exact scope, recovery losses, no active/protected targets, driver availability, fresh native selection, and actual effect.
+2. An independent reviewer, not the producing agent, must approve each item/operation with reachable evidence anchors. Silence, uncertainty, timeout or a report without evidence is not approval. A blocked item stays untouched; independent approved items may continue.
+3. Load the installed native-computer-use skill and obey its permissions and freshness rules. Use the existing native Finder/app interface through its supported driver. Do not substitute AppleScript UI scripting, a different driver, filesystem APIs, `rm`, `sudo`, prune, hidden automation bypasses, or the disabled mac-doctor Trash implementation. If the driver/token/permission is unavailable, record BLOCKED and stop that operation; authorization cannot repair missing capability.
+4. Immediately before the irreversible confirmation, reobserve the UI and verify the full approved selection/location against fresh filesystem metadata. Wrong selection, new items, changed evidence, in-use status or a permission dialog blocks execution and returns to review. Do not approve credential or security prompts on the owner's behalf.
+5. Persist an attempt record before the action and an outcome afterward. Keep native-driver outputs separate from mac-doctor CLI receipts; include operation, exact targets, approval/reviewer anchors, timestamps, UI evidence, and error/partial status. Never silently turn a partial or unverified result into success.
+6. Verify actual filesystem postconditions and APFS container free bytes before/after, plus any necessary app health check. Trash movement and native command delivery are not freed-space proof. Report nominal allocation and measured delta separately. If an operation fails, do not retry by another deletion method.
+
+
 ## Approval and apply sequence
 
 1. Run `scripts/mac-doctor clean plan` (optionally narrow with `--target ID`; use `--include-caution` only when relevant). Inspect all exact paths, classes, actions, and sizes in the returned plan.
 2. Present the plan and consequences to the user. Wait for explicit approval in the current turn for those listed actions. If the response may arrive after expiry, offer narrowly scoped unchanged-manifest renewal as part of that approval, rather than repeatedly generating plans that expire while waiting.
 3. Only then run `scripts/mac-doctor clean apply PLAN_ID --yes`. If the current approval explicitly includes unchanged-manifest renewal, add `--renew-if-unchanged`; never infer this extra permission from ordinary approval or a prior turn. Never broaden the plan after approval.
-   CAUTION items are review-only by design (`CAUTION_APPLY_ENABLED = False`, decided 2026-10-04): macOS renames only by directory fd + name, so a move cannot be bound to the approved inode. `apply` refuses every CAUTION item with a receipt. Present CAUTION entries so the user can move them in Finder.
+   CAUTION remains CLI review-only (`CAUTION_APPLY_ENABLED = False`). macOS pathname rename cannot bind the operation to an approved inode. `apply` refuses every CAUTION item; any native-interface action requires the separate authority, review and driver gates above.
 4. Report each result and receipt, plus before/after/delta measured free bytes from `diskutil info -plist /`. A missing measurement is unknown, not zero. Item nominal sizes are estimates, not reclaimed space.
 
 `--yes` is a CLI gate, not a substitute for the conversational approval gate. Do not apply changed or expired plans, or unclear approvals. The only expiry exception is explicitly authorized `--renew-if-unchanged`, whose equality check creates and immediately applies a separate fresh plan; it never extends the old plan's lifetime.
@@ -69,7 +92,7 @@ The engine requires `--yes`, loads the saved plan, rejects expired plans, prefli
 8. append and fsync a durable `phase:"attempt"` receipt before mutation. If this write fails, do not dispatch the action. Revalidate the path once more immediately before dispatch; append a `phase:"outcome"` receipt after the attempt or refusal.
 
 
-SAFE uses the target's declared tool-native command with the catalogue-specified environment and verified scope. CAUTION is review-only by design (see above). The Trash-move code path remains in `clean.py` behind `CAUTION_APPLY_ENABLED` and is exercised only by tests. It uses an fd-pinned object, an exclusive `renameatx_np(RENAME_EXCL)`, post-move identity/binding checks, and fail-closed `manual_recovery` receipts. It is not reachable in production. Turning it on requires a new owner decision, because a pathname rename can be ABA-swapped by a same-user process (review rounds 3–5, 2026-10-04).
+SAFE uses the declared tool-native command, scoped environment and verified scope. CAUTION remains review-only inside the CLI. The test-only Trash-move code stays behind `CAUTION_APPLY_ENABLED = False`; this policy revision does not enable it. Its fd-pinning/exclusive pathname rename and post-move checks cannot prove approved-inode binding under an ABA swap. The native-interface workflow makes no stronger atomicity claim and must not invoke that implementation.
 
 ## Plan, receipt, and result fields
 
