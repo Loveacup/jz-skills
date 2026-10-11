@@ -26,8 +26,8 @@ The Hermes watchdog's zombie action is opt-in and limited to configured known pa
 | `~/.cache/uv` | uv package cache | Inspect current inventory | `uv-cache` (SAFE; native uv cleanup only) |
 | `~/Library/Caches/Homebrew` | Homebrew downloads cache; `storage` also reports bounded `brew cleanup --dry-run` candidates | Inspect current inventory | `brew-cache` (REPORT only; `brew cleanup` can affect prefix/older formula versions and autoremove dependencies—review dry-run first) |
 | `~/Library/Caches/ms-playwright` | Playwright browser runtimes | Inspect current inventory | `playwright-browsers` (CAUTION; review-only) |
-| `~/Library/Developer/Xcode/DerivedData` | Xcode build products | Inspect current inventory | `xcode-derived-data` (CAUTION; Trash only) |
-| `~/.hermes/profiles/<profile>/home/{.cache/uv,.cache/puppeteer,.npm/_cacache,Library/Caches/ms-playwright,pip,node-gyp}` | Profile-isolated development caches | Inspect current inventory | `hermes-profile-dev-cache` (CAUTION; only catalogued paths) |
+| `~/Library/Developer/Xcode/DerivedData` | Xcode build products | Inspect current inventory | CLI catalogue: `xcode-derived-data` (CAUTION; apply disabled); separate reviewed disposal may use commands/filesystem/UI |
+| `~/.hermes/profiles/<profile>/home/{.cache/uv,.cache/puppeteer,.npm/_cacache,Library/Caches/ms-playwright,pip,node-gyp}` | Profile-isolated development caches | Inspect current inventory | CLI catalogue: `hermes-profile-dev-cache` (CAUTION; only these catalogue paths); separate reviewed workflow requires its own exact scope |
 | `~/.cache/qmd/models` or profile qmd model directory | qmd model assets; indexes are separate, stateful data | Inspect current inventory | `qmd-models` (NEVER; protected) |
 | `~/.cache/huggingface` | Downloaded/production models | Inspect current inventory | `huggingface-models` (NEVER; protected) |
 | `~/Library/Application Support/Claude/vm_bundles` | Claude Code environment bundles | Inspect current inventory | Investigate-only; no cleanup target |
@@ -42,8 +42,7 @@ If a swap increase coincides with gateway termination, treat it as an incident s
 - Do not edit tokens, restart services, or repair databases as an assumed fix; report observed signal and ask before any service/config change.
 
 - Inspect caches individually and review the actual path, owner, and contents before planning. The cleanup catalogue is intentionally narrow; unlisted data is not implicitly safe.
-- `clean plan` gives exact candidate objects. Display and review it with the user before a same-turn explicit approval and gated apply. Never manually replace a refused action with raw deletion or a wider glob.
-- If the owner explicitly authorizes native-interface cleanup, use the separate reviewed workflow in `cleanup.md`; delegated-review authority avoids repeated per-item confirmation but does not bypass use, scope, protection or driver gates. This playbook alone grants no deletion authority.
+- `clean plan` gives exact CLI candidate objects; display and approve before gated apply. Separately, current-task owner authorization and exact-manifest review may permit scoped command/filesystem/UI disposal under `cleanup.md`. Delegated review avoids repeated per-item confirmation; missing GUI capability is not a command-cleanup blocker. Never widen a target or bypass active-use, identity or live-data protection failures.
 - For local Time Machine snapshots, `storage` reports dates and per-date commands only. Consider at most one exact snapshot command after user review; never bulk-thin/delete snapshots as part of a routine.
 
 ## Profile cache duplication and models
