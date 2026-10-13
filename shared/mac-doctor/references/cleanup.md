@@ -62,6 +62,12 @@ The owner may authorize direct command cleanup and delegate exact-manifest appro
 6. Verify filesystem postconditions and APFS container free bytes before/after, plus necessary retained app-state checks. Moving to Trash and command delivery alone prove no reclaimed space. Report nominal allocation and measured delta separately; permanent removal has no “Put Back”. Do not retry a failed operation by another method without independent review.
 
 
+### Interpreting a native no-op
+
+A native cleaner’s “nothing to clear” result describes only its own managed inventory; it does not prove that a separately observed directory is absent or authorize a different disposal method. If read-only inventory still finds an exact target, reconcile that mismatch without widening scope. Switching methods—especially from Trash to permanent unlink—is a new method and irreversible consequence: obtain fresh explicit authorization for the exact paths and method. Do not use a fallback to bypass a no-op or failure.
+
+For explicitly reviewed permanent removal of a single directory, use fd-relative traversal with `O_NOFOLLOW`; pin and recheck parent/target identity, require the same device, and refuse unsupported file types, changed identities, concurrent additions, or probe errors. Unlink symlink entries themselves; never traverse their targets. Complete and verify one target (absence plus unchanged excluded siblings) before starting the next. Stop and record a partial outcome at the first unexpected state; do not retry by another method. For batches, measure APFS free bytes immediately before and after each target. CLI output, directory size, and file counts are not proof of reclaimed space.
+
 ## Approval and apply sequence
 
 1. Run `scripts/mac-doctor clean plan` (optionally narrow with `--target ID`; use `--include-caution` only when relevant). Inspect all exact paths, classes, actions, and sizes in the returned plan.
