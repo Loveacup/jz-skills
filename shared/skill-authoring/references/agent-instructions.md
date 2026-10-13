@@ -21,6 +21,18 @@ Do not infer precedence from `AGENTS.md` versus `CLAUDE.md`, directory depth, fi
 
 When local SkillHub placement, ownership, or generation is actually in scope, use the [SkillHub adapter](skillhub.md) to resolve the configured canonical source. A generated stub is an observation surface, not an editing target. Change its named writable source and run its designated generator only when those actions and paths are in scope. Otherwise leave the stub unchanged and report the source or permission needed.
 
+## Focus the decision before adding instructions
+
+Name the target task's intended result, observable completion evidence, and the current obstacle to reaching it. Investigate the unknown that could change the next decision: inspect the relevant implementation, existing solution, or designated source before inventing a new procedure. Stop gathering context when the evidence supports the next safe action; reopen investigation when a material conflict or new result changes that judgment. This does not waive prerequisite reads or mandatory checks governing the current session.
+
+Keep three questions separate rather than creating one ranked list of goals, facts, and constraints:
+
+- **What may or must happen?** Applicable instructions, authorization, approved decisions, and project requirements define the allowed actions and intended state. Use the host-resolution boundary above; a task goal cannot outrank a mandatory constraint.
+- **What is happening?** Relevant observations and verifiable results establish current state within their actual scope and freshness. A newer document does not erase a contradictory observation, and an observation does not authorize changing policy or repairing a system.
+- **What matters next?** Within the allowed actions, prioritize the obstacle that most directly blocks acceptance and its necessary dependencies. Treat an untested bottleneck or root cause as a hypothesis, not an established fact.
+
+Select context by decision relevance, provenance, applicability, freshness, and verifiability. Retain credible counterevidence even when it undermines the preferred plan; inconvenient evidence is not noise. Use history and model knowledge as leads where current-world proof is needed. Record unresolved norm-versus-state conflicts with the check that would resolve them, not a universal source-of-truth ladder. If uncertainty affects only one decision, continue independent authorized work.
+
 ## Inventory rules before editing
 
 Build a finding for each rule that may change. Every finding must contain:
@@ -49,6 +61,16 @@ Use the narrowest existing owner that matches the rule's real lifetime and scope
 - One request's deliverable, authorization, or temporary intent stays in the task or supplied task artifact; do not promote it into persistent instructions without an explicit request.
 
 This is a placement test, not a precedence declaration. If two active owners conflict, describe the conflict using the host's actual resolution behavior and revise only the owner authorized by the user. Do not silently edit another family to make the selected file look consistent.
+
+## Design conditional decisions, not a universal recipe
+
+For a recurring decision that the target does not already resolve, state its **trigger, evidence to inspect, action, and exit or escalation condition**. For example: when a required fact is missing, inspect its designated source; proceed once it supports the next authorized step; ask only when the unresolved choice changes scope, authorization, or an irreversible outcome. Preserve hard prohibitions and required verifiers as direct rules, not optional branches. Useful stable facts and exact commands can remain inline; conditional logic is not a reason to make every sentence a decision tree.
+
+Route by the current subtask, using existing owners: research checks relevant prior material and seeks current evidence when freshness matters; coding inspects the implementation and reproduction path; design checks the brief, guidelines, and assets; documentation verifies material claims before organizing them for the reader. Mixed tasks may switch routes as their subtask changes. Link only the necessary method with its load condition; do not copy a skill catalogue or mandate every route for every request. Keep `writing-for-agents`, when available, as writing craft rather than a second source of host authority or permission.
+
+Check whether the named surface and its established active owners cover mission, environment discovery, evidence sources, pre-action decisions, priorities, routing, constraints, human review, validation, and completion. Classify a relevant gap as owned here, covered elsewhere, not needed, or missing. These are coverage questions, not ten mandatory headings or permission to scan or edit unrelated owners. Preserve the project's layout rather than creating `docs/`, `skills/`, `tools/`, or `decisions/` to fit a template.
+
+A split is useful only if the consumer can reach the material at the right time. Verify whether a pointer is a conditional reference or an eager import: files expanded at startup still spend always-loaded context. Define the branch that needs a reference and exercise that branch; file existence alone does not prove disclosure.
 
 ## Revise blanket obligations carefully
 
@@ -82,6 +104,8 @@ Separate material authorization from routine continuation. Preserve safety check
 
 Evidence must cover behavior, not merely cleaner wording. Use the same realistic task inputs against a frozen original and revision when claiming preserved or improved behavior, following [Evaluate](evaluate.md). Include the combinations that the named host actually supplies; do not test each file only in isolation when multiple layers are active.
 
+For changes to decision guidance, obtain an actual revised instruction artifact and inspect the choices it enables, not a model's score or assertion of compliance. Select contrasts that exercise the changed branch: enough evidence versus a decision-changing unknown; credible counterevidence versus irrelevant history; current-state conflict versus permission to mutate; an execution failure versus a missing validation result. Keep unchanged input, authorization, and acceptance criteria across original/revised runs. If both already satisfy an item, report preserved behavior rather than inferred improvement. A bounded writing scenario does not prove that another host loads the file or that downstream tasks universally improve.
+
 At minimum, select scenarios that decide the changed claims:
 
 - **Combined layers:** a repository task receives the host-provided global layer, repository facts, a subtree constraint, and a conditional skill. The revision must retain the applicable safety and required verifier while loading the conditional workflow only when its trigger is present.
@@ -99,6 +123,12 @@ Concrete decisions should read like these:
 | A subtree repeats a global safety rule and adds a path-specific restriction. | Keep the restriction in the subtree. Consolidate the repeated safety wording only after actual host resolution shows the global owner reliably applies there. |
 | A runtime `AGENTS.md` declares itself generated, but its source mapping is not named or writable. | Do not hand-edit it. Report the exact affected change as `BLOCKED` and leave other authorized canonical edits available. |
 | A Claude-specific note is noisy for one Claude workflow. | Revise it only in the authorized Claude owner; do not remove equivalent guidance from `AGENTS.md` or another model's configuration by analogy. |
+
+## Learn from failures without accumulating rules
+
+Use [Evaluate](evaluate.md)'s failure diagnosis before changing guidance: missing information calls for a targeted check; a disproved assumption calls for renewed analysis; an execution defect calls for a repair; missing validation calls for evidence, not a success claim. Do not repeat an unchanged failed action without new evidence or a changed method. Escalate when recovery would cross the established scope or authorization boundary.
+
+Persist a lesson only when it is verified, reusable within stated conditions, and authorized for the destination. Prefer repairing the implicated rule or loading condition to appending another warning. Keep unverified explanations as hypotheses and one-off progress in the task record. No automatic global-memory write, policy revision, new service, or deletion follows from a successful run. Understanding, focus, action, verification, and learning describe a feedback loop, not mandatory reports or a retrospective after every small task.
 
 ## Report the governed result
 

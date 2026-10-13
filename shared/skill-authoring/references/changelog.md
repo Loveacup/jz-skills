@@ -2,6 +2,12 @@
 
 Version entries describe changes, not proof that a runtime loaded or correctly used them. Deployment and publication require their own evidence.
 
+## v5.2.0 — 2026-10-13
+
+Strengthened the existing agent-instruction workflow with decision-focused investigation, separate authority/state/priority questions, counterevidence handling, conditional actions and exit conditions, subtask routing, coverage questions instead of mandatory templates, and verified/authorized learning. Eager imports are not treated as progressive disclosure. Original host-resolution, trust, permission, generated-source, required-verifier and independent-review boundaries remain in place.
+
+Extended changed-path evaluation to inspect actual instruction artifacts and distinguish preserved behavior from demonstrated improvement. Added non-normative provenance for the supplied visual method and official host documentation; their scope and extraction limits remain explicit. The description, routes and other authoring workflows are unchanged. This is a source revision, not a deployment, publication, or cross-host performance claim.
+
 ## v5.1.1 — 2026-09-22
 
 Scoped collection comparisons to the requested claim instead of always enumerating every pair. Targeted reviews screen co-exposed descriptions for relevant competitors and handoffs; whole-collection audits still screen all named entries, including cross-domain catch-all triggers. Explicit exhaustive coverage remains supported. Report screened and untested scope without inferring runtime behavior, universal safety, or measured efficiency from pair counts.

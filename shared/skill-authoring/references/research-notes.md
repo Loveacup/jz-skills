@@ -27,6 +27,20 @@ The two sources above remain direct references for [collection governance](colle
 
 The official guide was re-fetched on 2026-09-22 and matched the earlier captured body. The post was re-read from its complete previously captured text; its live content was not re-fetched for this extension. These are provenance observations, not proof of later source freshness or of a universal model behavior.
 
+## Decision-design rationale
+
+The user supplied a visual series on investigation, context selection, concrete task analysis, priority, practice-based verification, and avoiding rule accumulation. Its five-stage loop (understand, focus, act, verify, learn) and ten-module outline are design prompts, not a mandatory output format or evidence of improved model performance. The images' attribution of ideas to historical thinkers and model practitioners has not been independently verified here; no claim about their original authorship is required by the workflow.
+
+The [agent-instruction workflow](agent-instructions.md) adopts targeted investigation, explicit decision branches, relevant counterevidence, task-specific routing, observable completion, and selective learning. It rejects a single priority ladder that could put goals above mandatory constraints, a universal ranking of documents over observations, indiscriminate context collection, and automatic memory/rule writes after every task. Stable facts, exact commands, hard prohibitions, and required checks remain valid direct instructions when their scope earns the context cost.
+
+Official documentation read on 2026-10-13 supports narrower claims:
+
+- [Codex AGENTS.md discovery](https://developers.openai.com/codex/guides/agents-md) describes Codex-specific scope, file discovery and instruction-chain rebuilding. This supports checking the named consumer, not copying its resolution rules into every host.
+- [Codex customization](https://developers.openai.com/codex/concepts/customization) distinguishes persistent project guidance, reusable skills and tools, and recommends a small relevant instruction surface. Its feedback suggestions are not authorization to add schedules, install hooks, or change every instruction file.
+- [Claude Code memory](https://code.claude.com/docs/en/memory) distinguishes instruction context from enforced configuration and explains that imported files expand at startup. Splitting a document therefore does not itself reduce always-loaded context; conditional disclosure must be checked through the actual loading mechanism.
+
+The research retrieval returned usable body excerpts but marked completeness unknown or truncated (`degraded`). These claims are limited to the retrieved sections; no full-document audit, installed-version compatibility, or cross-host runtime validation is implied. Original/revised artifact scenarios decide this change's bounded behavior, not source popularity or philosophical analogy. Do not make these external reads a prerequisite for ordinary skill use.
+
 ## Transferable lessons from historical cases
 
 The prior skill-authoring material recorded useful failures even where its procedures became obsolete:
