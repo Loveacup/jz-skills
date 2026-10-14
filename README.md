@@ -21,6 +21,8 @@ Edit/commit/push each skill in its own repository, then commit the updated submo
 
 ---
 
+[3d-print-modeling](shared/3d-print-modeling/) 提供按项目使用的FDM建模、审核、切片交付与Dot协作流程。文档和附件收敛到所属项目，知识库不留副本或跳转；本次仅发布源文件，不自动部署到各CLI。
+
 ## 📂 Structure
 
 ```
