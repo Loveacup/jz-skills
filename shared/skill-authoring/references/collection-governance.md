@@ -1,146 +1,37 @@
-# Govern a Named Skill Collection
+# Improve a Named Skill Collection
 
-Load this workflow only when the user explicitly asks to audit or revise a named set of skills, their descriptions, or their ownership boundaries. It is not a runtime dispatcher, a reason to scan every installed skill, or a preflight for ordinary coding. The collection may span consumers, but each consumer remains a separate observation surface.
+Use this resource for library overlap, discoverability or responsibility questions. The aim is a collection an agent can navigate, not a more elaborate governance system.
 
-This workflow governs preparation and an already authorized bounded revision. It does not itself authorize deleting or disabling a skill, changing runtime exposure, repointing an alias, editing a registry, deploying, or publishing. Those are named cross-plane actions under [release](release.md). Use [evaluate](evaluate.md) for evidence design, failure classification, and independent judgment.
+## Understand the actual selection surface
 
-## Freeze the collection and authority
+Start with the user-named collection and consumers. Inspect what each consumer exposes: names, descriptions and route identities. Separately inspect the implicated files, entry types and resolved paths. A disk file can be valid but unexposed; an exposed entry can point to missing content. Preserve that distinction and any observation gap.
 
-Record before inspection:
+Aliases sharing a real path can share a body audit, but each exposed identity still matters. Equal names or bytes do not establish common ownership. When ownership is unclear, consult the target's source record or [local adapter](skillhub.md); block only a write that depends on unresolved authority.
 
-- the user-named skills and consumers in scope, including the exact aliases or paths supplied;
-- whether the request authorizes audit only, source revision, generated-output regeneration, or any separately named cross-plane action;
-- the governing instructions for each editable source and the current owner of placement, exposure, generation, and skill content;
-- paths and consumers deliberately out of scope;
-- the acceptance boundary: which requests each skill should select, reject, or hand off.
+## Compare by the work, not vocabulary
 
-Do not enlarge a named collection by recursively scanning a live skill tree. Add a discovered skill only when it is directly exposed beside the named skills and supplies evidence necessary to explain a collision; identify it as context, not as an authorized revision target.
+For a targeted collision, screen co-exposed descriptions for competitors and handoffs involving that target. For a whole-collection review, screen every named entry, including catch-all claims, and examine plausible overlaps. Exhaustive pair enumeration is needed only when requested.
 
-When the collection is under local SkillHub governance, read only the target-specific rows and policies required by the [SkillHub adapter](skillhub.md). Do not infer authority from recency, version, path depth, richer prose, or which copy a consumer happens to expose. If no current instruction establishes the writable authority for a finding, mark that finding `BLOCKED` for revision while continuing independent audit work.
+Does the same ordinary request lead to incompatible next actions? Is a specialist's role clear beside a generalist? Are two skills actually complementary phases? Do aliases duplicate only exposure, or do two bodies claim the same work?
 
-## Inventory exposure separately from availability
+Use outcomes, objects, authorization and stopping points to answer. Shared nouns do not establish a collision; different verbs do not establish separation. Entries never exposed together cannot collide in one selector. Explain the implicated clauses and coverage gaps rather than forcing one winner.
 
-For every named consumer, use its actual list, describe, or discovery interface without invoking the skill body. Record one exposure row per consumer-visible entry:
+## Try realistic boundaries
 
-| Field | Record |
-|---|---|
-| Consumer | Exact runtime, profile, or router observed. |
-| Exposed identity | Name and route identifier exactly as exposed. |
-| Exposed description | Exact text, with a location or captured interface receipt. |
-| Claimed source | Path or provider reported by the consumer, if any. |
-| Observation state | `OBSERVED`, `HYPOTHESIS`, or `BLOCKED`, with missing evidence. |
+Use requests near the disputed boundary: a core task, a plausible missed request, an adjacent non-trigger, and competing choices presented together where relevant. Withhold bodies and prior answers from description-only selection tests. Use the actual consumer when possible; label an isolated selector as harness evidence otherwise.
 
-Separately inspect only the named disk candidates and directly implicated targets. Record the lexical path, entry type, resolved real path, existence and readability of `SKILL.md`, on-disk name and description, governing source, and whether the path is generated. Keep these claims distinct:
+For a crowded or truncated catalog, inspect what survives and test normal user language, not just explicit skill names. Selection is one observation; adoption and task results are separate questions under [Evaluate](evaluate.md).
 
-- an exposed description does not prove its claimed path exists or is readable;
-- an available `SKILL.md` does not prove any consumer exposes or loads it;
-- matching files do not prove matching descriptions at a consumer;
-- a consumer receipt covers only that consumer and observation time.
+## Improve the existing owners
 
-A broken link, absent path, unreadable entry, malformed frontmatter, stale consumer description, and unexposed valid skill are different findings. Do not collapse them into “missing” or repair one by silently pointing elsewhere.
+Prefer a clearer task description or handoff to precedence prose in every skill. Record the decisive text, affected requests, actual owner, smallest remedy and evidence needed to verify it. A simple collision needs a concise finding, not a fixed multi-field audit form.
 
-## Deduplicate bodies without erasing aliases
+For a broader consolidation, map useful capabilities to their retained destinations so a shorter description does not erase safety exclusions, user requirements or host-specific behavior. Compare the actual before/after clauses: adding a qualifier can weaken an existing prohibition. Preserve those constraints unless their revision is explicitly authorized. Edit maintained sources; generated entries follow their configured source and generator.
 
-Resolve symlinks for each available candidate and group lexical paths that reach the same real path. Audit the shared body once, but retain every consumer and alias exposure row. An alias can have a distinct description, route name, host binding, or governing owner even when it resolves to the same body.
+When reviewing a library for reusable experience, look for verified methods and corrections in the supplied work. Strengthen the existing class-level owner when it fits; retain useful topical depth behind conditional references. A one-off incident or untested explanation is usually task history, not a new skill or warning. A review can legitimately conclude no update is needed after checking the evidence.
 
-Do not merge entries merely because their bytes, names, or versions match. Distinct real paths may have different authorities or runtime-specific contracts. Conversely, do not report multiple independent implementations when several lexical paths resolve to one object. For every group, state both:
+## Complete the scoped work
 
-1. **Body identity:** the resolved object whose instructions were inspected.
-2. **Exposure identity:** each consumer-visible name, description, and configured alias.
+Exercise affected discovery and task paths, preserving evidence for unchanged capabilities. Use the high-impact independent-review branch of [Evaluate](evaluate.md) where applicable. Report what was examined, changed, preserved or left uncertain without claiming untested combinations are safe.
 
-Preserve unresolved and broken aliases as their own availability findings. Repointing or removing an alias is a release action, not deduplication cleanup.
-
-## Classify ownership before comparing text
-
-Map each current capability and description clause to one of these evidence-backed roles:
-
-- **Maintained owner:** the declared editable source for the portable capability.
-- **Consumer projection:** a consumer-specific name or description derived from a maintained source.
-- **Generated output:** an output whose declared source and generator, rather than the output file, own revision.
-- **Runtime-owned overlay:** a narrow host-specific contract that is intentionally not portable.
-- **Complementary skill:** a separate owner for a distinct phase, object, or action.
-- **Duplicate or shadow:** a second claimant to the same task boundary without a justified distinct role.
-- **Unknown authority:** no current governing instruction settles ownership.
-
-Quote the instruction or policy that establishes the classification. When two current sources claim authority, preserve both claims and report an ownership conflict; do not choose the one that appears newer or more complete. Unknown authority blocks only the affected write, not findings whose evidence and owners are settled.
-
-## Compare the implicated discovery boundaries
-
-Match comparison coverage to the requested claim. For a reported collision or a targeted revision, screen the supplied co-exposed descriptions for competitors and handoffs involving that target, then compare the implicated pairs; do not enumerate unrelated-to-unrelated pairs. For a whole-collection audit, screen every named exposed description, then examine pairs whose requested outcomes, actions, exclusions, aliases, or broad claims can overlap. A catch-all such as “all tasks” crosses domain groups; do not filter candidates by shared nouns alone. If exhaustive pair coverage is explicitly requested, provide it.
-
-Record what was screened, why pairs were selected or excluded, and any coverage gap without manufacturing a separate report for each disjoint pair. This is a scoped comparison, not proof that all untested combinations are safe. Across consumers, compare a pair only to explain a stated cross-consumer difference; entries never offered together cannot collide in one router.
-
-Use the exact exposed descriptions, not a summary of their bodies. Quote the clauses that establish the decision and classify the pair:
-
-- **Conflicting trigger:** the same realistic request satisfies both descriptions and they claim incompatible ownership or next actions.
-- **Generalist/specialist ambiguity:** both can own the request and the description does not state the condition that gives the specialist precedence.
-- **Complementary workflow:** the skills own different phases or artifacts and their descriptions provide a usable handoff boundary.
-- **Alias duplication:** multiple exposed identities reach the same body; any difference lies in exposure or routing, not implementation.
-- **No material overlap:** shared vocabulary exists, but their positive and negative task boundaries remain distinguishable.
-- **Blocked comparison:** a current exposed description or joint-selection surface could not be observed.
-
-Shared nouns are not by themselves a collision, and different verbs are not by themselves separation. Decide from the requested outcome, object changed, action authority, and stopping point. Do not force one winner when two skills are complementary; make the handoff explicit only when observed requests show the boundary is unclear.
-
-## Exercise description-only selection boundaries
-
-For every skill whose discovery or ownership is implicated, derive boundary cases from its exposed description:
-
-- a representative core request that should select it;
-- a request near each disputed boundary that should still select it;
-- a neighboring request that should not select it, to expose a false positive;
-- an in-scope request likely to be missed by the current wording, to expose a false negative;
-- for each conflicting pair, the same neutral request presented to both descriptions together;
-- any explicit anti-trigger or handoff case promised by the description.
-
-Use the actual consumer's selection interface when it can expose only names and descriptions while withholding skill bodies. Otherwise use an isolated selector with the captured names and descriptions and label the result as harness evidence, not consumer behavior. If body text, prior choices, or producer rationale leaks into the selection context, the result is confounded and does not decide discovery.
-
-Record the exact request, description set, consumer or harness, selected and rejected entries, and expected boundary. A model's explanation or self-score is not the observation. Scenario count follows the actual disputed boundaries; there is no universal quota. Preserve per-runtime outcomes instead of averaging them into a universal routing claim.
-
-Classify failures using [Evaluate](evaluate.md#diagnose-before-rewriting). A description collision is not proof that either body is defective, and an unavailable consumer cannot be repaired by rewriting prose.
-
-## Produce actionable findings
-
-Each finding must be independently decidable and contain:
-
-| Field | Required content |
-|---|---|
-| Finding | Stable local identifier and concise defect or confirmed boundary. |
-| Source evidence | Exact exposed description, instruction, path, or policy location; quote the decisive text. |
-| Status | `OBSERVED`, `HYPOTHESIS`, or `BLOCKED`. Hypotheses are never revision authority. |
-| Scope | Affected consumers, aliases, real-path group, and requests. |
-| Ownership | Content owner, exposure owner, generator owner, or unresolved conflict. |
-| Remedy | Smallest change that resolves the finding, or `no change` for a confirmed complementary boundary. |
-| Capability destination | Exact maintained source and section that will own every retained rule. |
-| Authorization | Audit-only, source revision authorized, or the exact missing cross-plane action. |
-| Verification | Description-only cases or other changed-path evidence to repeat after revision. |
-
-Also produce a capability map from every current useful constraint in the implicated text to its retained destination. This prevents shorter descriptions or consolidation from silently dropping security exclusions, verification requirements, consumer-specific conditions, or handoff boundaries. Length and token count do not decide whether a constraint is useful.
-
-When narrowing a trigger, retain existing prohibitions and approval conditions verbatim unless their wording is itself an authorized revision target. Compare the actual before/after clauses, not the map's claim of preservation: adding an object qualifier, exception, or new condition can weaken a previously unqualified prohibition. Do not infer permission to narrow a safety constraint from the skill's domain.
-
-## Stage the minimum authorized revision
-
-When source revision is explicitly authorized, prepare and review the smallest source-owned patch that addresses observed findings:
-
-1. Edit only the implicated maintained owner. For generated entries, edit the declared source or generator input and regenerate through its designated mechanism; never hand-edit the output.
-2. Prefer a precise positive trigger, concrete exclusions, and an explicit handoff over adding precedence prose to every skill.
-3. Preserve useful constraints through the capability map. Move a rule only to a destination that the applicable workflow actually loads.
-4. Preserve justified consumer-specific descriptions and runtime overlays. Do not normalize different runtimes unless their current owners and observed behavior establish one shared contract.
-5. Stage source-content revisions separately from exposure, placement, registry, symlink, deployment, publication, or retirement changes.
-6. Do not automatically delete, disable, rename, repoint, consolidate, or hide a skill. Propose the exact action and evidence separately; perform it only when that named target and action are authorized under [Release](release.md#resolve-authorization-by-named-action).
-
-A prepared patch must identify the exact changed paths and the findings each hunk resolves. If authority is disputed, prepare alternatives or a bounded proposed delta, but do not write either claimant until the governing owner is settled.
-
-## Re-evaluate and hand off cross-plane actions
-
-After an edit, repeat only the description-only cases and links invalidated by that edit. For behavior beyond discovery, use the proportional scenarios in [Evaluate](evaluate.md#choose-proportional-evidence). Apply its independent-judgment branch after edits when the collection governs security, destructive actions, deployment, publication, credentials, or orchestration; review follows the candidate change rather than approving it in advance.
-
-If the authorized outcome includes regeneration, exposure changes, deployment, repointing, publication, or retirement, hand the frozen reviewed artifact and exact action set to [Release](release.md). Keep `Prepared`, `Canonical applied`, `Runtime deployed`, `Published`, and `Retired` claims separate. No collection finding alone authorizes a cross-plane action.
-
-Report changed and deliberately unchanged sources, retained runtime differences, per-consumer discovery evidence, unresolved ownership, and every blocked claim. The result is an audit and bounded revision record, not a permanent routing service or a new registry.
-
-## Research basis and limits
-
-The design rationale is summarized in [Research and Design Notes](research-notes.md#current-model-guidance). OpenAI's [Using GPT-6 Astra](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-6-astra) motivates auditing accessible instruction conflicts and matching verification to the change. Eric Provencher's [post on skill files and agent instructions](https://x.com/pvncher/status/2095991462416490862) motivates concrete discovery boundaries, progressive disclosure, and removing obligations that no longer earn their context cost.
-
-These sources are rationale, not commands, runtime evidence, or universal model behavior. They do not establish a fixed collection size, token budget, scenario count, winning description shape, or permission to alter any consumer.
+Reviewing a collection is not permission to delete, hide, rename, repoint or deploy its members, edit registries or change other instruction families. Cross-plane actions follow [Release](release.md). Keep justified aliases and consumer differences until a separately authorized change establishes a replacement.

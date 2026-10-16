@@ -2,6 +2,18 @@
 
 Version entries describe changes, not proof that a runtime loaded or correctly used them. Deployment and publication require their own evidence.
 
+## v6.0.0 — 2026-10-16
+
+Reoriented the entrypoint, authoring, evaluation, collection and instruction guides around expert knowledge, model judgment, targeted research and adaptable methods. Replaced universal audit forms and scenario itineraries with question-driven references; kept precise interfaces, user requirements, executable boundary checks and high-impact independent judgment. The description and reference paths remain stable. Import, release and privacy remain specialist resources; host-specific installation details belong in the local adapter, not the common entrypoint.
+
+The research basis includes Anthropic's degrees-of-freedom guidance, [presentation granularity](https://arxiv.org/html/2605.31408), [SkillJuror](https://arxiv.org/html/2606.11543v1) and [model-aware skill alignment](https://arxiv.org/html/2605.30723). These support task-dependent design, not a universal brevity rule or a measured gain for this version. No new service, benchmark platform, fixed quota or publication permission is introduced.
+
+## v5.3.0 candidate — 2026-10-16
+
+This additive candidate was superseded by the directional redesign before canonical application or runtime deployment.
+
+Added conditional value checks for capability versus workflow/preference skills, no-skill comparisons, held-out acceptance cases, variation and blinded qualitative comparisons. Discovery diagnosis distinguishes exposure, loading, guidance adoption and task success, including real catalog conditions when implicated. Efficiency uses observed execution costs only when relevant. No fixed quotas, new framework, mandatory benchmark suite, authorization changes or retirement permission; the wording-only fast path and existing safety gates are unchanged.
+
 ## v5.2.0 — 2026-10-13
 
 Strengthened the existing agent-instruction workflow with decision-focused investigation, separate authority/state/priority questions, counterevidence handling, conditional actions and exit conditions, subtask routing, coverage questions instead of mandatory templates, and verified/authorized learning. Eager imports are not treated as progressive disclosure. Original host-resolution, trust, permission, generated-source, required-verifier and independent-review boundaries remain in place.

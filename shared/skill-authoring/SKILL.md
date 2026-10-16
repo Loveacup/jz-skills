@@ -2,7 +2,7 @@
 name: skill-authoring
 description: Create, revise, import, or audit Agent Skills; govern a named skill collection or agent instruction files such as AGENTS.md. Not for ordinary coding or executing a skill's subject task.
 type: routine
-version: 5.2.0
+version: 6.0.0
 author: Hermes Agent
 license: MIT
 metadata:
@@ -13,39 +13,38 @@ metadata:
 
 # Skill Authoring
 
-Produce skills and agent instructions that are selected or applied to the right task, give useful guidance, and can be checked through their intended use. Optimize for fewer irrelevant instructions, not a line-count target.
+Help an agent do a class of work better by supplying useful expertise, direction and resources. A skill should amplify the model's reasoning, research and adaptability, not replace them with an itinerary.
 
-## Choose the work
+## Start with the work
 
-Start from the user's requested deliverable and the target's governing instructions. Reuse an existing skill when it already owns the capability. State the intended result and the few observable conditions that decide success; a separate plan or checklist file is not required.
+Understand the user's intended result and what the agent needs to accomplish it. Inspect the existing skill and its maintained source before proposing missing capabilities; runtime copies can lag or contain local adaptations. Use the target's source record to resolve ownership when copies differ.
 
-**Wording-only correction:** edit the target text, check that its meaning and any affected links are intact, then finish. Do not load the workflows below or inspect all source/runtime copies unless the change actually depends on them.
+Use your judgment to choose the approach. Draw on model knowledge for familiar connective work; inspect files, tools and primary sources for facts that need verification. Research a consequential unknown, compare alternatives and seek counterevidence when they can change the design. A small correction needs a small correction, not a research project. For a substantive redesign, investigate the whole skill and relevant evidence, agree on direction, scope and tasks with the user, then edit; an assessment request is not implementation authorization.
 
-For other work, load the matching workflow, not the whole table:
+**Wording-only edits:** make the focused change, check meaning and affected links, then finish. For substantive work, keep the result and its important acceptance conditions clear; choose the amount of planning and validation the task warrants.
 
-| Requested work | Read |
-|---|---|
-| Create a skill, change its trigger, instructions, or bundled behavior | [Author](references/author.md) |
-| Review quality, diagnose a failure, or restructure an existing skill | [Evaluate](references/evaluate.md) |
-| Audit or revise discovery and responsibility across a named skill collection | [Collection governance](references/collection-governance.md) |
-| Audit or revise AGENTS.md, CLAUDE.md, or equivalent agent instruction files | [Agent instructions](references/agent-instructions.md) |
-| Import upstream content or reconcile source/canonical/runtime differences | [Import](references/import.md) |
-| Apply across planes, deploy, publish, rename, or retire an entry | [Release](references/release.md) |
+## Design for judgment
 
-A workflow may link a reference for a specific decision. Read it only when that condition is present. Local SkillHub ownership or metadata decisions use the [SkillHub adapter](references/skillhub.md); this is not a universal preflight. [Research notes](references/research-notes.md) explain the design and historical lessons, not additional execution requirements.
+Give the consuming agent the goal, task-specific knowledge, useful decision cues and a way to recognize a good result. Explain why a method works and when it applies. Let the agent choose tools, sequence ordinary steps, retrieve current information and adapt methods to the situation.
 
-## Shared boundaries
+Keep exact interfaces, required output contracts and necessary safety constraints concrete. Recommended methods are adaptable; explicit user requirements and applicable host rules remain binding. More detail earns its place when it supplies missing expertise or prevents a real failure, not merely because it makes the document look complete.
 
-- Continue through the requested deliverable and relevant verification within the already authorized scope. Ask only for a material decision that the task, files, or governing rules cannot settle; do not turn guideline interpretation into another approval gate.
-- Preparing, importing, or reviewing does not itself authorize commit/push, runtime deployment, deletion, repointing, credentials, or baseline changes. Honor explicit named-target authorization without asking for it again. If blocked, identify the missing permission or evidence and the exact governing instruction.
-- Preserve unrelated work and legitimate private/runtime-only content. Do not choose an authority by version, recency, apparent richness, or byte equality. Follow the import workflow when those planes disagree.
-- Governance supports review and explicitly authorized revision of named targets. Reviewing a collection does not authorize changing every member, editing generated outputs, or overriding the host's instruction hierarchy. Read-only findings may continue when an affected write is blocked.
-- Missing required evidence is `BLOCKED`, not a low-confidence pass. Only work independent of that missing result may continue. A timeout is not proof a worker stopped: before replacing a writer on the same scope, obtain exit or lock/lease-release evidence.
+## Reach for depth when useful
 
-## Finish at the requested state
+- Designing or substantially improving a skill: [Author](references/author.md).
+- Diagnosing failures or deciding whether a change helps: [Evaluate](references/evaluate.md).
+- Overlap, discovery or responsibility across a named library: [Collection governance](references/collection-governance.md).
+- Improving AGENTS.md or equivalent instruction surfaces: [Agent instructions](references/agent-instructions.md).
+- Reconciling upstream, maintained and local copies: [Import](references/import.md).
+- Applying, deploying, publishing or retiring an artifact: [Release](references/release.md); [Privacy](references/privacy.md) when content crosses a trust boundary.
+- Local ownership, generated entrypoints or installation bindings: [SkillHub adapter](references/skillhub.md).
 
-Deliver the actual artifact or requested review, not just a proposal to continue. Check the changed behavior proportionally and complete the target project's required checks. For high-impact security, orchestration, or release changes, use the independent-review branch of [Evaluate](references/evaluate.md).
+These are resources for the question at hand, not a sequence to complete. [Research notes](references/research-notes.md) and [changelog](references/changelog.md) provide background, not additional gates.
 
-Once relevant checks pass, broaden or repeat them only for a new change, failure, or unresolved risk. Report the result, evidence, and any consequential state boundary that remains unverified. File identity, model scenario success, runtime loading, and real task execution are different claims.
+## Carry the work through
 
-Version history and the previous layout: [changelog](references/changelog.md).
+Complete the requested artifact and inspect whether it actually serves the task. Preserve unrelated work and legitimate local adaptations. Continue inside the authorized scope; ask when a material decision or missing permission really changes the next action. When replacing a writer on the same scope, obtain affirmative exit or lock/lease-release evidence first; timeout or silence alone does not show that writing stopped.
+
+Creation or review does not grant permission to publish, delete, repoint a consumer, change credentials or deploy elsewhere. Follow the named action's authority and the conditional release guidance. Missing required evidence leaves that claim blocked, while independent work can continue. Changing this skill does not waive the rules currently governing the session.
+
+Describe what changed, what was actually checked and what remains uncertain. Prefer repairing an implicated idea or resource to accumulating another warning after every run.
