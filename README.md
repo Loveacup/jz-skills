@@ -35,23 +35,24 @@ jz-skills/
 ├── _archived-hermes-3S6M-profiles/  ← 🗄️ Archived 三省六部 profiles
 ├── _archived-video-analysis-engine/  ← 🗄️ Retired into link-insight
 ├── _archived-bilibili-video-analyzer/  ← 🗄️ Retired legacy video entry
+├── _archived-xhs-crawler/  ← 🗄️ Xiaohongshu capabilities absorbed into link-insight
 └── deploy/          ← 🔧 Sync‑back & drift tooling
 ```
 
 | Layer | Directory | Skills | Scope |
 |-------|-----------|--------|-------|
-| 🧩 Shared | `shared/` | 23 | Works across Hermes, Claude Code, OMP, and pi |
+| 🧩 Shared | `shared/` | 22 | Works across Hermes, Claude Code, OMP, and pi |
 | ⚡ Hermes | `hermes/` | 20 | Hermes‑only (macOS orchestrator) |
 | 🎯 OMP | `omp/` | 2 | OMP‑only — STDD methodology + operations |
 | 🪟 Pi | `pi/` | 2 | Windows / pi‑only |
 | 🗄️ Archived | `_archived-hermes-3S6M-profiles/` | 12 profiles | Retired 三省六部 governance profiles |
-| **Total** | | **48 skills** | |
+| **Total** | | **47 skills** | |
 
 <details>
 <summary>🌳 Full skill tree</summary>
 
 ```
-shared/                              🧩 24 skills (+1 archived)
+shared/                              🧩 23 skills (+1 archived)
 │   # audio-transcriber 已迁至 Loveacup/jz-meeting-skills
 ├── bookmark-organizer           # 书签策展
 ├── china-legal-optimized        # 中国法务（7大领域）
@@ -75,7 +76,6 @@ shared/                              🧩 24 skills (+1 archived)
 ├── vault-keeper                 # Obsidian 知识库生命周期治理
 │   # voice-to-markdown-workflow 已迁至 Loveacup/jz-meeting-skills
 ├── web-research-router          # 多引擎搜索路由+深度研究循环
-├── xhs-crawler                  # 小红书 CDP 提取（CloakBrowser）
 ├── xhs-tech-writer              # 小红书 AI/科技短图文
 ├── xiaohongshu-cards            # 文章→小红书图文卡片
 └── _archived-strategic-insight-longform-slim  ← 🗄️ 已归档
@@ -248,7 +248,6 @@ Hermes 通过 RPC / Shell / 实验性 ACP 调用 OMP 做独立审计与证据化
 | 📱 | [xhs-tech-writer](shared/xhs-tech-writer/) | RED AI/tech short-form content / 小红书科技短图文 |
 | 🏛️ | [vault-keeper](shared/vault-keeper/) | Obsidian lifecycle governance / 知识库治理 |
 | 🌐 | [web-research-router](shared/web-research-router/) | Multi-engine search + deep loop / 检索总控 |
-| 🕷️ | [xhs-crawler](shared/xhs-crawler/) | XHS CDP extraction / 小红书爬虫 |
 | 🔖 | [bookmark-organizer](shared/bookmark-organizer/) | Bookmark curation / 书签策展 |
 
 会议处理技能的维护源已迁至 [Loveacup/jz-meeting-skills](https://github.com/Loveacup/jz-meeting-skills)（私有仓库）。原始快照保留在 `_archived-meeting-skills/`，仅供历史参考，不参与部署或反向同步。现有运行时安装及私人会议数据未作变更。
@@ -301,6 +300,7 @@ Hermes 通过 RPC / Shell / 实验性 ACP 调用 OMP 做独立审计与证据化
 | 🗄️ | `shared/_archived-strategic-insight-longform-slim/` | Archived strategic insight longform skill |
 | 🗄️ | [`_archived-video-analysis-engine/`](_archived-video-analysis-engine/) | Video analysis retired into `link-insight`; includes richer Mac mini runtime snapshot (credentials/caches excluded). |
 | 🗄️ | [`_archived-bilibili-video-analyzer/`](_archived-bilibili-video-analyzer/) | Retired Bilibili compatibility entry and historical runtime implementation; use `link-insight`. |
+| 🗄️ | [`_archived-xhs-crawler/`](_archived-xhs-crawler/) | All Xiaohongshu capabilities absorbed into `link-insight` (`xhs search/creator/show`, `run start`); filtered Mac mini runtime snapshot excludes credentials, caches, host-private binding and external downloader checkout. |
 
 ---
 

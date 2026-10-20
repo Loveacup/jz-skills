@@ -30,7 +30,7 @@ Hermes 原生、可配置、多 profile 兼容的小红书 AI/科技内容创作
 | AI 生成的内容大差不差能用 | AI 味道清单 9 条必过，否则重写 |
 | 主流外媒报了就一定能写 | 还要过"用户场景过滤"，没下一步动作的资讯也砍 |
 | 标题先写，正文跟着凑 | 钩子可以先写，但正文不达标就回头改标题，不要反过来 |
-| xhs 链接爬不下来就放弃风格提取 | xhs-crawler cookie 过期常见。先搜 Obsidian vault（`search_files` 搜标题关键词），命中的 `.md` 大概率是原文。Obsidian 里没有才用通用风格 |
+| xhs 链接读取失败就放弃风格提取 | 先用 `link-insight run start <URL>` 获取内容；用 `link-insight xhs search/creator` 发现候选、`link-insight xhs show <discovery_id>` 复用结果。授权或内容不可用时，搜 Obsidian vault（`search_files` 搜标题关键词），核对命中的 `.md` 是否原文；仍无证据才用通用风格 |
 | 「去年」「半年前」等时间标记开头 | AI 套话高频。用户纠正过"开头不要说去年"。用具体场景/事故/数字直接拉入，不写时间状语 |
 | 开篇痛点没数据 | 用 `web-research-router` grounding 模式找硬数据（论文统计、行业报告、生产事故案例）。41%-86.7% 多 Agent 失败率、38% 可靠性首忧、Replit 删库——这类数据比"AI 越来越重要"有说服力 100 倍。好数据放在开篇 1-2 句，直接锚定读者注意力。 |
 
@@ -82,7 +82,7 @@ Hermes 原生、可配置、多 profile 兼容的小红书 AI/科技内容创作
 
 输出一份"风格档案"供 Step 5 调用。详细字段与示例见 `references/style-extraction.md`。
 
-**参考笔记获取失败时**：当 xhs-crawler 因 cookie 过期/CDP 不可用提取失败，不要直接放弃风格提取。先在 Obsidian vault 搜索标题关键词（`search_files`），命中文件大概率是原文或近原文。详见 `references/obsidian-fallback-source-discovery.md`。
+**参考笔记获取失败时**：先用 `link-insight run start <URL>` 读取；发现候选用 `link-insight xhs search/creator`，已有发现结果用 `link-insight xhs show <discovery_id>` 复用，不为显示结果重复付费。授权或内容不可用时，不要直接放弃风格提取：在 Obsidian vault 搜索标题关键词（`search_files`），核对命中文件是否原文或近原文。详见 `references/obsidian-fallback-source-discovery.md`。
 
 ### Step 3: 选题评估
 

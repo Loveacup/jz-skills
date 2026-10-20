@@ -1,6 +1,6 @@
 # Obsidian Vault 作为备选源发现
 
-> 当 xhs-crawler 因 cookie 过期 / CDP 不可用而无法提取小红书笔记内容时，Obsidian vault 可作为风格提取的备选源。
+> 当 `link-insight run start <URL>` 因授权或内容不可用而无法读取小红书笔记时，Obsidian vault 可作为风格提取的备选源；须核对来源，不能把发现卡片当成已读正文。
 
 ## 触发条件
 
