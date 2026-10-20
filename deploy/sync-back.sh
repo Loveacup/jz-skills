@@ -130,7 +130,6 @@ PAIRS=(
   "hermes/source-verification|research/source-verification"
   "hermes/tradingagents|research/tradingagents"
   "hermes/arxiv|research/arxiv"
-  "hermes/auto-diary|auto-diary"
   "shared/video-analysis-engine|video-analysis-engine"
   "shared/bilibili-video-analyzer|bilibili-video-analyzer"
   "hermes/xhs-crawler|xhs-crawler"

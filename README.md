@@ -82,7 +82,6 @@ shared/                              🧩 26 skills (+1 archived)
 
 hermes/                              ⚡ 19 skills
 ├── arxiv                        # arXiv + Semantic Scholar 论文检索
-├── auto-diary                   # 自动化日记：日→周→月→年金字塔聚合
 ├── calendar-manager             # 智能日历+提醒
 ├── call-omp                     # 🆕 OMP v0.8.0 fail-closed 审计桥（RPC/Shell/实验 ACP）
 ├── cc-tmux                      # tmux 驱动 CC v1.31.0：脚本强制护栏 · 15 测试文件 / 136 测试
@@ -210,8 +209,8 @@ Hermes 通过 RPC / Shell / 实验性 ACP 调用 OMP 做独立审计与证据化
 
 → [`shared/skill-authoring/`](shared/skill-authoring/)
 
-> Previously featured skills like cqi-plan-writer, vault-keeper, and auto-diary remain in the full catalog below but have been superseded or stabilized.
-> 此前入选的技能如 cqi-plan-writer、vault-keeper、auto-diary 仍保留在下方完整目录中，但已被取代或趋于稳定。
+> Previously featured skills like cqi-plan-writer and vault-keeper remain in the full catalog below but have been superseded or stabilized. auto-diary moved to its own private repo (`Loveacup/auto-diary`).
+> 此前入选的技能如 cqi-plan-writer、vault-keeper 仍保留在下方完整目录中，但已被取代或趋于稳定。auto-diary 已迁出到独立私有仓库 `Loveacup/auto-diary`。
 
 ---
 
@@ -261,7 +260,6 @@ Hermes 通过 RPC / Shell / 实验性 ACP 调用 OMP 做独立审计与证据化
 
 | | Skill | Purpose · 用途 |
 |---|-------|----------------|
-| 📔 | [auto-diary](hermes/auto-diary/) | Daily→yearly diary pyramid / 自动化日记 |
 | ⏰ | [cron-worker](hermes/cron-worker/) | Cron profile + pool watchdog / 定时任务 |
 | 🤖 | [claude-code](hermes/claude-code/) | CC orchestration v4.2.1 / CC 编排 |
 | 🖥️ | [cc-tmux](hermes/cc-tmux/) | Drive CC via tmux v1.31.0 / tmux 驱动 CC |

@@ -156,7 +156,6 @@ sync_hermes() {
   copy_shared_skill "$REPO_ROOT/hermes/tradingagents"              "$base/research"
   copy_shared_skill "$REPO_ROOT/hermes/arxiv"                       "$base/research"
 
-  copy_skill_dir "$REPO_ROOT/hermes/auto-diary"                      "$base"
   deploy_video_analysis_family "$base"
   copy_skill_dir "$REPO_ROOT/hermes/xhs-crawler"                     "$base"
   copy_skill_dir "$REPO_ROOT/hermes/calendar-manager"               "$base"
