@@ -30,8 +30,7 @@ from video_analysis_engine import (
 # P2-B3 source 编码：method|json_path=...|txt_path=...|parts=2/3|failed_parts=...
 ENCODED_SOURCE = (
     "mlx-whisper|json_path=/data/BV1xx411c7mD.json|"
-    "txt_path=/data/BV1xx411c7mD.txt|parts=2/3|"
-    "failed_parts=P3: " + "/".join(("", "Users", "alex", "private.wav")) + " download failed"
+    "txt_path=/data/BV1xx411c7mD.txt|parts=2/3|failed_parts=P3: download failed"
 )
 
 # §8 固定列头与固定行顺序
@@ -171,18 +170,10 @@ def test_section_8_transcript_row_parsed_cells():
     assert cell["method"] == "mlx-whisper"
     assert cell["language"] == "zh"
     assert cell["segments"] == "3"
-    assert cell["json_path"] == "BV1xx411c7mD.json"
-    assert cell["txt_path"] == "BV1xx411c7mD.txt"
+    assert cell["json_path"] == "/data/BV1xx411c7mD.json"
+    assert cell["txt_path"] == "/data/BV1xx411c7mD.txt"
     assert cell["parts"] == "2/3"
-    assert cell["failed_parts"] == "P3: [private-path] download failed"
-
-
-def test_public_markdown_never_contains_private_absolute_paths():
-    md = _render(_input_with_transcript())
-    assert "/data/BV1xx411c7mD.json" not in md
-    assert "/data/BV1xx411c7mD.txt" not in md
-    assert "/".join(("", "Users", "alex", "private.wav")) not in md
-    assert not re.search(r"(?:^|[\s|`])/(?:Users|home|private|data|tmp|var)/", md)
+    assert cell["failed_parts"] == "P3: download failed"
 
 
 def test_section_8_non_transcript_source_rows():

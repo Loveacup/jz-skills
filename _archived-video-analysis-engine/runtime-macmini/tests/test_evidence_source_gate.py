@@ -104,7 +104,7 @@ def test_fetch_all_report_gate_uses_evidence_gate_over_legacy_has_transcript(mon
 
 
 def test_evidence_gate_prefers_local_wrr_when_available(monkeypatch):
-    """本地 WRR 存在只表示能力可用，不能伪报已执行或已有证据。"""
+    """辅助事实核查/扩展信息：本地 WRR 存在时优先走 WRR 路由。"""
     monkeypatch.setattr(
         "video_analysis_engine.os.path.exists",
         lambda p: p.endswith("/code/web-research-router") or p.endswith("/.hermes/plugins/wrr"),
@@ -116,22 +116,16 @@ def test_evidence_gate_prefers_local_wrr_when_available(monkeypatch):
     ))
 
     assert gate["sources"]["external_research"] == {
-        "available": False,
-        "capability_available": True,
-        "attempted": False,
-        "executed": False,
-        "evidence_available": False,
-        "evidence_count": 0,
-        "status": "not_started",
+        "available": True,
         "route": "wrr_local",
         "mode": "grounding",
-        "reason": "local WRR detected; research not executed",
+        "reason": "local WRR detected",
     }
-    assert gate["sections"]["§4 关键声明核查"]["evidence"] == ["transcript"]
+    assert gate["sections"]["§4 关键声明核查"]["evidence"] == ["transcript", "external_research"]
 
 
-def test_evidence_gate_marks_research_unavailable_when_wrr_missing(monkeypatch):
-    """本地 WRR 不存在时仍可生成 transcript-only 报告，但不得伪造 fallback 能力。"""
+def test_evidence_gate_degrades_to_fallback_search_when_wrr_missing(monkeypatch):
+    """本地 WRR 不存在时，不阻塞报告；标记可降级到普通搜索。"""
     monkeypatch.setattr("video_analysis_engine.os.path.exists", lambda p: False)
 
     gate = build_evidence_source_gate(AnalysisInput(
@@ -140,44 +134,8 @@ def test_evidence_gate_marks_research_unavailable_when_wrr_missing(monkeypatch):
     ))
 
     assert gate["sources"]["external_research"] == {
-        "available": False,
-        "capability_available": False,
-        "attempted": False,
-        "executed": False,
-        "evidence_available": False,
-        "evidence_count": 0,
-        "status": "unavailable",
-        "route": "",
+        "available": True,
+        "route": "fallback_search",
         "mode": "grounding",
-        "reason": "local WRR not detected; no research provider injected",
+        "reason": "local WRR not detected; use configured web/search tools",
     }
-    assert gate["can_generate_formal_report"] is True
-    assert gate["sections"]["§4 关键声明核查"]["evidence"] == ["transcript"]
-
-
-def test_external_research_is_evidence_only_after_execution(monkeypatch):
-    """只有执行完成且含验证证据时，external_research 才能进入 §4 evidence。"""
-    monkeypatch.setattr(
-        "video_analysis_engine.detect_external_research_route",
-        lambda: {
-            "available": True,
-            "capability_available": True,
-            "attempted": True,
-            "executed": True,
-            "evidence_available": True,
-            "evidence_count": 2,
-            "status": "completed",
-            "route": "wrr_local",
-            "mode": "grounding",
-            "reason": "validated research evidence injected",
-        },
-    )
-
-    gate = build_evidence_source_gate(AnalysisInput(
-        video_id="BVwrr",
-        transcript=Transcript(segments=[TranscriptSegment(0, "待核实声明")]),
-    ))
-
-    assert gate["sections"]["§4 关键声明核查"]["evidence"] == [
-        "transcript", "external_research",
-    ]

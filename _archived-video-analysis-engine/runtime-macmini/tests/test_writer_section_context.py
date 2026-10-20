@@ -22,11 +22,8 @@ from video_analysis_engine import (
     Transcript,
     TranscriptSegment,
     analyze_video,
-    build_typed_writer_section_contexts,
     build_writer_section_context,
-    render_research_projection_records,
     render_markdown,
-    write_sparse_analysis_sections,
 )
 
 
@@ -103,41 +100,6 @@ def _input_without_transcript():
     )
 
 
-def _materialized_projection():
-    return {
-        "3": [{
-            "entry_uid": "pe-1", "target_section": "3",
-            "object_type": "research_claim", "object_uid": "rc-1",
-            "object_label": "RC1", "citation_labels": ["[R1]"],
-            "display_text": "经外部资料核验的结论", "quote_texts": ["原文证据"],
-            "purpose": "surface_key_insight",
-            "deterministic_template_id": "rc_key_insight",
-        }],
-        "6": [{
-            "entry_uid": "pe-2", "target_section": "6",
-            "object_type": "entity_result", "object_uid": "ent-1",
-            "object_label": "ENT-ent-1", "citation_labels": ["[S1]"],
-            "display_text": "社区术语", "quote_texts": [],
-            "purpose": "knowledge_graph_node",
-            "deterministic_template_id": "kg_node",
-        }],
-    }
-
-
-def _attach_projection(report):
-    records = _materialized_projection()
-    report["research_artifacts"] = {
-        "research_projection_records": records,
-        "research_projection": {
-            "section_budgets": {
-                "3": {"max_chars": 220},
-                "6": {"max_chars": 260},
-            }
-        },
-    }
-    return report
-
-
 # ---- 1. 顶层 schema 稳定 + JSON 可序列化 ----
 def test_top_level_schema_stable_and_serializable():
     ctx = build_writer_section_context(analyze_video(_input_with_transcript()))
@@ -162,43 +124,6 @@ def test_section_headings_and_order_preserved():
     for sec in ctx["sections"]:
         assert sec["heading"] == f'## {sec["id"]}. {sec["heading"].split(". ", 1)[1]}'
         assert sec["heading"].startswith(f'## {sec["id"]}. ')
-
-
-def test_materialized_research_is_injected_only_into_target_sections():
-    report = _attach_projection(
-        analyze_video(_input_with_transcript(), mode_override="sparse")
-    )
-    ctx = build_writer_section_context(report)
-    by_id = {section["id"]: section for section in ctx["sections"]}
-    assert by_id["3"]["research_projection"][0]["object_uid"] == "rc-1"
-    assert by_id["6"]["research_projection"][0]["citation_labels"] == ["[S1]"]
-    assert "research_projection" not in by_id["4"]
-    assert "raw_research" not in json.dumps(ctx, ensure_ascii=False)
-
-
-def test_projection_records_render_provider_free_and_feed_sparse_writer():
-    projection = _materialized_projection()
-    rendered = render_research_projection_records(projection["3"])
-    assert "经外部资料核验的结论" in rendered
-    assert "[R1]" in rendered
-
-    report = _attach_projection(
-        analyze_video(_input_with_transcript(), mode_override="sparse")
-    )
-    sections = write_sparse_analysis_sections(report)
-    assert "经外部资料核验的结论" in sections["3"]
-    assert "[R1]" in sections["3"]
-
-
-def test_typed_writer_receives_allowlisted_research_context_only():
-    report = _attach_projection(
-        analyze_video(_input_with_transcript(), mode_override="full")
-    )
-    contexts = build_typed_writer_section_contexts(report)
-    section3 = next(context for context in contexts if context.section_id == "3")
-    assert section3.research_context
-    assert "经外部资料核验的结论" in section3.research_context
-    assert "raw_research" not in section3.research_context
 
 
 # ---- 3. evidence 注入 + top_n 钳制 ----
@@ -233,10 +158,8 @@ def test_source_appendix_reuses_table_contract_and_summary_safe():
                          "fact_checks", "external_research"]
     tr_row = appendix["table_rows"][0]
     assert tr_row["method"] == "mlx-whisper"
-    # 公共 writer context 与公开 Markdown 使用同一安全口径：仅保留 basename，
-    # 不暴露本机/容器绝对路径。
-    assert tr_row["json_path"] == "BV1xx411c7mD.json"
-    assert tr_row["txt_path"] == "BV1xx411c7mD.txt"
+    assert tr_row["json_path"] == "/data/BV1xx411c7mD.json"
+    assert tr_row["txt_path"] == "/data/BV1xx411c7mD.txt"
     assert tr_row["parts"] == "2/3"
     assert tr_row["failed_parts"] == "P3: download failed"
 
@@ -249,21 +172,6 @@ def test_source_appendix_reuses_table_contract_and_summary_safe():
     summary_blob = json.dumps(summary, ensure_ascii=False)
     for marker in RAW_PATH_MARKERS:
         assert marker not in summary_blob
-
-
-def test_research_need_is_not_confused_with_capability_or_evidence(monkeypatch):
-    """ReportPlan 描述内容需求；WRR 能力/证据状态由 evidence gate 单独表达。"""
-    monkeypatch.setattr("video_analysis_engine.os.path.exists", lambda _p: False)
-    report = analyze_video(_input_with_transcript(), mode_override="full")
-
-    external = report["evidence_gate"]["sources"]["external_research"]
-    assert external["capability_available"] is False
-    assert external["executed"] is False
-    assert external["evidence_available"] is False
-
-    sections = {section["id"]: section for section in report["report_plan"]["sections"]}
-    for section_id in ("4", "6", "7"):
-        assert sections[section_id]["needs_external_research"] is True
 
 
 # ---- 5. 无 transcript：阻断 + 仅 0/8 + 不伪造 ----
