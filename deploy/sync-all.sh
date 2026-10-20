@@ -152,7 +152,6 @@ sync_hermes() {
 
   # Hermes-specific skills
   mkdir -p "$base/research" "$base/productivity" "$base/governance" "$base/autonomous-ai-agents" "$base/devops" "$base/smart-home" "$base/apple" "$base/hermes" "$base/social-media"
-  copy_skill_dir "$REPO_ROOT/hermes/web-research-router"             "$base/research"
   copy_skill_dir "$REPO_ROOT/hermes/source-verification"            "$base/research"
   copy_shared_skill "$REPO_ROOT/hermes/tradingagents"              "$base/research"
   copy_shared_skill "$REPO_ROOT/hermes/arxiv"                       "$base/research"
@@ -202,7 +201,6 @@ sync_hermes() {
     copy_skill_dir "$REPO_ROOT/shared/github"                "$pd"
     copy_skill_dir "$REPO_ROOT/shared/xhs-tech-writer"        "$pd/hermes"
     copy_shared_skill "$REPO_ROOT/shared/bookmark-organizer"     "$pd"
-    copy_skill_dir "$REPO_ROOT/hermes/web-research-router"             "$pd/research"
     copy_skill_dir "$REPO_ROOT/hermes/source-verification"            "$pd/research"
     copy_shared_skill "$REPO_ROOT/hermes/tradingagents"              "$pd/research"
     copy_shared_skill "$REPO_ROOT/hermes/arxiv"                       "$pd/research"

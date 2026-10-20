@@ -127,7 +127,6 @@ PAIRS=(
 
   # === hermes ===
   "hermes/cron-worker|cron-worker"
-  "hermes/web-research-router|research/web-research-router"
   "hermes/source-verification|research/source-verification"
   "hermes/tradingagents|research/tradingagents"
   "hermes/arxiv|research/arxiv"
