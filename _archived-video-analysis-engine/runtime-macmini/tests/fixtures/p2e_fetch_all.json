@@ -1,0 +1,36 @@
+{
+  "bvid": "BVp2eQualityGate",
+  "title": "P2-E 质量闸回归样片",
+  "author": "fixture",
+  "description": "用于验证 fetch_all JSON 到 report quality gates 的确定性回归夹具。",
+  "subtitle": {
+    "method": "fixture-official",
+    "json_path": "tests/fixtures/p2e_subtitle.json",
+    "txt_path": "tests/fixtures/p2e_subtitle.txt",
+    "language": "zh-Hans",
+    "parts": 1,
+    "total_parts": 1,
+    "failed_parts": []
+  },
+  "comments": {
+    "hot_comments": [
+      {"content": "这个案例解释了计划性报废的逻辑，很适合做知识笔记。", "like": 42, "user": {"name": "观众A"}},
+      {"content": "希望补充更多外部资料核查菲波斯卡特尔的背景。", "like": 17, "user": {"name": "观众B"}}
+    ]
+  },
+  "danmaku": {
+    "data": [
+      {"text": "原来灯泡也有这种历史", "time_sec": 10},
+      {"text": "计划性报废", "time_sec": 80},
+      {"text": "这个案例很反直觉", "time_sec": 120}
+    ]
+  },
+  "cross_platform": {
+    "source_url": "https://www.youtube.com/watch?v=fixture",
+    "youtube_comments": {
+      "comments": [
+        {"text": "This is a useful example of planned obsolescence.", "like_count": 12, "author": "yt-user"}
+      ]
+    }
+  }
+}

@@ -21,7 +21,7 @@ Inspired by AnySearch's 23 vertical search domains. When a query clearly belongs
 | **Product** | Company, tool, comparison | Exa + Brave (discovery) | Cross-check multiple sources |
 | **People** | Biography, profile, background | Exa + Brave (discovery) | Cross-check multiple sources |
 | **Image** | Visual search, diagram, photo | Web search → `vision_analyze` | Search for image URL, then analyze |
-| **Video** | YouTube, Bilibili, tutorial | Exa + Brave 起手 → extract | Use `youtube-content` or `bilibili-video-analyzer` |
+| **Video** | YouTube, Bilibili, tutorial | Exa + Brave 起手 → extract | Use `link-insight` for single-video evidence analysis |
 | **Audio** | Podcast, sound, music | Web search | Consider `spotify` skill for music |
 | **Data** | Statistics, dataset, CSV | Exa (discovery) → fetch | Prefer official sources (.gov, .edu, .org) |
 | **Document** | PDF, report, whitepaper | Exa (discovery) | Use `filetype:pdf` in query |

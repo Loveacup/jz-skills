@@ -29,33 +29,6 @@ copy_skill_dir() {
   fi
 }
 
-# Deploy the video-analysis family without leaking private evidence or deleting
-# legacy runtime assets (cookies/history remain until separately retired).
-deploy_video_analysis_family() {
-  local base="$1"
-  local engine_src="$REPO_ROOT/shared/video-analysis-engine"
-  local engine_target="$base/video-analysis-engine"
-  local legacy_src="$REPO_ROOT/shared/bilibili-video-analyzer"
-  local legacy_target="$base/bilibili-video-analyzer"
-
-  if [ ! -d "$engine_src" ] || [ ! -f "$legacy_src/SKILL.md" ]; then
-    echo "  ⚠️  skip incomplete video-analysis family"
-    return
-  fi
-
-  mkdir -p "$engine_target" "$legacy_target"
-  rsync -a --delete \
-    --exclude '.p6r-cache/' \
-    --exclude '.cookies/' \
-    --exclude '.cache/' \
-    --exclude 'cache/' \
-    --exclude '__pycache__/' \
-    --exclude '.pytest_cache/' \
-    --exclude '*.pyc' \
-    "$engine_src/" "$engine_target/"
-  cp "$legacy_src/SKILL.md" "$legacy_target/SKILL.md"
-  echo "  📺 video-analysis-engine deployed; legacy entry updated in place"
-}
 
 # Deploy a Hermes-ops skill through the centralized canonical pool, then
 # repoint the Hermes runtime entry to that pool. This preserves the
@@ -156,8 +129,7 @@ sync_hermes() {
   copy_shared_skill "$REPO_ROOT/hermes/tradingagents"              "$base/research"
   copy_shared_skill "$REPO_ROOT/hermes/arxiv"                       "$base/research"
 
-  deploy_video_analysis_family "$base"
-  copy_skill_dir "$REPO_ROOT/hermes/xhs-crawler"                     "$base"
+  copy_skill_dir "$REPO_ROOT/hermes/auto-diary"                      "$base"
   copy_skill_dir "$REPO_ROOT/hermes/calendar-manager"               "$base"
   copy_skill_dir "$REPO_ROOT/hermes/cron-worker"                    "$base"
   copy_skill_dir "$REPO_ROOT/hermes/de-slop"                        "$base"

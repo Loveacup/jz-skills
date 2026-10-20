@@ -130,9 +130,7 @@ PAIRS=(
   "hermes/source-verification|research/source-verification"
   "hermes/tradingagents|research/tradingagents"
   "hermes/arxiv|research/arxiv"
-  "shared/video-analysis-engine|video-analysis-engine"
-  "shared/bilibili-video-analyzer|bilibili-video-analyzer"
-  "hermes/xhs-crawler|xhs-crawler"
+  "hermes/auto-diary|auto-diary"
   "hermes/calendar-manager|calendar-manager"
   "hermes/de-slop|de-slop"
   "hermes/call-omp|autonomous-ai-agents/call-omp"
@@ -179,42 +177,6 @@ for pair in "${PAIRS[@]}"; do
     continue
   fi
 
-  # Canonical video-analysis source is repository-owned. Runtime may contain
-  # credentials, private evidence, or drift and must never replace the repo.
-  if [[ "$repo_path" == "shared/video-analysis-engine" ]]; then
-    if in_scope "$repo_path" && [ "$DRY_RUN" = false ]; then
-      echo "ERROR: reverse sync is forbidden for repo-owned $repo_path" >&2
-      echo "Deploy repo → runtime with sync-all.sh instead." >&2
-      exit 3
-    fi
-    echo "  🔒 $repo_path (repo-owned; reverse sync disabled)"
-    continue
-  fi
-
-  # The deprecated Bilibili entry is a forwarding shim. Runtime retains old
-  # scripts/cookies for rollback, so reverse sync must never resurrect that
-  # payload into the repository.
-  if [[ "$repo_path" == "shared/bilibili-video-analyzer" ]]; then
-    [ ! -f "$src/SKILL.md" ] && { echo "  ⚠️  $repo_path → runtime shim missing — skipped"; continue; }
-    [ ! -f "$dst/SKILL.md" ] && { echo "  ⚠️  $repo_path → repo shim missing — skipped"; continue; }
-    cmp -s "$src/SKILL.md" "$dst/SKILL.md" && continue
-    diff_output=$(diff -u "$dst/SKILL.md" "$src/SKILL.md" 2>/dev/null || true)
-    DRIFT_COUNT=$((DRIFT_COUNT + 1))
-    if ! in_scope "$repo_path"; then
-      SCOPE_DRIFT_COUNT=$((SCOPE_DRIFT_COUNT + 1))
-      echo "  ↪️  $repo_path (out of scope; SKILL.md only)"
-      echo "$diff_output" | sed 's/^/     /'
-      continue
-    fi
-    echo "  📝 $repo_path (SKILL.md only)"
-    echo "$diff_output" | sed 's/^/     /'
-    if [ "$DRY_RUN" = false ]; then
-      cp "$src/SKILL.md" "$dst/SKILL.md"
-      [ "$SANITIZE" = true ] && sanitize_dir "$dst"
-      CHANGED=$((CHANGED + 1))
-    fi
-    continue
-  fi
 
   [ ! -d "$src" ] && { echo "  ⚠️  $repo_path → source not found — skipped"; continue; }
   [ ! -d "$dst" ] && { echo "  ⚠️  $repo_path → dest not found — skipped"; continue; }
