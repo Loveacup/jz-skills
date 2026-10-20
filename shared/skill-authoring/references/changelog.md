@@ -2,6 +2,14 @@
 
 Version entries describe changes, not proof that a runtime loaded or correctly used them. Deployment and publication require their own evidence. From v6.1.0 each entry states what it improved, what it preserved, and how that was confirmed, citing IDs from [core requirements](./core-requirements.md).
 
+## v6.1.1 — 2026-10-20
+
+**Improved.** CR10: independent review found `core-requirements.md` demanding that *every* revision update both documents, contradicting the wording-only path and the conditional update in the root and Author; scoped it to behavior changes, with the requirements file touched only when a requirement was added, narrowed or retired. [Author](author.md#keep-the-skill-traceable) is now the single full statement; root and `core-requirements.md` link to it.
+
+**Preserved.** CR01–CR09 and all v6.1.0 content.
+
+**Confirmed.** Reviewer (fresh context, same model family) checked all CR anchors, the article's seven points and three examples against the merged text and found no other contradiction; the merged [Agent instructions](agent-instructions.md) guide was re-run on the six-rule fixture `AGENTS.md` and produced the intended narrowings while keeping the push/apply boundary and the required integration gate. Links resolved by script; frontmatter 6.1.1.
+
 ## v6.1.0 — 2026-10-20
 
 Source: the OpenAI Developers article [Rethinking skills and prompts for GPT-6 Astra](https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra), fetched 2026-10-20; it supersedes the earlier post capture as the cited source. Merged semantically onto v6.0.0 after a parallel v5.2.x line (branch `local-v5.2.1`, built on v5.1.1) was found to overlap with the v6 redesign; v6's structure wins, only the additive points below were carried over.

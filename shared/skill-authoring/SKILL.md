@@ -2,7 +2,7 @@
 name: skill-authoring
 description: Create, revise, import, or audit Agent Skills; govern a named skill collection or agent instruction files such as AGENTS.md. Not for ordinary coding or executing a skill's subject task.
 type: routine
-version: 6.1.0
+version: 6.1.1
 author: Hermes Agent
 license: MIT
 metadata:
@@ -50,4 +50,4 @@ Complete the requested artifact and inspect whether it actually serves the task.
 
 Creation or review does not grant permission to publish, delete, repoint a consumer, change credentials or deploy elsewhere. Follow the named action's authority and the conditional release guidance. Missing required evidence leaves that claim blocked, while independent work can continue. Changing this skill does not waive the rules currently governing the session.
 
-Describe what changed, what was actually checked and what remains uncertain. Prefer repairing an implicated idea or resource to accumulating another warning after every run. A behavior change ends by recording what it improved, preserved and how that was confirmed in the skill's change history, citing the requirement IDs touched, and by updating the core requirements where one was added, narrowed or retired.
+Describe what changed, what was actually checked and what remains uncertain. Prefer repairing an implicated idea or resource to accumulating another warning after every run. A behavior change also leaves its trace in the skill's change history and core requirements as [Author](references/author.md#keep-the-skill-traceable) describes.
