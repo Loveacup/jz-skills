@@ -51,9 +51,9 @@ print(f"✅ SKILL.md 覆盖全部参数/格式/{len(themes)} 主题")
 PY
 
 if [ "$MODE" != "--source-only" ]; then
-  # [full] source vs canonical：仅允许 build 噪声差异
+  # [full] source vs canonical：允许构建噪声及部署时明确排除的 Git 元数据差异
   if [ -d "$CANON" ]; then
-    d=$(diff -rq "$SRC" "$CANON" 2>&1 | grep -vE "$FILT" || true)
+    d=$(diff -rq -x .git "$SRC" "$CANON" 2>&1 | grep -vE "$FILT" || true)
     if [ -n "$d" ]; then echo "❌ source != canonical:"; echo "$d" | sed 's/^/    /'; FAIL=1
     else echo "✅ source == canonical"; fi
   else
@@ -74,7 +74,7 @@ if [ "$MODE" != "--source-only" ]; then
     if [ "$tgt" != "$CANON" ]; then
       echo "❌ SYMLINK: $r -> ${tgt:-<非软链>}（应 -> $CANON）"; FAIL=1; continue
     fi
-    d=$(diff -rq "$r/" "$CANON/" 2>&1 | grep -vE "$FILT" || true)
+    d=$(diff -rq -x .git "$r/" "$CANON/" 2>&1 | grep -vE "$FILT" || true)
     [ -n "$d" ] && { echo "❌ DRIFT runtime $r"; FAIL=1; } || echo "✅ runtime ok: $r"
   done
 fi
