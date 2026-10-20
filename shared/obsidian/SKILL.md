@@ -196,24 +196,14 @@ defuddle parse <url> --md -o content.md
 
 ## Obsidian Sync
 
-When working with notes that may have been modified on other devices, ensure Obsidian is running so the official Obsidian Sync service can sync changes.
+Mac mini 上的 vault 由 Obsidian 无头同步（`obsidian-headless sync --continuous`）常驻同步，launchd 任务 `com.alexcai.obsidian-headless-continuous` 托管，不需要也不要为同步拉起 GUI 版 Obsidian。
 
-**Trigger sync programmatically:**
-```python
-# ~/.hermes/skills/auto-diary/scripts/obsidian_sync.py
-import subprocess
-
-def sync_obsidian():
-    result = subprocess.run(["pgrep", "-x", "Obsidian"], capture_output=True)
-    if result.returncode == 0:
-        return {"status": "already_running", "message": "Obsidian sync active"}
-    
-    subprocess.Popen(
-        ["open", "-a", "Obsidian", "--args", "--vault", vault_path],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-    )
-    return {"status": "launched", "message": "Obsidian started, sync connecting"}
+**检查 / 修复同步：**
+```bash
+/usr/bin/python3 /Users/alexcai/.hermes/skills/auto-diary/scripts/vault_sync.py
+# 输出 result: ok / repaired / broken；不正常时会自动 launchctl kickstart 重启并复查
 ```
+状态文件 `~/.hermes/state/obsidian-sync-continuous.json`（status / heartbeat_at / last_fully_synced_at），日志 `~/.hermes/logs/obsidian-sync-continuous.log`。
 
 **Open note via URI:**
 ```bash
