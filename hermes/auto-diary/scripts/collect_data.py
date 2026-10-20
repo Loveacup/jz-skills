@@ -210,7 +210,7 @@ def format_cc_for_diary(summaries):
     return "\n".join(lines)
 
 def get_ai_logs(date_str):
-    ai={"hermes":[],"claude":[]}
+    ai={"hermes":[],"claude":[],"omp":{}}
     sp=Path(__file__).parent;sys.path.insert(0,str(sp))
     try:
         from extract_hermes_conversations import build_profile_overview,extract_hermes_summary,format_for_diary
@@ -219,6 +219,12 @@ def get_ai_logs(date_str):
     try:
         cd=extract_cc_summary(date_str);ai["claude"]=cd;ai["claude_overview"]=build_cc_overview(cd);ai["claude_formatted"]=format_cc_for_diary(cd)
     except Exception as e: print(f"CC extraction error: {e}",file=sys.stderr)
+    try:
+        from extract_omp_conversations import extract_omp_conversations
+        ai["omp"]=extract_omp_conversations(date_str)
+    except Exception as e:
+        print(f"OMP extraction error: {e}",file=sys.stderr)
+        ai["omp"]={"date":date_str,"source":"omp","status":"error","session_count":0,"sessions":[]}
     return ai
 
 def read_file_safe(path,timeout_secs=3):

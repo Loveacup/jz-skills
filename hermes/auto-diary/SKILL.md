@@ -4,7 +4,7 @@ name: auto-diary
 description: |
   自动化日记生成和四层聚合（日/周/月/年）。cron 定时触发：每日日记(23:00)、每周周报(Mon 09:00)、
   每月月报(1号 09:30)、每年年报(1/1 10:00)。采集天气(Open-Meteo)、日历(icalBuddy)、
-  AI 对话(Hermes state.db + CC JSONL)、知识库变更(Obsidian vault + jz-skills git commits)、钉钉班级群消息(dingwave 解密本地 DB)，经校验闭环交付。
+  AI 对话(Hermes state.db + OMP sessions JSONL + Codex + CC JSONL)、知识库变更(Obsidian vault + jz-skills git commits)、钉钉班级群消息(dingwave 解密本地 DB)，经校验闭环交付。
   支持日历事件回填和日记清理。详见知识库 [[日记系统-三机架构与路线图]]。
 
   Use when: cron triggers or user manually requests
@@ -12,12 +12,12 @@ description: |
 
   DO NOT use for: general note-taking, non-diary content generation, one-off research.
 type: routine
-version: 3.8.2
-author: Hermes Agent — v3.8.2 跨运行时架构 + Codex v2.1 富提取 · v3.8.1 JSONL 双源修复 · v3.8.0 新增 Codex 会话采集 + 去重 cron ID + 文档漂移修复 · v3.7.0 git diff 扫 vault 删除 + git log 扫 jz-skills 提交 · v3.6.3 pwd.getpwuid() 绕过 cron HOME 污染
+version: 3.9.0
+author: Hermes Agent — v3.9.0 OMP 原生会话采集 · v3.8.2 跨运行时架构 + Codex v2.1 富提取 · v3.8.1 JSONL 双源修复 · v3.8.0 新增 Codex 会话采集 + 去重 cron ID + 文档漂移修复 · v3.7.0 git diff 扫 vault 删除 + git log 扫 jz-skills 提交 · v3.6.3 pwd.getpwuid() 绕过 cron HOME 污染
 
 ---
 
-# Auto-Diary v3.8.0
+# Auto-Diary v3.9.0
 
 自动化日记生成 + 四层聚合（日/周/月/年）。Cron 定时触发或手动调用。
 
@@ -61,7 +61,8 @@ author: Hermes Agent — v3.8.2 跨运行时架构 + Codex v2.1 富提取 · v3.
 | \"CC sessions are all the same, I'll list them flat\" | 🔴 **CC three-type split** (v3.2): 🤝 Agent Team 协作 / 💻 独立对话 / 🤖 程序调用。Group by type THEN by project, per-project topics. Data in `claude_overview.agent_team`, `.standalone`, `.program_call`. Classification uses CC native metadata (entrypoint + parentUuid), not text matching. |
 | \"Codex sessions are all guardian noise, I'll skip them\" | 🔴 **Codex blind spot** (v3.8.0): Codex sessions were completely absent from diaries before v3.8.0. Data source: `~/.codex/state_5.sqlite` → threads table (Unix timestamps) AND `~/.codex/sessions/YYYY/MM/DD/*.jsonl` (v3.8.1 双源). Three-type split: 💻 独立 (vscode) / 🤝 Guardian (subagent) / 🤖 程序 (exec/cli). Guardian 会话虽多是审批 noise，但也有实质性运维会话（如 skill 中心化治理）。不能整体跳过。v3.8.2: 每条独立对话必须有时间、消息数、轮次数、2-4 行具体描述和 🔗 跨运行时联动标注。 |
 | \"I'll group all Codex sessions into one summary line\" | 🔴 **Codex 信息过薄** (v3.8.2): 凭记忆写日记导致 Codex 被压缩为一行（如"Agent Skills 自动化 (7)"），丢失 729 消息 19 轮的深度审查会话、8922 消息 96 轮的需求分析会话。正确做法：`extract_codex_conversations.py` v2.1 提取每条会话的消息数/轮次/用户话题/助手行为摘要，逐条展开写。日记格式见 `diary-format.md` v3.3。 |
-| \"The AI sections are independent silos\" | 🔴 **跨运行时盲区** (v3.8.2): Hermes、Codex、CC 在同一任务线上协作，但旧格式把它们写成独立段落。v3.8.2 新增 `🔗 跨运行时协作主线` note callout——从三段数据中提取端到端链路（发起方 → 审计/执行 → 交付物），用 `→` 展示。CC 和 Codex 段落内的项目也需标 `🔗` 联动标注。 |
+| "OMP 未出现在日记里，所以可以当作没有活动" | 🔴 v3.9.0 新增 `ai_logs.omp`：按 `Asia/Shanghai` 日期从 `~/.omp/agent/sessions/*.jsonl` 提取原生 OMP 会话。只取用户可见文本与最终助手回答，跳过 thinking、工具调用/结果；分开统计主会话与分支。`status=unavailable/partial/error` 不得写成 0。默认按目标日零点 mtime 增量扫描；历史回填或旧 mtime 归档可用 `OMP_FULL_SCAN=1`，可能扫描整个会话库。不得逐字引用用户消息；按每条会话摘要。标题/话题无法可靠区分导入的 Codex/CC 会话，交叉去重只能基于明确证据。`call-omp` 使用 `--no-session`，其 `/tmp` prompt/raw 不属于本数据源；本次不建立持久审计账本。 |
+| "The AI sections are independent silos" | 🔴 **跨运行时盲区** (v3.8.2): Hermes、Codex、OMP、CC 在同一任务线上协作，但旧格式把它们写成独立段落。`🔗 跨运行时协作主线` note callout 从各运行时数据中提取端到端链路（发起方 → 审计/执行 → 交付物），用 `→` 展示。CC、Codex 和 OMP 段落内的项目也需标 `🔗` 联动标注。 |
 | "Knowledge base changes are independent" | 🔴 **KB ↔ AI linking** (v3.1): Every vault change was produced by an AI session. Cross-reference `vault_changes` paths/titles with session topics. Group by source system (🐴/🏛️/💻). Unreliable matches → mark `(推断)`. |
 | "I'll batch-generate all 31 diaries with a Python loop, it'll be fast" | 🔴 **批量生成 = 垃圾** (v3.2): 用户明确拒绝模板填充式批量生成。正确做法：逐条处理，用 cron 输出摘要的叙事做底子，三问必须有洞察力。详见 `references/batch-generation-pitfall.md`。 |
 | "I've written diaries before, I know the format — no need to load diary-format.md" | 🔴 **NEVER write from memory** (v3.3): 凭记忆写日记导致 2026-06-02 全月重写——用户发现缺失 info callout、段落合并、三问缩写、CC 未按三组拆分、底部分段拍扁、tip 格式错误。教训：写或重写任何日记之前，**必须** `skill_view(name='auto-diary', file_path='references/diary-format.md')` 加载格式 spec，逐段对照写。记忆不可信。 |
@@ -84,13 +85,13 @@ Trigger received (cron or manual)?
 
 1. Determine target date (default today)
 2. Run: `python3 {baseDir}/scripts/collect_data.py diary YYYY-MM-DD`
-   - Returns: `vault_changes` (find-based), `vault_deletions` (git diff), `jzskills_commits` (git log), plus weather/ai_logs/calendar/dingtalk
+   - Returns: `vault_changes` (find-based), `vault_deletions` (git diff), `jzskills_commits` (git log), plus weather/ai_logs/calendar/dingtalk; `ai_logs.omp` supplies native OMP session summaries and an explicit source status.
 3. Check calendar with icalBuddy using calendars `个人1,工作1,Naomi1,Zelda1` (iCloud `<email redacted>`)
 4. **🔴 知识库双源** (v3.7.0): 日记的知识库部分必须同时呈现 Obsidian vault 变更（含 `vault_deletions`）和 jz-skills git commits。两者都做 AI 会话关联
 5. Read format spec: `{baseDir}/references/diary-format.md`
 6. **🔴 Cron health check** (v3.8.0): Run `hermes --profile cron-worker cron list | grep a68f4f81b3ee`. If the daily diary cron job_id is absent from the cron-worker scheduler, note it in the diary's 临时笔记 section and report it in the final response. The config archive at `config/cron-job.json` still holds the correct parameters for reconstruction.
-7. Generate diary with 10 sections: 🎯每日总结(三问) → 🌤️概览(weather+mood) → ⏰时间线(calendar) → 🤖AI工作记录（📊全天AI活动概览 callout → 🔗跨运行时协作主线 callout → 🐴助理体系 → 🏛️治理体系 → 🤖Codex → 💻CC） → 📚知识库更新（含 Obsidian vault + jz-skills git commits） → 📅日历事件(detailed table) → 🏠个人生活(placeholder) → ✅待办 → 📝临时笔记 → 💡tip 页脚
-   - 🔴 **v3.3 必须 callout**（C1 修复）：`🤖 AI助手工作记录` 章节开头必须先有 `> [!info] 📊 全天AI活动概览` 和 `> [!note] 🔗 跨运行时协作主线` 两个 callout，再接四体系。漏写会被 `verify_diary_compliance.py` 判 FAIL。
+7. Generate diary with 10 sections: 🎯每日总结(三问) → 🌤️概览(weather+mood) → ⏰时间线(calendar) → 🤖AI工作记录（📊全天AI活动概览 callout → 🔗跨运行时协作主线 callout → 🐴助理体系 → 🏛️治理体系 → 🤖Codex → 🧭OMP → 💻CC） → 📚知识库更新（含 Obsidian vault + jz-skills git commits） → 📅日历事件(detailed table) → 🏠个人生活(placeholder) → ✅待办 → 📝临时笔记 → 💡tip 页脚
+   - 🔴 **v3.3 必须 callout**（C1 修复）：`🤖 AI助手工作记录` 章节开头必须先有 `> [!info] 📊 全天AI活动概览` 和 `> [!note] 🔗 跨运行时协作主线` 两个 callout，再接各运行时记录。漏写会被 `verify_diary_compliance.py` 判 FAIL。
 8. **CRITICAL 合并安全**: `collect_data.py` 的 `existing_content` 恒为 `null`（已知限制,脚本不读已有日记）。所以写入前**必须先 `Read` 目标日记文件**;若已存在用户手写内容 → 合并,保留用户文字,只填空缺。不可盲目覆盖。
 9. **校验闭环**: 写完后运行 `python3 {baseDir}/scripts/verify_diary_compliance.py <写入的文件>`;若 FAIL,对照 `diary-format.md` 逐项重写,直到 PASS 再交付
 10. Write to Obsidian vault
@@ -165,6 +166,7 @@ Trigger: User notices persistent "当日无日历事件" on days that had events
 | icalBuddy | Calendar queries (`brew install ical-buddy`) |
 | Open-Meteo API | Weather (free, no API key) |
 | `state.db` SQLite | Hermes session extraction (see `references/hermes-session-extraction.md`) |
+| `~/.omp/agent/sessions/*.jsonl` | Native OMP user-visible session extraction (thinking and tool results excluded) |
 | `~/.claude/projects/*/uuid.jsonl` | Claude Code session extraction (see `references/cc-session-extraction.md`) |
 | `find` command | Vault change detection |
 

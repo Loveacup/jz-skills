@@ -1,4 +1,4 @@
-# 日记格式规范 v3.3
+# 日记格式规范 v3.4
 
 本文档定义日记 markdown 的完整输出格式。生成日记时必须遵循。
 
@@ -19,7 +19,7 @@ tags: [type/日记, status/闪念, src/对话]
 > [!abstract] 📋 今日速览
 > - 🌤️ {天气}
 > - 📅 {N} 个日历事件
-> - 🐴 Hermes {N} 会话（助理 X + 治理 Y）· 🤖 Codex {N} 会话（💻独立 A + 🤝Guardian B + 🤖程序 C）· 💻 CC {N} 会话（🤝协作 N + 💻独立 N + 🤖程序 N）
+> - 🐴 Hermes {N} 会话（助理 X + 治理 Y）· 🤖 Codex {N} 会话（💻独立 A + 🤝Guardian B + 🤖程序 C）· 🧭 OMP {N} 会话（主 N + 分支 N）· 💻 CC {N} 会话（🤝协作 N + 💻独立 N + 🤖程序 N）
 > - 📚 {N} 个知识库变更 · 📦 jz-skills {N} 个 commit
 ```
 
@@ -73,7 +73,7 @@ tags: [type/日记, status/闪念, src/对话]
 
 ### 4. 🤖 AI助手工作记录
 
-**🔴 铁律：严禁引用用户原话。** 穷举覆盖：所有 topic 必须体现。
+**🔴 铁律：严禁引用用户原话。** 穷举覆盖所有可见会话主题；若 `user_topics_omitted` 或 `assistant_summaries_omitted` 大于 0，明确把该会话当作采样摘要，不宣称已经穷尽原文。
 
 #### 📊 全天AI活动概览（必须）
 
@@ -83,6 +83,7 @@ tags: [type/日记, status/闪念, src/对话]
 > [!info] 📊 全天AI活动概览
 > - **🐴 Hermes**: {N} 会话（助理 X + 治理 Y）· 全平台（telegram + cli）
 > - **🤖 Codex**: {N} 会话 · 💻 独立 {N} + 🤝 Guardian {N} + 🤖 程序 {N}
+> - **🧭 OMP**: {N} 会话 · 主 {N} + 分支 {N} · {N} 用户轮次 / {N} 最终答复
 > - **💻 CC**: {N} 会话 · {N} 消息 · {N} 轮次
 ```
 
@@ -93,15 +94,15 @@ tags: [type/日记, status/闪念, src/对话]
 
 ```markdown
 > [!note] 🔗 跨运行时协作主线
-> - **{任务线名}**：🐴 Hermes 发起 → 🤖 Codex 审计 → 💻 CC 执行 → 📝 Obsidian 落地
+> - **{任务线名}**：🐴 Hermes 发起 → 🤖 Codex / 🧭 OMP 审计 → 💻 CC 执行 → 📝 Obsidian 落地
 > - **{任务线名}**：🏛️ regent 决策 → 💻 CC Agent Team → 📦 jz-skills 提交
 ```
 
-- 从 Hermes/Codex/CC 三段数据中提取跨运行时任务流
+- 从 Hermes/Codex/OMP/CC 会话数据中提取跨运行时任务流
 - 按 `→` 展示端到端链路：发起方 → 审计/中转 → 执行方 → 交付物
 - 最多 4-5 条主线，按重要性排序
 - Codex=0 时标注 `（Codex 接入前夜）`，只展示 Hermes↔CC 协作
-- ⚠️ **🔗主线为 agent 综合推断**（`_detect_cross_runtime` 仅做 cwd 字符串匹配）。diary-format 和 SKILL.md 的 Red Flags 均要求穷举覆盖+不凭记忆写——agent 必须基于会话数据做端到端链路推断，**不得凭记忆杜撰**。未来待做：在 `collect_data.py` 做真正的三方任务线 join 给数据支撑。
+- ⚠️ **🔗主线为 agent 综合推断**（当前无四运行时任务 ID join）。必须以会话数据、项目和时间为证；不凭记忆杜撰。OMP 与 Codex/CC 可能是导入或续接关系，缺少明确标记时不得声称是独立产出，也不得重复计算同一交付物。
 
 #### 🐴 助理体系
 
@@ -153,6 +154,27 @@ tags: [type/日记, status/闪念, src/对话]
 - 🔗 标注联动关系（审查 Hermes / 联动 CC / 维护共享基础设施）
 - 自动化会话标注 `automation_id`
 - 无独立对话时写 `> 今日无 Codex 独立对话`
+
+#### 🧭 OMP（原生会话）
+
+```markdown
+### 🧭 OMP
+
+> [!info] 📊 数据概览
+> - 会话: {N}（主 {N} + 分支 {N}）· 用户轮次: {N} · 助手最终答复: {N}
+> - 来源状态: {ok / empty / partial / unavailable / error}
+
+- **{项目 / 会话标题}**（{HH:MM} · {用户轮次} 轮 · 分支/主会话）
+  - {概括用户目标与关键工作}
+  - → {有证据的结果或未完成项}
+```
+
+- 数据来自 `ai_logs.omp`，默认读取 `~/.omp/agent/sessions/*.jsonl`；可用 `OMP_SESSIONS_DIR` 显式指定目录。常规模式只扫描 mtime 不早于目标日零点的文件；历史回填如文件保留了旧 mtime，设置 `OMP_FULL_SCAN=1`（或直接运行提取器时加 `--full-scan`），这可能读取整个会话库。
+- 只提取 `Asia/Shanghai` 当日的 user 文本和最终 assistant 文本；不读取 thinking、toolCall、toolResult，也不把文本原样写入日记。
+- `unavailable`、`partial` 或 `error` 必须说明采集边界，不得伪装成 0 会话；`empty` 才表示当日没有命中会话。
+- 每条会话最多保留 12 条用户主题摘录与 8 条最终答复摘要；省略数量通过 `user_topics_omitted` / `assistant_summaries_omitted` 标明。被截断时用标题和可见摘录谨慎归纳。
+- `parent_session_id` 非空表示分支/子会话；单独计数，不与主会话混淆。
+- OMP 自身没有可靠的导入来源标记：与 Codex/CC 的重复仅在证据明确时合并叙述。`call-omp` 使用 `--no-session`，其临时 prompt/raw 不在本源范围内。
 
 #### 💻 Claude Code（v3.3 🔗联动标注）
 
