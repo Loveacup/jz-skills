@@ -1382,6 +1382,8 @@ def run_watch(args):
     deadline = started + timeout
     last_status = None
     observations = 0
+    error_observations = 0
+    last_error = None
 
     def finish(stop_reason):
         result = last_status if last_status is not None else {
@@ -1392,11 +1394,16 @@ def run_watch(args):
             "status_available": last_status is not None,
             "observations": observations,
             "elapsed_seconds": round(time.monotonic() - started, 3),
+            "error_observations": error_observations,
+            **({"last_error": last_error} if last_error is not None else {}),
             "timed_out": stop_reason == "timeout",
             "stop_reason": stop_reason,
         })
-        return result, (PENDING_EXIT if stop_reason == "timeout"
-                        else _status_exit(result))
+        return result, (
+            PENDING_EXIT if stop_reason == "timeout" and (
+                last_status is None or result["error_scope"] == "none")
+            else _status_exit(result)
+        )
 
     while True:
         remaining = deadline - time.monotonic()
@@ -1413,6 +1420,8 @@ def run_watch(args):
                 "command": "watch",
                 "transfer_id": transfer_id,
                 "observations": observations,
+                "error_observations": error_observations,
+                **({"last_error": last_error} if last_error is not None else {}),
                 "elapsed_seconds": round(time.monotonic() - started, 3),
                 "stop_reason": "rpc_error",
             })
@@ -1422,8 +1431,16 @@ def run_watch(args):
         observations += 1
         last_status = _status_result(transfer_id, transfer)
         if last_status["error_scope"] != "none":
-            return finish("error")
+            error_observations += 1
+            last_error = {
+                key: last_status[key]
+                for key in ("status_code", "status_name", "error_scope", "reason")
+            }
+        # Paused/error observations are not terminal; Blip may still finish the same
+        # transfer. Keep observing without mutations or extending the deadline.
         if last_status["terminal"]:
+            if last_status["error_scope"] != "none":
+                return finish("error")
             return finish("completed" if last_status["completed"] else "cancelled")
         remaining = deadline - time.monotonic()
         if remaining <= 0:

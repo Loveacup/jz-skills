@@ -1364,11 +1364,54 @@ class ReadOnlyWatchTests(unittest.TestCase):
                 self.assertFalse(result["terminal"])
                 self.assertFalse(result["completed"])
 
-    def test_cancel_or_error_stops_watching_without_cancelling_engine(self):
+    def test_nonterminal_error_is_observed_until_automatic_completion(self):
+        self.state.side_effect = [
+            self.snapshot(status_code=6, has_local_error=True),
+            self.snapshot(status_code=5),
+            self.snapshot(status_code=8),
+        ]
+        result, exit_status = blip_rpc.run_watch(self.args)
+        self.assertEqual(exit_status, 0)
+        self.assertEqual(result["stop_reason"], "completed")
+        self.assertEqual(result["observations"], 3)
+        self.assertEqual(result["error_observations"], 1)
+        self.assertEqual(result["last_error"]["status_code"], 6)
+        self.assertEqual(result["last_error"]["error_scope"], "local")
+        self.assertTrue(result["completed"])
+        self.assertEqual(result["error_scope"], "none")
+        self.dispatch.assert_not_called()
+
+    def test_nonterminal_error_does_not_extend_deadline_or_claim_delivery(self):
+        self.state.return_value = self.snapshot(status_code=6, has_local_error=True)
+        result, exit_status = blip_rpc.run_watch(self.args)
+        self.assertEqual(exit_status, 4)
+        self.assertEqual(result["stop_reason"], "timeout")
+        self.assertEqual(result["elapsed_seconds"], 5.0)
+        self.assertEqual(result["observations"], 3)
+        self.assertEqual(result["error_observations"], 3)
+        self.assertTrue(result["timed_out"])
+        self.assertFalse(result["completed"])
+        self.assertFalse(result["terminal"])
+        self.assertEqual(result["error_scope"], "local")
+        self.dispatch.assert_not_called()
+
+    def test_nonterminal_error_recovery_preserves_remote_and_local_observations(self):
+        self.state.side_effect = [
+            self.snapshot(status_code=4, has_remote_error=True),
+            self.snapshot(status_code=6, has_local_error=True),
+            self.snapshot(status_code=8),
+        ]
+        result, exit_status = blip_rpc.run_watch(self.args)
+        self.assertEqual(exit_status, 0)
+        self.assertEqual(result["error_observations"], 2)
+        self.assertEqual(result["last_error"]["error_scope"], "local")
+        self.assertEqual(result["observations"], 3)
+        self.assertTrue(result["completed"])
+        self.dispatch.assert_not_called()
+
+    def test_cancel_or_terminal_error_stops_without_cancelling_engine(self):
         cases = (
             (dict(status_code=9), "cancelled", True, "none"),
-            (dict(status_code=5, has_local_error=True), "error", False, "local"),
-            (dict(status_code=4, has_remote_error=True), "error", False, "remote"),
             (dict(status_code=8, has_local_error=True, has_remote_error=True),
              "error", True, "local_and_remote"),
         )
