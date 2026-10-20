@@ -2,7 +2,7 @@
 name: skill-authoring
 description: Create, revise, import, or audit Agent Skills; govern a named skill collection or agent instruction files such as AGENTS.md. Not for ordinary coding or executing a skill's subject task.
 type: routine
-version: 6.0.0
+version: 6.1.0
 author: Hermes Agent
 license: MIT
 metadata:
@@ -23,6 +23,8 @@ Use your judgment to choose the approach. Draw on model knowledge for familiar c
 
 **Wording-only edits:** make the focused change, check meaning and affected links, then finish. For substantive work, keep the result and its important acceptance conditions clear; choose the amount of planning and validation the task warrants.
 
+Before changing an existing skill's behavior, read its core-requirements document—what the skill must keep delivering. If it has none, extract one from current behavior first. This skill's own: [core requirements](references/core-requirements.md).
+
 ## Design for judgment
 
 Give the consuming agent the goal, task-specific knowledge, useful decision cues and a way to recognize a good result. Explain why a method works and when it applies. Let the agent choose tools, sequence ordinary steps, retrieve current information and adapt methods to the situation.
@@ -38,6 +40,7 @@ Keep exact interfaces, required output contracts and necessary safety constraint
 - Reconciling upstream, maintained and local copies: [Import](references/import.md).
 - Applying, deploying, publishing or retiring an artifact: [Release](references/release.md); [Privacy](references/privacy.md) when content crosses a trust boundary.
 - Local ownership, generated entrypoints or installation bindings: [SkillHub adapter](references/skillhub.md).
+- A "new model" audit of accumulated instructions: [Collection governance](references/collection-governance.md) plus [Agent instructions](references/agent-instructions.md) over the targets the user names, not a scan of every installed file.
 
 These are resources for the question at hand, not a sequence to complete. [Research notes](references/research-notes.md) and [changelog](references/changelog.md) provide background, not additional gates.
 
@@ -47,4 +50,4 @@ Complete the requested artifact and inspect whether it actually serves the task.
 
 Creation or review does not grant permission to publish, delete, repoint a consumer, change credentials or deploy elsewhere. Follow the named action's authority and the conditional release guidance. Missing required evidence leaves that claim blocked, while independent work can continue. Changing this skill does not waive the rules currently governing the session.
 
-Describe what changed, what was actually checked and what remains uncertain. Prefer repairing an implicated idea or resource to accumulating another warning after every run.
+Describe what changed, what was actually checked and what remains uncertain. Prefer repairing an implicated idea or resource to accumulating another warning after every run. A behavior change ends by recording what it improved, preserved and how that was confirmed in the skill's change history, citing the requirement IDs touched, and by updating the core requirements where one was added, narrowed or retired.

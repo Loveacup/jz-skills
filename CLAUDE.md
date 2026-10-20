@@ -72,6 +72,7 @@ Skill creation and behavior-changing edits follow the current [skill-authoring c
 - Use progressive disclosure by task need; there is no fixed line ceiling, scorecard, warning-table shape, or test quota.
 - Verify the changed behavior proportionally: focused checks for text-only edits, realistic scenarios for behavior changes, and a fresh independent verifier for high-impact changes.
 - Treat source/canonical application, named-target runtime deployment, publication, and retirement as separate states. Preparing or reviewing a skill never implies commit, push, broad sync, deletion, or baseline mutation.
+- Each skill keeps a core-requirements document (`references/core-requirements.md`, IDs `CR01…`) and a change history (`CHANGELOG.md` or `references/changelog.md`). Read the former before changing behavior; extract it first if absent. End each behavior change by recording improved / preserved / confirmed in the change history with the affected IDs, and updating the requirements where one was added, narrowed, or retired.
 ---
 
 ## 📝 Commit Conventions · 提交规范

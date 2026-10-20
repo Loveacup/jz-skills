@@ -1,6 +1,16 @@
 # Changelog
 
-Version entries describe changes, not proof that a runtime loaded or correctly used them. Deployment and publication require their own evidence.
+Version entries describe changes, not proof that a runtime loaded or correctly used them. Deployment and publication require their own evidence. From v6.1.0 each entry states what it improved, what it preserved, and how that was confirmed, citing IDs from [core requirements](./core-requirements.md).
+
+## v6.1.0 — 2026-10-20
+
+Source: the OpenAI Developers article [Rethinking skills and prompts for GPT-6 Astra](https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra), fetched 2026-10-20; it supersedes the earlier post capture as the cited source. Merged semantically onto v6.0.0 after a parallel v5.2.x line (branch `local-v5.2.1`, built on v5.1.1) was found to overlap with the v6 redesign; v6's structure wins, only the additive points below were carried over.
+
+**Improved.** CR01: descriptions lead with the operation and trigger because consumers truncate them, with the article's migration example. CR03: shared skills are written for the task; model-compensating constraints belong in a host adapter or carry their reason. CR04: skills and instruction surfaces state what finished means; a review stop after a first draft is kept only where a material decision sits. CR09: ask-first rules classified by origin, with compensation for an earlier model converted to a scoped grant that states its safety basis (article's disposable-test-suite example); contextual pointers must name current documents; test encouragement written for an earlier model is narrowed to the required verifier. CR10 (new): every skill carries a core-requirements document and change history; revisions read the former first and update both; this skill's own [core requirements](./core-requirements.md) were extracted from v6.0.0 behavior. A "new model" audit routes to the existing collection and agent-instruction guides over named targets.
+
+**Preserved.** CR02, CR05–CR08 and the whole v6.0.0 structure: question-driven references, no audit forms or quotas, separate planes, no authority by recency, blocked-not-passed semantics.
+
+**Confirmed.** Internal links and anchors resolved by script; frontmatter parses at 6.1.0; `deploy/skill-drift-summary.sh` PASS. Earlier, the pre-merge agent-instructions text ran one offline scenario over a six-rule fixture `AGENTS.md` and produced the intended narrowings while keeping the push/apply boundary and required integration gate; the merged wording was not re-run. Runtime loading by a named consumer was not observed.
 
 ## v6.0.0 — 2026-10-16
 

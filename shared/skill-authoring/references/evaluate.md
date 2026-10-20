@@ -39,7 +39,7 @@ For repeated tuning or a generalization claim, reserve realistic cases outside t
 
 ## Refactor without losing capability
 
-For a structural change, account for current knowledge, interfaces, constraints, callers and resources. Keep each capability in a place the relevant task can actually reach. Historical evidence can remain background without its old procedure becoming current again. An explicit before/after capability map is useful when loss or cross-owner movement is a real risk, not as a mandatory report for every edit.
+For a structural change, start from the skill's core-requirements document, then account for current knowledge, interfaces, constraints, callers and resources. Keep each capability in a place the relevant task can actually reach; a live rule no requirement covers is either a missing requirement or a removal candidate—decide which and record it. Historical evidence can remain background without its old procedure becoming current again. An explicit before/after capability map is useful when loss or cross-owner movement is a real risk, not as a mandatory report for every edit.
 
 ## Executable trust boundaries
 
