@@ -4,7 +4,7 @@ Bilibili / YouTube / Douyin single-video analysis engine for producing evidence-
 
 ## Current canonical release: v4.1.0
 
-v4.1 adds typed transcript segments to `EvidenceBundle`, preserves YouTube VTT timing through the adapter/bridge seam, de-rolls automatic captions into analysis-sized chunks, and hardens cross-platform deterministic writers. v4 introduced the platform router, Bilibili/YouTube/Douyin adapters, optional Douyin media→H200 ASR, and forwarding-only compatibility from `bilibili-video-analyzer`. The inherited writer baseline remains the proven P5/P6 content engine described below.
+v4.1 adds typed transcript segments to `EvidenceBundle`, preserves YouTube VTT timing through the adapter/bridge seam, de-rolls automatic captions into analysis-sized chunks, and hardens cross-platform deterministic writers. The current unreleased work adds evidence-budget `sparse` publishing for short/low-evidence inputs without weakening `full`/`condensed`. v4 introduced the platform router, Bilibili/YouTube/Douyin adapters, optional Douyin media→H200 ASR, and forwarding-only compatibility from `bilibili-video-analyzer`.
 
 | Section | Deterministic output |
 | --- | --- |
@@ -14,9 +14,9 @@ v4.1 adds typed transcript segments to `EvidenceBundle`, preserves YouTube VTT t
 | §6 | Concept/entity extraction, relation chains, and Obsidian wikilinks |
 | §8 | Source availability, method limits, fact-check/research state, and Source Appendix |
 
-LLM writers remain an **optional** enhancement for §3/§4/§7. `--writer-provider none` therefore produces a structured deterministic baseline, not a formal publishable report by itself. Any section with no usable evidence can still carry an explicit placeholder, and any formal `B站笔记_*.md` remains blocked unless it passes the publish gate.
+LLM writers remain an **optional** enhancement for `full`/`condensed` §3/§4/§7. In evidence-budget `sparse` mode, §§1/3/4/7 are deterministic and transcript-grounded, so `--writer-provider none` may produce a formal report only when the report-aware fidelity and publish gates pass. In other modes, a model-backed writer remains required for formal output.
 
-Validation recorded for this release: 248 tests passed; deterministic fixture quality gate passed; the fixture report passed G1/G3/G4/G5/G7. See `CHANGELOG.md` for scope and known limits.
+Latest unreleased validation: 716 tests passing; full and sparse fixture lanes passed; a real Douyin audio → H200 ASR → `PublishedMarkdown` sparse E2E passed report-aware fidelity and human QA. See `references/douyin-sparse-publishing-acceptance-20260713.md`.
 
 ## Quality-first pipeline (active roadmap)
 
@@ -34,6 +34,7 @@ Delivered milestones:
 - Phase 2: `assemble_draft_report_slice()` now auto-attaches `DraftReport.qa_results`; P0 skeleton blockers are kept out of `draft_sections`, while P1/P2 issues stay inspectable with warnings — see `references/content-engine-section-qa-gate-phase2-20260704.md`.
 - Phase 3: `report_markdown()` and `run_quality_gate.py --json` now expose JSON-able `section_qa` metadata without rendering it into Markdown or changing pass/fail logic; provider responses are cached to avoid double LLM calls — see `references/content-engine-section-qa-gate-phase3-20260704.md`.
 - Phase 4: §1 and §5 have dimension exemptions (not-mechanical + insight-density) so structural table/blockquote sections don't false-flag; `--section-qa-gate` flag enables opt-in P0 blocker gating — see `references/content-engine-section-qa-gate-phase4-20260705.md`.
+- S8 (done): first-round search results feed an evidence-driven **follow-up / knowledge-expansion** scheduler — new evidence triggers additional queries that draw from the *same shared source budget*, with dedup by normalized query + canonical URL. The loop stops when any of: the budget is exhausted, a full round yields no new evidence, or every P1 claim already has both primary and independent support. The offline fixture lane (`_PlanBoundFixtureResearchProvider`) enforces the shared-budget P0/P1-first ordering this scheduler depends on. Validation lands as a **release fixture lane**: the full fixture release gate now runs deterministic offline research from `tests/fixtures/research/release_context.json` + `tests/fixtures/research/release_fixture.json`, projecting into a private archive under `/tmp/video-analysis-engine-release-gate/research`, with all research P0 gates passing. The `sparse` lane stays fully offline and model-free — no research, no network. This lane runs the fixture provider only; a real network-backed research provider is **not** implemented and stays behind an explicit `--allow-network-research` opt-in.
 
 
 ## Quick release check
@@ -47,8 +48,9 @@ PYTHONPATH=scripts python3 scripts/release_gate.py
 
 Default release gate runs:
 
-1. deterministic fixture quality gate (`run_quality_gate.py --writer-provider fixture --fail-on-fallback-warning`)
-2. full pytest suite excluding local ASR config tests (`pytest -q tests --ignore=tests/test_asr_config.py`)
+1. existing full fixture quality gate (`--writer-provider fixture --mode full --fail-on-fallback-warning`)
+2. provider-free sparse fixture quality gate (`--writer-provider none --mode sparse`)
+3. full pytest suite excluding local ASR config tests
 
 This path does **not** call network services or spend LLM tokens.
 It is an **engineering gate**, not a publishability guarantee for Obsidian notes.
@@ -58,14 +60,14 @@ It is an **engineering gate**, not a publishability guarantee for Obsidian notes
 Pipeline artifact boundary:
 
 ```text
-AnalysisInput → analyze_video() → DraftReport → debug Markdown → publish_markdown() → PublishedMarkdown
+AnalysisInput → analyze_video() → assembled DraftReport → formal Markdown → publish_markdown() → PublishedMarkdown
 ```
 
 `render_markdown()` / `render_debug_markdown()` return debug/legacy Markdown strings. They are useful for engineering gates and inspection, but not publishable by themselves.
 
-`DraftReport.draft_sections` is the current seam for written-but-not-yet-publishable section bodies. Its assembler owns deterministic preview slices for §1 logic-chain tables, §5 short highlights, and §6 knowledge graph extraction. The production/debug Markdown renderer additionally uses the P5 deterministic writers for §2, §2.5, and §8. When an explicit provider is passed, the assembler can also route validated §3/§4/§7 LLM writer output into `draft_sections`; it still returns a non-publishable `DraftReport`, not `PublishedMarkdown`.
+`DraftReport.draft_sections` is the seam for written-but-not-yet-publishable section bodies. Its assembler owns deterministic §1/§5/§6 slices and, in `sparse` mode, deterministic transcript-grounded §§3/4/7. Full/condensed may route validated §3/§4/§7 provider output into the same assembled artifact. All modes render that artifact; publication still requires `publish_markdown()`.
 
-Use `render_draft_markdown(draft)` for human/CI preview only. It overlays `draft_sections` onto the plan while keeping unfinished sections as skeleton, and emits `publishable: false`; it is not a formal note writer.
+`render_draft_markdown(draft)` returns a plain Markdown string. It may be inspected in human/CI preview, but becomes formal only after report-aware `publish_markdown(markdown, report)` returns `PublishedMarkdown`.
 
 Before saving a generated report as a formal `B站笔记_*.md`, run the stricter publish gate:
 

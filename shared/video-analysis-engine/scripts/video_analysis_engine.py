@@ -31,7 +31,9 @@ import argparse
 import warnings
 from collections import Counter
 from dataclasses import dataclass, field, asdict
-from typing import List, Optional, Dict, Any, Callable, Tuple, Literal
+from typing import List, Optional, Dict, Any, Callable, Tuple, Literal, Mapping, Sequence
+
+from claim_contract import finalize_claim_bundle_dict
 
 
 # ============ Type Literals for validation ============
@@ -117,6 +119,20 @@ class SectionSpec:
 
 
 @dataclass
+class EvidenceBudget:
+    """Serializable evidence budget describing transcript quality for plan mode selection."""
+    duration_seconds: int
+    transcript_chars: int
+    transcript_segments: int
+    distinct_time_anchors: int
+    mode: str
+    reason: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
 class ReportPlan:
     """一篇视频稿件的内容规划。
 
@@ -129,6 +145,7 @@ class ReportPlan:
     blocking_reason: str
     sections: List[SectionSpec]
     absorbed_patterns: List[str] = field(default_factory=list)
+    evidence_budget: Optional[Dict[str, Any]] = field(default=None)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -398,10 +415,12 @@ BILINOTE_ABSORBED_PATTERNS = [
 
 # ============ 证据来源 Gate ============
 def detect_external_research_route() -> Dict[str, Any]:
-    """检测辅助事实核查/扩展信息路由。
+    """Detect WRR capability without claiming that research has executed.
 
-    优先本地 WRR（独立仓库或 Hermes plugin symlink）。若不可用，不阻塞报告，
-    标记为 fallback_search，由上层使用当前 Hermes 可用的 Exa/Brave/web_search 等搜索工具。
+    ``available`` is retained as the legacy *validated evidence available*
+    flag.  Merely finding a local WRR checkout only sets
+    ``capability_available``; execution/evidence fields remain false until a
+    later ResearchProvider injects a validated research result.
     """
     candidates = [
         os.path.expanduser('~/code/web-research-router'),
@@ -409,16 +428,28 @@ def detect_external_research_route() -> Dict[str, Any]:
     ]
     if any(os.path.exists(p) for p in candidates):
         return {
-            'available': True,
+            'available': False,
+            'capability_available': True,
+            'attempted': False,
+            'executed': False,
+            'evidence_available': False,
+            'evidence_count': 0,
+            'status': 'not_started',
             'route': 'wrr_local',
             'mode': 'grounding',
-            'reason': 'local WRR detected',
+            'reason': 'local WRR detected; research not executed',
         }
     return {
-        'available': True,
-        'route': 'fallback_search',
+        'available': False,
+        'capability_available': False,
+        'attempted': False,
+        'executed': False,
+        'evidence_available': False,
+        'evidence_count': 0,
+        'status': 'unavailable',
+        'route': '',
         'mode': 'grounding',
-        'reason': 'local WRR not detected; use configured web/search tools',
+        'reason': 'local WRR not detected; no research provider injected',
     }
 
 
@@ -460,8 +491,11 @@ def build_evidence_source_gate(inp: AnalysisInput) -> Dict[str, Any]:
     }
 
     factcheck_evidence = ['fact_checks'] if has_fact_checks else []
-    if not factcheck_evidence and has_transcript and external_research.get('available'):
-        factcheck_evidence = ['transcript', 'external_research']
+    if not factcheck_evidence and has_transcript:
+        factcheck_evidence = ['transcript']
+        if (external_research.get('executed')
+                and external_research.get('evidence_available')):
+            factcheck_evidence.append('external_research')
 
     sections = {
         '§1 基本信息': {
@@ -494,6 +528,46 @@ def build_evidence_source_gate(inp: AnalysisInput) -> Dict[str, Any]:
     }
 
 
+def build_evidence_budget(inp: AnalysisInput) -> EvidenceBudget:
+    """Compute a serializable evidence budget for plan mode selection.
+
+    Mode logic (in priority order):
+      - no transcript segments → preanalysis
+      - duration >= 1800 → full (regardless of transcript density)
+      - duration <= 180 AND (chars <= 600 OR distinct starts < 3) → sparse
+      - otherwise → condensed
+    """
+    tr = inp.transcript
+    segments = tr.segments if (tr and tr.segments) else []
+    full_text = tr.full_text() if tr else ''
+    transcript_chars = len(full_text)
+    transcript_segments = len(segments)
+    distinct_starts = len(set(s.start for s in segments if s.start is not None))
+    duration = int(inp.duration or 0)
+
+    if not segments:
+        mode = 'preanalysis'
+        reason = 'no_transcript'
+    elif duration >= 1800:
+        mode = 'full'
+        reason = f'duration_ge_1800s'
+    elif duration <= 180 and (transcript_chars <= 600 or distinct_starts < 3):
+        mode = 'sparse'
+        reason = f'duration_{duration}s_chars_{transcript_chars}_anchors_{distinct_starts}'
+    else:
+        mode = 'condensed'
+        reason = 'default_condensed'
+
+    return EvidenceBudget(
+        duration_seconds=duration,
+        transcript_chars=transcript_chars,
+        transcript_segments=transcript_segments,
+        distinct_time_anchors=distinct_starts,
+        mode=mode,
+        reason=reason,
+    )
+
+
 def _section_allowed(gate: Dict[str, Any], section_name: str, default=True) -> bool:
     return bool((gate.get('sections') or {}).get(section_name, {}).get('allowed', default))
 
@@ -505,8 +579,9 @@ def _old_full_sections(gate: Dict[str, Any], mode: str) -> List[SectionSpec]:
     condensed 只放宽 §3/§4/§5；§7 维持全量门槛。
     """
     has_social = _section_allowed(gate, '§3 评论分析', default=False)
-    external_route = (gate.get('sources') or {}).get('external_research') or {}
-    needs_external = bool(external_route.get('available'))
+    # This is a content requirement, not a statement that a provider exists or
+    # that research evidence has already been collected.
+    needs_external = True
     condensed = mode == 'condensed'
     return [
         SectionSpec('0', '元信息 (Meta)', '建立视频身份、价值判断和数据来源边界', ['metadata']),
@@ -522,13 +597,48 @@ def _old_full_sections(gate: Dict[str, Any], mode: str) -> List[SectionSpec]:
     ]
 
 
-def build_report_plan(inp: AnalysisInput, evidence_gate: Optional[Dict[str, Any]] = None) -> ReportPlan:
+def _sparse_sections(gate: Dict[str, Any]) -> List[SectionSpec]:
+    """Sparse §0–§8 section specs for short videos with minimal transcripts.
+
+    §3/§4/§7 use reduced min_items quotas; no section requires external research.
+    Full/condensed behaviour in _old_full_sections is not affected.
+    """
+    return [
+        SectionSpec('0', '元信息 (Meta)', '建立视频身份、价值判断和数据来源边界', ['metadata']),
+        SectionSpec('1', '逻辑链 (Logic Chain)', '按时间顺序呈现字面证据，禁止叙事推断', ['transcript'], quality_gate='G1'),
+        SectionSpec('2', '弹幕深度分析 (Danmaku Intelligence)', '提炼即时受众情绪', ['danmaku'], required=False, allowed=True),
+        SectionSpec('2.5', '评论深度分析 (Comments Analysis)', '提炼热评信息增量', ['comments'], required=False, allowed=True),
+        SectionSpec('3', '核心洞察 (Key Insights)', '提炼 1 个高价值认知点并绑定证据', ['transcript'], quality_gate='G3', min_items=1, min_words_per_item=0),
+        SectionSpec('4', '内容深度拆解 (Deep Dive)', '按证据范围做 1 个深拆模块', ['transcript'], quality_gate='G4', min_items=1, min_words_per_item=0, needs_external_research=False),
+        SectionSpec('5', '高光时刻 (Highlights & Quotes)', '保留 1 条原文金句', ['transcript'], quality_gate='G5', min_items=1),
+        SectionSpec('6', '知识图谱 (Knowledge Graph)', '抽取概念并链接 OB 知识体系', ['transcript'], needs_external_research=False),
+        SectionSpec('7', '批判与行动 (Critical Review & Action)', '1 独特价值 + 1 局限 + 1 可行动', ['transcript'], quality_gate='G7', min_items=3, needs_external_research=False),
+        SectionSpec('8', '附录 (Appendix)', '记录数据来源、工具、方法限制', ['metadata', 'transcript']),
+    ]
+
+
+_VALID_MODE_OVERRIDES = (None, 'auto', 'sparse', 'condensed', 'full')
+
+
+def build_report_plan(
+    inp: AnalysisInput,
+    evidence_gate: Optional[Dict[str, Any]] = None,
+    mode_override: Optional[str] = None,
+) -> ReportPlan:
     """从输入和 EvidenceSourceGate 生成内容规划。
 
-    模式选择遵循旧 skill：无 transcript → preanalysis；有 transcript 且 >=30min → full；
-    短视频默认 condensed。这里不调用 LLM，不生成正文，只锁定结构与证据预算。
+    模式选择基于 EvidenceBudget：
+      - 无 transcript → preanalysis（mode_override 无法绕过此 source gate）
+      - mode_override in (None, 'auto') → 使用 EvidenceBudget.mode
+      - mode_override in ('sparse', 'condensed', 'full') → 显式覆盖（需有 transcript）
+    这里不调用 LLM，不生成正文，只锁定结构与证据预算。
     """
+    if mode_override not in _VALID_MODE_OVERRIDES:
+        raise ValueError(
+            f"Invalid mode_override {mode_override!r}; must be one of {_VALID_MODE_OVERRIDES}"
+        )
     gate = evidence_gate or build_evidence_source_gate(inp)
+    budget = build_evidence_budget(inp)
     can_generate = bool(gate.get('can_generate_formal_report'))
     blocking = gate.get('blocking_reason', '')
     if not can_generate:
@@ -542,16 +652,27 @@ def build_report_plan(inp: AnalysisInput, evidence_gate: Optional[Dict[str, Any]
                 SectionSpec('8', '附录 (Appendix)', '说明无 transcript/ASR，禁止正式稿', ['metadata']),
             ],
             absorbed_patterns=BILINOTE_ABSORBED_PATTERNS,
+            evidence_budget=budget.to_dict(),
         )
 
-    mode = 'full' if int(inp.duration or 0) >= 30 * 60 else 'condensed'
+    if mode_override in (None, 'auto'):
+        mode = budget.mode
+    else:
+        mode = mode_override
+    if mode in ('preanalysis', ''):
+        mode = 'condensed'
+    if mode == 'sparse':
+        sections = _sparse_sections(gate)
+    else:
+        sections = _old_full_sections(gate, mode)
     return ReportPlan(
         mode=mode,
         baseline=OLD_FRAMEWORK_BASELINE,
         can_generate_formal_report=True,
         blocking_reason='',
-        sections=_old_full_sections(gate, mode),
+        sections=sections,
         absorbed_patterns=BILINOTE_ABSORBED_PATTERNS,
+        evidence_budget=budget.to_dict(),
     )
 
 
@@ -604,6 +725,76 @@ _TRANSCRIPT_SECTION_REASON = {
     '7': 'critical_candidate',
 }
 _TRANSCRIPT_EVIDENCE_SECTIONS = tuple(_TRANSCRIPT_SECTION_REASON.keys())
+
+# §6 metadata-backed KG evidence constants
+_METADATA_NOISE_PHRASES: frozenset = frozenset([
+    '央视独家画面', '独家画面', '现场画面', '震撼画面',
+    '多视角看', '多角度看', '带你看', '一镜到底', '独家揭秘',
+])
+_METADATA_NOISE_RE = re.compile(
+    '|'.join(re.escape(p) for p in sorted(_METADATA_NOISE_PHRASES, key=len, reverse=True))
+)
+_METADATA_TECH_SUFFIX_RES = [
+    re.compile(r'[一-鿿0-9A-Za-z]{2,12}运载火箭'),
+    re.compile(r'[一-鿿0-9A-Za-z]{2,12}发射场'),
+    re.compile(r'[一-鿿0-9A-Za-z]{2,12}飞行器'),
+    re.compile(r'[一-鿿0-9A-Za-z]{2,12}探测器'),
+    re.compile(r'[一-鿿0-9A-Za-z]{2,12}空间站'),
+    re.compile(r'[一-鿿0-9A-Za-z]{2,12}飞船'),
+    re.compile(r'[一-鿿0-9A-Za-z]{2,12}卫星'),
+]
+_METADATA_ENTITY_PREFIX_RE = re.compile(
+    r'^(?:(?:成功|首次|完成|实现|进行|正式|再次|顺利|发射|回收|看懂|揭秘|直击|聚焦|记录|见证))+'
+)
+_METADATA_LIFECYCLE_RE = re.compile(
+    r'(?:发射|回收|着陆|升空|起飞|对接|分离){2,3}'
+)
+# Chinese sentence-initial particles/pronouns that should not begin a concept name
+_METADATA_TERM_STARTERS = re.compile(r'^[这那有在是也都就但而且又或已曾被将让把由到为和与及从对向于以按如若当即]')
+
+
+def _extract_metadata_concepts(text: str, source_text: str) -> List[str]:
+    """Extract conservative, verbatim technical concepts from metadata.
+
+    Only technical-suffix entities and explicit lifecycle term groups are
+    accepted. Arbitrary short Chinese phrases are deliberately rejected.
+    """
+    if not text:
+        return []
+
+    concepts: List[str] = []
+    seen: set = set()
+
+    working = _METADATA_NOISE_RE.sub(' ', text)
+    working = re.sub(r'\d+(?:秒|分钟|小时|分|min|s(?=[\s！。，一-鿿]|$)|h(?=[\s！。，一-鿿]|$))', ' ', working)
+
+    all_matches: List[Tuple[int, int, str]] = []
+    for suffix_re in _METADATA_TECH_SUFFIX_RES:
+        for match in suffix_re.finditer(working):
+            all_matches.append((match.start(), match.end(), match.group(0)))
+    all_matches.sort(key=lambda item: item[0])
+
+    covered: List[Tuple[int, int]] = []
+    for start, end, raw_term in all_matches:
+        if any(left < end and start < right for left, right in covered):
+            continue
+        term = _METADATA_ENTITY_PREFIX_RE.sub('', raw_term)
+        if len(term) < 3 or _METADATA_TERM_STARTERS.match(term):
+            continue
+        if term in source_text and term not in seen:
+            concepts.append(term)
+            seen.add(term)
+            covered.append((start, end))
+
+    # Lifecycle groups such as “发射回收” are accepted only as explicit,
+    # contiguous source substrings — never as arbitrary residual phrases.
+    for match in _METADATA_LIFECYCLE_RE.finditer(working):
+        term = match.group(0)
+        if term in source_text and term not in seen:
+            concepts.append(term)
+            seen.add(term)
+
+    return concepts
 
 
 def _seg_score(text: str) -> float:
@@ -674,6 +865,35 @@ def build_evidence_map(inp: AnalysisInput, report_plan: ReportPlan) -> EvidenceM
         if not segments:
             continue
         by_section[sid] = [_seg_candidate(sid, seg) for seg in segments if seg.text]
+
+    # §6 metadata: canonical title and description as conservative KG evidence
+    if '6' in section_ids and section_allowed.get('6', True):
+        if inp.title:
+            by_section.setdefault('6', []).append(EvidenceCandidate(
+                source_type='metadata',
+                section_id='6',
+                start=None,
+                end=None,
+                timestamp='',
+                url='',
+                text=inp.title,
+                context=inp.title,
+                score=_seg_score(inp.title),
+                reason='metadata_title_candidate',
+            ))
+        if inp.description:
+            by_section.setdefault('6', []).append(EvidenceCandidate(
+                source_type='metadata',
+                section_id='6',
+                start=None,
+                end=None,
+                timestamp='',
+                url='',
+                text=inp.description,
+                context=inp.description,
+                score=_seg_score(inp.description),
+                reason='metadata_description_candidate',
+            ))
 
     # §2 弹幕：仅在有弹幕时生成
     if inp.danmaku and '2' in section_ids and section_allowed.get('2', True):
@@ -888,7 +1108,7 @@ def _section_factcheck(inp: AnalysisInput) -> str:
     return '\n'.join(lines)
 
 
-def analyze_video(inp: AnalysisInput) -> Dict[str, Any]:
+def analyze_video(inp: AnalysisInput, mode_override: Optional[str] = None) -> Dict[str, Any]:
     """主入口：返回 Obsidian-ready 报告字典。
 
     返回结构:
@@ -900,7 +1120,7 @@ def analyze_video(inp: AnalysisInput) -> Dict[str, Any]:
       }
     """
     evidence_gate = build_evidence_source_gate(inp)
-    report_plan = build_report_plan(inp, evidence_gate)
+    report_plan = build_report_plan(inp, evidence_gate, mode_override=mode_override)
     evidence_map = build_evidence_map(inp, report_plan)
     transcript_source = evidence_gate['sources']['transcript']['source']
     frontmatter = {
@@ -924,18 +1144,34 @@ def analyze_video(inp: AnalysisInput) -> Dict[str, Any]:
         '§3 评论分析': _section_comments(inp),
         '§4 关键声明核查': _section_factcheck(inp),
     }
-    return {
+    report = {
         'frontmatter': frontmatter,
         'evidence_gate': evidence_gate,
         'report_plan': report_plan.to_dict(),
         'evidence_map': evidence_map.to_dict(),
         'sections': sections,
+        'claim_bundle': None,
     }
+    if evidence_gate['can_generate_formal_report']:
+        report['claim_bundle'] = claim_bundle_to_dict(build_claim_bundle(report))
+    return report
 
 
 def _render_frontmatter(fm: Dict[str, Any]) -> List[str]:
     lines = ['---']
     for k, v in fm.items():
+        if k == 'evidence_transcript_source' and isinstance(v, str):
+            parsed = _parse_transcript_source(v)
+            safe = [parsed.get('method', '')]
+            for field in ('json_path', 'txt_path', 'parts', 'failed_parts'):
+                value = parsed.get(field, '')
+                if field in ('json_path', 'txt_path') and value:
+                    value = os.path.basename(value)
+                elif field == 'failed_parts':
+                    value = _sanitize_public_source_value(value)
+                if value:
+                    safe.append(f'{field}={value}')
+            v = '|'.join(item for item in safe if item)
         if isinstance(v, list):
             lines.append(f'{k}: [{", ".join(map(str, v))}]')
         else:
@@ -1037,6 +1273,62 @@ def write_logic_chain_section(section_context: Dict[str, Any]) -> str:
         lines.append(
             f'| {_table_cell(timestamp)} | {_table_cell(stage)} | {_table_cell(action)} | {summary} | {_table_cell(link)} |'
         )
+    lines.append('')
+    return '\n'.join(lines)
+
+
+def write_sparse_logic_chain_section(report: Dict[str, Any]) -> str:
+    """Deterministic sparse §1 writer: literal-observation timeline table.
+
+    Uses only transcript candidates from evidence_map.by_section['1'].
+    Rows are in transcription order; no narrative-phase labels
+    (起点/提出问题/深化分析/得出结论/叙事阶段) are used.
+    Boundary is always explicit.
+    """
+    plan = report.get('report_plan') or {}
+    budget = plan.get('evidence_budget') or {}
+    seg_count = int(budget.get('transcript_segments', 0) or 0)
+    char_count = int(budget.get('transcript_chars', 0) or 0)
+
+    by_section = (report.get('evidence_map') or {}).get('by_section') or {}
+    cands = [
+        c for c in (by_section.get('1') or [])
+        if isinstance(c, dict)
+        and (c.get('text') or '').strip()
+        and c.get('source_type') == 'transcript'
+    ]
+    cands.sort(key=lambda c: (c.get('start') is None, float(c.get('start') or 0)))
+
+    lines: List[str] = [
+        '### 转录时间线',
+        '',
+        '_本表行内容为转录顺序的字面观测，不代表经验证的因果关系或叙事逻辑推断。_',
+        '',
+    ]
+
+    if not cands:
+        lines.append('_暂无可用转录证据；拒绝生成叙事内容。_')
+        lines.append('')
+    else:
+        lines += [
+            '| 时间 | 来源 | 字面摘要 | 证据边界 | 链接 |',
+            '| --- | --- | --- | --- | --- |',
+        ]
+        for cand in cands:
+            timestamp = (cand.get('timestamp') or '').strip()
+            url = (cand.get('url') or '').strip()
+            source = (cand.get('method') or cand.get('source_type') or 'transcript').strip()
+            summary = _clean_inline_text(cand.get('text') or '', 90)
+            link = f'[{timestamp or url}]({url})' if url else timestamp
+            lines.append(
+                f'| {_table_cell(timestamp)} | {_table_cell(source)} | {summary} | 字面转录 | {_table_cell(link)} |'
+            )
+        lines.append('')
+
+    lines.append(
+        f'**证据边界**：本节仅基于 {seg_count} 条转录片段（共 {char_count} 字），'
+        '行内容为字幕逐字记录，字面内容以外的推断超出证据范围。'
+    )
     lines.append('')
     return '\n'.join(lines)
 
@@ -1152,7 +1444,7 @@ def write_danmaku_section(section_context: Dict[str, Any]) -> str:
     cands = [c for c in (section_context.get('evidence') or [])
              if isinstance(c, dict) and c.get('source_type') == 'danmaku']
     if not cands:
-        return '### 弹幕信号\n\n_数据不足：未提供弹幕。_\n'
+        return '### 弹幕信号\n\n_数据不足：未提供弹幕，无法判断受众情绪或典型反应。_\n'
 
     # 去重
     seen = set()
@@ -1391,9 +1683,15 @@ def _extract_kg_candidates(section_context: Dict[str, Any]) -> List[Dict[str, An
     for cand in section_context.get('evidence') or []:
         if not isinstance(cand, dict):
             continue
-        if cand.get('source_type') != 'transcript':
-            continue
-        if cand.get('reason') not in ('knowledge_candidate', 'application_candidate'):
+        source_type = cand.get('source_type')
+        reason = cand.get('reason')
+        if source_type == 'transcript':
+            if reason not in ('knowledge_candidate', 'application_candidate'):
+                continue
+        elif source_type == 'metadata':
+            if reason not in ('metadata_title_candidate', 'metadata_description_candidate'):
+                continue
+        else:
             continue
         text = _clean_inline_text(cand.get('text') or '', 600)
         if not text:
@@ -1474,18 +1772,31 @@ def write_knowledge_graph_section(section_context: Dict[str, Any], max_items: in
         return '_骨架占位：暂无可用知识图谱证据。_'
 
     concepts: List[str] = []
+    concept_sources: Dict[str, str] = {}
     relations: List[str] = []
     relation_keys: List[frozenset[str]] = []
+    relation_sources: List[str] = []
     applications: List[str] = []
 
     for cand in candidates:
         text = cand.get('text') or ''
-        found = _concepts_in_text(text)
+        source_type = cand.get('source_type', '')
+        if source_type == 'metadata':
+            found = _extract_metadata_concepts(text, text)
+            # metadata candidates never create actions/applications
+        else:
+            found = _concepts_in_text(text)
+            action_sentence = _extract_action_sentence(text)
+            if cand.get('reason') == 'application_candidate':
+                applications.append(action_sentence or text)
+            elif action_sentence:
+                applications.append(action_sentence)
+
         for concept in found:
-            if concept not in concepts:
+            if concept not in concept_sources:
                 concepts.append(concept)
+                concept_sources[concept] = source_type
         if len(found) >= 2:
-            # 构建关系链：概念 A → 概念 B → 概念 C（最多 3 个）
             linked_concepts = found[:3]
             linked = [_concept_link(c) for c in linked_concepts]
             rel = ' → '.join(linked)
@@ -1498,27 +1809,53 @@ def write_knowledge_graph_section(section_context: Dict[str, Any], max_items: in
                 for index in reversed(superseded):
                     relation_keys.pop(index)
                     relations.pop(index)
+                    relation_sources.pop(index)
                 relations.append(rel)
                 relation_keys.append(relation_key)
-        action_sentence = _extract_action_sentence(text)
-        if cand.get('reason') == 'application_candidate':
-            applications.append(action_sentence or text)
-        elif action_sentence:
-            applications.append(action_sentence)
+                relation_sources.append(source_type)
 
     concepts = concepts[:max_items]
     relations = relations[:max_items]
+    relation_sources = relation_sources[:max_items]
     applications = applications[:max_items]
 
     if not concepts and not relations and not applications:
         return '_骨架占位：暂无可用知识图谱证据。_'
 
-    anchor = next((str(c.get('timestamp') or '').strip() for c in candidates if c.get('timestamp')), '')
-    evidence_frame = (
-        f'本节基于转录时间锚点 {anchor} 附近的知识与应用证据，整理概念而不扩写视频之外的事实。'
-        if anchor
-        else '本节基于当前转录中的知识与应用证据，整理概念而不扩写视频之外的事实。'
+    # Derive provenance only from content that survives dedupe and max_items.
+    metadata_contributed = (
+        any(concept_sources.get(concept) == 'metadata' for concept in concepts)
+        or 'metadata' in relation_sources
     )
+    transcript_contributed = (
+        any(concept_sources.get(concept) == 'transcript' for concept in concepts)
+        or 'transcript' in relation_sources
+        or bool(applications)
+    )
+
+    # Evidence frame based on what actually contributed content, not candidate presence
+    if metadata_contributed and not transcript_contributed:
+        evidence_frame = '本节基于视频标题和描述中的共现概念，整理概念而不扩写视频之外的事实。'
+    elif transcript_contributed and not metadata_contributed:
+        anchor = next(
+            (str(c.get('timestamp') or '').strip() for c in candidates
+             if c.get('timestamp') and c.get('source_type') == 'transcript'),
+            '',
+        )
+        evidence_frame = (
+            f'本节基于转录时间锚点 {anchor} 附近的知识与应用证据，整理概念而不扩写视频之外的事实。'
+            if anchor
+            else '本节基于当前转录中的知识与应用证据，整理概念而不扩写视频之外的事实。'
+        )
+    else:
+        # both contributed: mention title/description and transcript anchor if present
+        anchor = next(
+            (str(c.get('timestamp') or '').strip() for c in candidates
+             if c.get('timestamp') and c.get('source_type') == 'transcript'),
+            '',
+        )
+        suffix = f'转录时间锚点 {anchor} 附近' if anchor else '当前转录'
+        evidence_frame = f'本节基于视频标题和描述中的共现概念及{suffix}的知识与应用证据，整理概念而不扩写视频之外的事实。'
     reasoning_frame = (
         '因为概念只有在同一证据片段中共同出现时才建立关系，所以这些连线表示可复核的共现结构；'
         '其适用边界是辅助检索与后续研究，不等同于已经证明的因果关系。'
@@ -1783,6 +2120,173 @@ def write_highlights_section(section_context: Dict[str, Any]) -> str:
     return '\n'.join(lines)
 
 
+def render_research_projection_records(
+    records: Sequence[Mapping[str, Any]], max_chars: int = 2000
+) -> str:
+    """Render allowlisted materialized projection records without a provider."""
+    if max_chars <= 0:
+        return ''
+    lines = ['### 外部研究补充', '']
+    used = len(lines[0])
+    for record in records:
+        if not isinstance(record, Mapping):
+            continue
+        object_label = _clean_inline_text(str(record.get('object_label') or ''), 40)
+        display_text = _clean_inline_text(str(record.get('display_text') or ''), max_chars)
+        citations = ' '.join(
+            str(label) for label in (record.get('citation_labels') or ()) if label
+        )
+        prefix = f'- {object_label}：' if object_label else '- '
+        suffix = f' {citations}' if citations else ''
+        remaining = max_chars - used - len(prefix) - len(suffix) - 1
+        if remaining <= 0:
+            break
+        if len(display_text) > remaining:
+            display_text = display_text[:max(1, remaining - 1)].rstrip() + '…'
+        line = f'{prefix}{display_text}{suffix}'.rstrip()
+        lines.append(line)
+        used += len(line) + 1
+    return '\n'.join(lines) if len(lines) > 2 else ''
+
+
+def _render_research_projection_section(report: Dict[str, Any], sid: str) -> str:
+    """Render one section from frozen projection peer artifacts."""
+    artifacts = report.get('research_artifacts') or {}
+    records_by_section = artifacts.get('research_projection_records') or {}
+    records = records_by_section.get(str(sid)) or ()
+    if not records:
+        return ''
+
+    projection = artifacts.get('research_projection')
+    section_budgets: Mapping[str, Any] = {}
+    if isinstance(projection, Mapping):
+        section_budgets = projection.get('section_budgets', {}) or {}
+    elif projection is not None:
+        section_budgets = getattr(projection, 'section_budgets', {}) or {}
+    budget = section_budgets.get(str(sid), {}) or {}
+    max_chars = int(budget.get('max_chars', budget.get('char_budget', 0)) or 0)
+    return render_research_projection_records(records, max_chars=max_chars)
+
+
+def _append_research_projection_section(
+    report: Dict[str, Any], sid: str, body: str
+) -> str:
+    projected = _render_research_projection_section(report, sid)
+    if not projected:
+        return body
+    return f'{body.rstrip()}\n\n{projected}' if body else projected
+
+
+def apply_research_projection_to_draft(draft: DraftReport) -> DraftReport:
+    """Attach frozen projection records to an already-written draft exactly once."""
+    if not isinstance(draft, DraftReport):
+        raise TypeError('apply_research_projection_to_draft expects a DraftReport')
+    for sid in ('3', '4', '6', '7'):
+        body = draft.draft_sections.get(sid)
+        if body is None:
+            continue
+        projected = _render_research_projection_section(draft.report, sid)
+        if projected and projected not in body:
+            draft.draft_sections[sid] = f'{body.rstrip()}\n\n{projected}'
+    return draft
+
+
+def write_sparse_analysis_sections(report: Dict[str, Any]) -> Dict[str, str]:
+    """Deterministic sparse writer for §3/§4/§7 when plan mode is 'sparse'.
+
+    Uses only frontmatter and transcript candidates from evidence_map. Never
+    calls LLM or network. Returns section bodies keyed by '3', '4', '7'.
+    Evidence boundary is always explicit; no external facts or unsupported
+    inferences. [E1] references the first transcript candidate in each section.
+    """
+    plan = report.get('report_plan') or {}
+    budget = plan.get('evidence_budget') or {}
+    duration_s = int(budget.get('duration_seconds', 0) or 0)
+    seg_count = int(budget.get('transcript_segments', 0) or 0)
+    char_count = int(budget.get('transcript_chars', 0) or 0)
+
+    by_section = (report.get('evidence_map') or {}).get('by_section') or {}
+    transcript_cands = [
+        c for c in (by_section.get('3') or [])
+        if isinstance(c, dict) and c.get('source_type') == 'transcript'
+    ]
+    if not transcript_cands:
+        for _sid in ('4', '7', '1', '5'):
+            transcript_cands = [
+                c for c in (by_section.get(_sid) or [])
+                if isinstance(c, dict) and c.get('source_type') == 'transcript'
+            ]
+            if transcript_cands:
+                break
+
+    e1_cand = transcript_cands[0] if transcript_cands else None
+    e1_text = _clean_inline_text((e1_cand or {}).get('text') or '', 80) if e1_cand else ''
+
+    # §3: one ### 💡 heading + confirmed observation + explicit evidence boundary
+    sec3_lines = ['### 💡 可见内容摘要', '']
+    if e1_text:
+        sec3_lines.append(f'转录片段 [E1] 的字面内容：「{e1_text}」。')
+        sec3_lines.append('')
+        sec3_lines.append(
+            f'因为当前证据为 {seg_count} 条片段（{char_count} 字符，时长约 {duration_s} 秒），'
+            '所以可确认的认知范围仅限于片段所载的字面陈述，不延伸到证据范围之外的背景、机制或结论。'
+        )
+    else:
+        sec3_lines.append('当前无可用转录片段；证据边界以元数据为准。')
+    sec3_lines.extend([
+        '',
+        f'**证据边界**：本节仅基于 {seg_count} 条转录片段（共 {char_count} 字），字面内容以外的推断超出证据范围。',
+        '',
+        '证据：@[E1]',
+    ])
+
+    # §4: one ### 模块 1：... heading + what can/cannot be inferred + small table
+    sec4_lines = [
+        '### 模块 1：证据范围内容梳理',
+        '',
+        '| 维度 | 内容 | 说明 |',
+        '| --- | --- | --- |',
+        '| 可推导 | [E1] 片段字面内容 | 直接转录，可引用 |',
+        f'| 不可推导 | 背景、机制、比较 | 超出 {seg_count} 条片段的证据范围 |',
+        '',
+    ]
+    if e1_text:
+        sec4_lines.append(f'从转录片段 [E1] 可确认的内容：「{e1_text}」。')
+        sec4_lines.append('')
+    sec4_lines.extend([
+        f'由于转录仅含 {seg_count} 条片段（{char_count} 字符），无法推断完整论证链、受众反馈或背景比较；'
+        '当前证据不支持深度模块拆解。',
+        '',
+        '证据：@[E1]',
+    ])
+
+    # §7: 独特价值 / 局限 / 可行动 headings with one bullet each
+    sec7_lines = [
+        '### 独特价值',
+        '',
+        f'- 转录片段 [E1] 提供了可直接引用的字面陈述，可作为后续核查与补充研究的原始入口。',
+        '',
+        '### 局限',
+        '',
+        f'- 当前证据仅含 {seg_count} 条片段（{char_count} 字符），因此所有超出字面引用的推断均超出证据范围，包括机制分析和受众反馈。',
+        '',
+        '### 可行动',
+        '',
+        '- 如需深度分析，建议补充完整转录或更多证据片段后重新生成报告 [E1]。',
+        '',
+        '证据：@[E1]',
+    ]
+
+    return {
+        sid: _append_research_projection_section(report, sid, body)
+        for sid, body in {
+            '3': '\n'.join(sec3_lines),
+            '4': '\n'.join(sec4_lines),
+            '7': '\n'.join(sec7_lines),
+        }.items()
+    }
+
+
 def _emit_section_skeleton(
     lines: List[str],
     sid: str,
@@ -1814,7 +2318,11 @@ def _emit_section_skeleton(
         return
     if sid == '1':
         # P5-1: §1 逻辑链纯确定性渲染，无需 provider
-        body = write_logic_chain_section({'evidence': cands})
+        plan_mode = (report or {}).get('report_plan', {}).get('mode', '') if report else ''
+        if plan_mode == 'sparse':
+            body = write_sparse_logic_chain_section(report)
+        else:
+            body = write_logic_chain_section({'evidence': cands})
         lines.extend(body.split('\n'))
         return
     if sid == '2':
@@ -1828,6 +2336,15 @@ def _emit_section_skeleton(
         lines.extend(body.split('\n'))
         return
     if sid == '3':
+        # Sparse mode: deterministic body, provider must not be called
+        if report and (report.get('report_plan') or {}).get('mode') == 'sparse':
+            sparse = write_sparse_analysis_sections(report)
+            body = sparse.get('3', '')
+            if body:
+                lines.append(body)
+                lines.append('')
+                return
+
         # 默认骨架标题
         heading = '### 💡 Skeleton Insight'
         fallback_body = ['_骨架占位：核心洞察待 LLM 基于上方证据填充。_', '']
@@ -1858,6 +2375,15 @@ def _emit_section_skeleton(
         lines.extend(fallback_body)
         return
     if sid == '4':
+        # Sparse mode: deterministic body, provider must not be called
+        if report and (report.get('report_plan') or {}).get('mode') == 'sparse':
+            sparse = write_sparse_analysis_sections(report)
+            body = sparse.get('4', '')
+            if body:
+                lines.append(body)
+                lines.append('')
+                return
+
         # 默认骨架标题
         heading = '### 模块 1: Skeleton Module'
         fallback_body = ['_骨架占位：深度拆解待 LLM 基于上方证据填充。_', '']
@@ -1896,6 +2422,15 @@ def _emit_section_skeleton(
         lines.extend(body.split('\n'))
         return
     if sid == '7':
+        # Sparse mode: deterministic body, provider must not be called
+        if report and (report.get('report_plan') or {}).get('mode') == 'sparse':
+            sparse = write_sparse_analysis_sections(report)
+            body = sparse.get('7', '')
+            if body:
+                lines.append(body)
+                lines.append('')
+                return
+
         # 默认骨架标题
         heading = '### 观众反馈 Skeleton'
         fallback_body = ['_骨架占位：观众反馈待 LLM 基于上方证据填充。_', '']
@@ -1961,6 +2496,17 @@ def _parse_transcript_source(source: str) -> Dict[str, str]:
     return out
 
 
+_PRIVATE_SOURCE_PATH_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?:/(?:Users|home|private|tmp|var|data)/[^\s|]+|"
+    r"[A-Za-z]:[\\/][^\s|]+|\\\\[^\\\s]+\\[^\s|]+)"
+)
+
+
+def _sanitize_public_source_value(value: Any) -> str:
+    """Redact private absolute paths from user-visible source metadata only."""
+    return _PRIVATE_SOURCE_PATH_RE.sub('[private-path]', str(value or ''))
+
+
 def _table_cell(value: Any) -> str:
     """把单元格值转为安全的 Markdown 表格文本：空值留空，转义 `|` 与换行。"""
     if value in (None, ''):
@@ -1981,10 +2527,12 @@ def _source_table_rows(report: Dict[str, Any]) -> List[Dict[str, str]]:
             if src.get('available'):
                 parsed = _parse_transcript_source(src.get('source', ''))
                 row['method'] = parsed.get('method', '')
-                row['json_path'] = parsed.get('json_path', '')
-                row['txt_path'] = parsed.get('txt_path', '')
+                row['json_path'] = os.path.basename(parsed.get('json_path', ''))
+                row['txt_path'] = os.path.basename(parsed.get('txt_path', ''))
                 row['parts'] = parsed.get('parts', '')
-                row['failed_parts'] = parsed.get('failed_parts', '')
+                row['failed_parts'] = _sanitize_public_source_value(
+                    parsed.get('failed_parts', '')
+                )
                 row['language'] = str(src.get('language', '') or '')
                 row['segments'] = str(src.get('segments', 0))
                 row['chars'] = str(src.get('chars', 0))
@@ -2105,17 +2653,13 @@ def assemble_draft_report_slice(
     """
     draft = build_draft_report(report)
 
-    # Build claim bundle only for claim-first and v24-full profiles
-    if depth_profile in ("claim-first-full", "v24-full"):
-        claim_bundle = build_claim_bundle(report)
-        claim_bundle_dict = claim_bundle_to_dict(claim_bundle)
-        draft.claim_bundle = claim_bundle_dict
-        # Inject into report for build_typed_writer_section_contexts
+    # Every ready report owns one precomputed deterministic ClaimBundle.
+    # Compatibility fallback only covers older callers that bypass analyze_video().
+    claim_bundle_dict = report.get('claim_bundle')
+    if claim_bundle_dict is None and (report.get('evidence_gate') or {}).get('can_generate_formal_report'):
+        claim_bundle_dict = claim_bundle_to_dict(build_claim_bundle(report))
         report['claim_bundle'] = claim_bundle_dict
-    else:
-        # standard mode: no claim bundle
-        draft.claim_bundle = None
-        report['claim_bundle'] = None
+    draft.claim_bundle = claim_bundle_dict
 
     evidence_map = (report.get('evidence_map') or {}).get('by_section') or {}
     typed_contexts = None
@@ -2127,29 +2671,45 @@ def assemble_draft_report_slice(
         body = None
 
         if sid == '1':
-            body = write_logic_chain_section({'evidence': cands})
+            plan_mode = (report.get('report_plan') or {}).get('mode', '')
+            if plan_mode == 'sparse':
+                body = write_sparse_logic_chain_section(report)
+            else:
+                body = write_logic_chain_section({'evidence': cands})
         elif sid == '5':
             # Use the top-level G5 contract (target 5 highlights, hard cap)
             body = write_highlights_section({'evidence': cands, 'quality_gate': 'G5'})
         elif sid == '6':
             body = write_knowledge_graph_section({'evidence': cands})
-        elif sid in ('3', '4', '7') and provider and typed_contexts:
-            ctx = typed_contexts.get(sid)
-            if not ctx:
-                continue
-            try:
-                result = write_llm_section(ctx, provider, retries=0, depth_profile=depth_profile)
-            except Exception as e:
-                draft.warnings.append(f'§{sid} LLM writer failed: {e}')
-                body = _draft_placeholder_for_section(ctx)
-            else:
-                if result.validation_passed:
-                    body = result.content
-                else:
-                    draft.warnings.append(
-                        f'§{sid} LLM writer validation failed: {result.validation_errors}'
-                    )
+        elif sid in ('3', '4', '7'):
+            plan_mode = (report.get('report_plan') or {}).get('mode', '')
+            if plan_mode == 'sparse':
+                # Sparse mode: use deterministic writer; provider must not be called
+                sparse_bodies = write_sparse_analysis_sections(report)
+                body = sparse_bodies.get(sid)
+            elif provider and typed_contexts:
+                ctx = typed_contexts.get(sid)
+                if not ctx:
+                    continue
+                try:
+                    result = write_llm_section(ctx, provider, retries=0, depth_profile=depth_profile)
+                except Exception as e:
+                    draft.warnings.append(f'§{sid} LLM writer failed: {e}')
                     body = _draft_placeholder_for_section(ctx)
+                else:
+                    if result.validation_passed:
+                        body = result.content
+                    else:
+                        draft.warnings.append(
+                            f'§{sid} LLM writer validation failed: {result.validation_errors}'
+                        )
+                        body = _draft_placeholder_for_section(ctx)
+
+        plan_mode = (report.get('report_plan') or {}).get('mode', '')
+        if body is not None and not (
+            plan_mode == 'sparse' and sid in ('3', '4', '7')
+        ):
+            body = _append_research_projection_section(report, sid, body)
 
         # Phase 2: QA gate evaluation and insertion logic
         if body is not None:
@@ -2171,13 +2731,17 @@ def assemble_draft_report_slice(
     return draft
 
 
-def render_draft_markdown(draft: DraftReport) -> str:
+def render_draft_markdown(draft: DraftReport, include_debug_marker: bool = True) -> str:
     """Render a non-publishable preview using DraftReport.draft_sections.
 
     This preview lets humans/CI inspect written draft section bodies without
     promoting them to PublishedMarkdown. It overlays draft_sections onto the
     report plan while leaving render_debug_markdown()/render_markdown() legacy
     behavior untouched.
+
+    Args:
+        include_debug_marker: When False, omits the HTML comment artifact marker.
+            Use False when the rendered Markdown will be passed to publish_markdown().
     """
     if not isinstance(draft, DraftReport):
         raise TypeError('render_draft_markdown expects a DraftReport')
@@ -2185,8 +2749,9 @@ def render_draft_markdown(draft: DraftReport) -> str:
     report = draft.report
     fm = report.get('frontmatter', {})
     lines = _render_frontmatter(fm)
-    lines.append('<!-- artifact_kind: draft_markdown_preview; publishable: false -->')
-    lines.append('')
+    if include_debug_marker:
+        lines.append('<!-- artifact_kind: draft_markdown_preview; publishable: false -->')
+        lines.append('')
 
     plan_sections = (report.get('report_plan') or {}).get('sections') or []
     if not plan_sections:
@@ -2247,11 +2812,22 @@ def render_debug_markdown(
     return '\n'.join(lines)
 
 
-def publish_markdown(markdown: str) -> PublishedMarkdown:
-    """Create PublishedMarkdown only after the publishable gate passes."""
+def publish_markdown(
+    markdown: str,
+    report: Optional[Dict[str, Any]] = None,
+) -> PublishedMarkdown:
+    """Create PublishedMarkdown only after the publishable gate passes.
+
+    When ``report`` is supplied, runs the full report-aware gate including
+    sparse fidelity checks. Without ``report``, runs the Markdown-only gate
+    (backward-compatible).
+    """
     import verify_publishable_report
 
-    gates, passed = verify_publishable_report.evaluate(markdown)
+    if report is None:
+        gates, passed = verify_publishable_report.evaluate(markdown)
+    else:
+        gates, passed = verify_publishable_report.evaluate_publishable_report(markdown, report)
     if not passed:
         failed_codes = [code for code, gate in gates.items() if not gate.get('pass')]
         raise PublishableReportError(failed_codes, gates)
@@ -2295,6 +2871,9 @@ def build_writer_section_context(report: Dict[str, Any], top_n: int = 5) -> Dict
     plan = report.get('report_plan') or {}
     evidence_map = report.get('evidence_map') or {}
     by_section = evidence_map.get('by_section') or {}
+    research_records = (
+        (report.get('research_artifacts') or {}).get('research_projection_records') or {}
+    )
     tr = (((report.get('evidence_gate') or {}).get('sources') or {})
           .get('transcript') or {})
     available = bool(tr.get('available'))
@@ -2330,7 +2909,7 @@ def build_writer_section_context(report: Dict[str, Any], top_n: int = 5) -> Dict
             'notes': spec.get('notes', ''),
             'no_fabrication': True,
         }
-        sections.append({
+        section_context = {
             'id': sid,
             'heading': f'## {sid}. {title}',
             'purpose': purpose,
@@ -2341,7 +2920,11 @@ def build_writer_section_context(report: Dict[str, Any], top_n: int = 5) -> Dict
             'evidence': cands,
             'draft_placeholder': f'_待写：{title}。{purpose}_',
             'writer_contract': contract,
-        })
+        }
+        projected = research_records.get(sid) or ()
+        if projected:
+            section_context['research_projection'] = list(projected)
+        sections.append(section_context)
 
     warnings = list(evidence_map.get('warnings') or [])
     if not can_generate:
@@ -2499,6 +3082,7 @@ class WriterSectionContext:
     draft_placeholder: str = ""
     transcript_summary: Optional[str] = None
     claim_context: Optional[str] = None
+    research_context: Optional[str] = None
 
 
 @dataclass
@@ -2551,6 +3135,12 @@ def build_typed_writer_section_contexts(report: dict) -> List[WriterSectionConte
             ))
 
         section_id = sec.get('id', '')
+        research_context = None
+        if sec.get('research_projection'):
+            research_context = json.dumps(
+                sec['research_projection'], ensure_ascii=False,
+                sort_keys=True, separators=(',', ':'),
+            )
         claim_context = None
         if section_id in insights_by_section:
             claim_context = _format_claims_for_prompt(insights_by_section[section_id])
@@ -2573,7 +3163,8 @@ def build_typed_writer_section_contexts(report: dict) -> List[WriterSectionConte
             evidence=evidence_candidates,
             draft_placeholder=sec.get('draft_placeholder', ''),
             transcript_summary=sec.get('transcript_summary'),
-            claim_context=claim_context
+            claim_context=claim_context,
+            research_context=research_context,
         ))
     return typed
 
@@ -3094,6 +3685,12 @@ def write_llm_section(
         claim_context=claim_text,
         evidence=evidence_text
     )
+    if context.research_context:
+        user += (
+            "\n\n---\nVALIDATED RESEARCH PROJECTION（只可使用下列 allowlisted 记录；"
+            "不得引用 raw research，不得新增外部事实）：\n"
+            f"{context.research_context}"
+        )
 
     last_result = None
     for attempt in range(retries + 1):
@@ -3300,8 +3897,10 @@ def extract_claims_from_evidence(report: Dict[str, Any], max_claims: int = 12) -
                     text = getattr(candidate, 'text', '') or getattr(candidate, 'content', '') or getattr(candidate, 'snippet', '')
                     score = getattr(candidate, 'score', 0.5)
 
-                # Skip empty or too-short text
-                if not text or len(text.strip()) < 15:
+                # Audience signals are often concise; keep real short reactions
+                # instead of fabricating an evidence-free §7 placeholder.
+                min_chars = 8 if source_type in ('comment', 'comments', 'danmaku', 'audience') else 15
+                if not text or len(text.strip()) < min_chars:
                     continue
 
                 # Map source_type and confidence
@@ -3471,26 +4070,6 @@ def synthesize_insights_from_claims(
                     insight.depth = 0.75
                     promoted += 1
 
-    # If §7 is empty, create a placeholder audience insight
-    if section_counts.get("7", 0) == 0 and len(insights) > 0:
-        placeholder = Insight(
-            id=f"I{insight_id_counter}",
-            text="观众反馈：视频内容引发关注和讨论",
-            confidence=0.3,
-            evidence_ids=["E_placeholder"],
-            source_type="audience",
-            grounds="",
-            warrant="基于观众互动推断",
-            backing="受限于样本评论数量",
-            qualifier="",
-            rebuttal="",
-            claim_type="inferred",
-            depth=0.3,
-            novelty=0.2,
-            target_section="7"
-        )
-        insights.append(placeholder)
-
     return insights
 
 
@@ -3558,7 +4137,10 @@ def build_claim_bundle(report: Dict[str, Any]) -> ClaimBundle:
 
     # Step 4: Synthesize insights from audited claims
     plan = report.get('plan')
-    insights = synthesize_insights_from_claims(audited_claims, plan)
+    insights = [
+        insight for insight in synthesize_insights_from_claims(audited_claims, plan)
+        if insight.evidence_locations
+    ]
 
     return ClaimBundle(
         claims=audited_claims,
@@ -3675,12 +4257,12 @@ def claim_bundle_to_dict(bundle: ClaimBundle) -> Dict[str, Any]:
     Returns:
         Serializable dict
     """
-    return {
+    return finalize_claim_bundle_dict({
         'evidence_contract_version': _CLAIM_EVIDENCE_CONTRACT_VERSION,
         'claims': [asdict(c) for c in bundle.claims],
         'insights': [asdict(i) for i in bundle.insights],
         'audit_log': [asdict(a) for a in bundle.audit_log]
-    }
+    })
 
 
 def _format_claims_for_prompt(claims: List[Claim], target_section: Optional[str] = None) -> str:

@@ -10,6 +10,7 @@ from being treated as publishable Obsidian notes.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -18,10 +19,57 @@ from typing import Dict, Tuple, List, Optional, Any
 
 
 _SECTION_RE = re.compile(r"^##\s+(2\.5|\d+)(?:\.)?(?=\s)", re.M)
+_PURPOSE_LINE_RE = re.compile(r'^_目的：.*_\s*$')
 _REQUIRED_SECTIONS = ["0", "1", "2", "2.5", "3", "4", "5", "6", "7", "8"]
 _SKELETON_TOKENS = ["_骨架占位", "骨架占位", "Skeleton", "skeleton placeholder"]
 _PLACEHOLDER_RE = re.compile(r"\b(?:E_placeholder|I_placeholder|TODO_EVIDENCE|PLACEHOLDER_EVIDENCE)\b", re.I)
 _SECTION_MAX_CHARS = {"3": 5000, "4": 9000, "7": 4000}
+
+
+def _short_hash(text: str) -> str:
+    return hashlib.sha256(text.encode('utf-8')).hexdigest()[:12]
+
+
+def _normalize_sparse_section(text: str) -> str:
+    """Strip only the renderer-injected prefix (## heading + purpose line).
+
+    Algorithm:
+      1. Consume the first ## heading line if present.
+      2. Consume blank lines immediately after the heading.
+      3. If the next non-blank line matches _PURPOSE_LINE_RE, consume exactly
+         that one line.  Any later purpose-looking line inside the body is
+         content and must be preserved verbatim.
+      4. Consume following prefix blank lines.
+      5. Retain all remaining lines (rstripped), then strip outer blank edges.
+    """
+    text = (text or '').replace('\r\n', '\n').replace('\r', '\n')
+    lines = text.split('\n')
+    i = 0
+    n = len(lines)
+
+    # Step 1: consume first ## heading
+    if i < n and _SECTION_RE.match(lines[i].rstrip()):
+        i += 1
+
+    # Step 2: consume blank lines after heading
+    while i < n and not lines[i].strip():
+        i += 1
+
+    # Step 3: consume exactly one purpose line if it is the next non-blank line
+    if i < n and _PURPOSE_LINE_RE.match(lines[i].rstrip()):
+        i += 1
+
+    # Step 4: consume prefix blank lines after the purpose line
+    while i < n and not lines[i].strip():
+        i += 1
+
+    # Step 5: retain remaining lines verbatim (only rstrip)
+    result = [line.rstrip() for line in lines[i:]]
+    while result and not result[0].strip():
+        result.pop(0)
+    while result and not result[-1].strip():
+        result.pop()
+    return '\n'.join(result)
 
 
 def split_sections(md: str) -> Dict[str, str]:
@@ -302,6 +350,68 @@ def evaluate_transcript_time_resolution(report: Dict[str, Any]) -> Dict[str, Any
     }
 
 
+def evaluate_sparse_report_fidelity(
+    markdown: str,
+    report: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Verify sparse §1/§3/§4/§7 exactly match the deterministic writer output.
+
+    Returns compact JSON-serializable measured evidence on mismatch.
+    """
+    plan = (report or {}).get('report_plan') or {}
+    if plan.get('mode') != 'sparse':
+        return {'passed': True, 'skipped': True, 'reason': 'not_sparse_mode'}
+
+    from video_analysis_engine import write_sparse_analysis_sections, write_sparse_logic_chain_section
+
+    expected_bodies = write_sparse_analysis_sections(report)
+    expected_bodies['1'] = write_sparse_logic_chain_section(report)
+    actual_sections = split_sections(markdown or '')
+    by_section = ((report.get('evidence_map') or {}).get('by_section') or {})
+
+    mismatched: List[Dict[str, Any]] = []
+    missing_local_evidence: List[str] = []
+
+    for sid in ('1', '3', '4', '7'):
+        candidates = list(by_section.get(sid) or [])
+        e1_is_local_transcript = (
+            bool(candidates)
+            and isinstance(candidates[0], dict)
+            and candidates[0].get('source_type') == 'transcript'
+        )
+        if not e1_is_local_transcript:
+            missing_local_evidence.append(sid)
+
+        expected_norm = _normalize_sparse_section(expected_bodies.get(sid, ''))
+        actual_norm = _normalize_sparse_section(actual_sections.get(sid, ''))
+        if expected_norm != actual_norm:
+            mismatched.append({
+                'sid': sid,
+                'expected_chars': len(expected_norm),
+                'actual_chars': len(actual_norm),
+                'expected_hash': _short_hash(expected_norm),
+                'actual_hash': _short_hash(actual_norm),
+            })
+
+    passed = not mismatched and not missing_local_evidence
+    return {
+        'passed': passed,
+        'skipped': False,
+        'reason': (
+            '' if passed
+            else ('section_mismatch' if mismatched else 'missing_local_evidence')
+        ),
+        'mismatched_sections': mismatched,
+        'missing_local_evidence_sections': missing_local_evidence,
+    }
+
+
+def evaluate_research_gates(markdown: str, report: Dict[str, Any]) -> Dict[str, dict]:
+    """Public aggregation seam for the nine report-aware research P0 gates."""
+    from research_publish_gate import evaluate_research_gates as _evaluate
+    return _evaluate(markdown, report)
+
+
 def evaluate_publishable_report(
     markdown: str,
     report: Optional[Dict[str, Any]] = None,
@@ -342,7 +452,12 @@ def evaluate_publishable_report(
             "zero danmaku requires one explicit data-insufficiency disclaimer in an audience-analysis section",
         )
 
-    time_result = evaluate_transcript_time_resolution(report)
+    plan_mode = ((report.get('report_plan') or {}).get('mode') or '')
+    # Sparse mode has few segments by design; timestamp-collapse check is N/A.
+    if plan_mode == 'sparse':
+        time_result: Dict[str, Any] = {'passed': True, 'skipped': True, 'reason': 'sparse_mode'}
+    else:
+        time_result = evaluate_transcript_time_resolution(report)
     if not time_result["skipped"]:
         results["P0_TRANSCRIPT_TIME_RESOLUTION"] = _result(
             time_result["passed"],
@@ -350,12 +465,26 @@ def evaluate_publishable_report(
             "multiple transcript candidates cannot collapse to one timestamp",
         )
 
+    fidelity_result = evaluate_sparse_report_fidelity(markdown, report)
+    if not fidelity_result["skipped"]:
+        results["P0_SPARSE_REPORT_FIDELITY"] = _result(
+            fidelity_result["passed"],
+            {k: v for k, v in fidelity_result.items() if k not in ("passed", "skipped")},
+            "sparse §1/§3/§4/§7 must exactly match deterministic writer output",
+        )
+
+    research_results = evaluate_research_gates(markdown, report)
+    results.update(research_results)
+    research_passed = all(gate["pass"] for gate in research_results.values())
+
     passed = (
         markdown_passed
         and claim_result["passed"]
         and video_result["passed"]
         and social_result["passed"]
         and time_result["passed"]
+        and fidelity_result["passed"]
+        and research_passed
     )
     return results, passed
 

@@ -1,0 +1,7 @@
+{
+  "schema_version": "release-research-fixture/1",
+  "candidates": [
+    {"title":"离线主来源","url":"https://fixture.invalid/primary/$QUERY_UID/$QUERY_CLAIM","content":"PRIVATE-RAW-FIXTURE-PRIMARY $QUERY_UID $QUERY_CLAIM","publisher":"fixture-primary","publisher_group":"fixture-primary-$QUERY_CLAIM","source_kind":"official","authority_relation":"primary","published_at":"2026-07-15T00:00:00Z","quote_candidates":[{"claim_uid":"$QUERY_CLAIM","quote_text":"PRIVATE-RAW-FIXTURE-PRIMARY","start":0,"end":27}]},
+    {"title":"离线独立来源","url":"https://fixture.invalid/independent/$QUERY_UID/$QUERY_CLAIM","content":"PRIVATE-RAW-FIXTURE-INDEPENDENT $QUERY_UID $QUERY_CLAIM","publisher":"fixture-independent","publisher_group":"fixture-independent-$QUERY_CLAIM","source_kind":"research","authority_relation":"independent","published_at":"2026-07-15T00:00:00Z","quote_candidates":[{"claim_uid":"$QUERY_CLAIM","quote_text":"PRIVATE-RAW-FIXTURE-INDEPENDENT","start":0,"end":31}]}
+  ]
+}

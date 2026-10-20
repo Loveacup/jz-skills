@@ -14,8 +14,17 @@ import requests
 
 
 MetadataProvider = Callable[[str, float], Mapping[str, object]]
+MediaResolver = Callable[[str, Path, float], Path]
 DEFAULT_H200_ASR_ENDPOINT = "http://127.0.0.1:8088/ASR/transcribe"
 DEFAULT_ASR_ENDPOINT_FILE = "~/.config/video-analysis-engine/asr_endpoint"
+
+_MIME_MAP: dict[str, str] = {
+    ".wav": "audio/wav",
+    ".aac": "audio/aac",
+    ".m4a": "audio/mp4",
+    ".mp3": "audio/mpeg",
+    ".mp4": "video/mp4",
+}
 
 
 def _endpoint_from_file(values: Mapping[str, str]) -> str:
@@ -39,6 +48,7 @@ class DouyinMediaAsrProvider:
         binary: str = "yt-dlp",
         language: str = "zh",
         temp_root: Optional[Path] = None,
+        media_fallback: Optional[MediaResolver] = None,
     ):
         if not endpoint:
             raise ValueError("H200 endpoint 不能为空")
@@ -49,6 +59,7 @@ class DouyinMediaAsrProvider:
         self._binary = binary
         self._language = language
         self._temp_root = temp_root
+        self._media_fallback = media_fallback
 
     @classmethod
     def from_env(
@@ -95,43 +106,76 @@ class DouyinMediaAsrProvider:
         temp_parent = str(self._temp_root) if self._temp_root is not None else None
         with tempfile.TemporaryDirectory(prefix="video-analysis-douyin-", dir=temp_parent) as tmp:
             tmpdir = Path(tmp)
-            output_template = tmpdir / "audio.%(ext)s"
-            argv = [
-                self._binary,
-                "--no-playlist",
-                "-f",
-                "bestaudio/best",
-                "-x",
-                "--audio-format",
-                "wav",
-                "--audio-quality",
-                "0",
-                "-o",
-                str(output_template),
-                url,
-            ]
-            try:
-                result = self._runner(
-                    argv,
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                    shell=False,
-                    timeout=timeout_s,
-                )
-            except subprocess.TimeoutExpired as exc:
-                raise TimeoutError("Douyin media download timed out") from exc
-            if result.returncode != 0:
-                raise RuntimeError("Douyin media download failed")
-            audio_files = sorted(tmpdir.glob("audio.*"))
-            if not audio_files:
-                raise RuntimeError("Douyin media download produced no audio")
-            text = self._transcribe(audio_files[0], timeout_s)
+            audio_path = self._resolve_audio(url, tmpdir, timeout_s)
+            text = self._transcribe(audio_path, timeout_s)
 
         metadata["transcript_text"] = text
         metadata["transcript_language"] = self._language
         metadata["transcript_source"] = "h200-asr"
         return metadata
+
+    def _download_with_ytdlp(self, url: str, tmpdir: Path, timeout_s: float) -> Path:
+        """Run yt-dlp; raise TimeoutError/RuntimeError on timeout/nonzero/no-output."""
+        output_template = tmpdir / "audio.%(ext)s"
+        argv = [
+            self._binary,
+            "--no-playlist",
+            "-f",
+            "bestaudio/best",
+            "-x",
+            "--audio-format",
+            "wav",
+            "--audio-quality",
+            "0",
+            "-o",
+            str(output_template),
+            url,
+        ]
+        try:
+            result = self._runner(
+                argv,
+                capture_output=True,
+                text=True,
+                check=False,
+                shell=False,
+                timeout=timeout_s,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise TimeoutError("Douyin media download timed out") from exc
+        if result.returncode != 0:
+            raise RuntimeError("Douyin media download failed")
+        audio_files = sorted(tmpdir.glob("audio.*"))
+        if not audio_files:
+            raise RuntimeError("Douyin media download produced no audio")
+        return audio_files[0]
+
+    def _validate_resolved_audio(self, path: Path, tmpdir: Path) -> Path:
+        """Reject symlinks and paths that escape tmpdir."""
+        if path.is_symlink() or not path.is_file():
+            raise RuntimeError("Douyin browser media resolver returned unsafe path")
+        try:
+            path.resolve().relative_to(tmpdir.resolve())
+        except ValueError:
+            raise RuntimeError("Douyin browser media resolver returned unsafe path")
+        return path
+
+    def _resolve_audio(self, url: str, tmpdir: Path, timeout_s: float) -> Path:
+        """Download audio via yt-dlp; on primary failure, try media_fallback once."""
+        primary_error: Exception | None = None
+        try:
+            return self._download_with_ytdlp(url, tmpdir, timeout_s)
+        except (TimeoutError, RuntimeError) as exc:
+            primary_error = exc
+
+        if self._media_fallback is None:
+            raise primary_error  # type: ignore[misc]
+
+        try:
+            resolved = self._media_fallback(url, tmpdir, timeout_s)
+        except Exception as exc:
+            raise RuntimeError("Douyin media fallback failed") from exc
+
+        return self._validate_resolved_audio(resolved, tmpdir)
 
     def _transcribe(self, audio_path: Path, timeout_s: float) -> str:
         language = {
@@ -139,11 +183,12 @@ class DouyinMediaAsrProvider:
             "en": "English",
             "auto": "auto",
         }.get(self._language, self._language)
+        mime = _MIME_MAP.get(audio_path.suffix.lower(), "application/octet-stream")
         with audio_path.open("rb") as audio:
             try:
                 response = self._post(
                     self._endpoint,
-                    files={"file": (audio_path.name, audio, "audio/wav")},
+                    files={"file": (audio_path.name, audio, mime)},
                     data={"language": language},
                     timeout=timeout_s,
                 )
@@ -168,4 +213,4 @@ class DouyinMediaAsrProvider:
         return text
 
 
-__all__ = ["DouyinMediaAsrProvider"]
+__all__ = ["DouyinMediaAsrProvider", "MediaResolver"]

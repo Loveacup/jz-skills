@@ -73,7 +73,8 @@ Only `ready` is publishable. Validate with `scripts/evidence_contract.py`; never
    - Use official/first-party sources to verify external product, API, paper, policy and numeric claims.
 5. **Write adaptively**
    - Prefer insight density over fixed length.
-   - Short/tutorial content: condensed depth; interviews/keynotes: full depth.
+   - Let `--mode auto` choose from evidence budget: short/low-evidence inputs may become provider-free `sparse`; richer short/tutorial content remains `condensed`; interviews/keynotes remain `full`.
+   - Sparse §§1/3/4/7 must stay deterministic, transcript-grounded, and exact-fidelity protected. Never pad sparse evidence to satisfy full-mode quotas.
    - Never dump long transcript blocks or inflate sparse social data.
 6. **Run release gates**
    - Run report structure, claim/evidence, publishable and corpus gates.

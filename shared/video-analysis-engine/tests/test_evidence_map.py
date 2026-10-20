@@ -94,15 +94,43 @@ def test_build_evidence_map_covers_transcript_sections():
 
     for sid in TRANSCRIPT_SECTIONS:
         cands = emap.by_section.get(sid, [])
-        assert cands, f"section {sid} should have transcript candidates"
-        for c in cands:
-            assert c.section_id == sid
-            assert c.source_type == "transcript"
-            assert c.start is not None
-            assert c.text
-            assert c.context == c.text
-            assert c.score > 0
-            assert c.reason  # section purpose marker
+        assert cands, f"section {sid} should have candidates"
+        if sid != "6":
+            for c in cands:
+                assert c.section_id == sid
+                assert c.source_type == "transcript"
+                assert c.start is not None
+                assert c.text
+                assert c.context == c.text
+                assert c.score > 0
+                assert c.reason  # section purpose marker
+        else:
+            # §6 carries both transcript candidates and metadata candidates (Slice B)
+            tr_cands = [c for c in cands if c.source_type == "transcript"]
+            meta_cands = [c for c in cands if c.source_type == "metadata"]
+            # transcript subset: all original field assertions preserved
+            assert tr_cands, "§6 must retain transcript candidates"
+            for c in tr_cands:
+                assert c.section_id == sid
+                assert c.source_type == "transcript"
+                assert c.start is not None
+                assert c.text
+                assert c.context == c.text
+                assert c.score > 0
+                assert c.reason
+            # metadata subset: present because _input() has non-empty title
+            assert meta_cands, "§6 must have metadata candidates for non-empty title"
+            for c in meta_cands:
+                assert c.section_id == sid
+                assert c.source_type == "metadata"
+                assert c.reason in ("metadata_title_candidate", "metadata_description_candidate")
+                assert c.start is None
+                assert c.end is None
+                assert c.timestamp == ""
+                assert c.url == ""
+                assert c.text
+                assert c.context == c.text
+                assert c.score > 0
 
 
 def test_transcript_end_and_reason_markers():
@@ -119,7 +147,12 @@ def test_transcript_end_and_reason_markers():
     assert {c.reason for c in emap.by_section["1"]} == {"logic_candidate"}
     assert {c.reason for c in emap.by_section["4"]} == {"deep_dive_candidate"}
     assert {c.reason for c in emap.by_section["5"]} == {"quote_candidate"}
-    assert {c.reason for c in emap.by_section["6"]} == {"knowledge_candidate"}
+    # §6: check transcript and metadata subsets separately (Slice B additive contract)
+    tr_6 = [c for c in emap.by_section["6"] if c.source_type == "transcript"]
+    meta_6 = [c for c in emap.by_section["6"] if c.source_type == "metadata"]
+    assert {c.reason for c in tr_6} == {"knowledge_candidate"}
+    # _input() has title only (no description) → only metadata_title_candidate
+    assert {c.reason for c in meta_6} == {"metadata_title_candidate"}
 
 
 def test_url_uses_seconds_formula_not_mmss():

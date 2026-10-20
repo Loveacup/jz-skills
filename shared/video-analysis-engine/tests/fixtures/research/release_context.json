@@ -1,0 +1,7 @@
+{
+  "canonical_id": "fixture-release",
+  "platform": "bilibili",
+  "evidence_bundle_hash": "sha256:fixture",
+  "created_at": "2026-07-15T00:00:00Z",
+  "plan_id": "fixture-release-plan"
+}

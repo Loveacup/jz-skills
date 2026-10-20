@@ -19,20 +19,24 @@ GATES（全量版 full / 默认）:
   G1 ≤100 行; G3 ≥2 洞察 × ≥150 词; G4 ≥2 模块 (不强制每模块上限);
   G5 ≥2 高光; G7 不变。
 
+极简版 sparse (≤180s 短视频):
+  G1 ≤100 行; G3 ≥1 洞察 × ≥20 词; G4 ≥1 模块 × ≥20 词;
+  G5 ≥1 高光; G7 ≥1 独特价值 & ≥1 局限偏见 & ≥1 可行动项。
+
 Claim-First Gates (opt-in with --claim-first):
   G8  §3 每条洞察含 claim/evidence/warrant/boundary 结构
   G9  §4 每个模块含显性/隐性/元叙事或等价结构（核心论点/论证展开/批判审视）
   G10 §7 行动项含证据引用或 claim id ([E#] 或 [C#] 或时间戳)
 
 用法:
-  python3 verify_report.py <report.md> [--mode full|condensed] [--json]
+  python3 verify_report.py <report.md> [--mode full|condensed|sparse] [--json]
   python3 verify_report.py <report.md> --depth full [--claim-first] [--json]
 
 参数:
-  --mode full|condensed   别名 --depth，控制 G1/G3/G4/G5/G7 阈值
-  --depth full|condensed  同上
-  --claim-first           启用 G8-G10 claim-first 质量门
-  --json                  输出 JSON 格式结果
+  --mode full|condensed|sparse  别名 --depth，控制 G1/G3/G4/G5/G7 阈值
+  --depth full|condensed|sparse 同上
+  --claim-first                 启用 G8-G10 claim-first 质量门
+  --json                        输出 JSON 格式结果
 
 退出码: 0 全部通过 / 1 有门未通过 / 2 用法错误或文件不存在。
 """
@@ -357,6 +361,14 @@ def measure_g10(lines):
 
 def build_gates(mode):
     """根据模式返回各门阈值配置。"""
+    if mode == 'sparse':
+        return {
+            'min_insights': 1, 'insight_words': 20,
+            'min_modules': 1, 'module_words': 20,
+            'min_highlights': 1,
+            'valid': 1, 'blind': 1, 'action': 1,
+            'g1_max_lines': 100,
+        }
     if mode == 'condensed':
         return {
             'min_insights': 2, 'insight_words': 150,
@@ -591,10 +603,10 @@ def main():
         description='静态校验 Bilibili 解析报告的结构深度质量门。'
     )
     parser.add_argument('report', help='报告 Markdown 文件路径')
-    parser.add_argument('--mode', choices=['full', 'condensed'], default='full',
-                        help='全量版 full(默认) 或精简版 condensed')
-    parser.add_argument('--depth', choices=['full', 'condensed'], dest='depth',
-                        help='深度模式（--mode 的别名）：full(默认) 或 condensed')
+    parser.add_argument('--mode', choices=['full', 'condensed', 'sparse'], default='full',
+                        help='全量版 full(默认) / 精简版 condensed / 极简版 sparse')
+    parser.add_argument('--depth', choices=['full', 'condensed', 'sparse'], dest='depth',
+                        help='深度模式（--mode 的别名）：full(默认) / condensed / sparse')
     parser.add_argument('--claim-first', action='store_true', dest='claim_first',
                         help='启用 claim-first 质量门 (G8/G9/G10)')
     parser.add_argument('--json', action='store_true', dest='as_json',

@@ -4,12 +4,18 @@
 
 P3-A: one stable entry point for pre-release validation.
 
-Default mode is intentionally cheap and deterministic:
-  1. run_quality_gate.py with fixture provider and fallback guard
-  2. pytest excluding tests/test_asr_config.py
+Default mode runs two deterministic fixture lanes then pytest:
+  1. full fixture lane: run_quality_gate.py with fixture provider, claim-first-full
+     depth profile, all publish/QA gates, and --mode full.
+  2. sparse fixture lane: same fixture, no writer provider, --mode sparse, standard
+     depth profile, publish + section-QA gates (no claim-QA, no model dependency).
+  3. pytest excluding tests/test_asr_config.py
+
+Both deterministic lanes always run; skip_pytest skips only the pytest step.
 
 Real sample smoke is opt-in via --real-sample because it may call a model-backed
-writer provider and spend time/tokens.
+writer provider and spend time/tokens. It uses --mode auto so sparse evidence budgets
+suppress the provider internally while long samples keep the model-backed path.
 """
 
 import argparse
@@ -26,6 +32,15 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
 DEFAULT_FIXTURE = Path("tests/fixtures/p2e_fetch_all.json")
 DEFAULT_OUTPUT = Path("/tmp/bili_release_gate_fixture_report.md")
+DEFAULT_SPARSE_OUTPUT = Path("/tmp/video_analysis_engine_sparse_release_gate_report.md")
+
+# S8-B offline research fixture lane. The full fixture lane exercises the offline
+# research provider so the release gate proves the research P0 gates hold. Inputs are
+# sanitized public fixtures; the archive lands in a deterministic /tmp directory so raw
+# research sources never touch the repo working tree.
+DEFAULT_RESEARCH_CONTEXT = Path("tests/fixtures/research/release_context.json")
+DEFAULT_RESEARCH_FIXTURE = Path("tests/fixtures/research/release_fixture.json")
+DEFAULT_RESEARCH_ARCHIVE_DIR = Path("/tmp/video-analysis-engine-release-gate/research")
 
 
 @dataclass
@@ -67,19 +82,29 @@ def build_commands(
     *,
     fixture_input: Path = DEFAULT_FIXTURE,
     fixture_output: Path = DEFAULT_OUTPUT,
+    sparse_output: Path = DEFAULT_SPARSE_OUTPUT,
+    research_context: Path = DEFAULT_RESEARCH_CONTEXT,
+    research_fixture: Path = DEFAULT_RESEARCH_FIXTURE,
+    research_archive_dir: Path = DEFAULT_RESEARCH_ARCHIVE_DIR,
     real_sample: Optional[Path] = None,
     real_output: Optional[Path] = None,
     real_writer_provider: str = "cli",
     skip_pytest: bool = False,
 ) -> List[GateCommand]:
-    """Build the ordered release-gate command list."""
+    """Build the ordered release-gate command list.
+
+    Order: full fixture lane → sparse fixture lane → pytest (unless skipped) → real sample (if set).
+    Both deterministic fixture lanes always run regardless of skip_pytest.
+    """
     if real_sample and real_writer_provider not in {"cli", "deepseek"}:
         raise ValueError("real sample writer provider must be model-backed: cli or deepseek")
 
     py = sys.executable
+
+    # Lane 1: full fixture — claim-first-full, all gates, mode full
     commands = [
         GateCommand(
-            name="fixture quality gate",
+            name="fixture quality gate (full)",
             kind="quality_gate_fixture",
             argv=[
                 py,
@@ -90,15 +115,50 @@ def build_commands(
                 str(fixture_output),
                 "--writer-provider",
                 "fixture",
+                "--mode",
+                "full",
                 "--fail-on-fallback-warning",
                 "--publishable",
                 "--section-qa-gate",
                 "--depth-profile",
                 "claim-first-full",
                 "--claim-qa-gate",
+                # S8-B: offline research fixture lane. Deterministic, network-free, and
+                # archived under /tmp so raw sources never enter the repo working tree.
+                "--research-provider",
+                "fixture",
+                "--research-context",
+                str(research_context),
+                "--research-fixture",
+                str(research_fixture),
+                "--research-archive-dir",
+                str(research_archive_dir),
                 "--json",
             ],
-        )
+        ),
+        # Lane 2: sparse fixture — same input, no model, mode sparse, no claim-QA,
+        # and deliberately no research/network flags (fully offline evidence-only lane).
+        GateCommand(
+            name="fixture quality gate (sparse)",
+            kind="quality_gate_sparse_fixture",
+            argv=[
+                py,
+                "scripts/run_quality_gate.py",
+                "--input",
+                str(fixture_input),
+                "--output",
+                str(sparse_output),
+                "--writer-provider",
+                "none",
+                "--mode",
+                "sparse",
+                "--publishable",
+                "--section-qa-gate",
+                "--depth-profile",
+                "standard",
+                "--json",
+            ],
+        ),
     ]
 
     if not skip_pytest:
@@ -134,6 +194,8 @@ def build_commands(
                     str(real_output),
                     "--writer-provider",
                     real_writer_provider,
+                    "--mode",
+                    "auto",
                     "--fail-on-fallback-warning",
                     "--publishable",
                     "--section-qa-gate",
@@ -229,7 +291,12 @@ def main() -> None:
     parser.add_argument(
         "--fixture-output",
         default=str(DEFAULT_OUTPUT),
-        help="Output path for the deterministic fixture report.",
+        help="Output path for the full fixture report.",
+    )
+    parser.add_argument(
+        "--sparse-output",
+        default=str(DEFAULT_SPARSE_OUTPUT),
+        help="Output path for the sparse fixture report.",
     )
     parser.add_argument(
         "--real-sample",
@@ -257,6 +324,7 @@ def main() -> None:
     commands = build_commands(
         fixture_input=Path(args.fixture_input),
         fixture_output=Path(args.fixture_output),
+        sparse_output=Path(args.sparse_output),
         real_sample=Path(args.real_sample) if args.real_sample else None,
         real_output=Path(args.real_output) if args.real_output else None,
         real_writer_provider=args.real_writer_provider,

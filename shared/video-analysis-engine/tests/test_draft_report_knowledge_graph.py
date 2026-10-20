@@ -1,14 +1,21 @@
 # -*- coding: utf-8 -*-
 """DraftReport deterministic §6 knowledge graph slice."""
 
+import re
 import verify_publishable_report
 from test_verify_publishable_report import _good_report
 from video_analysis_engine import (
     _OBSIDIAN_MOC_FALLBACK,
     _concepts_in_text,
     _load_obsidian_moc,
+    AnalysisInput,
+    Transcript,
+    TranscriptSegment,
+    analyze_video,
     assemble_draft_report_slice,
+    build_draft_report,
     evaluate_draft_section_quality,
+    render_debug_markdown,
     write_knowledge_graph_section,
 )
 
@@ -194,3 +201,189 @@ def test_assemble_draft_report_slice_writes_section6_only_when_requested():
     assert set(draft.draft_sections) == {"6"}
     assert "### 核心概念" in draft.draft_sections["6"]
     assert "[[虚拟偶像]]" in draft.draft_sections["6"]
+
+
+# ─── Slice B: metadata-backed §6 tests ───────────────────────────────────────
+
+_REAL_TITLE = '央视独家画面！90秒多视角看长征十号乙运载火箭发射回收'
+_REAL_DESC = '长征十号乙运载火箭，发射回收。'
+
+
+def _sparse_inp(title='', description=''):
+    return AnalysisInput(
+        video_id='BVtest01',
+        platform='bilibili',
+        title=title,
+        description=description,
+        transcript=Transcript(
+            segments=[
+                TranscriptSegment(start=0.0, text='01准备就绪', end=5.0),
+                TranscriptSegment(start=5.0, text='T减10秒', end=10.0),
+                TranscriptSegment(start=15.0, text='点火', end=20.0),
+            ],
+            language='zh',
+            source='asr',
+        ),
+    )
+
+
+def test_sparse_transcript_with_metadata_title_yields_nons_skeleton_kg_with_required_concepts():
+    """Slice B test 1: real sparse case → non-skeleton §6 with both verbatim concepts."""
+    inp = _sparse_inp(title=_REAL_TITLE, description=_REAL_DESC)
+    report = analyze_video(inp)
+    cands = report['evidence_map']['by_section'].get('6', [])
+    body = write_knowledge_graph_section({'evidence': cands})
+    assert '长征十号乙运载火箭' in body
+    assert '发射回收' in body
+    assert '_骨架占位' not in body
+
+
+def test_metadata_concepts_are_verbatim_substrings_of_title_or_description():
+    """Slice B test 2: every metadata-derived concept is a literal substring of title/description."""
+    inp = _sparse_inp(title=_REAL_TITLE, description=_REAL_DESC)
+    report = analyze_video(inp)
+    cands = report['evidence_map']['by_section'].get('6', [])
+    meta_cands = [c for c in cands if c.get('source_type') == 'metadata']
+    assert meta_cands, 'Expected metadata candidates in §6'
+    body = write_knowledge_graph_section({'evidence': meta_cands})
+    source_text = _REAL_TITLE + _REAL_DESC
+    # All wikilinks must be verbatim in source
+    for link in re.findall(r'\[\[([^\]]+)\]\]', body):
+        assert link in source_text, f'[[{link}]] is not verbatim in title or description'
+    # Plain concept bullets (not relation lines with →, not placeholder lines)
+    for plain in re.findall(r'^- ([^\[_].+)$', body, re.MULTILINE):
+        plain = plain.strip()
+        if '→' in plain or plain.startswith('_'):
+            continue
+        assert plain in source_text, f'plain concept "{plain}" is not verbatim in title or description'
+
+
+def test_metadata_candidates_produce_no_action_items_and_no_causal_relations():
+    """Slice B test 3: metadata candidates never produce action items; relations are co-occurrence only."""
+    # Title with verbs that would trigger transcript action extraction
+    title = '长征十号乙运载火箭应该建议制作自动化发射系统'
+    cand = {
+        'section_id': '6', 'source_type': 'metadata',
+        'reason': 'metadata_title_candidate',
+        'timestamp': '', 'url': '',
+        'text': title,
+    }
+    body = write_knowledge_graph_section({'evidence': [cand]})
+    assert '- _暂无可抽取行动项_' in body
+    # relation prose must not use causal language about the content
+    assert '导致' not in body
+    assert '因此' not in body or '不等同于' in body  # reasoning_frame is OK to keep
+
+
+def test_empty_metadata_and_sparse_transcript_remains_skeleton():
+    """Slice B test 4: empty title/description + sparse transcript → skeleton, P0_NO_SKELETON fails."""
+    inp = _sparse_inp(title='', description='')
+    report = analyze_video(inp)
+    cands = report['evidence_map']['by_section'].get('6', [])
+    body = write_knowledge_graph_section({'evidence': cands})
+    assert '_骨架占位' in body
+    md = _good_report().replace('- [[虚拟偶像]] → [[人格资产]] → [[信任机制]]', body)
+    results, passed = verify_publishable_report.evaluate(md)
+    assert results['P0_NO_SKELETON']['pass'] is False
+
+
+def test_boilerplate_only_metadata_produces_no_concept_and_remains_skeleton():
+    """Slice B test 5: boilerplate/duration/verb wrappers alone → no concept, skeleton."""
+    for boilerplate in ['央视独家画面', '90秒', '多视角看']:
+        cand = {
+            'section_id': '6', 'source_type': 'metadata',
+            'reason': 'metadata_title_candidate',
+            'timestamp': '', 'url': '',
+            'text': boilerplate,
+        }
+        body = write_knowledge_graph_section({'evidence': [cand]})
+        assert '_骨架占位' in body, f'Expected skeleton for boilerplate-only: "{boilerplate}"'
+
+
+def test_only_canonical_title_description_feed_section6_not_author_duration_or_counts():
+    """Slice B test 6: author, duration, counts do not appear in §6 evidence."""
+    inp = AnalysisInput(
+        video_id='BVtest02', platform='bilibili',
+        title='', description='',
+        author='航天频道', duration=90,
+        transcript=Transcript(
+            segments=[TranscriptSegment(start=0.0, text='准备就绪', end=5.0)],
+            language='zh', source='asr',
+        ),
+    )
+    report = analyze_video(inp)
+    cands = report['evidence_map']['by_section'].get('6', [])
+    meta_cands = [c for c in cands if c.get('source_type') == 'metadata']
+    # title and description are both empty → no metadata candidates
+    assert len(meta_cands) == 0
+    # author, duration do not appear in any §6 candidate text
+    for cand in cands:
+        text = cand.get('text') or ''
+        assert '航天频道' not in text
+
+
+def test_sparse_transcript_does_not_falsely_claim_transcript_basis_when_metadata_contributes_all():
+    """Review-1 regression: evidence frame must say title/description when sparse transcript
+    contributes zero concepts and metadata provides all KG content."""
+    inp = _sparse_inp(title=_REAL_TITLE, description=_REAL_DESC)
+    report = analyze_video(inp)
+    cands = report['evidence_map']['by_section'].get('6', [])
+    body = write_knowledge_graph_section({'evidence': cands})
+    # Must be non-skeleton
+    assert '_骨架占位' not in body
+    # Evidence frame must reference title/description, not transcript-only basis
+    assert '标题' in body or '描述' in body
+    assert '本节基于当前转录中的知识与应用证据' not in body
+
+
+def test_metadata_extraction_strips_action_prefix_and_rejects_arbitrary_promo_phrase():
+    prefixed = {
+        'section_id': '6', 'source_type': 'metadata',
+        'reason': 'metadata_title_candidate', 'timestamp': '', 'url': '',
+        'text': '成功发射长征十号乙运载火箭',
+    }
+    body = write_knowledge_graph_section({'evidence': [prefixed]})
+    assert '- 长征十号乙运载火箭' in body
+    assert '- 成功发射长征十号乙运载火箭' not in body
+
+    promo = dict(prefixed, text='重磅来袭精彩呈现')
+    assert '_骨架占位' in write_knowledge_graph_section({'evidence': [promo]})
+
+
+def test_final_renderer_keeps_metadata_after_more_than_five_transcript_candidates():
+    inp = AnalysisInput(
+        video_id='douyin-many-segments', platform='douyin',
+        title=_REAL_TITLE, description=_REAL_DESC,
+        transcript=Transcript(
+            segments=[
+                TranscriptSegment(start=float(i), end=float(i + 1), text=f'{i}号遥测信号正常')
+                for i in range(8)
+            ],
+            language='zh', source='h200-asr-browser-media',
+        ),
+    )
+    report = analyze_video(inp)
+    assert len([
+        c for c in report['evidence_map']['by_section']['6']
+        if c.get('source_type') == 'transcript'
+    ]) == 8
+    markdown = render_debug_markdown(build_draft_report(report))
+    section6 = markdown.split('## 6.', 1)[1].split('## 7.', 1)[0]
+    assert '长征十号乙运载火箭' in section6
+    assert '发射回收' in section6
+    assert '_骨架占位' not in section6
+
+
+def test_provenance_ignores_metadata_concept_removed_by_max_items():
+    transcript = _kg_candidate(
+        'ComfyUI MCP API Mac Windows Codex GitHub TypeScript OpenAI',
+        source_type='transcript',
+    )
+    metadata = _kg_candidate(
+        '发射回收', reason='metadata_title_candidate',
+        source_type='metadata', timestamp='',
+    )
+    body = write_knowledge_graph_section({'evidence': [transcript, metadata]}, max_items=8)
+    assert '发射回收' not in body
+    assert body.startswith('本节基于转录')
+    assert '标题和描述' not in body

@@ -40,13 +40,164 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import re
 import json
 import argparse
+from collections.abc import Mapping
 
+import video_analysis_engine as _vae
 from video_analysis_engine import (
     AnalysisInput, Transcript, TranscriptSegment, Comment, Danmaku,
-    analyze_video, build_draft_report, render_debug_markdown,
+    analyze_video, build_draft_report, render_debug_markdown, render_draft_markdown,
+    publish_markdown, PublishableReportError,
     cli_writer_provider, deepseek_writer_provider,
 )
 import verify_publishable_report
+import research_contract as _research_contract
+import research_projection as _research_projection
+from research_pipeline import build_research_plan, execute_research_once
+
+
+def orchestrate_research(
+    report,
+    *,
+    research_provider=None,
+    research_context=None,
+    research_policy="auto",
+    research_archive=None,
+):
+    """Build one plan, execute one injected provider, validate, archive, and project.
+
+    The legacy results-dict transport has no canonical EvidenceBundle hash and
+    therefore remains explicitly untrusted. Only validated/adjudicated bundle
+    objects may reach deterministic projection; raw candidates remain private.
+    """
+    if not research_context or not research_context.get("evidence_bundle_hash"):
+        summary = {
+            "status": "unavailable",
+            "transport": "legacy_untrusted",
+            "attempted": False,
+            "executed": False,
+            "validated_evidence_count": 0,
+        }
+        report["research"] = summary
+        return summary
+
+    frontmatter = report.get("frontmatter") or {}
+    report_plan = report.get("report_plan") or {}
+    plan = build_research_plan(
+        evidence_bundle_hash=str(research_context["evidence_bundle_hash"]),
+        claim_bundle=report.get("claim_bundle") or {},
+        canonical_id=str(research_context.get("canonical_id") or frontmatter.get("video_id") or ""),
+        platform=str(research_context.get("platform") or frontmatter.get("platform") or "unknown"),
+        report_mode=str(report_plan.get("mode") or "condensed"),
+        research_policy=research_policy,
+        capability_snapshot=research_context.get("capability_snapshot") or {
+            "available": research_provider is not None,
+            "route": "injected" if research_provider is not None else "unavailable",
+        },
+        created_at=str(research_context.get("created_at") or ""),
+        plan_id=str(research_context.get("plan_id") or ""),
+        topic_hints=tuple(research_context.get("topic_hints") or ()),
+    )
+    raw_run = execute_research_once(plan, research_provider)
+    artifacts = {"research_plan": plan, "raw_research_run": raw_run}
+    bundle = None
+    validation_error = None
+    if raw_run.executed:
+        try:
+            bundle = _research_contract.validate_and_adjudicate_research(plan, raw_run)
+        except _research_contract.ResearchContractViolation as exc:
+            # Fail closed without projecting raw material or crashing legacy report
+            # generation. No ResearchBundle means publication remains blocked.
+            validation_error = str(exc)[:240]
+        else:
+            artifacts["research_bundle"] = bundle
+            if research_archive is not None:
+                source_hashes = set()
+                candidates = raw_run.raw_research.get("candidates", ())
+                if isinstance(candidates, (tuple, list)):
+                    for candidate in candidates:
+                        if not isinstance(candidate, Mapping):
+                            continue
+                        content = candidate.get("content")
+                        if isinstance(content, str) and content:
+                            source_hashes.add(research_archive.write_source(content))
+                artifacts["archive_source_hashes"] = tuple(sorted(source_hashes))
+                artifacts["archive_bundle_hash"] = research_archive.write_bundle(bundle)
+
+            report_mode = str((report.get("report_plan") or {}).get("mode") or "")
+            if report_mode in _research_contract.REPORT_MODES:
+                projection = _research_projection.build_research_projection(
+                    bundle,
+                    report_plan_hash=_research_contract.semantic_sha256(
+                        report.get("report_plan") or {}
+                    ),
+                    report_mode=report_mode,
+                )
+                artifacts["research_projection"] = projection
+                artifacts["research_projection_records"] = (
+                    _research_projection.materialize_research_projection(
+                        projection, bundle
+                    )
+                )
+    report["research_artifacts"] = artifacts
+    validated_quotes = (
+        bundle.validated_research.get("quotes", ()) if bundle is not None else ()
+    )
+    validated_evidence_count = (
+        len(validated_quotes) if isinstance(validated_quotes, (tuple, list)) else 0
+    )
+    external = report.setdefault("evidence_gate", {}).setdefault("sources", {}).setdefault(
+        "external_research", {}
+    )
+    external.update({
+        "available": bool(validated_evidence_count),
+        "validated_evidence_count": validated_evidence_count,
+        "route": str(plan.capability_snapshot.get("route") or ""),
+        "reason": "validated_research" if validated_evidence_count else raw_run.status,
+    })
+    report["research"] = {
+        "status": "invalid" if validation_error else raw_run.status,
+        "transport": "canonical_evidence_bundle",
+        "capability_available": raw_run.capability_available,
+        "attempted": raw_run.attempted,
+        "executed": raw_run.executed,
+        "validated_evidence_count": validated_evidence_count,
+        "plan_semantic_hash": plan.plan_semantic_hash,
+        "raw_hash": raw_run.raw_hash,
+        "publication_disposition": (
+            bundle.publication_disposition if bundle is not None else "block"
+        ),
+    }
+    if validation_error:
+        report["research"]["validation_error"] = validation_error
+    elif bundle is not None:
+        report["research"].update({
+            "validated_semantic_hash": bundle.validated_semantic_hash,
+            "audit_artifact_hash": bundle.audit_artifact_hash,
+        })
+    return artifacts
+
+
+def assemble_draft_report_slice(
+    report,
+    section_ids=("1", "5"),
+    provider=None,
+    claim_qa_gate=False,
+    depth_profile="v24-full",
+):
+    """Thin dynamic wrapper that preserves both monkeypatch seams.
+
+    Seam 1: monkeypatching video_analysis_engine.assemble_draft_report_slice
+             affects this wrapper (calls via _vae at invocation time).
+    Seam 2: monkeypatching generate_report.assemble_draft_report_slice
+             replaces the global name called by report_markdown.
+    """
+    return _vae.assemble_draft_report_slice(
+        report,
+        section_ids=section_ids,
+        provider=provider,
+        claim_qa_gate=claim_qa_gate,
+        depth_profile=depth_profile,
+    )
 
 
 # ============ 通用解析工具 ============
@@ -412,43 +563,80 @@ def _serialize_section_qa(qa_results):
     return section_qa
 
 
-def report_markdown(results, run_fact_check=True, provider=None, depth_profile="v24-full", claim_qa_gate=False):
+def report_markdown(
+    results,
+    run_fact_check=True,
+    provider=None,
+    depth_profile="v24-full",
+    claim_qa_gate=False,
+    mode='full',
+    research_provider=None,
+    research_context=None,
+    research_policy="auto",
+    research_archive=None,
+):
     """results → (markdown 文本, report dict)。供 fetch_all --report 直接复用。
 
-    Phase 3: 填充 report["section_qa"] 元数据（机器可读 JSON），不改变 Markdown 输出语义。
-    Phase 5: 支持 depth_profile 和 claim_qa_gate 参数，并注入 claim bundle。
-    """
-    from video_analysis_engine import assemble_draft_report_slice
+    mode='full' 是 API 兼容默认值；CLI 默认使用 'auto'。
+    mode in (None, 'auto') → 由 EvidenceBudget 自动选择；其余值显式覆盖。
 
+    所有正式模式（sparse/condensed/full）均经由 assemble_draft_report_slice 组装
+    draft_with_qa，再用 render_draft_markdown(include_debug_marker=False) 渲染。
+    Sparse 强制 provider=None；full/condensed 传入 caching provider（恰好 3 次调用）。
+    """
     inp = build_analysis_input(results, run_fact_check=run_fact_check)
-    report = analyze_video(inp)
+    mode_override = None if mode in (None, 'auto') else mode
+    report = analyze_video(inp, mode_override=mode_override)
+    effective_mode = (report.get('report_plan') or {}).get('mode', 'condensed')
+
+    report["depth_profile"] = depth_profile
     shared_provider = _CachingWriterProvider(provider) if provider else None
 
-    # Phase 5: 注入 depth_profile 到 report（供后续可能的 prompt 使用）
-    report["depth_profile"] = depth_profile
+    # Sparse freezes research before deterministic section assembly. Other modes
+    # keep the S4 final-ClaimBundle boundary and attach projection afterward,
+    # without a second writer/provider pass.
+    if effective_mode == 'sparse':
+        orchestrate_research(
+            report,
+            research_provider=research_provider,
+            research_context=research_context,
+            research_policy=research_policy,
+            research_archive=research_archive,
+        )
 
-    # Phase 3: 调用 assemble_draft_report_slice() 仅填充 QA 元数据，不改变渲染输出。
-    # When provider is real, shared_provider prevents QA + debug rendering from
-    # calling the same LLM prompt twice.
-    # Phase 5: 传入 claim_qa_gate 和 depth_profile 参数
-    draft_with_qa = assemble_draft_report_slice(
-        report,
-        section_ids=("1", "3", "4", "5", "6", "7"),
-        provider=shared_provider,
-        claim_qa_gate=claim_qa_gate,
-        depth_profile=depth_profile,
-    )
+    if effective_mode == 'sparse':
+        draft_with_qa = assemble_draft_report_slice(
+            report,
+            section_ids=("1", "3", "4", "5", "6", "7"),
+            provider=None,
+            claim_qa_gate=False,
+            depth_profile='standard',
+        )
+    else:
+        draft_with_qa = assemble_draft_report_slice(
+            report,
+            section_ids=("1", "3", "4", "5", "6", "7"),
+            provider=shared_provider,
+            claim_qa_gate=claim_qa_gate,
+            depth_profile=depth_profile,
+        )
+
     report["section_qa"] = _serialize_section_qa(draft_with_qa.qa_results)
-
-    # Phase 5: claim_bundle 已经在 assemble_draft_report_slice 中构建并注入到 report
-    # 这里确保 report 包含 claim_bundle（用于 summary 输出）
     report["claim_bundle"] = draft_with_qa.claim_bundle
+    report["draft_warnings"] = list(draft_with_qa.warnings)
 
-    # 保持旧的 Markdown 渲染路径不变（debug/legacy path）
-    draft = build_draft_report(report)
-    markdown = render_debug_markdown(draft, provider=shared_provider, depth_profile=depth_profile)
-    # P6-B1 is diagnostic metadata for all generated reports; only the formal
-    # output guard turns a non-skipped failure into a publish blocker.
+    if effective_mode != 'sparse':
+        orchestrate_research(
+            report,
+            research_provider=research_provider,
+            research_context=research_context,
+            research_policy=research_policy,
+            research_archive=research_archive,
+        )
+        _vae.apply_research_projection_to_draft(draft_with_qa)
+
+    markdown = render_draft_markdown(draft_with_qa, include_debug_marker=False)
+
     report["video_evidence_usage"] = verify_publishable_report.evaluate_video_evidence_usage(markdown, report)
     return markdown, report
 
@@ -526,29 +714,49 @@ def is_formal_report_output(path) -> bool:
     )
 
 
-def validate_output_preflight(path, writer_provider):
-    """Reject a formal note that cannot generate writer-backed core sections."""
-    if is_formal_report_output(path) and writer_provider == "none":
-        return {
-            "status": "failed",
-            "error_code": "FORMAL_OUTPUT_REQUIRES_WRITER",
-            "writer_provider": writer_provider,
-        }
+def validate_output_preflight(path, writer_provider, report_plan=None):
+    """Reject a formal note that cannot generate writer-backed core sections.
+
+    When report_plan is supplied the effective mode is used: sparse mode allows
+    writer=none because §3/§4/§7 are deterministic. All other modes (including
+    no report_plan yet) require a model-backed writer for formal outputs.
+    """
+    if not is_formal_report_output(path):
+        return None
+    if writer_provider == "none":
+        effective_mode = (report_plan or {}).get('mode', '') if report_plan else ''
+        if effective_mode != 'sparse':
+            return {
+                "status": "failed",
+                "error_code": "FORMAL_OUTPUT_REQUIRES_WRITER",
+                "writer_provider": writer_provider,
+            }
     return None
 
 
 def check_formal_output_publishable(path, markdown, report=None):
-    """Check combined gates for formal outputs; debug paths are skipped."""
+    """Check combined gates for formal outputs; debug paths are skipped.
+
+    Uses publish_markdown() so the PublishedMarkdown artifact boundary is
+    actually exercised. Debug output remains a plain string.
+    """
     if not is_formal_report_output(path):
         return True, {'skipped': True, 'passed': True, 'failed_codes': []}
-    gates, passed = verify_publishable_report.evaluate_publishable_report(markdown, report)
-    failed_codes = [code for code, gate in gates.items() if not gate.get('pass')]
-    return passed, {
-        'skipped': False,
-        'passed': passed,
-        'failed_codes': failed_codes,
-        'gates': gates,
-    }
+    try:
+        pm = publish_markdown(markdown, report)
+        return True, {
+            'skipped': False,
+            'passed': True,
+            'failed_codes': [],
+            'gates': pm.gates,
+        }
+    except PublishableReportError as exc:
+        return False, {
+            'skipped': False,
+            'passed': False,
+            'failed_codes': exc.failed_codes,
+            'gates': exc.gates,
+        }
 
 
 def main():
@@ -568,6 +776,12 @@ def main():
         default='v24-full',
         help='Phase 5: Depth profile (v24-full=default v2.4 depth, standard=simplified backward-compatible, claim-first-full=claim-first architecture).',
     )
+    parser.add_argument(
+        '--mode',
+        choices=('auto', 'sparse', 'condensed', 'full'),
+        default='auto',
+        help='Report mode: auto (default, uses evidence budget), or explicit sparse/condensed/full override.',
+    )
     args = parser.parse_args()
 
     try:
@@ -581,16 +795,6 @@ def main():
 
     bvid = results.get('bvid') or 'unknown'
     out_path = args.output or f'/tmp/{bvid}_report.md'
-    preflight_error = validate_output_preflight(out_path, args.writer_provider)
-    if preflight_error:
-        print('❌ 正式报告需要 model-backed writer：请使用 --writer-provider cli 或 deepseek')
-        print('\nRESULT_JSON_START')
-        print(json.dumps({
-            **preflight_error,
-            'report_path': out_path,
-        }, ensure_ascii=False, indent=2))
-        print('RESULT_JSON_END')
-        sys.exit(1)
 
     print(f'📝 生成分析报告: {bvid}')
     print('=' * 60)
@@ -604,7 +808,21 @@ def main():
         provider=provider,
         depth_profile=args.depth_profile,
         claim_qa_gate=claim_qa_gate,
+        mode=args.mode,
     )
+
+    # 预检在生成报告后执行，以便使用 effective plan mode 判断是否允许 writer=none
+    report_plan = report.get('report_plan')
+    preflight_error = validate_output_preflight(out_path, args.writer_provider, report_plan=report_plan)
+    if preflight_error:
+        print('❌ 正式报告需要 model-backed writer：请使用 --writer-provider cli 或 deepseek')
+        print('\nRESULT_JSON_START')
+        print(json.dumps({
+            **preflight_error,
+            'report_path': out_path,
+        }, ensure_ascii=False, indent=2))
+        print('RESULT_JSON_END')
+        sys.exit(1)
 
     publishable_ok, publishable_summary = check_formal_output_publishable(out_path, markdown, report)
     if not publishable_ok:

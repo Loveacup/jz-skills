@@ -38,17 +38,23 @@ def test_resolve_writer_provider_deepseek():
     assert generate_report.resolve_writer_provider(args) is generate_report.deepseek_writer_provider
 
 
-def test_report_markdown_passes_provider_to_debug_renderer(monkeypatch, tmp_path):
-    calls = []
+def test_report_markdown_renders_via_draft_not_debug_path(monkeypatch, tmp_path):
+    """report_markdown routes all modes through render_draft_markdown; render_debug_markdown must NOT be called."""
+    render_draft_calls = []
+    real_render_draft = generate_report.render_draft_markdown
 
-    def fake_render(draft, provider=None, depth_profile="standard"):
-        calls.append({"draft": draft, "provider": provider, "depth_profile": depth_profile})
-        return "# rendered"
+    def spy_render_draft(draft, include_debug_marker=True):
+        render_draft_calls.append({"draft": draft, "include_debug_marker": include_debug_marker})
+        return real_render_draft(draft, include_debug_marker=include_debug_marker)
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("render_debug_markdown must not be called by report_markdown")
+
+    monkeypatch.setattr(generate_report, "render_draft_markdown", spy_render_draft)
+    monkeypatch.setattr(generate_report, "render_debug_markdown", fail_if_called)
 
     def fake_provider(system, user):
         return "unused"
-
-    monkeypatch.setattr(generate_report, "render_debug_markdown", fake_render)
 
     markdown, report = generate_report.report_markdown(
         _minimal_results(tmp_path),
@@ -56,11 +62,13 @@ def test_report_markdown_passes_provider_to_debug_renderer(monkeypatch, tmp_path
         provider=fake_provider,
     )
 
-    assert markdown == "# rendered"
+    assert len(render_draft_calls) == 1
+    assert render_draft_calls[0]["include_debug_marker"] is False
+    assert render_draft_calls[0]["draft"].artifact_kind == "draft_report"
+    assert render_draft_calls[0]["draft"].publishable is False
+    assert isinstance(markdown, str) and len(markdown) > 0
+    assert "artifact_kind" not in markdown
     assert report["frontmatter"]["video_id"] == "BVwriter"
-    assert calls[0]["provider"] is not None
-    assert calls[0]["draft"].artifact_kind == "draft_report"
-    assert calls[0]["draft"].publishable is False
 
 
 def test_report_markdown_populates_section_qa_without_changing_rendered_markdown(tmp_path):

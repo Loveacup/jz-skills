@@ -10,11 +10,12 @@ when the LLM writer silently falls back to skeleton output.
 """
 
 import argparse
+import hashlib
 import json
 import sys
 import warnings
 from pathlib import Path
-from typing import Callable, Dict, Any, Optional, Tuple
+from typing import Callable, Dict, Any, Mapping, Optional, Tuple
 
 # Allow running as `python scripts/run_quality_gate.py` from repo root.
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -22,8 +23,11 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 import generate_report
+import research_publish_gate
 import verify_report
 import verify_publishable_report
+from research_archive import ResearchArchive
+from research_wrr_adapter import HermesWRRAdapter
 from video_analysis_engine import check_report_coherence
 
 WriterProvider = Callable[[str, str], str]
@@ -103,6 +107,170 @@ def _load_results(input_path: str) -> Dict[str, Any]:
     return parsed
 
 
+class _PlanBoundFixtureResearchProvider:
+    """Offline fixture provider that binds raw data to the plan at execution time."""
+
+    def __init__(self, fixture: Dict[str, Any]) -> None:
+        self._fixture = fixture
+
+    def execute(self, plan):
+        claim_by_uid = {
+            str(item.get("claim_uid") or ""): item
+            for item in plan.claims
+        }
+        # Globally schedule the shared source budget before the adapter runs.
+        emissions_by_query = self._plan_emissions(plan, claim_by_uid)
+
+        def executor(query):
+            query_uid = str(query.get("query_uid") or "")
+            return {"candidates": list(emissions_by_query.get(query_uid, ()))}
+        return HermesWRRAdapter(executor).execute(plan)
+
+    def _plan_emissions(self, plan, claim_by_uid):
+        """Schedule the shared source budget in two rounds so no claim is starved.
+
+        ``HermesWRRAdapter`` appends candidates across queries in query order and
+        hard-caps the total at ``budget.max_sources``. Binding each claim's full
+        primary+independent bundle up front lets a grounding query covering many
+        P2 claims spend two slots per claim, exhausting the budget before the tail
+        claims are reached and leaving them with *no* source at all.
+
+        Instead we drain the budget in two ordered rounds. Round one emits a
+        single ``primary`` for every claim (P0-P3) so each claim is grounded once;
+        round two emits an ``independent`` only for the P0/P1 claims that require a
+        second publisher. Within each round we walk queries in plan order and
+        claims in stable order, and each (claim, relation) candidate is emitted at
+        most once even when a claim appears in several queries. The cap is applied
+        across the concatenated rounds, so tail claims keep their primary before
+        any claim receives a second source, and the total never exceeds
+        ``max_sources``.
+        """
+        max_sources = max(0, int(plan.budget.max_sources))
+        primary_round = []
+        independent_round = []
+        seen_primary = set()
+        seen_independent = set()
+        for query in plan.queries[: plan.budget.max_queries]:
+            query_uid = str(query.get("query_uid") or "")
+            # No per-query claim slice: the ``max_sources`` cap below is the only
+            # bound, so a wide grounding query cannot strand its tail claims.
+            claim_uids = tuple(sorted(
+                str(uid) for uid in query.get("claim_uids") or () if uid
+            ))
+            for claim_uid in claim_uids:
+                candidates = self._bind_bundle(query, claim_uid, claim_by_uid)
+                if not candidates:
+                    continue
+                risk = str((claim_by_uid.get(claim_uid) or {}).get("risk") or "P2").upper()
+                for candidate in candidates:
+                    relation = str(candidate.get("authority_relation") or "").lower()
+                    if relation == "primary":
+                        if claim_uid in seen_primary:
+                            continue
+                        seen_primary.add(claim_uid)
+                        primary_round.append((query_uid, candidate))
+                    else:
+                        # Only P0/P1 claims earn a second publisher, and only once.
+                        if risk not in {"P0", "P1"} or claim_uid in seen_independent:
+                            continue
+                        seen_independent.add(claim_uid)
+                        independent_round.append((query_uid, candidate))
+
+        emissions = {}
+        used = 0
+        for query_uid, candidate in (*primary_round, *independent_round):
+            if used >= max_sources:
+                break
+            emissions.setdefault(query_uid, []).append(candidate)
+            used += 1
+        return emissions
+
+    def _bind_bundle(self, query, claim_uid, claim_by_uid):
+        """Bind one claim's fixture bundle, kept primary->independent."""
+        bundle = []
+        for candidate in self._fixture.get("candidates", ()):
+            if not isinstance(candidate, Mapping):
+                continue
+            item = _bind_fixture_value(candidate, query, claim_uid)
+            claim = claim_by_uid.get(claim_uid) or {}
+            statement = str(claim.get("statement") or claim.get("text") or "")
+            priority = str(claim.get("risk") or "P2")
+            if statement:
+                item["content"] = (
+                    statement + " PRIVATE-RAW-FIXTURE-MARKER "
+                    + str(item.get("authority_relation") or "unknown")
+                )
+            snapshot_text = str(item.get("content") or "")
+            for quote in item.get("quote_candidates", ()) or ():
+                if isinstance(quote, dict):
+                    quote_text = statement or str(quote.get("quote_text") or "")
+                    snapshot_text = quote_text + " PRIVATE-RAW-FIXTURE-MARKER"
+                    quote_hash = "sha256:" + hashlib.sha256(quote_text.encode("utf-8")).hexdigest()
+                    snapshot_hash = "sha256:" + hashlib.sha256(snapshot_text.encode("utf-8")).hexdigest()
+                    quote["quote_text"] = quote_text
+                    quote["quote"] = quote_text
+                    quote["quote_hash"] = quote_hash
+                    quote["priority"] = priority
+                    quote["snapshot"] = {
+                        "text": snapshot_text,
+                        "snapshot_hash": snapshot_hash,
+                        "mode": "full",
+                    }
+            bundle.append(item)
+        # Every bundle keeps primary before independent; stable within equal ranks.
+        bundle.sort(key=lambda entry: 0 if str(entry.get("authority_relation") or "").lower() == "primary" else 1)
+        return bundle
+
+
+def _bind_fixture_value(value: Any, query: Mapping[str, object], claim_uid: str) -> Any:
+    """Bind fixture placeholders only to the current immutable plan/query IDs."""
+    if isinstance(value, Mapping):
+        return {str(key): _bind_fixture_value(nested, query, claim_uid)
+                for key, nested in value.items()}
+    if isinstance(value, (tuple, list)):
+        return [_bind_fixture_value(item, query, claim_uid) for item in value]
+    if not isinstance(value, str):
+        return value
+    return (value.replace("$QUERY_UID", str(query.get("query_uid") or ""))
+                 .replace("$QUERY_CLAIM", claim_uid))
+
+
+def _load_canonical_research_context(path: str) -> Dict[str, Any]:
+    context = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(context, dict):
+        raise ValueError("research context must be a JSON object")
+    required = ("canonical_id", "platform", "evidence_bundle_hash", "created_at", "plan_id")
+    missing = [key for key in required if not str(context.get(key) or "").strip()]
+    if missing:
+        raise ValueError("canonical research context missing: " + ", ".join(missing))
+    return context
+
+
+def _resolve_research_lane(
+    *, provider: Optional[str], context_path: Optional[str], fixture_path: Optional[str],
+    archive_dir: Optional[str], allow_network: bool,
+):
+    if provider is None:
+        return None, None, None
+    if provider not in {"fixture", "real"}:
+        raise ValueError("research_provider must be fixture, real, or None")
+    if provider == "real":
+        if not allow_network:
+            raise ValueError("real research requires explicit --allow-network-research")
+        raise ValueError("real research provider is not configured in the deterministic quality gate")
+    if not context_path or not fixture_path or not archive_dir:
+        raise ValueError("fixture research requires context, fixture, and private archive")
+    context = _load_canonical_research_context(context_path)
+    fixture = json.loads(Path(fixture_path).read_text(encoding="utf-8"))
+    if not isinstance(fixture, dict):
+        raise ValueError("research fixture must be a JSON object")
+    archive_root = Path(archive_dir).resolve()
+    public_roots = (str(Path.cwd().resolve()),)
+    return _PlanBoundFixtureResearchProvider(fixture), context, ResearchArchive(
+        str(archive_root), forbidden_roots=public_roots,
+    )
+
+
 def run_quality_gate(
     input_path: str,
     output_path: str,
@@ -115,8 +283,22 @@ def run_quality_gate(
     section_qa_gate: bool = False,  # Phase 4: 可选 section QA gate
     depth_profile: str = "standard",  # Phase 5: depth profile
     claim_qa_gate: bool = False,  # Phase 5: claim QA gate (D6-D8)
+    research_provider: Optional[str] = None,
+    research_context: Optional[str] = None,
+    research_fixture: Optional[str] = None,
+    research_archive_dir: Optional[str] = None,
+    allow_network_research: bool = False,
 ) -> Tuple[bool, Dict[str, Any]]:
-    """Run the report quality gate and return (passed, summary)."""
+    """Run the report quality gate and return (passed, summary).
+
+    Research is opt-in. This boundary validates private inputs before any
+    provider could be initialized, keeping the default release lane offline.
+    """
+    research_runtime_provider, resolved_research_context, research_archive = _resolve_research_lane(
+        provider=research_provider, context_path=research_context,
+        fixture_path=research_fixture, archive_dir=research_archive_dir,
+        allow_network=allow_network_research,
+    )
     results = _load_results(input_path)
     provider = resolve_quality_provider(writer_provider)
     with warnings.catch_warnings(record=True) as caught:
@@ -127,17 +309,38 @@ def run_quality_gate(
             provider=provider,
             depth_profile=depth_profile,
             claim_qa_gate=claim_qa_gate,
+            mode=mode,
+            research_provider=research_runtime_provider,
+            research_context=resolved_research_context,
+            research_archive=research_archive,
         )
     warning_messages = [str(w.message) for w in caught]
+    # Merge assembly-path draft_warnings (stored in report by generate_report).
+    # Normalize to legacy warnings.warn format so fallback classifiers remain consistent.
+    for draft_msg in (report.get('draft_warnings') or []):
+        normalized = draft_msg
+        if 'LLM writer validation failed:' in draft_msg and 'falling back to skeleton' not in draft_msg:
+            normalized = draft_msg.replace(
+                'LLM writer validation failed:', 'LLM writer validation failed, falling back to skeleton:', 1
+            )
+        elif 'LLM writer failed:' in draft_msg and 'falling back to skeleton' not in draft_msg:
+            normalized = draft_msg.replace(
+                'LLM writer failed:', 'LLM writer failed, falling back to skeleton:', 1
+            )
+        if normalized not in warning_messages:
+            warning_messages.append(normalized)
     fallback_warnings = [
         msg for msg in warning_messages
         if "falling back to skeleton" in msg
         or ("LLM writer" in msg and "fallback" in msg.lower())
+        or "LLM writer validation failed" in msg
+        or "LLM writer failed" in msg
     ]
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     Path(output_path).write_text(markdown, encoding="utf-8")
 
-    verify_results, verify_passed = verify_report.evaluate(markdown, mode)
+    effective_mode = (report.get('report_plan') or {}).get('mode', mode)
+    verify_results, verify_passed = verify_report.evaluate(markdown, effective_mode)
     coherence = check_report_coherence(markdown)
     publishable_results = None
     publishable_passed = None
@@ -148,6 +351,11 @@ def run_quality_gate(
             code for code, gate in publishable_results.items()
             if not gate.get("pass")
         ]
+    research_gates = None
+    research_gate_passed = None
+    if research_provider == "fixture":
+        research_gates = research_publish_gate.evaluate_research_gates(markdown, report)
+        research_gate_passed = all(gate.get("pass") for gate in research_gates.values())
     failed_due_to_fallback_warning = bool(fail_on_fallback_warning and fallback_warnings)
     failed_due_to_publishable_gate = bool(publishable_gate and not publishable_passed)
 
@@ -198,13 +406,23 @@ def run_quality_gate(
         and not failed_due_to_publishable_gate
         and not failed_due_to_section_qa_gate
         and not failed_due_to_claim_qa_gate
+        and research_gate_passed is not False
     )
+    public_input_path = input_path
+    public_output_path = output_path
+    if research_provider == "fixture":
+        # The fixture lane exposes a public summary; archive and temp roots are
+        # deliberately not disclosed there.
+        public_input_path = Path(input_path).name
+        public_output_path = Path(output_path).name
     summary = {
         "passed": passed,
-        "input_path": input_path,
-        "output_path": output_path,
+        "input_path": public_input_path,
+        "output_path": public_output_path,
         "writer_provider": writer_provider,
         "mode": mode,
+        "requested_mode": mode,
+        "effective_mode": effective_mode,
         "markdown_chars": len(markdown),
         "video_id": report.get("frontmatter", {}).get("video_id"),
         "fail_on_fallback_warning": fail_on_fallback_warning,
@@ -237,6 +455,13 @@ def run_quality_gate(
             for issue in coherence.issues
         ],
         "section_qa": section_qa,  # Phase 3: QA 元数据暴露
+        "research": report.get("research"),
+        "research_gate_passed": research_gate_passed,
+        "research_gates": research_gates,
+        "research_artifact_hashes": {
+            key: value for key, value in (report.get("research_artifacts") or {}).items()
+            if key.endswith("_hash") or key == "archive_source_hashes"
+        },
     }
     return passed, summary
 
@@ -553,7 +778,7 @@ def main() -> None:
         default="fixture",
         help="fixture is deterministic/no-token; cli/deepseek exercise real LLM writer providers",
     )
-    parser.add_argument("--mode", choices=("full", "condensed"), default="full")
+    parser.add_argument("--mode", choices=("auto", "sparse", "condensed", "full"), default="full")
     parser.add_argument(
         "--run-fact-check",
         action="store_true",
@@ -584,6 +809,17 @@ def main() -> None:
         "--claim-qa-gate",
         action="store_true",
         help="Phase 5: Enable claim QA gate (D6-D8: warrant/rebuttal/actionability for §3/§4/§7).",
+    )
+    parser.add_argument(
+        "--research-provider", choices=("fixture", "real"),
+        help="Explicit research lane; fixture is offline and requires all private inputs.",
+    )
+    parser.add_argument("--research-context", help="Canonical research-context JSON path (private input).")
+    parser.add_argument("--research-fixture", help="Offline research fixture JSON path (private input).")
+    parser.add_argument("--research-archive-dir", help="Private ResearchArchive directory.")
+    parser.add_argument(
+        "--allow-network-research", action="store_true",
+        help="Required before a real provider could be used; no real provider is implemented here.",
     )
     parser.add_argument("--json", action="store_true", dest="as_json")
     args = parser.parse_args()
@@ -638,6 +874,11 @@ def main() -> None:
             section_qa_gate=args.section_qa_gate,  # Phase 4
             depth_profile=args.depth_profile or "standard",  # preserve legacy single-sample default
             claim_qa_gate=args.claim_qa_gate,  # Phase 5
+            research_provider=args.research_provider,
+            research_context=args.research_context,
+            research_fixture=args.research_fixture,
+            research_archive_dir=args.research_archive_dir,
+            allow_network_research=args.allow_network_research,
         )
     except Exception as exc:
         print(f"❌ quality gate failed before evaluation: {exc}", file=sys.stderr)
