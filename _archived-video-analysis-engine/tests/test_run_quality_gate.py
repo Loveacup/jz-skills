@@ -6,10 +6,48 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 import run_quality_gate
 
 
 FIXTURE = Path("tests/fixtures/p2e_fetch_all.json")
+
+
+# ========== S9-0: no real research transport is registered ==========
+def test_real_research_without_network_opt_in_keeps_explicit_error(tmp_path):
+    """Unauthorized real research still fails with the existing explicit error.
+
+    S9-0 adds an offline transport *contract* only; it must not soften the
+    real-provider guard. Without --allow-network-research the gate refuses up
+    front, before any transport is consulted.
+    """
+    with pytest.raises(ValueError, match="allow-network"):
+        run_quality_gate.run_quality_gate(
+            str(FIXTURE), str(tmp_path / "report.md"),
+            writer_provider="fixture", mode="full", run_fact_check=False,
+            research_provider="real",
+            research_context=None, research_fixture=None,
+            research_archive_dir=str(tmp_path / "archive"),
+            allow_network_research=False,
+        )
+
+
+def test_real_research_with_network_opt_in_is_still_not_configured(tmp_path):
+    """Authorized real research still reports 'not configured' after S9-0.
+
+    Proof that S9-0 registered NO real transport: even with the network opt-in,
+    the deterministic gate refuses because no real provider is wired.
+    """
+    with pytest.raises(ValueError, match="not configured"):
+        run_quality_gate.run_quality_gate(
+            str(FIXTURE), str(tmp_path / "report.md"),
+            writer_provider="fixture", mode="full", run_fact_check=False,
+            research_provider="real",
+            research_context=None, research_fixture=None,
+            research_archive_dir=str(tmp_path / "archive"),
+            allow_network_research=True,
+        )
 
 
 def test_fixture_quality_provider_runs_full_pipeline(tmp_path):

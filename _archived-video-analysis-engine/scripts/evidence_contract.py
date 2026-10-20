@@ -22,7 +22,9 @@ evidence_contract.py — V4 视频分析引擎的唯一外部证据契约（STDD
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import hashlib
+import json
+from dataclasses import asdict, dataclass, field, fields, is_dataclass
 from typing import Mapping, Optional, Tuple
 
 # ---------------------------------------------------------------------------
@@ -121,6 +123,43 @@ class IncompatibleSchemaError(Exception):
 
 class ContractViolation(Exception):
     """EvidenceBundle 违反状态不变量或安全边界。"""
+
+
+def _canonical_value(value: object) -> object:
+    """Return JSON-safe canonical data; list ordering remains caller-owned."""
+    if is_dataclass(value) and not isinstance(value, type):
+        return {
+            item.name: _canonical_value(getattr(value, item.name))
+            for item in fields(value)
+        }
+    if isinstance(value, Mapping):
+        return {
+            str(key): _canonical_value(nested)
+            for key, nested in sorted(value.items(), key=lambda item: str(item[0]))
+        }
+    if isinstance(value, (tuple, list)):
+        return [_canonical_value(item) for item in value]
+    if isinstance(value, float):
+        return round(value, 4)
+    if value is None or isinstance(value, (str, int, bool)):
+        return value
+    raise ContractViolation(f"无法 canonicalize 的类型: {type(value).__name__}")
+
+
+def canonical_json_bytes(value: object) -> bytes:
+    """Canonical UTF-8 JSON used by immutable artifact hashes."""
+    canonical = _canonical_value(value)
+    return json.dumps(
+        canonical,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+
+
+def semantic_sha256(value: object) -> str:
+    return "sha256:" + hashlib.sha256(canonical_json_bytes(value)).hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -352,6 +391,69 @@ def validate_bundle(bundle: EvidenceBundle) -> None:
             raise ContractViolation("unavailable 必须用 error 说明不可用原因")
 
 
+def evidence_bundle_semantic_payload(bundle: EvidenceBundle) -> Mapping[str, object]:
+    """Build the stable EvidenceBundle envelope used by research artifacts.
+
+    Collection time is audit metadata and is deliberately excluded. Transcript
+    segment order is semantic; unordered evidence groups are sorted explicitly.
+    """
+    validate_bundle(bundle)
+    transcript = None
+    if bundle.transcript is not None:
+        transcript = {
+            "text": bundle.transcript.text,
+            "language": bundle.transcript.language,
+            "source": bundle.transcript.source,
+            "content_hash": bundle.transcript.content_hash,
+            "segments": [asdict(segment) for segment in bundle.transcript.segments],
+        }
+    return {
+        "schema_version": bundle.schema_version,
+        "status": bundle.status,
+        "identity": asdict(bundle.identity),
+        "metadata": bundle.metadata,
+        "transcript": transcript,
+        "audience_signals": [
+            asdict(signal)
+            for signal in sorted(
+                bundle.audience_signals,
+                key=lambda item: (item.kind, item.label, item.weight),
+            )
+        ],
+        "provenance": {
+            "adapter": bundle.provenance.adapter,
+            "adapter_version": bundle.provenance.adapter_version,
+            "source_refs": sorted(bundle.provenance.source_refs),
+            "hashes": bundle.provenance.hashes,
+        },
+        "errors": [
+            asdict(error)
+            for error in sorted(
+                bundle.errors,
+                key=lambda item: (item.code, item.stage, item.retryable, item.safe_message),
+            )
+        ],
+        "cross_platform": [
+            asdict(identity)
+            for identity in sorted(
+                bundle.cross_platform,
+                key=lambda item: (item.platform, item.canonical_id, item.canonical_url),
+            )
+        ],
+        "fact_checks": [
+            asdict(check)
+            for check in sorted(
+                bundle.fact_checks,
+                key=lambda item: (item.claim, item.verdict, item.note),
+            )
+        ],
+    }
+
+
+def evidence_bundle_semantic_hash(bundle: EvidenceBundle) -> str:
+    return semantic_sha256(evidence_bundle_semantic_payload(bundle))
+
+
 def is_publishable(bundle: EvidenceBundle) -> bool:
     """
     Writer / publish gate 的唯一判据：只有 ready 且通过全部契约校验才可发布。
@@ -374,6 +476,8 @@ __all__ = [
     "ERROR_STAGES",
     "IncompatibleSchemaError",
     "ContractViolation",
+    "canonical_json_bytes",
+    "semantic_sha256",
     "SourceIdentity",
     "TranscriptSegmentEvidence",
     "TranscriptEvidence",
@@ -385,5 +489,7 @@ __all__ = [
     "schema_compatible",
     "check_schema_compatibility",
     "validate_bundle",
+    "evidence_bundle_semantic_payload",
+    "evidence_bundle_semantic_hash",
     "is_publishable",
 ]
