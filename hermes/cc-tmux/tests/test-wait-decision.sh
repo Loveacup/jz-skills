@@ -58,6 +58,9 @@ if [[ "${1:-}" == "capture-pane" ]]; then
     thinking) printf '✻ Thinking 3s\nesc to interrupt\n' ;;
     queue) printf 'Press up to edit queued messages\n❯ 按 /tmp/task.md 执行\n' ;;
     residual) printf '────────────────\n❯ 按 /tmp/task.md 执行\n' ;;
+    path_anchor) printf '────────────────\n❯ Please read /tmp/cc-friction-task.md\nand follow it. If this context references a skill\n' ;;
+    prediction) printf '────────────────\n❯ read the task file\n' ;;
+    stale_text) printf '────────────────\n❯ some old echo text\n' ;;
     idle) printf '────────────────\n❯ \n' ;;
     oldtool_idle) printf '● Old tool output\n────────────────\n❯ \n' ;;
     empty) printf '' ;;
@@ -108,6 +111,45 @@ run_decision() {
   ok "$name"
 }
 
+# 加强版 run_decision：同时校验 prompt.kind
+run_decision_pk() {
+  local wait="$1" pane="$2" expect_rc="$3" name="$4" state_expect="$5" prompt_kind_expect="$6"
+  shift 6
+  local out rc mon tmux_stub
+  mon=$(make_monitor_stub 0)
+  tmux_stub=$(make_tmux_stub "$pane")
+  set +e
+  MONITOR_STATE=IDLE out=$(CC_WAIT_DECISION_WAIT_MARKER="$wait" \
+        CC_WAIT_DECISION_MONITOR="$mon" \
+        CC_WAIT_DECISION_TMUX="$tmux_stub" \
+        CC_WAIT_DECISION_TMPDIR="$TMPROOT" \
+        CC_WAIT_DECISION_NOW=2000 \
+        CC_DECISION_PANE_MODE="$pane" \
+        CC_DECISION_MONITOR_STATE="IDLE" \
+        bash "$SCRIPT" --session "$SESSION" --after 1000 --timeout 1 "$@" 2>"$TMPROOT/err")
+  rc=$?
+  set -e
+  if [[ "$rc" -ne "$expect_rc" ]]; then
+    bad "$name rc=$rc expected=$expect_rc out=${out:0:120} err=$(cat "$TMPROOT/err")"
+    return
+  fi
+  got_state=$(printf '%s' "$out" | python3 -c 'import json,sys; print(json.load(sys.stdin)["decision"]["state"])')
+  if [[ "$got_state" != "$state_expect" ]]; then
+    bad "$name state=$got_state expected=$state_expect"
+    return
+  fi
+  got_kind=$(printf '%s' "$out" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("pane",{}).get("prompt",{}).get("kind",""))')
+  if [[ "$got_kind" != "$prompt_kind_expect" ]]; then
+    bad "$name prompt_kind=$got_kind expected=$prompt_kind_expect"
+    return
+  fi
+  if ! printf '%s' "$out" | python3 -c 'import json,sys; p=json.load(sys.stdin)["pane"]["prompt"]; assert p["safe_to_submit"] == (p["kind"] == "fresh_sent_line")'; then
+    bad "$name unsafe safe_to_submit flag"
+    return
+  fi
+  ok "$name"
+}
+
 echo "=== cc-wait-decision TDD ==="
 
 # Test 1: rc0 marker passthrough
@@ -127,6 +169,11 @@ run_decision "$(make_wait_stub 4 '' 'startup gate')" queue 4 "rc4 + queue → no
 
 # Test 6: rc4 + residual with matching --sent-line => not_started_retryable exit4
 run_decision "$(make_wait_stub 4 '' 'startup gate')" residual 4 "rc4 + residual + sent-line match → not_started_retryable" not_started_retryable --sent-line "按 /tmp/task.md 执行"
+
+# Complete wrapped instruction must match; sharing a path and two words is not proof.
+run_decision_pk "$(make_wait_stub 4 '' 'startup gate')" path_anchor 4 "complete wrapped instruction → fresh_sent_line" not_started_retryable fresh_sent_line --sent-line "Please read /tmp/cc-friction-task.md and follow it. If this context references a skill"
+run_decision_pk "$(make_wait_stub 4 '' 'startup gate')" path_anchor 6 "same path different instruction → needs clear" prompt_text_needs_clear stale_or_unknown --sent-line "Please read /tmp/cc-friction-task.md and delete it instead."
+run_decision_pk "$(make_wait_stub 4 '' 'startup gate')" path_anchor 6 "truncated instruction → needs clear" prompt_text_needs_clear stale_or_unknown --sent-line "Please read /tmp/cc-friction-task.md and follow it. If this context references a skill with its own multi-agent process, load and follow it."
 
 # Test 6b: rc4 + residual without --sent-line => prompt_text_needs_clear exit6
 run_decision "$(make_wait_stub 4 '' 'startup gate')" residual 6 "rc4 + residual no sent-line → prompt_text_needs_clear" prompt_text_needs_clear
@@ -160,6 +207,12 @@ rm -f "$TMPROOT/cc-status-$SESSION.json"
 
 # Test 14: old tool scrollback + bottom idle prompt must not count as active pane
 MONITOR_STATE=IDLE run_decision "$(make_wait_stub 4 '' 'startup gate')" oldtool_idle 4 "old tool scrollback + idle prompt → not_started" not_started_retryable
+
+# Test 16: rc4 + prediction text (matches heuristic: /command or English verb) → prompt_text_needs_clear rc=6
+run_decision_pk "$(make_wait_stub 4 '' 'startup gate')" prediction 6 "rc4 + prediction text → prompt_text_needs_clear" prompt_text_needs_clear prediction_candidate
+
+# Test 17: rc4 + stale/unknown text (no match) → prompt_text_needs_clear rc=6
+run_decision_pk "$(make_wait_stub 4 '' 'startup gate')" stale_text 6 "rc4 + stale unknown text → prompt_text_needs_clear" prompt_text_needs_clear stale_or_unknown
 
 # Test 15: invalid args => usage_error exit2 (script-level)
 set +e

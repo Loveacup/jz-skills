@@ -8,8 +8,8 @@ description: >
   Use when: 调 CC, 用 claude, 拉 CC, delegate to CC, agent team, 重活调 CC.
   Do NOT use for: simple single-tool calls, grammar fixes, non-coding tasks.
 type: routine
-version: 1.40.0
-author: "Hermes Agent + Codex (v1.40.0: CC autocomplete awareness — tighten repair window + additive prompt classification + no auto-Enter for unknown prediction/stale text)"
+version: 1.43.0
+author: "Hermes Agent + Codex (v1.43.0: active-sessions read-only inventory + topic-map reader compatibility; test-multi-send flaky harness fixed; 24/24 files, 240/240 assertions)"
 license: MIT
 ---
 
@@ -23,16 +23,19 @@ license: MIT
 
 当 Hermes 收到用户消息且存在活跃 CC session 时，**必须**先走路由层再行动：
 
-1. `cc-active-sessions.sh --json` — 查有无 CC、什么状态
-2. 分类 intent：`status_query` | `continuation` | `redirect` | `new_task` | `unknown`
-3. `cc-route.sh --session <s> --intent <type>` — 获取路由建议
-4. 按 `.recommendation.action` 行动
+1. `cc-active-sessions.sh --json` — 查有无 managed CC、什么状态
+2. 需要清理/盘点时用 `cc-active-sessions.sh --inventory --json` — 只读列出 managed `hermes-cc-*` 与 suspected Claude panes；suspected 只报告，不自动 kill
+   - 扫描 session 全部窗口；`--topic` 仅过滤实际枚举结果，保留真实 attached 状态，不将过期映射伪造成 session。
+   - 自动补 Enter 仅允许 prompt 与完整刚发送文本一致（只规范化换行、边框和空白）；相同任务路径或开头词不足以授权提交，截断内容也必须拒绝。
+3. 分类 intent：`status_query` | `continuation` | `redirect` | `new_task` | `unknown`
+4. `cc-route.sh --session <s> --intent <type>` — 获取路由建议
+5. 按 `.recommendation.action` 行动
 
 完整操作流程见 `references/routing-guide.md`；决策矩阵见 `scripts/cc-route.sh` 头部注释。
 
 Startup gate / 未提交任务空等的审查细节见 `references/cc-stuck-input-box-pattern.md` 与 `references/routing-guide.md`：包含默认不自动 Enter、`exit 4` fail-fast、`cc-wait-decision` 二次采证，以及 Codex review 对文档计数/引用完整性的阻断规则。
 5 类 intent × 10 种 CC state → 4 种 action：`handle_directly` | `queue` | `forward_now` | `interrupt`（confirm_required=true）。
-测试：test-route.sh 21/21 + test-active-sessions.sh 10/10。
+测试：test-route.sh 21/21 + test-active-sessions.sh 13/13；full suite 24/24 files、240/240 assertions（2026-07-03 实跑）。
 
 ## ⚠️ Pitfall #47：bash `local` 只在函数内合法
 
@@ -165,8 +168,49 @@ tmux send-keys -t "cc-<name>" "读 /tmp/task.md 执行。" Enter
 
 **固定契约**：默认使用 `npx --yes --offline ccusage@latest --offline`；所有 watcher 共用 `/tmp/cc-usage-global-cache.json`（TTL 900s）与原子 mkdir lock，同一时刻最多一个执行者。紧急止血可用 `CC_USAGE_CHECK_EVERY=0` 重启 watcher，不杀 CC session。验收需同时通过 cache/single-flight 测试，并确认 Surge `m5/m15` 的 ccusage 归零。
 
+## ⚠️ Pitfall #62：清理 CC/tmux 时按 session，不按 server/process 粗杀
+
+详案见 `references/tmux-session-pane-cleanup-model-20260703.md`。
+
+**触发条件**：用户要求“杀僵尸 tmux / CC / Claude Code 进程、清理残留 session、看看 tmux 里还有几个 CC”。
+
+### 正确模型
+
+`tmux server → session → window → pane → process/pty`。cc-tmux 的默认清理单位是 **tmux session**；tmux server 是全局容器，不是清理对象。Claude Code 的 session/history 还另存在 `~/.claude`，不要为了清 tmux 去删它。
+
+### 硬规则
+
+1. **先 inventory**：必须先 `tmux list-sessions` + `tmux list-panes -a`，列出 attached、pane cmd/title/pid，再决定候选。
+2. **默认保护 attached session**：`session_attached=1` 不进入自动清理候选，除非用户明确点名。
+3. **清 session 用精确目标**：`tmux kill-session -t <exact-session>`；不要 kill tmux server PID。
+4. **禁止 `ps | grep claude` 粗杀**：macOS 上 `tmux server` argv 可能保留最初启动命令，例如 `tmux new-session ... claude --model ...`，会被 `/claude/` 误匹配。清进程只能处理已确认孤儿，并显式排除 `comm=tmux`。
+5. **`kill-server` 是危险操作**：只有用户明确说“销毁整个 tmux server / all sessions”才可用。
+6. **tmux format 不用 `\t` 侥幸解析**：实践中 `#{session_name}\t#{session_attached}` 可能输出字面 `\t`；用 `|` 等显式 delimiter 或结构化输出。
+7. **resurrect/continuum 要单独说明**：若 `@continuum-restore on` + `@resurrect-processes 'claude'`，杀完 session 后新 server 启动可能复活旧 Claude panes；可提示 `touch ~/tmux_no_auto_restore` 或临时 `@continuum-save-interval 0`，但不要默认改 `~/.tmux.conf`。
+
+### 设计方向
+
+- `cc-active-sessions.sh` / 未来 `cc-tmux-doctor` 应枚举所有疑似 Claude panes，不只 `hermes-cc-*`。
+- 分类用 `managed / suspected / attached / external / orphan-state`：`suspected` 只报告，不能自动 kill。
+- `cc-gc.sh --apply` 继续只清 orphan state；live session kill 必须单目标确认。
+
+## Resource model: Topic continuity + Session isolation + Pane presentation
+
+详案见 `references/topic-session-pane-resource-model-20260703.md`。
+
+**硬规则**：同 topic 顺序任务可复用 primary session，必要时先 `/clear`；同 topic 并行/第二个 CC 用 **child tmux session**，不要在同一个 tmux session 里开第二个 managed CC pane/window。
+
+原因：当前 `cc-status-writer.sh` 以 `CC_TMUX_SESSION` 为 key 写 `/tmp/cc-status-<s>.json`、heartbeat、turn-done、output。多个 CC pane 共用同一 tmux session 会互相覆盖状态，`cc-route.sh` 也只会路由到单 session。
+
+推荐长期形态：`1 topic → 1 primary tmux session + N child tmux sessions`；pane/window 只做 observer/scratch/presentation，不做 worker lifecycle identity。`cc-topic-map` 当前是 1:1 `topic -> session`，未来 schema 应演进为 `primary + children[]`，但不要在 topic-map 里重建 lifecycle event bus。
+
 ## References
 
+- `references/topic-session-pane-resource-model-20260703.md` — Topic/primary/child session 资源模型、reuse/fork/clear 策略、OB 文档库重构链路。
+- `references/tmux-session-pane-cleanup-model-20260703.md` — 本次事故的 tmux session/pane 清理模型、分类矩阵与脚本改进方向。
+- `references/wrr-v61-evidence-bundle-pattern-20260702.md` — audit/evidence bundle lessons from WRR v6.1: include explicit pass-count summaries, include untracked new files by content/stat, ignore CC prediction text after artifact, and run runtime gates even for docs-only behavior docs.
+- `references/agent-hub-f0-audit-lessons.md` — lessons from small contract-slice delegation: stale done files, unsubmitted tmux prompts, semantic contract audit beyond green tests, recursive raw-field checks.
+- `references/topic-session-pane-resource-model-and-ob-docs-restructure-20260703.md` — Topic continuity + session isolation + pane presentation decision; same-topic reuse/`/clear`/child-session collaboration rules; cc-tmux OB docs restructuring workflow and CC-quota→Codex fallback pattern.
 - WRR v6 lesson: CC is reliable; implementation stalls usually mean task granularity/launch pattern is wrong (single-line + `/tmp` task file + small packages).
 
 ## ⚠️ Pitfall #58：任务粒度过大触发思考瘫痪（v1.37 · 2026-06-29 WRR v6 实战）
@@ -193,6 +237,19 @@ tmux send-keys -t "cc-<name>" "读 /tmp/task.md 执行。" Enter
 - ✅ 分析/研究/设计类长任务 — 先给明确审查对象/产物路径；避免让 CC 从零发散研究
 
 用户明确纠正：**“CC 可靠；如果不可靠，大概率是用法出问题。”** 未来遇到 CC 超时/零产出，优先诊断任务粒度、send-keys 注入、effort、session 污染和产物路径，而不是结论化为“CC 不可靠”。详见 `references/cc-reliability-is-usage-pattern.md`。
+
+**残留输入恢复**：`cc-wait-decision` 报 `prompt_text_needs_clear / stale_or_unknown` 时，如果 pane 可见内容正是刚发送的任务行且无其它 stale 文本，按一次 Enter 提交，禁止重发；随后若 rc=5 `active_no_resend`/THINKING，只监控 artifact。详见 `references/residual-input-submit-pitfall-20260630.md`。
+
+**写入任务验收硬规则（v1.41 · 2026-06-30）**：CC 的 result 文件/口头汇报不能证明文件真的写了、测试真的基于当前代码跑了。任何写入类任务在 accept 前必须由 Hermes 重新取证：读当前生产文件的目标 symbol、看 `git status --short` + `git diff` 是否包含预期生产文件、亲自跑 targeted/full tests。若 CC 声称 green 但生产文件没改，按 blocker 处理，退回一个极小修正任务（"只改 production file，测试已存在"）。详见 `references/cc-self-report-file-write-false-positive-20260630.md`。
+
+**契约口径验收（v1.43 · 2026-07-02 agent-hub F0）**：测试全绿也可能只是「测试跟着错误实现一起绿」。当任务是在实现 roadmap/spec/OB 中已有契约（schema、envelope、字段名、状态机）时，Hermes accept 前必须把生产文件和测试逐项对照源真相，而不是只看 CC 自报和测试结果。典型案例：CC 初版 10A-lite AgentRunEvent 以 `route/status/timestamp` 为 primary contract，31/31 绿，但 OB 路线图要求 `schema_version/run_id/source/ts/type/content_ref/metadata_ref`；Hermes 读 diff 后退回极小修正任务，要求测试先断言正确字段并禁止 obsolete 字段，最终 39/39 + shared/full 通过。11C Evidence Report 又暴露同类问题：CC 36/36 绿但 report kind/schema 不符合 `agent_hub.evidence_report.v1`、`claims.evidence_bound` 缺失、`AgentRunEvent.metadata_ref` 为空、且只检查 evidence/claims 没检查上游 bridge contract 的 raw session/body。规则：**验收 = 源真相字段对齐 + 测试覆盖错误口径 + upstream contract 也过 raw-field 审计 + targeted/full tests**；发现错口径时不要接着做下一 slice，先退回同一 session或由 Hermes 做极小 auditor patch 修契约形状。详细 checklist 见 `references/agent-hub-f0-audit-lessons.md`。
+**测试 mock 数据与生产字段不匹配陷阱（v1.42 · 2026-07-01）**：CC 生成代码时可能直接访问一个测试 mock 里存在的字段，但该字段在生产 dataclass 中不存在。症状：测试全部 green（因为 mock 构造了该字段），但生产运行时 KeyError/AttributeError。典型案例：`ev['index']` —— CC 假设 EvidenceCandidate 有 `index` 字段，但实际 dataclass 无此字段。修复：改用 `enumerate()` 在消费端分配索引。验收时必须对照生产 dataclass 定义检查所有 dict-key 访问和 `.attribute` 访问。
+
+**Artifact 已满足后的预测文本不要提交（v1.41 · 2026-06-30）**：`cc-wait-decision` 若返回 `artifact_satisfied_no_marker`，但 pane 同时有 `prompt_text_prediction_candidate`（例如 `commit this`），以 artifact 为准进入验收；不要按 Enter、不要把预测文本当用户指令、不要让 CC 自动 commit/push。Delegator/Hermes 负责最终 diff review、测试、commit/push 与文档 closeout。详见 `references/cc-prediction-text-after-artifact-pattern-20260630.md`。
+
+**Artifact 已写但 CC 仍 THINKING/frozen 时，先冻结工作区再审计（v1.43 · 2026-07-02 WRR Package C）**：如果 result artifact 已更新、git diff 已稳定、Hermes 已能独立跑 targeted/non-live tests，但 CC pane 仍显示 `THINKING` 且 token/heartbeat 冻结，不要继续等它“优雅收尾”，也不要把旧 pane 状态当成代码失败。先 C-c；若仍冻结，`tmux kill-session` 固定工作区，随后以当前 `git diff` + Hermes 自跑测试 + result artifact 进入验收/OMP。关键边界：只有在 artifact/目标 diff/本机验证都已满足时才这样做；若没有产物或测试未跑，冻结仍按失败/退回处理。
+
+**复用同一个 result artifact 做 follow-up 时必须检查 mtime（v1.43 · 2026-07-02 WRR Package B）**：若 `/tmp/<result>.md` 已由上一轮生成，`cc-wait-decision --expect` 可能因旧文件存在而返回 `artifact_satisfied_no_marker`，尤其 `after=0` 时。发送 follow-up 前先记录 `stat -f %m /tmp/<result>.md`，完成判定必须同时满足：mtime 更新 + 预期 diff/内容出现。不要把旧 artifact 当新 follow-up 完成证据；若 pane 中可见刚发送的单行 follow-up，最多按一次 Enter 提交，不重发。详见 `references/reused-artifact-mtime-followup-pattern.md`。
 
 ## ⚠️ Pitfall #59：`--effort high` 使思考瘫痪更严重（v1.37 · 2026-06-29）
 
@@ -235,6 +292,10 @@ cc-wait-decision.sh --session "cc-<name>" --timeout 600 --expect "/tmp/report.md
 | `frozen_needs_confirm` | 冻结 | 先问用户确认，禁止自动 C-c |
 
 **旧规则废止**：不要再把 `cc-wait-marker exit 4` 直接理解成“任务根本没提交成功”。先看 `cc-wait-decision` 的 JSON。
+
+CC 补全/预测行为 ≠ 残留输入——见 `references/cc-autocomplete-prediction-behavior.md`。
+当 `cc-wait-decision` 因 prompt_text/residual 拒绝等待，但 pane 中确实是本轮刚发送的单行任务时，手动 Enter 一次提交；若 state=active_no_resend 则不要重发，继续等 artifact。详见 `references/cc-autocomplete-residual-submit-pattern-20260630.md`。
+多轮 Codex planning 讨论模式——见 `references/multi-round-codex-planning-pattern.md`。
 
 不要用 `cc-start.sh --task`（会注入长 prompt 触发过度思考）、不要用 send-keys 多行（会触发行队列）、不要用 `-p` 非交互模式（执行完即退出，不适合编码任务）。
 
@@ -324,8 +385,30 @@ CC 启动后自动注入 `<persisted-output>` 块，包含历史会话的摘要�
 
 **修复**：调用外部 API 前清代理（详见 skill 内部 proxy-env API 干扰记录）。
 
+## ⚠️ Pitfall #61：Hermes 不要替复杂 CC skill 拆 worker（v1.41 · 2026-06-30）
+
+如果任务引用的 skill 内部已经定义 agent team / workflow / 多阶段 DAG，Hermes 只负责传递完整任务包和 skill 引用；**不要手写 Worker A/B/C，也不要开多个裸 tmux session 模拟 skill 内部编排。**
+
+错误做法：读 skill → 自己拆成 N 个 task → 开 N 个裸 tmux → 每个手敲 prompt → 拼结果。
+正确做法：写 `/tmp/cc-task-*.md`，说明目标、skill 路径/名称、期望产物，用 `cc-send.sh --context` 单行交给 CC。CC 自己读取 skill，决定使用 subagents、agent teams 还是 workflow。
+
+**原则：Hermes 是信使，CC 是工厂。** `cc-send.sh --context` 默认已包含编排提示，CC 收到后会自动判断是否需要内部编排。
+
 ## 🔗 多 Agent 协作模式
 
 五阶段 STDD 评估流水线：CC+Codex→规划→CC→OMP→验收。
 案例：WRR v5.2 本地搜索层、WRR v6.0 OB 三梁重构。
 OB 文档重构专用参考见 skill 内部 agent-team STDD Obsidian restructure 记录。
+
+战略/市场深研报告流水线（WRR → Codex planning-only → CC 3-worker team → Hermes synthesis → Obsidian Inbox）见 `references/strategic-research-report-agent-team-pattern.md`。适用于用户要求“深度研究 + Codex 规划 + CC agent team + 保存到 OB”的报告类任务。
+
+### 长任务进度汇报与收尾恢复（2026-07-01 新增）
+
+当 CC agent team 跑方法论转化、研究加固、文档重构等 5min+ 长任务时，Hermes 必须主动维护“用户可见进度”，不能只等最终 marker：
+
+- **有实质状态变化就汇报**：如 `THINKING → WAITING_AGENTS`、阶段产物出现/增大、诊断完成进入焊接、收尾 session 启动、最终验收开始。避免无变化刷屏；但用户问“进度呢”时，下一次可发消息机会必须立即补状态。
+- **WAITING_AGENTS/token 冻结先看产物**：若 `/tmp` 已有 draft/diag/report 等阶段成果，先检查文件存在、mtime/size、内容是否足够继续，不要只盯 pane 或等待原 worker 完美收尾。
+- **大 team 卡在最后一刀时，另起小粒度收尾 session**：把已有 draft + diag + base 作为输入，只要求“按 research-fortification additive-first 写最终文件 + marker”。这是恢复路径，不是放弃原 team。
+- **最终仍由 Hermes 验收**：CC marker/汇报不算真相。重新检查目标文件存在、YAML 符合当前 vault AGENTS、无 TODO/骨架占位、焊接台账存在、源文件未被改动。
+
+详细案例：`references/methodology-conversion-progress-and-weld-recovery-20260701.md`。

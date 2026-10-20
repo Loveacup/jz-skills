@@ -40,6 +40,12 @@ start_busy_session() {
   sleep 0.3
 }
 
+# ── Helper: create a quiet prompt session that records typed lines ──
+start_prompt_session() {
+  tmux new-session -d -s "$SESSION" -x 120 -y 30 "env PS1='❯ ' bash --noprofile --norc" </dev/null >/dev/null 2>&1
+  sleep 0.5
+}
+
 # ── Helper: create context files ──
 make_ctx() { echo "context-$1" > "$TMP/ctx-$1.md"; }
 
@@ -78,9 +84,11 @@ else
 fi
 
 # ── Test 3: back-to-back sends don't cross-contaminate ──
-# Verify that two rapid sends with different context paths produce distinct
-# path-only message lines in the right order.
-start_busy_session
+# Use a quiet prompt session here. A busy output loop is valid for exit-code
+# smoke tests, but it can scroll path-only messages out of capture-pane and make
+# this assertion flaky. The goal here is delivery/order visibility, not busy-pane
+# consumption semantics.
+start_prompt_session
 echo "MSG-A-unique-tag" > "$TMP/ctx-a.md"
 echo "MSG-B-unique-tag" > "$TMP/ctx-b.md"
 

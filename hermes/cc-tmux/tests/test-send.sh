@@ -117,7 +117,7 @@ run_test --redraw '❯ leftover unsent text' "Dry-run over stuck residual → rc
 run_test "Missing context file → rc 1" 1 \
   --session "$SESSION" --context "/tmp/cc-send-missing-context.md" --dry-run
 
-# Test 11: --context is path-only; markdown body must not appear in dry-run payload
+# Test 11: --context is path-only + includes orchestration hint; markdown body must not appear
 cleanup
 cat > "/tmp/cc-send-test-ctx.md" <<'EOF'
 # SECRET BODY LINE SHOULD NOT BE SENT
@@ -125,8 +125,8 @@ Second markdown line should not be sent either.
 EOF
 tmux new-session -d -s "$SESSION" -x 120 -y 20 "sleep 999" </dev/null >/dev/null 2>&1
 out=$(bash "$SEND" --session "$SESSION" --context "/tmp/cc-send-test-ctx.md" --dry-run 2>&1); rc=$?
-if [[ "$rc" -eq 0 && "$out" == *"Please read /tmp/cc-send-test-ctx.md and follow it."* && "$out" != *"SECRET BODY"* && "$out" != *"Second markdown"* ]]; then
-  echo "  ✅ Context path-only dry-run does not include markdown body"
+if [[ "$rc" -eq 0 && "$out" == *"Please read /tmp/cc-send-test-ctx.md and follow it."* && "$out" == *"Hermes is the messenger, CC is the factory"* && "$out" != *"SECRET BODY"* && "$out" != *"Second markdown"* ]]; then
+  echo "  ✅ Context path-only + orchestration hint, no markdown body"
   PASS=$((PASS+1))
 else
   echo "  ❌ Context path-only dry-run failed"
@@ -151,18 +151,32 @@ else
 fi
 cleanup
 
-# Test 13: --context --no-prefix remains path-only (no body injection)
+# Test 13: --context --no-prefix remains path-only (no body, no hint)
 cleanup
 cat > "/tmp/cc-send-test-ctx.md" <<'EOF'
 # NO_PREFIX BODY SHOULD NOT BE SENT
 EOF
 tmux new-session -d -s "$SESSION" -x 120 -y 20 "sleep 999" </dev/null >/dev/null 2>&1
 out=$(bash "$SEND" --session "$SESSION" --context "/tmp/cc-send-test-ctx.md" --no-prefix --dry-run 2>&1); rc=$?
-if [[ "$rc" -eq 0 && "$out" == *"/tmp/cc-send-test-ctx.md"* && "$out" != *"NO_PREFIX BODY"* ]]; then
-  echo "  ✅ --context --no-prefix is still path-only"
+if [[ "$rc" -eq 0 && "$out" == *"/tmp/cc-send-test-ctx.md"* && "$out" != *"NO_PREFIX BODY"* && "$out" != *"Hermes is the messenger"* ]]; then
+  echo "  ✅ --context --no-prefix is still path-only, no hint"
   PASS=$((PASS+1))
 else
-  echo "  ❌ --context --no-prefix leaked body or failed"
+  echo "  ❌ --context --no-prefix leaked body/hint or failed"
+  printf '%s\n' "$out" | sed 's/^/      | /'
+  FAIL=$((FAIL+1))
+fi
+cleanup
+
+# Test 14: --message does NOT include orchestration hint
+cleanup
+tmux new-session -d -s "$SESSION" -x 120 -y 20 "sleep 999" </dev/null >/dev/null 2>&1
+out=$(bash "$SEND" --session "$SESSION" --message "do a quick thing" --dry-run 2>&1); rc=$?
+if [[ "$rc" -eq 0 && "$out" == *"do a quick thing"* && "$out" != *"Hermes is the messenger"* ]]; then
+  echo "  ✅ --message does not include orchestration hint"
+  PASS=$((PASS+1))
+else
+  echo "  ❌ --message leaked orchestration hint"
   printf '%s\n' "$out" | sed 's/^/      | /'
   FAIL=$((FAIL+1))
 fi

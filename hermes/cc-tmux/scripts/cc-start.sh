@@ -225,7 +225,7 @@ fi
 HOOKDIR="$SKILL_ROOT/hooks"
 RUNTIME_SETTINGS="$SKILL_ROOT/templates/settings.runtime.json"
 tmuxc send-keys -t "$SESSION" \
-  "HOME=\"$USER_HOME\" CC_TMUX_SESSION=\"$SESSION\" CC_TMUX_HOOK_DIR=\"$HOOKDIR\" claude --allow-dangerously-skip-permissions --model ${MODEL} --effort ${EFFORT} --settings \"$RUNTIME_SETTINGS\"" Enter
+  "HOME=\"$USER_HOME\" CC_TMUX_SESSION=\"$SESSION\" CC_TMUX_HOOK_DIR=\"$HOOKDIR\" CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1 claude --allow-dangerously-skip-permissions --model ${MODEL} --effort ${EFFORT} --settings \"$RUNTIME_SETTINGS\"" Enter
 
 # ── §Phase-2: launch the resident watcher daemon ─────────────
 # The ONE deterministic poller. It refreshes nothing itself — it only probes

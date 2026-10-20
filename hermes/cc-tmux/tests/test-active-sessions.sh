@@ -21,6 +21,23 @@ new_sandbox() {
 D="$CC_ACTIVE_STUB_DIR"
 case "${1:-}" in
   list-sessions) cat "$D/sessions.txt" 2>/dev/null ;;
+  list-panes)
+    target="" all_windows=false
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        -t) target="${2:-}"; shift 2 ;;
+        -s) all_windows=true; shift ;;
+        *) shift ;;
+      esac
+    done
+    if [[ -n "$target" ]]; then
+      files=("$D/panes.txt")
+      [[ "$all_windows" == true ]] && files+=("$D/other-window-panes.txt")
+      grep -h -F "${target}|" "${files[@]}" 2>/dev/null | cut -d'|' -f2- || true
+    else
+      cat "$D/panes.txt" 2>/dev/null || true
+    fi
+    ;;
   *) exit 0 ;;
 esac
 STUB
@@ -31,6 +48,9 @@ trap cleanup EXIT
 
 # helpers
 add_session() { echo "$1" >> "$D/sessions.txt"; }
+add_pane() { # <session> <pane_id> <pid> <cmd> <path> <title>
+  printf '%s|%s|%s|%s|%s|%s\n' "$1" "${2:-%0}" "${3:-123}" "${4:-zsh}" "${5:-/tmp}" "${6:-}" >> "$D/panes.txt"
+}
 write_status() { # <session> <state> [last_tool]
   local s="$1" st="$2" tool="${3:-}"
   cat > "$D/cc-status-$s.json" <<JSON
@@ -154,6 +174,66 @@ state=$(echo "$out" | jq -r '.[0].state')
 if [[ "$state" == "unknown" ]]; then
   ok "TC10 无 status 文件 → state=unknown"
 else no "TC10 预期 unknown，实际 $state"; fi
+cleanup
+
+# TC11: --topic 兼容真实 cc-topic-map 对象 schema {session, at}
+new_sandbox
+S="hermes-cc-default-jz-skills-0101-0000"
+add_session "$S"; write_status "$S" "IDLE"; write_heartbeat "$S"
+echo '{"jz-skills":{"session":"hermes-cc-default-jz-skills-0101-0000","at":"2026-01-01T00:00:00Z"}}' > "$D/cc-topic-map.json"
+out=$(run_active --topic jz-skills --json 2>/dev/null)
+sess=$(echo "$out" | jq -r '.[0].session // ""')
+if [[ "$sess" == "$S" ]]; then
+  ok "TC11 --topic 兼容 {session, at} 对象 schema"
+else no "TC11 未匹配对象 schema: $out"; fi
+cleanup
+
+# TC12: --topic 只读兼容未来 primary.session schema（不迁移/不写）
+new_sandbox
+S="hermes-cc-default-jz-skills-primary-0101-0000"
+add_session "$S"; write_status "$S" "IDLE"; write_heartbeat "$S"
+echo '{"jz-skills":{"primary":{"session":"hermes-cc-default-jz-skills-primary-0101-0000","role":"primary"},"children":[]}}' > "$D/cc-topic-map.json"
+out=$(run_active --topic jz-skills --json 2>/dev/null)
+sess=$(echo "$out" | jq -r '.[0].session // ""')
+if [[ "$sess" == "$S" ]]; then
+  ok "TC12 --topic 只读兼容 future primary.session schema"
+else no "TC12 未匹配 primary schema: $out"; fi
+cleanup
+
+# TC13: --inventory 报告 suspected Claude pane，但默认仍过滤
+new_sandbox
+add_session "1098|1"; add_pane "1098" "%1" "456" "claude" "/Users/alexcai" "Claude Code"
+out_default=$(run_active --json 2>/dev/null)
+out_inv=$(run_active --inventory --json 2>/dev/null)
+count_default=$(echo "$out_default" | jq 'length')
+class_inv=$(echo "$out_inv" | jq -r '.[0].classification // ""')
+attached_inv=$(echo "$out_inv" | jq -r '.[0].session_attached // -1')
+if [[ "$count_default" -eq 0 && "$class_inv" == "suspected" && "$attached_inv" -eq 1 ]]; then
+  ok "TC13 --inventory 只读报告 suspected Claude pane，默认不纳入"
+else no "TC13 inventory 失败: default=$out_default inventory=$out_inv"; fi
+cleanup
+
+# Topic filtering preserves enumerated attachment state and excludes missing sessions.
+new_sandbox
+add_session "1098|1"; add_pane "1098" "%1" "456" "claude" "/tmp" "Claude Code"
+echo '{"attached":"1098","missing":"hermes-cc-missing"}' > "$D/cc-topic-map.json"
+out=$(run_active --inventory --topic attached --json)
+if [[ "$(echo "$out" | jq -r '.[0].session_attached')" == 1 ]]; then
+  ok "TC14 topic inventory preserves attached state"
+else no "TC14 attachment lost: $out"; fi
+out=$(run_active --inventory --topic missing --json)
+if [[ "$out" == '[]' ]]; then ok "TC15 stale topic is not enumerated"; else no "TC15 phantom session: $out"; fi
+cleanup
+
+# Non-current windows must be scanned, not just the active shell window.
+new_sandbox
+add_session "other-window|0"
+add_pane "other-window" "%1" "123" "zsh" "/tmp" "shell"
+printf 'other-window|%%2|456|claude|/tmp|Claude Code\n' > "$D/other-window-panes.txt"
+out=$(run_active --inventory --json)
+if [[ "$(echo "$out" | jq -r '.[0].session // ""')" == other-window ]]; then
+  ok "TC16 Claude in non-current window is included"
+else no "TC16 missed non-current window: $out"; fi
 cleanup
 
 echo ""

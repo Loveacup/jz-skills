@@ -97,7 +97,14 @@ else
   bad "#P1 cc-start launch does NOT inject --settings"
 fi
 
-# Test 8: §Phase1 — runtime settings template exists and its script-path hooks
+# Test 8: v1.42 — launch line must suppress Claude feedback survey via official env.
+if grep 'claude ' "$START" | grep -q 'CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1'; then
+  ok "#v1.42 cc-start launch suppresses Claude feedback survey env"
+else
+  bad "#v1.42 cc-start launch missing CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1"
+fi
+
+# Test 9: §Phase1 — runtime settings template exists and its script-path hooks
 # self-locate via $CC_TMUX_HOOK_DIR (NOT a hardcoded ~/.claude/hooks global copy).
 RUNTIME_TPL="$REAL_ROOT/templates/settings.runtime.json"
 if [[ -f "$RUNTIME_TPL" ]] \
@@ -108,7 +115,28 @@ else
   bad "#P1 settings.runtime.json missing or still uses ~/.claude/hooks"
 fi
 
-# Test 9: §Phase2 — cc-start spawns the resident watcher daemon in the background and
+# Test 10: v1.42 — runtime settings suppress feedback survey through official
+# settings keys while preserving valid JSON.
+if python3 - "$RUNTIME_TPL" <<'PY'
+import json, sys
+d=json.load(open(sys.argv[1]))
+assert d.get("feedbackSurveyRate") == 0
+assert d.get("env", {}).get("CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY") == "1"
+PY
+then
+  ok "#v1.42 settings.runtime.json feedbackSurveyRate/env suppression"
+else
+  bad "#v1.42 settings.runtime.json missing feedback survey suppression"
+fi
+
+# Test 11: v1.42 — no automatic feedback prompt dismiss/marker consumer is added.
+if ! grep -R -E 'How is Claude doing|feedback.*(send-keys|marker|consumer)|CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY.*send-keys' "$REAL_ROOT/scripts" "$REAL_ROOT/hooks" >/dev/null 2>&1; then
+  ok "#v1.42 no automatic feedback prompt dismiss / marker consumer"
+else
+  bad "#v1.42 unexpected feedback prompt automation or marker consumer found"
+fi
+
+# Test 12: §Phase2 — cc-start spawns the resident watcher daemon in the background and
 # records its PID in the lock dir so cc-finish can kill it (the ONE deterministic poller,
 # moving monitoring cadence off the LLM).
 if grep -Eq 'cc-watcher\.sh.*--watch' "$START" && grep -q 'watcher_pid' "$START"; then

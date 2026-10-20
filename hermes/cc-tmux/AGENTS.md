@@ -2,7 +2,7 @@
 
 > **Canonical 架构参考。在本代码库工作前先读这里。**
 > 分工：**本文件 = 实现/架构权威**；需求/设计权威在 OB（见文末）。
-> 当前：v1.40.0 · 测试 24/24 文件、230/230 断言 · 健康分 0.96+。
+> 当前实现基线：v1.43.0 Phase 1.5 · 测试 24/24 文件、240/240 断言。
 
 ## 是什么
 
@@ -65,7 +65,7 @@ cc-tmux = Hermes ↔ Claude Code 的 tmux-based 编排层。**Thin skill**：脚
 
 ## 工作约定（coding agent）
 
-- **TDD 红线**：实现类先写测试 → 确认失败 → 写代码 → 确认通过。当前 **229/229**。
+- **TDD 红线**：实现类先写测试 → 确认失败 → 写代码 → 确认通过。本轮至少运行相关 targeted 测试；全套结果以当次 `tests/run-tests.sh` 输出为准。
 - **Hook/脚本是单一真源**：改 `hooks/`/`templates/settings.runtime.json` → 下个 CC 启动经 `--settings` 自动生效，零 cp/jq/重启。
 - **杀 session 必须用户确认**（`cc-finish.sh --kill-session` 永不自动）。
 - **改完同步 deploy**：`~/.hermes/skills/autonomous-ai-agents/cc-tmux/`，`md5` 校验 parity。
@@ -73,7 +73,7 @@ cc-tmux = Hermes ↔ Claude Code 的 tmux-based 编排层。**Thin skill**：脚
 ## 关键文件
 
 - `SKILL.md` — 操作手册（红线 / 决策树 / 4 步流程 / Pitfalls / R4c checkpoint）。
-- `scripts/` — 核心脚本 + cc-send-robust/cc-usage/cc-gc/cc-topic-map/cc-dogfood-report/eval + `gate/`。`tests/` — 24 文件 229/229。`references/` — 设计依据 / Hook 事实 / 事件驱动 / R2.1 澄清协议 / R8b 配置指南 / R4c smoke 流程 等。
+- `scripts/` — 核心脚本 + cc-send-robust/cc-usage/cc-gc/cc-topic-map/cc-dogfood-report/eval + `gate/`。`tests/` — 脚本测试套件（运行 `tests/run-tests.sh` 获取当前统计）。`references/` — 设计依据 / Hook 事实 / 事件驱动 / R2.1 澄清协议 / R8b 配置指南 / R4c smoke 流程 等。
 
 ## 需求与设计权威（在 OB，非本库）
 

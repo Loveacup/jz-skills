@@ -13,6 +13,9 @@
 #  4. 多行发送(load/paste-buffer) → consumed → rc 0
 #  5. C-u 清行 → pane 由脏变净 → 后续发送 consumed → rc 0
 #  6. 不存在的 target → 非 0
+#  7. v1.40: 发送文本 ≠ 残留文本 → rc=4（未知/预测，立即拒绝）
+#  8. Full wrapped prompt text matching current sent line → safe repair; partial matches refused
+#  9. v1.42: prediction/stale prompt text remains unsafe
 
 set -uo pipefail
 
@@ -72,6 +75,15 @@ while IFS= read -rsn1 c; do
   esac
 done
 EOF
+
+# Wrapped residual: the complete instruction spans two terminal lines.
+cat > "$FIXDIR/path_anchor.sh" <<'EOF'
+#!/usr/bin/env bash
+while true; do
+  printf '\033[2J\033[H────────────────\n❯ Please read /tmp/cc-friction-task.md\nand follow it. If this context references a skill\n'
+  sleep 0.1
+done
+EOF
 chmod +x "$FIXDIR"/*.sh
 
 # run_test <launch-cmd> <name> <expected_rc> -- <robust args...>
@@ -128,6 +140,28 @@ if [[ "$rc" -ne 0 ]]; then
 else
   echo "  ❌ 不存在 target 应返回非0，got rc=0"; FAIL=$((FAIL+1))
 fi
+
+# 7. v1.40: 发送文本 ≠ 残留文本 → rc=4（未知/预测，立即拒绝）
+#    cu.sh fixture 显示 "dirty-residual"，发送 "unrelated-text" → 不匹配 → rc=4
+run_test "bash $FIXDIR/cu.sh" \
+  "发送文本≠残留文本 → rc=4（不重试不修复）" 4 \
+  send-to-pane "$SESSION" "unrelated-text" 3
+
+# Full wrapped text matches after whitespace normalization; a truncated prefix does not.
+run_test "bash $FIXDIR/path_anchor.sh" \
+  "complete wrapped sent text → safe repair (rc=1)" 1 \
+  send-to-pane "$SESSION" "Please read /tmp/cc-friction-task.md and follow it. If this context references a skill" 1
+run_test "bash $FIXDIR/path_anchor.sh" \
+  "same path and leading words but different instruction → unsafe (rc=4)" 4 \
+  send-to-pane "$SESSION" "Please read /tmp/cc-friction-task.md and delete it instead." 1
+run_test "bash $FIXDIR/path_anchor.sh" \
+  "truncated wrapped instruction → unsafe (rc=4)" 4 \
+  send-to-pane "$SESSION" "Please read /tmp/cc-friction-task.md and follow it. If this context references a skill with its own multi-agent process, load and follow it." 1
+
+# 9. v1.42: prediction/stale text with no current sent anchor remains unsafe.
+run_test "bash $FIXDIR/cu.sh" \
+  "prediction/stale without sent anchor → rc=4（unsafe）" 4 \
+  send-to-pane "$SESSION" "Please read /tmp/current-task.md and follow it." 3
 
 echo ""
 echo "=== Results: $PASS/$((PASS+FAIL)) passed ==="
