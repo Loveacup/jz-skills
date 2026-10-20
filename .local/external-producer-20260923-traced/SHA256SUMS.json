@@ -1,0 +1,17 @@
+{
+  "baseline-comparison.json": "107bc8d3ee24e91bc3866bf566b695f61950d9ccdc2d02a8f9de2893e1d592ba",
+  "cancellation-receipt.json": "2e311a3ad55df4f8d6f06ece4c285fe304187b8903a6fa904ce05d8cc06a6e84",
+  "capture.py": "b7b6ed52c8410fbb05be488e8c1ccdd373cdc947c546841a95810a2cc28e3488",
+  "checklist.json": "f2ca60a35073c1669d67a7a12ed63523ce7b2f5ca69c8add4cdef5f275340956",
+  "commands.jsonl": "e2b5ab461b9ba51236125131dad14c23b147561eb93bbc4c7113618eb2f66111",
+  "controlled-failure-receipt.json": "9035e134ae0bab1fa2ad8ab34d53c47dc1529f33a3a6de357d3b87785ad0ef1a",
+  "coordinator-direction.json": "45ebcafbb1e70f66d84c45297c079f464bcd86d5aef373f3e9b059a4bc0ba0d9",
+  "git-preflight.json": "d6da2d67c4f3b759219804511b7abd6da16a0907bc0a4feb931d13f935f21693",
+  "normal-receipt.json": "970a5c7deabc8e1a9998f0177111267b1ef51560fa0b1a6dda518ae0c643d270",
+  "pre-commit.bound.txt": "1997126a0df269cadf47d44ff1fb042f5b0e163fbcf988b620d425e4569a9397",
+  "preflight-command-notes.md": "dbbe38787e22a26d88b9dd087ac95b24955635bf0b1f105b20f9790068663686",
+  "producer-final.json": "22ba2bfed65a65dda19ca4b805ab689ce69bf11e6131788e09474a668b547bd7",
+  "producer-initial.json": "37b862838f1e70705d4e6bc2537a8b851eaa25222e2b67c7934b3532d7252052",
+  "report.md": "ec561ff6f54082dcb8f7bcb2a476a27efecb49879c62ca87f4ecf4faf1c071f1",
+  "verification.json": "c50ef51569c779e3150a40f802d230be2d643e2df8f3126d55b25df54a6bcd46"
+}

@@ -1,0 +1,951 @@
+{
+  "schema": "call-omp-independent-review.v1",
+  "verdict": "FAIL",
+  "review_completed": true,
+  "reviewer_dispatch": "ctx_e3eb0f0194fd",
+  "producer_dispatch": "ctx_922400ddf9c0",
+  "producer_settlement": "Positive succeeded settlement supplied by dispatch preamble; reviewer did not reinterpret producer assertions as acceptance.",
+  "created_at": "2026-09-23T05:07:27.969977+00:00",
+  "deployment_status": "NOT_ADMITTED",
+  "scope": "Read-only adjudication of exact producer revision and bundle; only this reviewer verdict written; no live scenario reruns, no source changes, no commits/push/install/deploy.",
+  "governing_anchors": [
+    "/Users/alexcai/code/local-agent-governance/.local/hermes-deployment-20260922/w1-w2-independent-review-contract.json $.reviews.call_omp",
+    "/Users/alexcai/code/local-agent-governance/.local/hermes-deployment-20260922/call-omp-independent-candidate/external-producer-contract.json $.required_repairs / $.scenario_acceptance",
+    "/Users/alexcai/code/local-agent-governance/audits/2026-09-22/hermes-multi-agent-research-plan.json:92-105"
+  ],
+  "qmd": "qmd search call-omp W1 -n 3: No results found (未检索到); current files and captured execution evidence govern.",
+  "summary": "Exact commit/parent and narrow changes verified; receipt hashes, script and binary hashes, native capture/state consistency and reconstructed launch fingerprints independently verified. Probe contract has reproducible violations and cancellation SID evidence is inconsistent. Missing whole-file runtime provenance and forbidden-mutation observation remain BLOCKED; no W1 PASS or installation admission.",
+  "required_verdicts": [
+    {
+      "item": 1,
+      "verdict": "PASS",
+      "requirement": "Exact parent and scoped committed path set; no unrelated tracked candidate change.",
+      "evidence": {
+        "command": "git log -1 --format=%H:%P; git diff-tree --no-commit-id --name-status -r aa44eecc4630e96c82f7688a44ec2e452b8fdfae; git status --porcelain",
+        "head_parent": "aa44eecc4630e96c82f7688a44ec2e452b8fdfae 8d6200cb79cf43845bc37444504156dfbfe9c056",
+        "changed_paths": [
+          "A\thermes/call-omp/tests/process_probe.py",
+          "A\thermes/call-omp/tests/test_process_probe.py"
+        ],
+        "status": "?? .local/"
+      },
+      "anchors": [
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/git-seam-and-commit.json $.staged_paths / $.parent",
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/producer-summary.json $.candidate_revision"
+      ],
+      "limit": "Only untracked .local evidence; no statement about unrelated repository history or remote mutations."
+    },
+    {
+      "item": 2,
+      "verdict": "FAIL",
+      "requirement": "Only literal empty rc1 query is absent; query errors/unsupported/timeouts unknown; permanent tests.",
+      "anchors": [
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/tests/process_probe.py:24-39,43-77",
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/tests/test_process_probe.py:19-21,41-46,59-81",
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/test_process_probe-run.log:1-19"
+      ],
+      "findings": [
+        "classify(1,\" \\n\",\" \\n\") returns dead, violating empty stdout AND empty stderr and any-stderr unknown; permanent test line 21 explicitly codifies the violation.",
+        "classify(0,\"1 2 3 4 INVALID comm garbage\",\"\") returns alive; parser validates numeric columns only, not supported state/start-time.",
+        "Mocked subprocess FileNotFoundError escapes probe instead of returning unknown; only TimeoutExpired is caught.",
+        "Mocked TimeoutExpired correctly returns unknown; no permanent timeout test in the captured 11."
+      ],
+      "captured_test_result": "11/11, exit=0, exact commit header; eight deterministic classification/parse tests and three live process tests. Log inspected, suite not rerun.",
+      "reviewer_checks": "In-memory compile/exec of inspected process_probe.py; mocked subprocess.run for timeout and FileNotFoundError; no real ps invocation or writes."
+    },
+    {
+      "item": 3,
+      "verdict": "BLOCKED",
+      "requirement": "Fresh coherent three receipts on exact revision plus every executed runtime dependency.",
+      "anchors": [
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/producer-summary.json $.scenario_receipts",
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/run-scenario.py:56,75-94",
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/omp-send.sh:41,262-267,387-444"
+      ],
+      "positive": "All 3 summary hashes match; all 20 scripts match disk and commit; probe/harness/OMP binary match; failure wrapper matches launch hash; resource receipts equal disk; nonempty raw/stderr hashes and all tuples match; reconstructed child argv and launch fingerprints match (see scenarios).",
+      "missing": "runtime_sha256 inventories scripts only. Loaded templates/execute-prompt-template.md lacks its required file SHA-256 in every receipt. Rendered template content is indirectly bound by matching child argv; this does not record exact file bytes (shell strips trailing newlines). No producer before/after file manifest of this dependency. System interpreter versions are recorded but not byte hashes; fixture runner bytes are reconstructible from harness, not separately recorded as dependency hashes.",
+      "template_current_sha256": "d24ac3b77b6b96fea7f7af34e846cd81c1ed0bcc14310b1935f68f862b76c516",
+      "template_matches_commit": true,
+      "limitation": "Do not equate current equality or reconstructed argv with a complete producer runtime-file SHA-256 inventory."
+    },
+    {
+      "item": 4,
+      "verdict": "FAIL",
+      "requirement": "Normal artifact; controlled failure rejection; exact-owned cancellation identities/cleanup; unrelated survival.",
+      "anchors": [
+        "/Users/alexcai/code/local-agent-governance/.local/hermes-deployment-20260922/call-omp-independent-candidate/external-producer-contract.json $.required_repairs[2].acceptance",
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44/receipt.json $.consumer_cases / $.accept_exit_code",
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-failure-d751215ddfad/receipt.json $.resource_receipt / $.accept_exit_code",
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e/receipt.json $.owned_before_stop.*.identity.sid / $.owned_after_stop / $.unrelated_after_stop",
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e/ready.json $.sid / $.child_sid",
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/tests/process_probe.py:15,36",
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/omp-resource-supervisor.py:1153-1160"
+      ],
+      "positive": "Normal and controlled failure PASS; observed exact cancellation, dead owned PID set, clean terminal refusal and unrelated sentinel survival PASS as bounded observations.",
+      "failure": "Native pid-store/resource records worker session_id=90023 and runner self-report sid=child_sid=90944, while probe records all sid=0 from sess. Required PID/PPID/PGID/SID/command/start-time evidence is therefore not mutually consistent; two command values are truncated to /opt/homebrew/Ce and /opt/homebrew/bi.",
+      "limit": "After absence there is naturally no live identity row; earlier identity plus same queried PID is retained. No claim that all system processes or escaped descendants were surveyed."
+    },
+    {
+      "item": 5,
+      "verdict": "BLOCKED",
+      "requirement": "No forbidden installation/deployment/Hermes/provider/credential/Gateway/Kanban/push/history mutation.",
+      "anchors": [
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/producer-summary.json $.candidate_revision.pushed / $.not_done_by_design",
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/git-seam-and-commit.json $.hook_observed_behavior",
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/run-scenario.py:57-66,106-115,277-298",
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/lib/omp-lib.sh:17-18,46-57"
+      ],
+      "positive": "Inspected harness commands, scenario native tool calls and candidate diff show scoped evidence writes and no forbidden operation. Controlled invalid-model argv is authorized scenario input, not evidence of persistent provider configuration mutation. Two failed harness iterations preserved.",
+      "missing": "No before/after watched-path integrity or equivalent execution-host audit for forbidden mutable surfaces; summary is self-attestation, and scenario commands.log records only helper invocations (not producer-wide operations or all implicit OMP startup effects). No remote/push/history observer supplied. Cannot positively certify absence from this bundle, and no credential/runtime inspection was authorized to fill it.",
+      "classification": "Unknown, not evidence that a forbidden mutation actually occurred."
+    }
+  ],
+  "runtime_manifest_verified": [
+    {
+      "path": "hermes/call-omp/scripts/call-omp-check.sh",
+      "receipt_sha256": "a178aea9efd89cf751444dae52c6521a60d92a27d6d688c73f9e88f44e20d638",
+      "disk_sha256": "a178aea9efd89cf751444dae52c6521a60d92a27d6d688c73f9e88f44e20d638",
+      "commit_sha256": "a178aea9efd89cf751444dae52c6521a60d92a27d6d688c73f9e88f44e20d638",
+      "match": true
+    },
+    {
+      "path": "hermes/call-omp/scripts/call-omp-smoke.sh",
+      "receipt_sha256": "85c5207a22616f67e64209953975adbeec8be7d13d127cad3c91d5e95c1c6355",
+      "disk_sha256": "85c5207a22616f67e64209953975adbeec8be7d13d127cad3c91d5e95c1c6355",
+      "commit_sha256": "85c5207a22616f67e64209953975adbeec8be7d13d127cad3c91d5e95c1c6355",
+      "match": true
+    },
+    {
+      "path": "hermes/call-omp/scripts/gate/danger-patterns.txt",
+      "receipt_sha256": "774d6c1a4735c4a2ef3b2f1df449938de9735af10adb5e35c1ce37bcc0e9da22",
+      "disk_sha256": "774d6c1a4735c4a2ef3b2f1df449938de9735af10adb5e35c1ce37bcc0e9da22",
+      "commit_sha256": "774d6c1a4735c4a2ef3b2f1df449938de9735af10adb5e35c1ce37bcc0e9da22",
+      "match": true
+    },
+    {
+      "path": "hermes/call-omp/scripts/gate/gate-counter.sh",
+      "receipt_sha256": "941e159b419ce68f83b760e6b2fbe975cc92960b0212a90846a8e44c67091a80",
+      "disk_sha256": "941e159b419ce68f83b760e6b2fbe975cc92960b0212a90846a8e44c67091a80",
+      "commit_sha256": "941e159b419ce68f83b760e6b2fbe975cc92960b0212a90846a8e44c67091a80",
+      "match": true
+    },
+    {
+      "path": "hermes/call-omp/scripts/gate/gate-danger.sh",
+      "receipt_sha256": "ad561df06fa7ef2f2912e88203e29a88f3bc3df9e9fe500cb06ecd72decbe56f",
+      "disk_sha256": "ad561df06fa7ef2f2912e88203e29a88f3bc3df9e9fe500cb06ecd72decbe56f",
+      "commit_sha256": "ad561df06fa7ef2f2912e88203e29a88f3bc3df9e9fe500cb06ecd72decbe56f",
+      "match": true
+    },
+    {
+      "path": "hermes/call-omp/scripts/gate/gate-verify.sh",
+      "receipt_sha256": "304f450f7f822748d0e4e707058ec3bf78936549bdd9120dad1a2914dfd4622c",
+      "disk_sha256": "304f450f7f822748d0e4e707058ec3bf78936549bdd9120dad1a2914dfd4622c",
+      "commit_sha256": "304f450f7f822748d0e4e707058ec3bf78936549bdd9120dad1a2914dfd4622c",
+      "match": true
+    },
+    {
+      "path": "hermes/call-omp/scripts/gate/resolve-capability-grant.py",
+      "receipt_sha256": "db632a2c77486ba46bd19ed2fd2a56078becf7daa28d85c142408513c919cd4d",
+      "disk_sha256": "db632a2c77486ba46bd19ed2fd2a56078becf7daa28d85c142408513c919cd4d",
+      "commit_sha256": "db632a2c77486ba46bd19ed2fd2a56078becf7daa28d85c142408513c919cd4d",
+      "match": true
+    },
+    {
+      "path": "hermes/call-omp/scripts/lib/omp-lib.sh",
+      "receipt_sha256": "e3ab71c3d70cbb1002754d43f0ad9b57c840dabe25528b15b887c72603ce74ab",
+      "disk_sha256": "e3ab71c3d70cbb1002754d43f0ad9b57c840dabe25528b15b887c72603ce74ab",
+      "commit_sha256": "e3ab71c3d70cbb1002754d43f0ad9b57c840dabe25528b15b887c72603ce74ab",
+      "match": true
+    },
+    {
+      "path": "hermes/call-omp/scripts/omp-acp-probe.sh",
+      "receipt_sha256": "1ea048339d3d26350164059dff63e83ee49939b8d64a15488101af4c1460716c",
+      "disk_sha256": "1ea048339d3d26350164059dff63e83ee49939b8d64a15488101af4c1460716c",
+      "commit_sha256": "1ea048339d3d26350164059dff63e83ee49939b8d64a15488101af4c1460716c",
+      "match": true
+    },
+    {
+      "path": "hermes/call-omp/scripts/omp-acp-smoke.sh",
+      "receipt_sha256": "2533cc15ff36bc3ccef912ef7486d8dddea4bc51b262bb0adc1d372b4a8dfaa2",
+      "disk_sha256": "2533cc15ff36bc3ccef912ef7486d8dddea4bc51b262bb0adc1d372b4a8dfaa2",
+      "commit_sha256": "2533cc15ff36bc3ccef912ef7486d8dddea4bc51b262bb0adc1d372b4a8dfaa2",
+      "match": true
+    },
+    {
+      "path": "hermes/call-omp/scripts/omp-bundle-code-audit.sh",
+      "receipt_sha256": "a045d85f94762afd186d6afa0ceb953a8e96005b305e6013df1d330dbee779f7",
+      "disk_sha256": "a045d85f94762afd186d6afa0ceb953a8e96005b305e6013df1d330dbee779f7",
+      "commit_sha256": "a045d85f94762afd186d6afa0ceb953a8e96005b305e6013df1d330dbee779f7",
+      "match": true
+    },
+    {
+      "path": "hermes/call-omp/scripts/omp-finish.sh",
+      "receipt_sha256": "06241414d3ffd6f9606e2cf33bcecede91c3104c63ff26f51c7d6749efcb0fd1",
+      "disk_sha256": "06241414d3ffd6f9606e2cf33bcecede91c3104c63ff26f51c7d6749efcb0fd1",
+      "commit_sha256": "06241414d3ffd6f9606e2cf33bcecede91c3104c63ff26f51c7d6749efcb0fd1",
+      "match": true
+    },
+    {
+      "path": "hermes/call-omp/scripts/omp-gc.sh",
+      "receipt_sha256": "a9cbc57efbc704551f765fe708d6c10aa54d6a743b748d4ef858bdd6c8e7a60e",
+      "disk_sha256": "a9cbc57efbc704551f765fe708d6c10aa54d6a743b748d4ef858bdd6c8e7a60e",
+      "commit_sha256": "a9cbc57efbc704551f765fe708d6c10aa54d6a743b748d4ef858bdd6c8e7a60e",
+      "match": true
+    },
+    {
+      "path": "hermes/call-omp/scripts/omp-monitor.sh",
+      "receipt_sha256": "e024d66f2ef310fa51e8add213849a0ce5d67b0872e4a42d46183eae8a6007a3",
+      "disk_sha256": "e024d66f2ef310fa51e8add213849a0ce5d67b0872e4a42d46183eae8a6007a3",
+      "commit_sha256": "e024d66f2ef310fa51e8add213849a0ce5d67b0872e4a42d46183eae8a6007a3",
+      "match": true
+    },
+    {
+      "path": "hermes/call-omp/scripts/omp-resource-supervisor.py",
+      "receipt_sha256": "6388581c75fbeb6d32b93569f462f6377bb778c046f72cd673a4affe34ff01b3",
+      "disk_sha256": "6388581c75fbeb6d32b93569f462f6377bb778c046f72cd673a4affe34ff01b3",
+      "commit_sha256": "6388581c75fbeb6d32b93569f462f6377bb778c046f72cd673a4affe34ff01b3",
+      "match": true
+    },
+    {
+      "path": "hermes/call-omp/scripts/omp-send.sh",
+      "receipt_sha256": "7703bb4ba064972e8f7de31c73a68026e3d12f50ff1506784d288e905d8d9023",
+      "disk_sha256": "7703bb4ba064972e8f7de31c73a68026e3d12f50ff1506784d288e905d8d9023",
+      "commit_sha256": "7703bb4ba064972e8f7de31c73a68026e3d12f50ff1506784d288e905d8d9023",
+      "match": true
+    },
+    {
+      "path": "hermes/call-omp/scripts/omp-start.sh",
+      "receipt_sha256": "673bfa98c395a3a1bf59d47418c721614160bd4c733dec341bd5d2420d26c122",
+      "disk_sha256": "673bfa98c395a3a1bf59d47418c721614160bd4c733dec341bd5d2420d26c122",
+      "commit_sha256": "673bfa98c395a3a1bf59d47418c721614160bd4c733dec341bd5d2420d26c122",
+      "match": true
+    },
+    {
+      "path": "hermes/call-omp/scripts/omp-stop.sh",
+      "receipt_sha256": "527126fe43e1ebee0716dfdc7232a2680a8d21decda03b11a28cb7b6fd055f6b",
+      "disk_sha256": "527126fe43e1ebee0716dfdc7232a2680a8d21decda03b11a28cb7b6fd055f6b",
+      "commit_sha256": "527126fe43e1ebee0716dfdc7232a2680a8d21decda03b11a28cb7b6fd055f6b",
+      "match": true
+    },
+    {
+      "path": "hermes/call-omp/scripts/omp_stream_classifier.py",
+      "receipt_sha256": "60836a427865214d4958d00d6b5f50a21867d6f202d6e480f65d018e6be845e1",
+      "disk_sha256": "60836a427865214d4958d00d6b5f50a21867d6f202d6e480f65d018e6be845e1",
+      "commit_sha256": "60836a427865214d4958d00d6b5f50a21867d6f202d6e480f65d018e6be845e1",
+      "match": true
+    },
+    {
+      "path": "hermes/call-omp/scripts/required-actions-validate.py",
+      "receipt_sha256": "fd89211674abd4330ee2a09afbf84825cd8de4809454a41287ad5250613f0598",
+      "disk_sha256": "fd89211674abd4330ee2a09afbf84825cd8de4809454a41287ad5250613f0598",
+      "commit_sha256": "fd89211674abd4330ee2a09afbf84825cd8de4809454a41287ad5250613f0598",
+      "match": true
+    }
+  ],
+  "scenarios": {
+    "normal": {
+      "receipt": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44/receipt.json",
+      "receipt_sha256_expected": "91e32facb48bc1afef66e17fd523d4f231125df29ea428c5a9f766db1ecc27a0",
+      "receipt_sha256_recomputed": "91e32facb48bc1afef66e17fd523d4f231125df29ea428c5a9f766db1ecc27a0",
+      "receipt_hash_matches": true,
+      "candidate_commit": "aa44eecc4630e96c82f7688a44ec2e452b8fdfae",
+      "candidate_parent": "8d6200cb79cf43845bc37444504156dfbfe9c056",
+      "attempt_id": "0e14e159-7601-48a8-bb5d-9d262005ebfe",
+      "launch_fingerprint": "c8e13429764fdd77e32706867ca494a41bd5fdae3768a028bc1cf3613e9033a1",
+      "harness_sha256": "2bde089eb884546e7669ace6fe5f6d584af00c20a74305b533c14b3b1e48fbdf",
+      "harness_matches": true,
+      "process_probe_matches": true,
+      "all_20_runtime_hashes_match_disk_and_commit": true,
+      "omp_binary": {
+        "requested": "omp",
+        "path": "/opt/homebrew/bin/omp",
+        "sha256": "2b2ff2084a34f61a018634c03929aaa9117009d107dbef553d8fc51eb5c28b14",
+        "version": "omp/18.2.7"
+      },
+      "omp_binary_hash_matches": true,
+      "launch_executable_hash_matches": true,
+      "state_path": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-state-external-producer-normal.json",
+      "state_sha256": "6f227b2e0b563329089cad8738e58c79d7e33245eda575ee22b0fe90c3114394",
+      "resource_path": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-resource-external-producer-normal.json",
+      "resource_sha256": "ee4608156d6ffdae6030a9b267b0b12c17f4143ab2b9b7d514cfc0c2bc6b6c84",
+      "resource_exactly_equals_embedded_receipt": true,
+      "pid_store_path": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-pids-external-producer-normal.json",
+      "pid_store_sha256": "67a562ad81938325b585930f844169f8c547fcd14de04ad4a566162a8e12e503",
+      "identity_tuple_consistent": true,
+      "state_status": "accepted",
+      "resource_status": "reported",
+      "worker_exit_code": 0,
+      "cleanup_confirmed": true,
+      "terminal_reason": "normal_completion",
+      "accept_exit_code": 0,
+      "commands": [
+        {
+          "argv": [
+            "bash",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/omp-start.sh",
+            "--package-json",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44/package.json"
+          ],
+          "exit_code": 0,
+          "started_ns": 1790139008322296000,
+          "finished_ns": 1790139008681706000
+        },
+        {
+          "argv": [
+            "bash",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/omp-send.sh",
+            "--state",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-state-external-producer-normal.json",
+            "--async",
+            "--max-time",
+            "90"
+          ],
+          "exit_code": 0,
+          "started_ns": 1790139008681824000,
+          "finished_ns": 1790139009473093000
+        },
+        {
+          "argv": [
+            "bash",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/omp-monitor.sh",
+            "--state",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-state-external-producer-normal.json",
+            "--watch",
+            "--interval",
+            "1",
+            "--timeout",
+            "180"
+          ],
+          "exit_code": 0,
+          "started_ns": 1790139009473309000,
+          "finished_ns": 1790139049074626000
+        },
+        {
+          "argv": [
+            "bash",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/omp-finish.sh",
+            "--state",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-state-external-producer-normal.json",
+            "--accept"
+          ],
+          "exit_code": 0,
+          "started_ns": 1790139049077643000,
+          "finished_ns": 1790139049314887000
+        }
+      ],
+      "command_log": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44/commands.log",
+      "command_log_sha256": "fb402a6da84a5091ea11bebb354ca11794931b22141f4daacdc50698ea6c08ce",
+      "capture_integrity": {
+        "raw": {
+          "path": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-raw-external-producer-normal.json",
+          "sha256": "3d4d757d5587e1ccc1e08643079b2a5dbea3642f25a050076d9cc2ddcfd2b37f",
+          "bytes": 72590,
+          "recorded_sha256": "3d4d757d5587e1ccc1e08643079b2a5dbea3642f25a050076d9cc2ddcfd2b37f",
+          "matches": true,
+          "note": "Nonempty capture SHA-256 matches."
+        },
+        "stderr": {
+          "path": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-raw-external-producer-normal.json.err",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0,
+          "recorded_sha256": "",
+          "matches": true,
+          "note": "Empty capture uses empty-string sentinel; independently checked zero bytes."
+        }
+      },
+      "reconstructed_child_argv_sha256": "cd9d45276e4115e94c11418c76be1c3d721dcc986edadc5422d8341b185afd84",
+      "child_argv_hash_matches": true,
+      "reconstructed_launch_fingerprint": "c8e13429764fdd77e32706867ca494a41bd5fdae3768a028bc1cf3613e9033a1",
+      "launch_fingerprint_matches": true,
+      "reconstruction_inputs": {
+        "system_template": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/templates/execute-prompt-template.md",
+        "user_prompt": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-archive/external-producer-normal/prompt.txt",
+        "algorithm": "omp-send.sh:387-396,425-444; strip shell command-substitution trailing newlines; compact jq JSON; SHA-256 without final LF"
+      },
+      "freshness": "Unique workspace and UUID, command times after commit 2026-09-23T04:43:35Z, 04:50/04:51/04:52 UTC, no reused attempt among three.",
+      "artifact": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44/normalize.py",
+      "artifact_sha256": "b9b70d5bd7ac027ae45f2eb6a68ed3b56f26a828f74fb1de14d8ddc55ff636ee",
+      "artifact_hash_matches": true,
+      "consumer_cases": [
+        {
+          "input": "  Alpha\tBETA\n",
+          "expected": "alpha beta",
+          "actual": "alpha beta"
+        },
+        {
+          "input": "Straße  A",
+          "expected": "strasse a",
+          "actual": "strasse a"
+        },
+        {
+          "input": "  ",
+          "expected": "",
+          "actual": ""
+        }
+      ],
+      "reviewer_consumer_result": "3/3 true by in-memory evaluation of inspected two-line artifact; no OMP rerun",
+      "raw_anchors": [
+        "raw JSONL line 70 read original",
+        "line 163 write exact final function",
+        "line 165 successful write",
+        "line 234 read back final function"
+      ],
+      "scenario_verdict": "PASS"
+    },
+    "failure": {
+      "receipt": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-failure-d751215ddfad/receipt.json",
+      "receipt_sha256_expected": "bc3527e6b40cb491c19c964dd9af0fb5f09d5684f64ec3d0ebcdb1fa0800375a",
+      "receipt_sha256_recomputed": "bc3527e6b40cb491c19c964dd9af0fb5f09d5684f64ec3d0ebcdb1fa0800375a",
+      "receipt_hash_matches": true,
+      "candidate_commit": "aa44eecc4630e96c82f7688a44ec2e452b8fdfae",
+      "candidate_parent": "8d6200cb79cf43845bc37444504156dfbfe9c056",
+      "attempt_id": "cc9eee15-5f40-4c68-af4d-b68882f9b7b5",
+      "launch_fingerprint": "fdae41502a971dafa22c348e16c607ebfb10defccf568b0ad54aab8fb42b9311",
+      "harness_sha256": "2bde089eb884546e7669ace6fe5f6d584af00c20a74305b533c14b3b1e48fbdf",
+      "harness_matches": true,
+      "process_probe_matches": true,
+      "all_20_runtime_hashes_match_disk_and_commit": true,
+      "omp_binary": {
+        "requested": "omp",
+        "path": "/opt/homebrew/bin/omp",
+        "sha256": "2b2ff2084a34f61a018634c03929aaa9117009d107dbef553d8fc51eb5c28b14",
+        "version": "omp/18.2.7"
+      },
+      "omp_binary_hash_matches": true,
+      "launch_executable_hash_matches": true,
+      "state_path": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-failure-d751215ddfad-state/omp-state-external-producer-failure.json",
+      "state_sha256": "9d87052e4db8013e591b882cdcb398a7f8d37369ec363a0d16441b753ac7a39b",
+      "resource_path": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-failure-d751215ddfad-state/omp-resource-external-producer-failure.json",
+      "resource_sha256": "1dd0c3a84d0ce12742f2bd113684c9341efd6e79aede71b2a48fb5c209cd41b6",
+      "resource_exactly_equals_embedded_receipt": true,
+      "pid_store_path": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-failure-d751215ddfad-state/omp-pids-external-producer-failure.json",
+      "pid_store_sha256": "49e797669631967f59958a5baa0bc8d3d6664e8a73deca926ead0c3ab8ea9ec5",
+      "identity_tuple_consistent": true,
+      "state_status": "rejected",
+      "resource_status": "rejected",
+      "worker_exit_code": 1,
+      "cleanup_confirmed": true,
+      "terminal_reason": "worker_exit_nonzero",
+      "accept_exit_code": 2,
+      "commands": [
+        {
+          "argv": [
+            "bash",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/omp-start.sh",
+            "--package-json",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-failure-d751215ddfad/package.json"
+          ],
+          "exit_code": 0,
+          "started_ns": 1790139101879320000,
+          "finished_ns": 1790139102112203000
+        },
+        {
+          "argv": [
+            "bash",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/omp-send.sh",
+            "--state",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-failure-d751215ddfad-state/omp-state-external-producer-failure.json",
+            "--async",
+            "--max-time",
+            "90"
+          ],
+          "exit_code": 0,
+          "started_ns": 1790139102112287000,
+          "finished_ns": 1790139102473857000
+        },
+        {
+          "argv": [
+            "bash",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/omp-monitor.sh",
+            "--state",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-failure-d751215ddfad-state/omp-state-external-producer-failure.json",
+            "--watch",
+            "--interval",
+            "1",
+            "--timeout",
+            "180"
+          ],
+          "exit_code": 2,
+          "started_ns": 1790139102473968000,
+          "finished_ns": 1790139106293698000
+        },
+        {
+          "argv": [
+            "bash",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/omp-finish.sh",
+            "--state",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-failure-d751215ddfad-state/omp-state-external-producer-failure.json",
+            "--accept"
+          ],
+          "exit_code": 2,
+          "started_ns": 1790139106294044000,
+          "finished_ns": 1790139106374019000
+        }
+      ],
+      "command_log": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-failure-d751215ddfad/commands.log",
+      "command_log_sha256": "ca2827f795a8fa65ca949a059fb14da290c215dc64be992d4a53d47b720423d9",
+      "capture_integrity": {
+        "raw": {
+          "path": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-failure-d751215ddfad-state/omp-raw-external-producer-failure.json",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0,
+          "recorded_sha256": "",
+          "matches": true,
+          "note": "Empty capture uses empty-string sentinel; independently checked zero bytes."
+        },
+        "stderr": {
+          "path": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-failure-d751215ddfad-state/omp-raw-external-producer-failure.json.err",
+          "sha256": "c3b419c50fe013b5f9ac406fa064f7a32c604125cf81b95904cdeb26fbda5f7d",
+          "bytes": 201,
+          "recorded_sha256": "c3b419c50fe013b5f9ac406fa064f7a32c604125cf81b95904cdeb26fbda5f7d",
+          "matches": true,
+          "note": "Nonempty capture SHA-256 matches."
+        }
+      },
+      "reconstructed_child_argv_sha256": "145c112dca91e41e3ac9483d7777759b0b0c9447b9d4c475ddcc24c53301c6b8",
+      "child_argv_hash_matches": true,
+      "reconstructed_launch_fingerprint": "fdae41502a971dafa22c348e16c607ebfb10defccf568b0ad54aab8fb42b9311",
+      "launch_fingerprint_matches": true,
+      "reconstruction_inputs": {
+        "system_template": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/templates/execute-prompt-template.md",
+        "user_prompt": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-failure-d751215ddfad-state/omp-prompt-external-producer-failure.txt",
+        "algorithm": "omp-send.sh:387-396,425-444; strip shell command-substitution trailing newlines; compact jq JSON; SHA-256 without final LF"
+      },
+      "freshness": "Unique workspace and UUID, command times after commit 2026-09-23T04:43:35Z, 04:50/04:51/04:52 UTC, no reused attempt among three.",
+      "invalid_model_wrapper_sha256": "a33047d4e522e4a6ce700b8f86f9f1011d886ca6a134101e1479a9c3a74911ee",
+      "failure_anchor": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-failure-d751215ddfad-state/omp-raw-external-producer-failure.json.err:1; model __call_omp_failure_probe_nonexistent__ not found",
+      "scenario_verdict": "PASS"
+    },
+    "cancel": {
+      "receipt": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e/receipt.json",
+      "receipt_sha256_expected": "7c0b0836f4fcd2a3baea630e917654e3c4c5fb6c39e859206d11d335daa34df4",
+      "receipt_sha256_recomputed": "7c0b0836f4fcd2a3baea630e917654e3c4c5fb6c39e859206d11d335daa34df4",
+      "receipt_hash_matches": true,
+      "candidate_commit": "aa44eecc4630e96c82f7688a44ec2e452b8fdfae",
+      "candidate_parent": "8d6200cb79cf43845bc37444504156dfbfe9c056",
+      "attempt_id": "fbf3a702-7dba-469a-b732-7e871e2fcff5",
+      "launch_fingerprint": "af744b222e97a510dfc7ae9043d5550c23bb69157639ca7d0f43165fb3a99663",
+      "harness_sha256": "2bde089eb884546e7669ace6fe5f6d584af00c20a74305b533c14b3b1e48fbdf",
+      "harness_matches": true,
+      "process_probe_matches": true,
+      "all_20_runtime_hashes_match_disk_and_commit": true,
+      "omp_binary": {
+        "requested": "omp",
+        "path": "/opt/homebrew/bin/omp",
+        "sha256": "2b2ff2084a34f61a018634c03929aaa9117009d107dbef553d8fc51eb5c28b14",
+        "version": "omp/18.2.7"
+      },
+      "omp_binary_hash_matches": true,
+      "launch_executable_hash_matches": true,
+      "state_path": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e-state/omp-state-external-producer-cancel.json",
+      "state_sha256": "89a59bc91e5cac5e87c1bfa61d1fcb362a0af715312312cd1224f1684857ed62",
+      "resource_path": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e-state/omp-resource-external-producer-cancel.json",
+      "resource_sha256": "4234ef7a6840809442769eb6f30a732c6680b705518ac2a48fe8130e0e509df6",
+      "resource_exactly_equals_embedded_receipt": true,
+      "pid_store_path": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e-state/omp-pids-external-producer-cancel.json",
+      "pid_store_sha256": "23bfd3be8345dba60e2920fc1699e80d8e97b1c99026fdf99710ba5f902399f2",
+      "identity_tuple_consistent": true,
+      "state_status": "rejected",
+      "resource_status": "rejected",
+      "worker_exit_code": 143,
+      "cleanup_confirmed": true,
+      "terminal_reason": "cancelled:external producer owned-child cancellation scenario",
+      "accept_exit_code": 2,
+      "commands": [
+        {
+          "argv": [
+            "bash",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/omp-start.sh",
+            "--package-json",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e/package.json"
+          ],
+          "exit_code": 0,
+          "started_ns": 1790139132133885000,
+          "finished_ns": 1790139132369433000
+        },
+        {
+          "argv": [
+            "bash",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/omp-send.sh",
+            "--state",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e-state/omp-state-external-producer-cancel.json",
+            "--async",
+            "--max-time",
+            "90"
+          ],
+          "exit_code": 0,
+          "started_ns": 1790139132369533000,
+          "finished_ns": 1790139133064481000
+        },
+        {
+          "argv": [
+            "bash",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/omp-stop.sh",
+            "--state",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e-state/omp-state-external-producer-cancel.json",
+            "--attempt-id",
+            "fbf3a702-7dba-469a-b732-7e871e2fcff5",
+            "--launch-fingerprint",
+            "af744b222e97a510dfc7ae9043d5550c23bb69157639ca7d0f43165fb3a99663",
+            "--reason",
+            "external producer owned-child cancellation scenario",
+            "--timeout",
+            "10"
+          ],
+          "exit_code": 0,
+          "started_ns": 1790139148658401000,
+          "finished_ns": 1790139149793153000
+        },
+        {
+          "argv": [
+            "bash",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/omp-finish.sh",
+            "--state",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e-state/omp-state-external-producer-cancel.json",
+            "--accept"
+          ],
+          "exit_code": 2,
+          "started_ns": 1790139149804964000,
+          "finished_ns": 1790139149945908000
+        }
+      ],
+      "command_log": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e/commands.log",
+      "command_log_sha256": "5f38b8e1584ccbb4bf03a59d50a85476fdf2ede7ed555d940481b1a5750cc536",
+      "capture_integrity": {
+        "raw": {
+          "path": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e-state/omp-raw-external-producer-cancel.json",
+          "sha256": "b2aa00ee040e0550cc9b785c01c484e5220ffaf5da399346c92ea0606b49a1a0",
+          "bytes": 33583,
+          "recorded_sha256": "b2aa00ee040e0550cc9b785c01c484e5220ffaf5da399346c92ea0606b49a1a0",
+          "matches": true,
+          "note": "Nonempty capture SHA-256 matches."
+        },
+        "stderr": {
+          "path": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e-state/omp-raw-external-producer-cancel.json.err",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0,
+          "recorded_sha256": "",
+          "matches": true,
+          "note": "Empty capture uses empty-string sentinel; independently checked zero bytes."
+        }
+      },
+      "reconstructed_child_argv_sha256": "3e1ad7f8795674c246e035517bc185e655469ebe79036aa377b911b71c9639ed",
+      "child_argv_hash_matches": true,
+      "reconstructed_launch_fingerprint": "af744b222e97a510dfc7ae9043d5550c23bb69157639ca7d0f43165fb3a99663",
+      "launch_fingerprint_matches": true,
+      "reconstruction_inputs": {
+        "system_template": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/templates/execute-prompt-template.md",
+        "user_prompt": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e-state/omp-prompt-external-producer-cancel.txt",
+        "algorithm": "omp-send.sh:387-396,425-444; strip shell command-substitution trailing newlines; compact jq JSON; SHA-256 without final LF"
+      },
+      "freshness": "Unique workspace and UUID, command times after commit 2026-09-23T04:43:35Z, 04:50/04:51/04:52 UTC, no reused attempt among three.",
+      "owned_before_stop": {
+        "tool_runner": {
+          "pid": 90944,
+          "argv": [
+            "ps",
+            "-p",
+            "90944",
+            "-o",
+            "pid=,ppid=,pgid=,sess=,stat=,comm=,lstart="
+          ],
+          "observed_at": 1790139148643671000,
+          "state": "alive",
+          "exit_code": 0,
+          "stdout": "90944 90023 90944      0 Ss   /opt/homebrew/Ce Wed Sep 23 12:52:28 2026    \n",
+          "stderr": "",
+          "identity": {
+            "pid": 90944,
+            "ppid": 90023,
+            "pgid": 90944,
+            "sid": 0,
+            "stat": "Ss",
+            "command": "/opt/homebrew/Ce",
+            "start_time": "Wed Sep 23 12:52:28 2026"
+          }
+        },
+        "tool_child": {
+          "pid": 90945,
+          "argv": [
+            "ps",
+            "-p",
+            "90945",
+            "-o",
+            "pid=,ppid=,pgid=,sess=,stat=,comm=,lstart="
+          ],
+          "observed_at": 1790139148647247000,
+          "state": "alive",
+          "exit_code": 0,
+          "stdout": "90945 90944 90944      0 S    /bin/sleep Wed Sep 23 12:52:28 2026    \n",
+          "stderr": "",
+          "identity": {
+            "pid": 90945,
+            "ppid": 90944,
+            "pgid": 90944,
+            "sid": 0,
+            "stat": "S",
+            "command": "/bin/sleep",
+            "start_time": "Wed Sep 23 12:52:28 2026"
+          }
+        },
+        "omp_worker": {
+          "pid": 90023,
+          "argv": [
+            "ps",
+            "-p",
+            "90023",
+            "-o",
+            "pid=,ppid=,pgid=,sess=,stat=,comm=,lstart="
+          ],
+          "observed_at": 1790139148649878000,
+          "state": "alive",
+          "exit_code": 0,
+          "stdout": "90023 90012 90023      0 Ss   /opt/homebrew/bi Wed Sep 23 12:52:13 2026    \n",
+          "stderr": "",
+          "identity": {
+            "pid": 90023,
+            "ppid": 90012,
+            "pgid": 90023,
+            "sid": 0,
+            "stat": "Ss",
+            "command": "/opt/homebrew/bi",
+            "start_time": "Wed Sep 23 12:52:13 2026"
+          }
+        }
+      },
+      "owned_after_stop": {
+        "tool_runner": {
+          "pid": 90944,
+          "argv": [
+            "ps",
+            "-p",
+            "90944",
+            "-o",
+            "pid=,ppid=,pgid=,sess=,stat=,comm=,lstart="
+          ],
+          "observed_at": 1790139149793175000,
+          "state": "dead",
+          "exit_code": 1,
+          "stdout": "",
+          "stderr": ""
+        },
+        "tool_child": {
+          "pid": 90945,
+          "argv": [
+            "ps",
+            "-p",
+            "90945",
+            "-o",
+            "pid=,ppid=,pgid=,sess=,stat=,comm=,lstart="
+          ],
+          "observed_at": 1790139149796517000,
+          "state": "dead",
+          "exit_code": 1,
+          "stdout": "",
+          "stderr": ""
+        },
+        "omp_worker": {
+          "pid": 90023,
+          "argv": [
+            "ps",
+            "-p",
+            "90023",
+            "-o",
+            "pid=,ppid=,pgid=,sess=,stat=,comm=,lstart="
+          ],
+          "observed_at": 1790139149799426000,
+          "state": "dead",
+          "exit_code": 1,
+          "stdout": "",
+          "stderr": ""
+        }
+      },
+      "owned_final": {
+        "tool_runner": {
+          "pid": 90944,
+          "argv": [
+            "ps",
+            "-p",
+            "90944",
+            "-o",
+            "pid=,ppid=,pgid=,sess=,stat=,comm=,lstart="
+          ],
+          "observed_at": 1790139149947722000,
+          "state": "dead",
+          "exit_code": 1,
+          "stdout": "",
+          "stderr": ""
+        },
+        "tool_child": {
+          "pid": 90945,
+          "argv": [
+            "ps",
+            "-p",
+            "90945",
+            "-o",
+            "pid=,ppid=,pgid=,sess=,stat=,comm=,lstart="
+          ],
+          "observed_at": 1790139149950787000,
+          "state": "dead",
+          "exit_code": 1,
+          "stdout": "",
+          "stderr": ""
+        },
+        "omp_worker": {
+          "pid": 90023,
+          "argv": [
+            "ps",
+            "-p",
+            "90023",
+            "-o",
+            "pid=,ppid=,pgid=,sess=,stat=,comm=,lstart="
+          ],
+          "observed_at": 1790139149953372000,
+          "state": "dead",
+          "exit_code": 1,
+          "stdout": "",
+          "stderr": ""
+        }
+      },
+      "unrelated_before_stop": {
+        "pid": 90949,
+        "argv": [
+          "ps",
+          "-p",
+          "90949",
+          "-o",
+          "pid=,ppid=,pgid=,sess=,stat=,comm=,lstart="
+        ],
+        "observed_at": 1790139148653170000,
+        "state": "alive",
+        "exit_code": 0,
+        "stdout": "90949 89599 89597      0 S    /bin/sleep Wed Sep 23 12:52:28 2026    \n",
+        "stderr": "",
+        "identity": {
+          "pid": 90949,
+          "ppid": 89599,
+          "pgid": 89597,
+          "sid": 0,
+          "stat": "S",
+          "command": "/bin/sleep",
+          "start_time": "Wed Sep 23 12:52:28 2026"
+        }
+      },
+      "unrelated_after_stop": {
+        "pid": 90949,
+        "argv": [
+          "ps",
+          "-p",
+          "90949",
+          "-o",
+          "pid=,ppid=,pgid=,sess=,stat=,comm=,lstart="
+        ],
+        "observed_at": 1790139149801944000,
+        "state": "alive",
+        "exit_code": 0,
+        "stdout": "90949 89599 89597      0 S    /bin/sleep Wed Sep 23 12:52:28 2026    \n",
+        "stderr": "",
+        "identity": {
+          "pid": 90949,
+          "ppid": 89599,
+          "pgid": 89597,
+          "sid": 0,
+          "stat": "S",
+          "command": "/bin/sleep",
+          "start_time": "Wed Sep 23 12:52:28 2026"
+        }
+      },
+      "query_error_demo": {
+        "pid": "not-a-pid",
+        "argv": [
+          "ps",
+          "-p",
+          "not-a-pid",
+          "-o",
+          "pid=,ppid=,pgid=,sess=,stat=,comm=,lstart="
+        ],
+        "observed_at": 1790139148655761000,
+        "state": "unknown",
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": "ps: Invalid process id: not-a-pid\n"
+      },
+      "control_file": {
+        "schema": "call-omp-cancel.v1",
+        "task_id": "external-producer-cancel",
+        "attempt_id": "fbf3a702-7dba-469a-b732-7e871e2fcff5",
+        "launch_fingerprint": "af744b222e97a510dfc7ae9043d5550c23bb69157639ca7d0f43165fb3a99663",
+        "reason": "external producer owned-child cancellation scenario"
+      },
+      "ready": {
+        "pid": 90944,
+        "pgid": 90944,
+        "sid": 90944,
+        "child": 90945,
+        "child_pgid": 90944,
+        "child_sid": 90944
+      },
+      "observed_stop_behavior": "PASS: stop rc=0; owned 90023/90944/90945 rc=1 and literally empty stdout/stderr both after stop and final; unrelated 90949 identical identity before/after and alive; error demo unknown; accept rc=2.",
+      "scenario_verdict": "FAIL",
+      "failure": "EXT-03 SID identity requirement not satisfied: probe SID 0 conflicts with native worker session_id 90023 and runner/child self-report SID 90944; command columns truncated, not full executable identity.",
+      "unrelated_limit": "One harness-owned sentinel survives stop; harness then terminates that sentinel in finally (run-scenario.py:277-284), which is not collateral cancellation."
+    }
+  },
+  "aborted_iterations": [
+    {
+      "receipt": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-b8bc53e6e0f0/receipt.json",
+      "sha256": "98b3c6afad47444261f090af88be79d36f9f43ed75ae41d9f87c8d8311dd1107",
+      "status": "SCENARIO_FAILED",
+      "commands": [],
+      "error": "AssertionError()",
+      "historical_harness_sha256": "f3e701878291fac20cccfa2628bf9482b27664e6799b5a11e133b48edda05a9e",
+      "classification": "SCENARIO_FAILED, retained as failed harness iteration, never counted as scenario PASS",
+      "cause": "harness precondition: worktree-porcelain assertion counted the untracked private .local evidence dir; aborted before omp-start, no worker launched",
+      "limitation": "Original earlier harness bytes not retained at overwritten run-scenario.py; historical receipt kept as failure, not used to prove current scenarios."
+    },
+    {
+      "receipt": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-a31e09e6697d/receipt.json",
+      "sha256": "46686331c38f2c48a8fe51e2fe8b1df2f3186657c97a994aadd50401b69c848e",
+      "status": "SCENARIO_FAILED",
+      "commands": [
+        {
+          "argv": [
+            "bash",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/omp-start.sh",
+            "--package-json",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-a31e09e6697d/package.json"
+          ],
+          "exit_code": 0,
+          "started_ns": 1790138926099050000,
+          "finished_ns": 1790138926339170000
+        },
+        {
+          "argv": [
+            "bash",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/omp-send.sh",
+            "--state",
+            "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-a31e09e6697d-state/omp-state-real-normal.json",
+            "--async",
+            "--max-time",
+            "90"
+          ],
+          "exit_code": 2,
+          "started_ns": 1790138926339251000,
+          "finished_ns": 1790138926351616000
+        }
+      ],
+      "error": "AssertionError()",
+      "historical_harness_sha256": "1a7129f01e3fb9e86d87bbd98cd298b13910422ffcfa737c8bea08dd178d89b5",
+      "classification": "SCENARIO_FAILED, retained as failed harness iteration, never counted as scenario PASS",
+      "cause": "harness defect: assumed state filename did not match omp-start task_id naming; omp-send exited nonzero reading state, no worker launched",
+      "limitation": "Original earlier harness bytes not retained at overwritten run-scenario.py; historical receipt kept as failure, not used to prove current scenarios."
+    }
+  ],
+  "verification_policy": "No whole-repository tests or live OMP. Read-only Git inspection, SHA-256 recomputation, captured raw/state/resource inspection, in-memory pure classification/mock checks and inspected artifact consumer evaluation.",
+  "required_next_evidence": [
+    "Correct EXT-01 exact-empty/unsupported/query-exception behavior with permanent deterministic coverage, under separate producer authorization.",
+    "Provide consistent native SID and untruncated executable identity evidence under the applicable contract.",
+    "Provide complete producer runtime-file provenance and admissible no-forbidden-mutation evidence."
+  ],
+  "not_authorized_by_report": "No repair, rerun, extra attempt, install or deployment is authorized by this verdict."
+}

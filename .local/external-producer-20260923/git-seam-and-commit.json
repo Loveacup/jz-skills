@@ -1,0 +1,25 @@
+{
+  "schema": "external-producer-git-seam-check.v1",
+  "checked_before_commit": true,
+  "filters": "none (git config --list: no filter.*, no textconv)",
+  "fsmonitor": "none (core.fsmonitor unset)",
+  "hooks_path_override": "none (core.hooksPath unset)",
+  "gitattributes": "none in worktree",
+  "hooks_found": [
+    {
+      "path": "/Users/alexcai/code/jz-skills/.git/hooks/pre-commit",
+      "symlink_target": "/Users/alexcai/code/jz-skills/deploy/hooks/pre-commit",
+      "sha256": "1997126a0df269cadf47d44ff1fb042f5b0e163fbcf988b620d425e4569a9397",
+      "audit": "only runs 2pdf drift gate when staged paths match ^shared/2pdf/; no-op exit 0 otherwise"
+    }
+  ],
+  "handling": "local harness policy forbids disabling git hooks; coordinator ruled: commit via the normal path with the audited hash-bound no-op hook enabled, record identity and outcome",
+  "staged_paths": [
+    "hermes/call-omp/tests/process_probe.py",
+    "hermes/call-omp/tests/test_process_probe.py"
+  ],
+  "hook_observed_behavior": "no-op branch (no output, commit succeeded)",
+  "commit_exit_code": 0,
+  "commit": "aa44eecc4630e96c82f7688a44ec2e452b8fdfae",
+  "parent": "8d6200cb79cf43845bc37444504156dfbfe9c056"
+}

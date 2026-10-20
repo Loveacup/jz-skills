@@ -1,0 +1,21 @@
+[OMP 委派任务 · task_id=external-producer-normal · mode=execute · 第 1 轮]
+
+任务：
+Edit normalize.py in the specified cwd. Implement normalize(text) to collapse all whitespace runs to one ASCII space, strip leading/trailing whitespace, and Unicode-casefold the result. Use read/write tools directly; do not delegate or change other files. Return a brief completion statement.
+
+scope（严格遵守，越界即视为失败）：
+  允许路径：["/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44"]
+  禁止路径：[]
+  工作目录：/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44
+
+
+可裁决验收条件（逐条核对）：
+  - normalize('  Alpha\tBETA\n') returns 'alpha beta'
+  - normalize('Straße  A') returns 'strasse a'
+  - normalize('  ') returns ''
+
+约束：
+  - 这是通用执行任务，不套审计 verdict schema；按 execute system prompt 自由汇报。
+  - 只能使用启动层实际授予的 capability；grant 不是 OS sandbox，scope 仍是任务合同。
+  - 启动 capability：{"contract":"call-omp.capability-grant.v1","tools":["read","write"],"approval":"non_interactive","cwd":"/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44","add_dirs":[],"host_affecting":true}
+  - 本任务轮次上限 3、reject 上限 2；不要绕过 scope。

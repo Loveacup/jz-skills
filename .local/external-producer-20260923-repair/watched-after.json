@@ -1,0 +1,174 @@
+{
+  "observed_ns": 1790143154911813000,
+  "metadata_only": [
+    {
+      "path": "/Users/alexcai/.hermes",
+      "mode": "0o40700",
+      "size": 6944,
+      "mtime_ns": 1790143154691917874,
+      "inode": 88607699
+    },
+    {
+      "path": "/Users/alexcai/.hermes/skills",
+      "mode": "0o40700",
+      "size": 3936,
+      "mtime_ns": 1790141809977628594,
+      "inode": 88651840
+    },
+    {
+      "path": "/Users/alexcai/.hermes/skills/call-omp",
+      "missing": true
+    },
+    {
+      "path": "/Users/alexcai/.hermes/skills/cc-tmux",
+      "missing": true
+    },
+    {
+      "path": "/Users/alexcai/.hermes/profiles",
+      "mode": "0o40755",
+      "size": 224,
+      "mtime_ns": 1790062877666181634,
+      "inode": 90770345
+    },
+    {
+      "path": "/Users/alexcai/.hermes/hermes-agent",
+      "mode": "0o40755",
+      "size": 4128,
+      "mtime_ns": 1789987354263638636,
+      "inode": 88607739
+    },
+    {
+      "path": "/Users/alexcai/.agents/call-omp",
+      "missing": true
+    },
+    {
+      "path": "/Users/alexcai/.agents/skills/call-omp",
+      "missing": true
+    },
+    {
+      "path": "/Users/alexcai/.agents/skills/cc-tmux",
+      "missing": true
+    },
+    {
+      "path": "/Users/alexcai/.claude/skills/call-omp",
+      "missing": true
+    },
+    {
+      "path": "/Users/alexcai/.claude/skills/cc-tmux",
+      "missing": true
+    },
+    {
+      "path": "/Users/alexcai/.omp",
+      "mode": "0o40755",
+      "size": 608,
+      "mtime_ns": 1790098915908351185,
+      "inode": 124781502
+    },
+    {
+      "path": "/Users/alexcai/.omp/agent",
+      "mode": "0o40700",
+      "size": 992,
+      "mtime_ns": 1790142468903857780,
+      "inode": 124781620
+    },
+    {
+      "path": "/Users/alexcai/.config/omp",
+      "missing": true
+    }
+  ],
+  "prior_evidence_sha256": {
+    ".local/external-producer-20260923/git-seam-and-commit.json": "110205cb24f26fb54ff3f34ae329555f4997fc57c460bac7d66d9643d894779b",
+    ".local/external-producer-20260923/producer-summary.json": "277ac56dfb475d7b961b41476acdb5700e95457f04770a9d45766daff419e3ea",
+    ".local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e/bounded_runner.py": "a355e095db2ba285077a618396a5a828bdd40c4095134f0b67f8dff4b5217f21",
+    ".local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e/commands.log": "5f38b8e1584ccbb4bf03a59d50a85476fdf2ede7ed555d940481b1a5750cc536",
+    ".local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e/package.json": "2e6bfaf6c7498850fa13eca5a74b22fb36f958ea6905497cd74cf25104bea8e2",
+    ".local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e/ready.json": "d074185114c9fae3b3dc6a62f4d99d579a409907addff6b35680a1efa51fb0db",
+    ".local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e/receipt.json": "7c0b0836f4fcd2a3baea630e917654e3c4c5fb6c39e859206d11d335daa34df4",
+    ".local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e-state/omp-control-external-producer-cancel.json": "452d29334c4348c035c8eb3726e52340cbb6da99e355eb87bf9f0c5c99614e01",
+    ".local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e-state/omp-counter-external-producer-cancel.json": "4e715b297b84cd49e2fe5bc1a9ceed8533ad03548b0cf77e12d26068a6a8b6da",
+    ".local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e-state/omp-pids-external-producer-cancel.json": "23bfd3be8345dba60e2920fc1699e80d8e97b1c99026fdf99710ba5f902399f2",
+    ".local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e-state/omp-pkg-external-producer-cancel.json": "2e6bfaf6c7498850fa13eca5a74b22fb36f958ea6905497cd74cf25104bea8e2",
+    ".local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e-state/omp-prompt-external-producer-cancel.txt": "5ad89591bdbf856a727d807782e24e2d40668eebf5e9fd93f28118ebb684f56c",
+    ".local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e-state/omp-raw-external-producer-cancel.json": "b2aa00ee040e0550cc9b785c01c484e5220ffaf5da399346c92ea0606b49a1a0",
+    ".local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e-state/omp-raw-external-producer-cancel.json.err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e-state/omp-resource-external-producer-cancel.json": "4234ef7a6840809442769eb6f30a732c6680b705518ac2a48fe8130e0e509df6",
+    ".local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e-state/omp-state-external-producer-cancel.json": "89a59bc91e5cac5e87c1bfa61d1fcb362a0af715312312cd1224f1684857ed62",
+    ".local/external-producer-20260923/real-omp-failure-d751215ddfad/bounded_runner.py": "a355e095db2ba285077a618396a5a828bdd40c4095134f0b67f8dff4b5217f21",
+    ".local/external-producer-20260923/real-omp-failure-d751215ddfad/commands.log": "ca2827f795a8fa65ca949a059fb14da290c215dc64be992d4a53d47b720423d9",
+    ".local/external-producer-20260923/real-omp-failure-d751215ddfad/invalid_model_omp.py": "a33047d4e522e4a6ce700b8f86f9f1011d886ca6a134101e1479a9c3a74911ee",
+    ".local/external-producer-20260923/real-omp-failure-d751215ddfad/package.json": "47589a2ea4c42308405225a3bb233e1b578e142a2cc39655efc785fbf3f52e79",
+    ".local/external-producer-20260923/real-omp-failure-d751215ddfad/receipt.json": "bc3527e6b40cb491c19c964dd9af0fb5f09d5684f64ec3d0ebcdb1fa0800375a",
+    ".local/external-producer-20260923/real-omp-failure-d751215ddfad-state/omp-counter-external-producer-failure.json": "2ea5dad4dde2a0b8d1775840a4a3ccd64e338d37260e4b6c741b8f0cbdb52565",
+    ".local/external-producer-20260923/real-omp-failure-d751215ddfad-state/omp-pids-external-producer-failure.json": "49e797669631967f59958a5baa0bc8d3d6664e8a73deca926ead0c3ab8ea9ec5",
+    ".local/external-producer-20260923/real-omp-failure-d751215ddfad-state/omp-pkg-external-producer-failure.json": "47589a2ea4c42308405225a3bb233e1b578e142a2cc39655efc785fbf3f52e79",
+    ".local/external-producer-20260923/real-omp-failure-d751215ddfad-state/omp-prompt-external-producer-failure.txt": "97021a6160e6078edf1c1d60ec414f7025337783a0aa63f3ad238d9951131bbf",
+    ".local/external-producer-20260923/real-omp-failure-d751215ddfad-state/omp-raw-external-producer-failure.json": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".local/external-producer-20260923/real-omp-failure-d751215ddfad-state/omp-raw-external-producer-failure.json.err": "c3b419c50fe013b5f9ac406fa064f7a32c604125cf81b95904cdeb26fbda5f7d",
+    ".local/external-producer-20260923/real-omp-failure-d751215ddfad-state/omp-resource-external-producer-failure.json": "1dd0c3a84d0ce12742f2bd113684c9341efd6e79aede71b2a48fb5c209cd41b6",
+    ".local/external-producer-20260923/real-omp-failure-d751215ddfad-state/omp-state-external-producer-failure.json": "9d87052e4db8013e591b882cdcb398a7f8d37369ec363a0d16441b753ac7a39b",
+    ".local/external-producer-20260923/real-omp-normal-50669fd3fa44/commands.log": "fb402a6da84a5091ea11bebb354ca11794931b22141f4daacdc50698ea6c08ce",
+    ".local/external-producer-20260923/real-omp-normal-50669fd3fa44/normalize.py": "b9b70d5bd7ac027ae45f2eb6a68ed3b56f26a828f74fb1de14d8ddc55ff636ee",
+    ".local/external-producer-20260923/real-omp-normal-50669fd3fa44/package.json": "7ea11ba3231db021fa3f0b9b7ff176eb8928ca2de0dab7ee58633fa2efdca9b0",
+    ".local/external-producer-20260923/real-omp-normal-50669fd3fa44/receipt.json": "91e32facb48bc1afef66e17fd523d4f231125df29ea428c5a9f766db1ecc27a0",
+    ".local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-archive/external-producer-normal/prompt.txt": "df342d994c332ff84796d157e8cc6561820c6c68b525c84268d71d14a39d6aa1",
+    ".local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-archive/external-producer-normal/raw.jsonl": "3d4d757d5587e1ccc1e08643079b2a5dbea3642f25a050076d9cc2ddcfd2b37f",
+    ".local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-archive/external-producer-normal/state.json": "6f227b2e0b563329089cad8738e58c79d7e33245eda575ee22b0fe90c3114394",
+    ".local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-archive/external-producer-normal/verdict.yaml": "0460f8fd8d323272ef42cd81c85ee59d88c202c5e0d46332e9c892a20df5bd9e",
+    ".local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-pids-external-producer-normal.json": "67a562ad81938325b585930f844169f8c547fcd14de04ad4a566162a8e12e503",
+    ".local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-raw-external-producer-normal.json": "3d4d757d5587e1ccc1e08643079b2a5dbea3642f25a050076d9cc2ddcfd2b37f",
+    ".local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-raw-external-producer-normal.json.err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-resource-external-producer-normal.json": "ee4608156d6ffdae6030a9b267b0b12c17f4143ab2b9b7d514cfc0c2bc6b6c84",
+    ".local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-state-external-producer-normal.json": "6f227b2e0b563329089cad8738e58c79d7e33245eda575ee22b0fe90c3114394",
+    ".local/external-producer-20260923/real-omp-normal-a31e09e6697d/commands.log": "2ca9e1c3e237ae59a68472ecea76fc8bfdbbff58428877e8503fa3ce4b55b061",
+    ".local/external-producer-20260923/real-omp-normal-a31e09e6697d/normalize.py": "31aa4bf2b37b7c2a21a7372859d69a9fcbbe25ed2c788d54234a170683ee11d8",
+    ".local/external-producer-20260923/real-omp-normal-a31e09e6697d/package.json": "13da3eaf2acb5c00cfa325b1c57dc10d74493be3221723d83c812bf743882084",
+    ".local/external-producer-20260923/real-omp-normal-a31e09e6697d/receipt.json": "46686331c38f2c48a8fe51e2fe8b1df2f3186657c97a994aadd50401b69c848e",
+    ".local/external-producer-20260923/real-omp-normal-a31e09e6697d-state/omp-pkg-external-producer-normal.json": "e24c9048f44353c34a2f67d289edb5d95145a60cea0fae5c848f3a611253f327",
+    ".local/external-producer-20260923/real-omp-normal-a31e09e6697d-state/omp-state-external-producer-normal.json": "0ca35bd2c294442abf5cc0afb4969ea5389535ec8c98e419d0f75de53e0dd580",
+    ".local/external-producer-20260923/real-omp-normal-b8bc53e6e0f0/normalize.py": "31aa4bf2b37b7c2a21a7372859d69a9fcbbe25ed2c788d54234a170683ee11d8",
+    ".local/external-producer-20260923/real-omp-normal-b8bc53e6e0f0/package.json": "b6a7cfcc5e393db76698f3c0bbfb68ff544b24b7ada406a97612420c442fd5cd",
+    ".local/external-producer-20260923/real-omp-normal-b8bc53e6e0f0/receipt.json": "98b3c6afad47444261f090af88be79d36f9f43ed75ae41d9f87c8d8311dd1107",
+    ".local/external-producer-20260923/run-scenario.py": "2bde089eb884546e7669ace6fe5f6d584af00c20a74305b533c14b3b1e48fbdf",
+    ".local/external-producer-20260923/test_process_probe-run.log": "8c6d8a844fe8f894753168c14b783e98e985036f166f9b0e1eda5f633611d30d"
+  },
+  "git_refs": {
+    "argv": [
+      "git",
+      "for-each-ref",
+      "--format=%(refname) %(objectname)"
+    ],
+    "exit": 0,
+    "stdout": "refs/heads/Loveacup/call-omp-independent-candidate 3c0caa8bdcb9c6b89a066ed8a7a00adab708fd60\nrefs/heads/Loveacup/call-omp-independent-review e35cd5ac1b3d06874e24134696aa9360cd182edc\nrefs/heads/call-omp-d-slice3 f2c3d4655c3014337eb2bf389932ad7045d276a7\nrefs/heads/call-omp-od2 556b2e2783af3039fbf404bfa94b6ffea84bb06f\nrefs/heads/main f86b8ccdf922b554876ad04ac5437fd8ce0ef5ce\nrefs/remotes/origin/HEAD e35cd5ac1b3d06874e24134696aa9360cd182edc\nrefs/remotes/origin/feat/business-minutes 104c6f685ebd5a7a312b6623f613709ad328ecc3\nrefs/remotes/origin/main e35cd5ac1b3d06874e24134696aa9360cd182edc\nrefs/tags/v0.1.0 d8c2e1b811090d672a944600aa29146036d82104\nrefs/tags/v0.1.1 1e372842bc5971ad703540083be540176680ce08\nrefs/tags/v0.1.2 3b091a167489804f7673f5362570b3fe313f0a92\nrefs/tags/v0.2.0 cb558bec4ecca2d902908eb87ead02946b9b9a38\nrefs/tags/v2.3.1 9db8bef6b54d8a7904c32808c5b59f3ae603e60b\n",
+    "stderr": ""
+  },
+  "git_remote_config": {
+    "argv": [
+      "git",
+      "config",
+      "--get-regexp",
+      "^(remote\\..*\\.(url|pushurl|fetch)|push\\..*)$"
+    ],
+    "exit": 0,
+    "stdout": "remote.origin.url git@github.com:Loveacup/jz-skills.git\nremote.origin.fetch +refs/heads/*:refs/remotes/origin/*\npush.autosetupremote true\n",
+    "stderr": ""
+  },
+  "git_hook": {
+    "metadata": {
+      "path": "/Users/alexcai/code/jz-skills/.git/hooks/pre-commit",
+      "mode": "0o120755",
+      "size": 53,
+      "mtime_ns": 1781374421428482071,
+      "inode": 114085586,
+      "link": "/Users/alexcai/code/jz-skills/deploy/hooks/pre-commit"
+    },
+    "sha256": "1997126a0df269cadf47d44ff1fb042f5b0e163fbcf988b620d425e4569a9397"
+  },
+  "blocked": {
+    "credentials_provider": "not inspected: sensitive contents outside authorization; metadata on containing directories cannot prove no mutation",
+    "Gateway_Kanban": "no authorized exact state paths or execution-host observer; unknown",
+    "installed_skill_contents": "entry/path metadata only; contents/transitive target writes unknown",
+    "OMP_implicit_startup": "no syscall or dynamic-load observer; runtime configuration/session contents not inspected",
+    "remote_push": "local remote config/refs observed only; server push audit unknown",
+    "history": "before/after local refs and commit parent bound; no global concurrent history observer"
+  }
+}

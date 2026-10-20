@@ -1,0 +1,18 @@
+{
+  "schema": "call-omp.traced-scenario-receipt.v1",
+  "scenario": "normal",
+  "status": "BLOCKED",
+  "execution": "NOT_RUN",
+  "attempt_count": 0,
+  "retry_count": 0,
+  "subject_commit": "3c0caa8bdcb9c6b89a066ed8a7a00adab708fd60",
+  "subject_unchanged": true,
+  "omp_invoked": false,
+  "worker_exit": null,
+  "business_assertion": null,
+  "acceptance": null,
+  "dependency_closure_before": null,
+  "dependency_closure_after": null,
+  "reason": "Adequate observer unavailable; coordinator explicitly forbids scenario launch. See commands.jsonl and coordinator-direction.json.",
+  "producer_is_final_judge": false
+}

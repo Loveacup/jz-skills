@@ -1,0 +1,23 @@
+{
+  "status": "PASS",
+  "effective_executable_config_scan": {
+    "argv": [
+      "/usr/bin/git",
+      "config",
+      "--includes",
+      "--show-origin",
+      "--get-regexp",
+      "^(include.*\\.path|core\\.(fsmonitor|hookspath|attributesfile)|filter\\..*\\.(clean|smudge|process)|diff\\..*\\.(textconv|command))$"
+    ],
+    "started_at": "2026-09-23T07:48:53.563212+00:00",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": ""
+  },
+  "hook_path": "/Users/alexcai/code/jz-skills/.git/hooks/pre-commit",
+  "hook_sha256": "1997126a0df269cadf47d44ff1fb042f5b0e163fbcf988b620d425e4569a9397",
+  "hook_executed": false,
+  "git_status_invoked": false,
+  "commit_invoked": false,
+  "limitation": "No Git status or commit used. Hook bytes bound only, hook branch not exercised. Attributes and config identities in producer snapshots."
+}

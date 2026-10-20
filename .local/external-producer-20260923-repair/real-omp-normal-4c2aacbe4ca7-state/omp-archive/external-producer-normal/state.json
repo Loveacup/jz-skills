@@ -1,0 +1,135 @@
+{
+  "task_id": "external-producer-normal",
+  "status": "accepted",
+  "channel": "shell",
+  "gate_failed": false,
+  "package": {
+    "task_id": "external-producer-normal",
+    "channel": "shell",
+    "mode": "execute",
+    "task": "Edit normalize.py in the specified cwd. Implement normalize(text) to collapse all whitespace runs to one ASCII space, strip leading/trailing whitespace, and Unicode-casefold the result. Use read/write tools directly; do not delegate or change other files. Return a brief completion statement.",
+    "scope": {
+      "allowed_paths": [
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-normal-4c2aacbe4ca7"
+      ],
+      "denied_paths": [],
+      "cwd": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-normal-4c2aacbe4ca7"
+    },
+    "criterion": [
+      "normalize('  Alpha\\tBETA\\n') returns 'alpha beta'",
+      "normalize('Straße  A') returns 'strasse a'",
+      "normalize('  ') returns ''"
+    ],
+    "threshold": {
+      "round_limit": 3,
+      "reject_limit": 2
+    },
+    "risk": {
+      "level": "low",
+      "dangerous_modes": []
+    },
+    "auditor": {
+      "required": true,
+      "independence_level": "independent_readonly"
+    },
+    "output": {
+      "format": "json",
+      "evidence_required": true
+    },
+    "capability_grant": {
+      "contract": "call-omp.capability-grant.v1",
+      "tools": [
+        "read",
+        "write"
+      ],
+      "approval": "non_interactive",
+      "cwd": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-normal-4c2aacbe4ca7",
+      "add_dirs": []
+    }
+  },
+  "gate": {
+    "verify": {
+      "ok": true,
+      "reason": "委派包字段齐全",
+      "missing_fields": []
+    },
+    "danger": {
+      "ok": true,
+      "reason": "无危险命中",
+      "dangerous_modes": [],
+      "blocked": false
+    },
+    "reason": "gate 全过：verify ok + danger ok"
+  },
+  "run": {
+    "raw_output": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-normal-4c2aacbe4ca7-state/omp-raw-external-producer-normal.json",
+    "exit_code": 0,
+    "started_at": "2026-09-23T05:57:27Z",
+    "stop_reason": null,
+    "capability": {
+      "present": true,
+      "contract": "call-omp.capability-grant.v1",
+      "tools": [
+        "read",
+        "write"
+      ],
+      "approval": "non_interactive",
+      "cwd": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-normal-4c2aacbe4ca7",
+      "add_dirs": [],
+      "host_affecting": true,
+      "fingerprint": "b3aa7107356de847fcea87191841482d597629ceccadca9cf1c82012140d278e"
+    },
+    "capability_fingerprint": "b3aa7107356de847fcea87191841482d597629ceccadca9cf1c82012140d278e",
+    "launch_fingerprint": "25f5c02710bd5f5ef6f687cfb6cdb9701bd42ba81c7d0f548b9e8804b717b5b9",
+    "launch_spec": {
+      "schema": "call-omp-execute-launch.v1",
+      "task_id": "external-producer-normal",
+      "attempt_id": "a2e5a126-d3e2-4ef8-bb13-7119e64c97bb",
+      "capability_fingerprint": "b3aa7107356de847fcea87191841482d597629ceccadca9cf1c82012140d278e",
+      "omp_bin_path": "/opt/homebrew/Cellar/omp/18.2.11/bin/omp",
+      "omp_bin_sha256": "faeffd57674cffa253e2f127d72ddfe6dcd81e1eb91eb5d2148913e62a010a28",
+      "raw_output": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-normal-4c2aacbe4ca7-state/omp-raw-external-producer-normal.json",
+      "resource_state": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-normal-4c2aacbe4ca7-state/omp-resource-external-producer-normal.json",
+      "pid_store": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-normal-4c2aacbe4ca7-state/omp-pids-external-producer-normal.json",
+      "control_file": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-normal-4c2aacbe4ca7-state/omp-control-external-producer-normal.json",
+      "max_seconds": 120,
+      "raw_cap": 8388608,
+      "child_argv_sha256": "0a499be64235fa048244465b47b9967df24deed934b5ab9b0c9f32011ac44c2b"
+    },
+    "channel_used": "shell",
+    "mode": "async",
+    "execution_supervised": true,
+    "capture_mode": "execute_v1",
+    "attempt_id": "a2e5a126-d3e2-4ef8-bb13-7119e64c97bb",
+    "resource_state": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-normal-4c2aacbe4ca7-state/omp-resource-external-producer-normal.json",
+    "pid_store": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-normal-4c2aacbe4ca7-state/omp-pids-external-producer-normal.json",
+    "control_file": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-normal-4c2aacbe4ca7-state/omp-control-external-producer-normal.json",
+    "watch_required": true,
+    "worker_exit_code": 0,
+    "supervisor_exit_code": 0,
+    "cleanup_confirmed": true,
+    "cancel_requested": false,
+    "pid": 35404,
+    "round": 1,
+    "max_time": 90,
+    "terminal_reason": "normal_completion"
+  },
+  "monitor": {
+    "checked_at": "2026-09-23T05:57:57Z",
+    "severity": "completed",
+    "severity_valid": true,
+    "summary": "`normalize.py` now has a working `normalize(text)`. I couldn't run it, because this session only had read and write tools.\n\n```python\ndef normalize(text):\n    r",
+    "evidence_count": 0,
+    "stop_reason": "stop",
+    "issues": [],
+    "inner": {},
+    "required_actions": null,
+    "required_actions_legacy": true,
+    "compact_debug": null
+  },
+  "verdict": {
+    "yaml": "task_id: external-producer-normal\nseverity: unknown\nsummary: \"\"\nevidence:\n  []\nreject_instruction: \"\"\nnext_action: accept\nrequired_actions: []\ndecided_by: hermes\ndecided_at: 2026-09-23T05:57:58Z"
+  },
+  "created_at": "2026-09-23T05:57:26Z",
+  "updated_at": "2026-09-23T05:57:58Z"
+}

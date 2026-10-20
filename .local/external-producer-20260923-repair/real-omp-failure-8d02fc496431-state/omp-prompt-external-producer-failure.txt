@@ -1,0 +1,19 @@
+[OMP 委派任务 · task_id=external-producer-failure · mode=execute · 第 1 轮]
+
+任务：
+Run exactly one bounded command using the bash tool: python3 /Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431/bounded_runner.py. Let it run in the foreground; the coordinator will cancel this finite test. Do not delegate, background it, or modify files. This is an authorized isolated cancellation fixture.
+
+scope（严格遵守，越界即视为失败）：
+  允许路径：["/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431"]
+  禁止路径：[]
+  工作目录：/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431
+
+
+可裁决验收条件（逐条核对）：
+  - Cancellation stops the actual OMP worker and its observed bounded tool child
+
+约束：
+  - 这是通用执行任务，不套审计 verdict schema；按 execute system prompt 自由汇报。
+  - 只能使用启动层实际授予的 capability；grant 不是 OS sandbox，scope 仍是任务合同。
+  - 启动 capability：{"contract":"call-omp.capability-grant.v1","tools":["read","bash"],"approval":"non_interactive","cwd":"/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431","add_dirs":[],"host_affecting":true}
+  - 本任务轮次上限 3、reject 上限 2；不要绕过 scope。

@@ -1,0 +1,42 @@
+{
+  "task_id": "external-producer-failure",
+  "channel": "shell",
+  "mode": "execute",
+  "task": "Run exactly one bounded command using the bash tool: python3 /Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431/bounded_runner.py. Let it run in the foreground; the coordinator will cancel this finite test. Do not delegate, background it, or modify files. This is an authorized isolated cancellation fixture.",
+  "scope": {
+    "allowed_paths": [
+      "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431"
+    ],
+    "denied_paths": [],
+    "cwd": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431"
+  },
+  "criterion": [
+    "Cancellation stops the actual OMP worker and its observed bounded tool child"
+  ],
+  "threshold": {
+    "round_limit": 3,
+    "reject_limit": 2
+  },
+  "risk": {
+    "level": "low",
+    "dangerous_modes": []
+  },
+  "auditor": {
+    "required": true,
+    "independence_level": "independent_readonly"
+  },
+  "output": {
+    "format": "json",
+    "evidence_required": true
+  },
+  "capability_grant": {
+    "contract": "call-omp.capability-grant.v1",
+    "tools": [
+      "read",
+      "bash"
+    ],
+    "approval": "non_interactive",
+    "cwd": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431",
+    "add_dirs": []
+  }
+}

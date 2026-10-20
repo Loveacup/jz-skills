@@ -1,0 +1,70 @@
+{
+  "schema": "call-omp-external-repair-contract.v2",
+  "authority": ".local/hermes-deployment-20260922/w1-remediation-cycle2/owner-authorization.json#/call_omp",
+  "input": {
+    "repository": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate",
+    "required_head": "aa44eecc4630e96c82f7688a44ec2e452b8fdfae",
+    "required_parent_for_new_commit": "aa44eecc4630e96c82f7688a44ec2e452b8fdfae",
+    "rejected_review": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-review/.local/external-producer-20260923-independent-review/verdict.json",
+    "prior_evidence": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923"
+  },
+  "ownership": {
+    "producer_may_edit": [
+      "hermes/call-omp/tests/process_probe.py",
+      "hermes/call-omp/tests/test_process_probe.py",
+      ".local/external-producer-20260923-repair/**"
+    ],
+    "producer_may_create_exactly_one_local_commit": true,
+    "producer_must_not_edit_prior_evidence": true,
+    "producer_must_not_author_final_acceptance": true
+  },
+  "required_repairs": [
+    {
+      "id": "R2-EXT-01",
+      "requirement": "Only rc=1 with literally empty stdout and literally empty stderr classifies dead. Any whitespace/nonempty stderr, unsupported row/stat/start-time, timeout, executable/query exception or other nonzero result is unknown. Zombie remains distinct.",
+      "tests": "Permanent deterministic coverage must include literal dead, whitespace stderr, invalid stat, malformed row, timeout, missing ps executable, other nonzero, alive and zombie."
+    },
+    {
+      "id": "R2-EXT-02",
+      "requirement": "Fresh normal, controlled failure and cancel receipts bind the new commit plus every executed runtime dependency before and after, including scripts, templates, producer harness/fixture bytes, interpreter and OMP executables. No loaded file may rely only on reconstructed argv equivalence."
+    },
+    {
+      "id": "R2-EXT-03",
+      "requirement": "Cancellation records mutually consistent PID, PPID, PGID, numeric SID, full command/argv and start time for every owned process. Use a Darwin-correct SID field and non-truncated command capture. Exact attempt/fingerprint stop removes only the owned set; a named unrelated sentinel survives; query errors remain unknown."
+    },
+    {
+      "id": "R2-EXT-04",
+      "requirement": "Capture before/after hashes or metadata for every forbidden mutable surface permitted by the contract to inspect, plus the exact Git hook/filter seam and push/remote state. Unknown surfaces remain BLOCKED; producer claims only observed scope."
+    }
+  ],
+  "scenario_acceptance": {
+    "normal": "Real OMP produces a consumer-observable artifact; worker exit 0, business assertions and accept exit 0 are separate.",
+    "controlled_failure": "Deterministic invalid-model or equivalent controlled failure yields nonzero worker exit, rejected state and accept refusal without provider configuration mutation.",
+    "cancellation": "Exact attempt/fingerprint cancellation proves owned-process death, unrelated survival, rejected/cancelled state, cleanup_confirmed and accept refusal."
+  },
+  "git_safety": {
+    "before_status_or_commit": "Inspect repo-local and included Git config for filters, fsmonitor, textconv, hooksPath and attributes. Audit the exact pre-commit hook bytes and staged path predicate before running status/commit.",
+    "commit": "One normal local commit with hooks enabled; record staged paths, hook identity/branch, exit code, new commit and parent. Stop on any unexpected hook branch.",
+    "forbidden": [
+      "--no-verify",
+      "amend",
+      "rebase",
+      "reset",
+      "push",
+      "tag",
+      "remote mutation"
+    ]
+  },
+  "system_boundaries": [
+    "No install, deploy, broad sync or runtime repoint.",
+    "No Hermes, credential, provider, Gateway, Kanban or cc-tmux mutation.",
+    "Use unique exact-owned temporary scenario roots; preserve unrelated processes.",
+    "Skip formatter, linter and project-wide tests; run only the focused permanent probe test and three real scenarios."
+  ],
+  "review": {
+    "producer_agent": "codex",
+    "reviewer_agent": "fresh claude",
+    "reviewer_runs_only_after_positive_producer_settlement": true
+  },
+  "deployment_status": "NOT_ADMITTED"
+}

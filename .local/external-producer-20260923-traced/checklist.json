@@ -1,0 +1,80 @@
+{
+  "aggregate": "BLOCKED",
+  "dispatch_outcome": "failed",
+  "deployment_status": "NOT_ADMITTED",
+  "producer_is_final_judge": false,
+  "checks": [
+    {
+      "id": "GIT-01",
+      "status": "PASS",
+      "reason": "Executable effective Git configuration scan empty; hooks/config/attributes bound; no status or commit invoked.",
+      "anchor": "git-preflight.json"
+    },
+    {
+      "id": "TRACE-01",
+      "status": "BLOCKED",
+      "reason": "DTrace exit 1 requires privileges; fs_usage exit 1 requires root; SIP enabled.",
+      "anchor": "commands.jsonl"
+    },
+    {
+      "id": "TRACE-02",
+      "status": "BLOCKED",
+      "reason": "No adequate observer or executed dependency closure; OMP not invoked.",
+      "anchor": "normal-receipt.json"
+    },
+    {
+      "id": "BASE-01",
+      "status": "PASS",
+      "reason": "Required starting HEAD matches and remains unchanged.",
+      "anchor": "baseline-comparison.json"
+    },
+    {
+      "id": "BASE-02",
+      "status": "BLOCKED",
+      "reason": "Pre-dispatch baseline misses required categories; unmatched volatile drift lacks actor attribution.",
+      "anchor": "baseline-comparison.json"
+    },
+    {
+      "id": "REPAIR-01",
+      "status": "PASS",
+      "reason": "No trace-proved defect, no source edits and zero commits; coordinator requires no commit.",
+      "anchor": "coordinator-direction.json"
+    },
+    {
+      "id": "NORMAL-01",
+      "status": "BLOCKED",
+      "reason": "Normal scenario NOT_RUN, zero attempts.",
+      "anchor": "normal-receipt.json"
+    },
+    {
+      "id": "FAILURE-01",
+      "status": "BLOCKED",
+      "reason": "Controlled failure NOT_RUN, zero attempts.",
+      "anchor": "controlled-failure-receipt.json"
+    },
+    {
+      "id": "CANCEL-01",
+      "status": "BLOCKED",
+      "reason": "Cancellation NOT_RUN, zero attempts; no owned process/sentinel spawned.",
+      "anchor": "cancellation-receipt.json"
+    },
+    {
+      "id": "LIMITS-01",
+      "status": "PASS",
+      "reason": "No install/deploy/push/repoint/provider/runtime/credential mutation by this worker; no credential value reads; no tests/linters/formatters.",
+      "anchor": "report.md"
+    },
+    {
+      "id": "REPORT-01",
+      "status": "PASS",
+      "reason": "Three explicit blocked receipts, private report and checksums created; producer does not judge admission.",
+      "anchor": "report.md"
+    },
+    {
+      "id": "COMMANDS-01",
+      "status": "BLOCKED",
+      "reason": "Post-snapshot probe commands recorded with exact argv/exit/time; exploratory commands summarized, not a complete raw session transcript.",
+      "anchor": "preflight-command-notes.md"
+    }
+  ]
+}

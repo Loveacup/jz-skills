@@ -1,0 +1,1 @@
+{"schema":"call-omp-cancel.v1","task_id":"external-producer-cancel","attempt_id":"08586661-9b99-4849-880d-9972600a292b","launch_fingerprint":"37ab12e6a67c8be3d8ac1d0f9be162a5f9dee7ab5a6a0c08e644032ae60bf6e0","reason":"external producer owned-child cancellation scenario"}

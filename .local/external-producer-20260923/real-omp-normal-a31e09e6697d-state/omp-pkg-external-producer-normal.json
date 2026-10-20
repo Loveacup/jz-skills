@@ -1,0 +1,44 @@
+{
+  "task_id": "external-producer-normal",
+  "channel": "shell",
+  "mode": "execute",
+  "task": "Edit normalize.py in the specified cwd. Implement normalize(text) to collapse all whitespace runs to one ASCII space, strip leading/trailing whitespace, and Unicode-casefold the result. Use read/write tools directly; do not delegate or change other files. Return a brief completion statement.",
+  "scope": {
+    "allowed_paths": [
+      "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-a31e09e6697d"
+    ],
+    "denied_paths": [],
+    "cwd": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-a31e09e6697d"
+  },
+  "criterion": [
+    "normalize('  Alpha\\tBETA\\n') returns 'alpha beta'",
+    "normalize('Straße  A') returns 'strasse a'",
+    "normalize('  ') returns ''"
+  ],
+  "threshold": {
+    "round_limit": 3,
+    "reject_limit": 2
+  },
+  "risk": {
+    "level": "low",
+    "dangerous_modes": []
+  },
+  "auditor": {
+    "required": true,
+    "independence_level": "independent_readonly"
+  },
+  "output": {
+    "format": "json",
+    "evidence_required": true
+  },
+  "capability_grant": {
+    "contract": "call-omp.capability-grant.v1",
+    "tools": [
+      "read",
+      "write"
+    ],
+    "approval": "non_interactive",
+    "cwd": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-a31e09e6697d",
+    "add_dirs": []
+  }
+}

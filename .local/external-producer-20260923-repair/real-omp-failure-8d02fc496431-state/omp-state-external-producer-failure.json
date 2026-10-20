@@ -1,0 +1,140 @@
+{
+  "task_id": "external-producer-failure",
+  "status": "rejected",
+  "channel": "shell",
+  "gate_failed": false,
+  "package": {
+    "task_id": "external-producer-failure",
+    "channel": "shell",
+    "mode": "execute",
+    "task": "Run exactly one bounded command using the bash tool: python3 /Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431/bounded_runner.py. Let it run in the foreground; the coordinator will cancel this finite test. Do not delegate, background it, or modify files. This is an authorized isolated cancellation fixture.",
+    "scope": {
+      "allowed_paths": [
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431"
+      ],
+      "denied_paths": [],
+      "cwd": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431"
+    },
+    "criterion": [
+      "Cancellation stops the actual OMP worker and its observed bounded tool child"
+    ],
+    "threshold": {
+      "round_limit": 3,
+      "reject_limit": 2
+    },
+    "risk": {
+      "level": "low",
+      "dangerous_modes": []
+    },
+    "auditor": {
+      "required": true,
+      "independence_level": "independent_readonly"
+    },
+    "output": {
+      "format": "json",
+      "evidence_required": true
+    },
+    "capability_grant": {
+      "contract": "call-omp.capability-grant.v1",
+      "tools": [
+        "read",
+        "bash"
+      ],
+      "approval": "non_interactive",
+      "cwd": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431",
+      "add_dirs": []
+    }
+  },
+  "gate": {
+    "verify": {
+      "ok": true,
+      "reason": "委派包字段齐全",
+      "missing_fields": []
+    },
+    "danger": {
+      "ok": true,
+      "reason": "无危险命中",
+      "dangerous_modes": [],
+      "blocked": false
+    },
+    "reason": "gate 全过：verify ok + danger ok"
+  },
+  "run": {
+    "raw_output": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431-state/omp-raw-external-producer-failure.json",
+    "exit_code": 1,
+    "started_at": "2026-09-23T05:57:59Z",
+    "stop_reason": null,
+    "capability": {
+      "present": true,
+      "contract": "call-omp.capability-grant.v1",
+      "tools": [
+        "read",
+        "bash"
+      ],
+      "approval": "non_interactive",
+      "cwd": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431",
+      "add_dirs": [],
+      "host_affecting": true,
+      "fingerprint": "5f4751f34c468607588e837a28535095791f5b3f4f2fac08c2b8f0b5dead0fed"
+    },
+    "capability_fingerprint": "5f4751f34c468607588e837a28535095791f5b3f4f2fac08c2b8f0b5dead0fed",
+    "launch_fingerprint": "fe1b35fbdf58f665bbaec23d9600f13abebd0e1804e2696ee7d622455739d0f0",
+    "launch_spec": {
+      "schema": "call-omp-execute-launch.v1",
+      "task_id": "external-producer-failure",
+      "attempt_id": "63fb16bc-ceed-462c-923d-4a340a47a5ee",
+      "capability_fingerprint": "5f4751f34c468607588e837a28535095791f5b3f4f2fac08c2b8f0b5dead0fed",
+      "omp_bin_path": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431/invalid_model_omp.py",
+      "omp_bin_sha256": "a33047d4e522e4a6ce700b8f86f9f1011d886ca6a134101e1479a9c3a74911ee",
+      "raw_output": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431-state/omp-raw-external-producer-failure.json",
+      "resource_state": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431-state/omp-resource-external-producer-failure.json",
+      "pid_store": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431-state/omp-pids-external-producer-failure.json",
+      "control_file": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431-state/omp-control-external-producer-failure.json",
+      "max_seconds": 120,
+      "raw_cap": 8388608,
+      "child_argv_sha256": "af38e07b012ec8140b51e8a384361cab2d99d3347b691127774a3bb475fe223f"
+    },
+    "channel_used": "shell",
+    "mode": "async",
+    "execution_supervised": true,
+    "capture_mode": "execute_v1",
+    "attempt_id": "63fb16bc-ceed-462c-923d-4a340a47a5ee",
+    "resource_state": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431-state/omp-resource-external-producer-failure.json",
+    "pid_store": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431-state/omp-pids-external-producer-failure.json",
+    "control_file": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431-state/omp-control-external-producer-failure.json",
+    "watch_required": true,
+    "worker_exit_code": 1,
+    "supervisor_exit_code": 4,
+    "cleanup_confirmed": true,
+    "cancel_requested": false,
+    "pid": 40812,
+    "round": 1,
+    "max_time": 90,
+    "terminal_reason": "worker_exit_nonzero"
+  },
+  "monitor": {
+    "checked_at": "2026-09-23T05:58:03Z",
+    "issues": [
+      "execute_v1 supervisor rejected"
+    ],
+    "resource": {
+      "schema": "call-omp-resource-supervisor.v2",
+      "status": "rejected",
+      "task_id": "external-producer-failure",
+      "attempt_id": "63fb16bc-ceed-462c-923d-4a340a47a5ee",
+      "launch_fingerprint": "fe1b35fbdf58f665bbaec23d9600f13abebd0e1804e2696ee7d622455739d0f0",
+      "worker_exit_code": 1,
+      "supervisor_exit_code": 4,
+      "terminal_reason": "worker_exit_nonzero",
+      "cleanup_confirmed": true,
+      "child_identity": {
+        "pid": 40837,
+        "pgid": 40837,
+        "session_id": 40837
+      }
+    }
+  },
+  "verdict": null,
+  "created_at": "2026-09-23T05:57:59Z",
+  "updated_at": "2026-09-23T05:58:03Z"
+}

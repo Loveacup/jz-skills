@@ -1,0 +1,8 @@
+{
+  "schema": "producer-bundle-seal.v1",
+  "manifest_sha256": "f9f4af718782749dd78787929cf2494425469369269548c101b2f31d9557566d",
+  "files": 75,
+  "policy": "All bundle files owner read-only, all directories owner read/execute only, Darwin UF_IMMUTABLE on every file and directory; no prior evidence changes.",
+  "final_acceptance": "NOT_AUTHORED",
+  "deployment_status": "NOT_ADMITTED"
+}

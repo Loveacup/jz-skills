@@ -1,0 +1,10 @@
+task_id: external-producer-normal
+severity: unknown
+summary: ""
+evidence:
+  []
+reject_instruction: ""
+next_action: accept
+required_actions: []
+decided_by: hermes
+decided_at: 2026-09-23T04:50:49Z

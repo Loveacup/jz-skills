@@ -1,0 +1,20 @@
+test_alive_and_distinct_zombie (__main__.Classification.test_alive_and_distinct_zombie) ... ok
+test_any_stderr_or_other_nonzero (__main__.Classification.test_any_stderr_or_other_nonzero) ... ok
+test_full_command (__main__.Classification.test_full_command) ... ok
+test_invalid_stat_and_start_time (__main__.Classification.test_invalid_stat_and_start_time) ... ok
+test_malformed_rows (__main__.Classification.test_malformed_rows) ... ok
+test_only_literal_empty_rc1_is_dead (__main__.Classification.test_only_literal_empty_rc1_is_dead) ... ok
+test_current_process_and_native_sid (__main__.LiveProbe.test_current_process_and_native_sid) ... ok
+test_reaped_child (__main__.LiveProbe.test_reaped_child) ... ok
+test_darwin_numeric_sid_and_unlimited_command (__main__.Queries.test_darwin_numeric_sid_and_unlimited_command) ... ok
+test_identity_race_and_second_query_error (__main__.Queries.test_identity_race_and_second_query_error) ... ok
+test_missing_executable_and_all_query_exceptions (__main__.Queries.test_missing_executable_and_all_query_exceptions) ... ok
+test_mock_dead_and_zombie (__main__.Queries.test_mock_dead_and_zombie) ... ok
+test_sid_errors_are_unknown_not_dead (__main__.Queries.test_sid_errors_are_unknown_not_dead) ... ok
+test_timeout_is_unknown_json_safe (__main__.Queries.test_timeout_is_unknown_json_safe) ... ok
+test_wrong_pid_invalid_sid_and_pid (__main__.Queries.test_wrong_pid_invalid_sid_and_pid) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 0.016s
+
+OK

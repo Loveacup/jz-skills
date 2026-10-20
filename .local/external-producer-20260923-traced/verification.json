@@ -1,0 +1,12 @@
+{
+  "checked_at": "2026-09-23T07:51:32.474887+00:00",
+  "json_readback": "PASS",
+  "receipt_count": 3,
+  "scenario_attempts": 0,
+  "scenario_retries": 0,
+  "head_identity": "PASS",
+  "producer_source_tree_equality": "PASS",
+  "private_modes": "PASS",
+  "aggregate": "BLOCKED",
+  "scope": "Artifact consistency only; no dynamic or scenario execution proof"
+}

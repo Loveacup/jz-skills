@@ -1,0 +1,9 @@
+{
+  "argv": [
+    "python3",
+    "hermes/call-omp/tests/test_process_probe.py"
+  ],
+  "exit": 0,
+  "commit": "3c0caa8bdcb9c6b89a066ed8a7a00adab708fd60",
+  "log_sha256": "3de55482ba03af67478282ff870b7e730907cf26d98e9fe6b1d8e52c3572cf73"
+}

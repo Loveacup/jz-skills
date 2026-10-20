@@ -1,0 +1,75 @@
+{
+  "schema": "external-producer-summary.v1",
+  "role": "genuinely external producer (Orca dispatched worker, separate session/governance from the capped STDD execution)",
+  "authorization": "post-cap-owner-decision.json acceptable_next_input + external-producer-contract.json",
+  "scope_statement": "This summary covers candidate SOURCE/TEST evidence only. It is NOT a Hermes-chain acceptance, NOT an installation or deployment acceptance, and contains no final verdict. Final acceptance belongs to an independent reviewer.",
+  "deployment_status": "NOT_DEPLOYED",
+  "candidate_revision": {
+    "commit": "aa44eecc4630e96c82f7688a44ec2e452b8fdfae",
+    "parent": "8d6200cb79cf43845bc37444504156dfbfe9c056",
+    "branch": "Loveacup/call-omp-independent-candidate",
+    "committed_files": [
+      "hermes/call-omp/tests/process_probe.py",
+      "hermes/call-omp/tests/test_process_probe.py"
+    ],
+    "pushed": false
+  },
+  "repairs": {
+    "EXT-01": {
+      "state": "repaired in candidate tests; deterministic checks executed",
+      "detail": "hermes/call-omp/tests/process_probe.py: only ps rc=1 with empty stdout and empty stderr classifies dead; any stderr, unsupported output, timeout, or other nonzero rc is unknown; zombie is distinguished from alive/dead. 11/11 permanent deterministic checks (dead, alive, zombie, query-error) exit 0 at the candidate commit.",
+      "evidence": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/test_process_probe-run.log"
+    },
+    "EXT-02": {
+      "state": "fresh normal and failure receipts generated",
+      "detail": "each receipt records exact candidate commit+parent, harness sha256, full command argv with exit codes and ns timestamps, sha256 of all 20 call-omp runtime files plus the executed omp binary (path+sha256+version) and interpreter versions"
+    },
+    "EXT-03": {
+      "state": "fresh cancellation receipt generated",
+      "detail": "binds scripts/lib/omp-lib.sh and scripts/omp-resource-supervisor.py hashes; records owned (tool_runner, tool_child, omp_worker from pid_store) and unrelated PID/PPID/PGID/SID/command/start-time before and after stop; live query-error demo stays unknown; owned set proven dead after exact attempt/fingerprint stop while unrelated process stayed alive; resource state rejected with cleanup_confirmed=true and terminal_reason cancelled:*; finish --accept refused (exit 2)"
+    }
+  },
+  "scenario_receipts": {
+    "normal": {
+      "receipt": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44/receipt.json",
+      "receipt_sha256": "91e32facb48bc1afef66e17fd523d4f231125df29ea428c5a9f766db1ecc27a0",
+      "status": "SCENARIO_ASSERTIONS_SATISFIED_PRODUCER_SCOPE",
+      "candidate_commit": "aa44eecc4630e96c82f7688a44ec2e452b8fdfae",
+      "attempt_id": "0e14e159-7601-48a8-bb5d-9d262005ebfe"
+    },
+    "failure": {
+      "receipt": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-failure-d751215ddfad/receipt.json",
+      "receipt_sha256": "bc3527e6b40cb491c19c964dd9af0fb5f09d5684f64ec3d0ebcdb1fa0800375a",
+      "status": "SCENARIO_ASSERTIONS_SATISFIED_PRODUCER_SCOPE",
+      "candidate_commit": "aa44eecc4630e96c82f7688a44ec2e452b8fdfae",
+      "attempt_id": "cc9eee15-5f40-4c68-af4d-b68882f9b7b5"
+    },
+    "cancel": {
+      "receipt": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-cancel-fdabd9dfc81e/receipt.json",
+      "receipt_sha256": "7c0b0836f4fcd2a3baea630e917654e3c4c5fb6c39e859206d11d335daa34df4",
+      "status": "SCENARIO_ASSERTIONS_SATISFIED_PRODUCER_SCOPE",
+      "candidate_commit": "aa44eecc4630e96c82f7688a44ec2e452b8fdfae",
+      "attempt_id": "fbf3a702-7dba-469a-b732-7e871e2fcff5"
+    }
+  },
+  "seam_check": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/git-seam-and-commit.json",
+  "not_done_by_design": [
+    "no install/deploy, no broad sync, no push, no Hermes/credential/provider/Gateway/Kanban change",
+    "no rewrite of historical frozen evidence; prior receipts untouched and not reused",
+    "no producer-authored aggregate/final PASS verdict"
+  ],
+  "next_step": "independent reviewer verification of this revision + evidence bundle",
+  "aborted_harness_iterations": [
+    {
+      "workspace": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-b8bc53e6e0f0",
+      "status": "SCENARIO_FAILED",
+      "cause": "harness precondition: worktree-porcelain assertion counted the untracked private .local evidence dir; aborted before omp-start, no worker launched"
+    },
+    {
+      "workspace": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-a31e09e6697d",
+      "status": "SCENARIO_FAILED",
+      "cause": "harness defect: assumed state filename did not match omp-start task_id naming; omp-send exited nonzero reading state, no worker launched"
+    }
+  ],
+  "aborted_note": "aborted iterations are preserved verbatim and are not relabeled; they are harness setup failures, not candidate scenario failures"
+}

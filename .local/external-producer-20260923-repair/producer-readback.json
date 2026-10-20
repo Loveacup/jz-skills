@@ -1,0 +1,246 @@
+{
+  "revision": "3c0caa8bdcb9c6b89a066ed8a7a00adab708fd60",
+  "parent": "aa44eecc4630e96c82f7688a44ec2e452b8fdfae",
+  "status": "?? .local/\n",
+  "scenarios": {
+    "normal": {
+      "receipt": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-normal-4c2aacbe4ca7/receipt.json",
+      "sha256": "7a95f53776bde39d8cc65b0964cd55ea4fdc66bd4bdf66c05b9dbfc9290b94e7",
+      "worker_exit": 0,
+      "accept_exit": 0,
+      "dependency_count": 1083,
+      "changes": [
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-normal-4c2aacbe4ca7/normalize.py"
+      ],
+      "attempt_id": "a2e5a126-d3e2-4ef8-bb13-7119e64c97bb",
+      "launch_fingerprint": "25f5c02710bd5f5ef6f687cfb6cdb9701bd42ba81c7d0f548b9e8804b717b5b9",
+      "native_file_hashes_verified": 9
+    },
+    "failure": {
+      "receipt": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431/receipt.json",
+      "sha256": "e71ad056f43ff65ccafbbaf4a28d839f8b200ff7b1dfe68220da4522cd4f712c",
+      "worker_exit": 1,
+      "accept_exit": 2,
+      "dependency_count": 1084,
+      "changes": [],
+      "attempt_id": "63fb16bc-ceed-462c-923d-4a340a47a5ee",
+      "launch_fingerprint": "fe1b35fbdf58f665bbaec23d9600f13abebd0e1804e2696ee7d622455739d0f0",
+      "native_file_hashes_verified": 8
+    },
+    "cancel": {
+      "receipt": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-cancel-a72b9c8ac92e/receipt.json",
+      "sha256": "37d0332270ae87d32d72640ae434e67f4e7d65a43540392d3a8687ccd261f1eb",
+      "worker_exit": 143,
+      "accept_exit": 2,
+      "dependency_count": 1083,
+      "changes": [],
+      "attempt_id": "08586661-9b99-4849-880d-9972600a292b",
+      "launch_fingerprint": "37ab12e6a67c8be3d8ac1d0f9be162a5f9dee7ab5a6a0c08e644032ae60bf6e0",
+      "native_file_hashes_verified": 9,
+      "owned_identity_consistency": {
+        "tool_runner": {
+          "pid": 44884,
+          "ppid": 42233,
+          "pgid": 44884,
+          "sid": 44884,
+          "start_time": "Wed Sep 23 13:58:29 2026"
+        },
+        "tool_child": {
+          "pid": 44885,
+          "ppid": 44884,
+          "pgid": 44884,
+          "sid": 44884,
+          "start_time": "Wed Sep 23 13:58:29 2026"
+        },
+        "omp_worker": {
+          "pid": 42233,
+          "ppid": 42209,
+          "pgid": 42233,
+          "sid": 42233,
+          "start_time": "Wed Sep 23 13:58:05 2026"
+        }
+      },
+      "full_command_lengths": {
+        "tool_runner": 284,
+        "tool_child": 13,
+        "omp_worker": 6878
+      },
+      "post_harness_sentinel_probe": {
+        "pid": 44903,
+        "argv": [
+          "/bin/ps",
+          "-ww",
+          "-p",
+          "44903",
+          "-o",
+          "pid=,ppid=,pgid=,stat=,lstart=,command="
+        ],
+        "observed_at": 1790143230841862000,
+        "state": "dead",
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": ""
+      }
+    }
+  },
+  "commit_file_binding": {
+    "hermes/call-omp/scripts/call-omp-check.sh": {
+      "commit_sha256": "a178aea9efd89cf751444dae52c6521a60d92a27d6d688c73f9e88f44e20d638",
+      "disk_sha256": "a178aea9efd89cf751444dae52c6521a60d92a27d6d688c73f9e88f44e20d638",
+      "equal": true
+    },
+    "hermes/call-omp/scripts/call-omp-smoke.sh": {
+      "commit_sha256": "85c5207a22616f67e64209953975adbeec8be7d13d127cad3c91d5e95c1c6355",
+      "disk_sha256": "85c5207a22616f67e64209953975adbeec8be7d13d127cad3c91d5e95c1c6355",
+      "equal": true
+    },
+    "hermes/call-omp/scripts/gate/danger-patterns.txt": {
+      "commit_sha256": "774d6c1a4735c4a2ef3b2f1df449938de9735af10adb5e35c1ce37bcc0e9da22",
+      "disk_sha256": "774d6c1a4735c4a2ef3b2f1df449938de9735af10adb5e35c1ce37bcc0e9da22",
+      "equal": true
+    },
+    "hermes/call-omp/scripts/gate/gate-counter.sh": {
+      "commit_sha256": "941e159b419ce68f83b760e6b2fbe975cc92960b0212a90846a8e44c67091a80",
+      "disk_sha256": "941e159b419ce68f83b760e6b2fbe975cc92960b0212a90846a8e44c67091a80",
+      "equal": true
+    },
+    "hermes/call-omp/scripts/gate/gate-danger.sh": {
+      "commit_sha256": "ad561df06fa7ef2f2912e88203e29a88f3bc3df9e9fe500cb06ecd72decbe56f",
+      "disk_sha256": "ad561df06fa7ef2f2912e88203e29a88f3bc3df9e9fe500cb06ecd72decbe56f",
+      "equal": true
+    },
+    "hermes/call-omp/scripts/gate/gate-verify.sh": {
+      "commit_sha256": "304f450f7f822748d0e4e707058ec3bf78936549bdd9120dad1a2914dfd4622c",
+      "disk_sha256": "304f450f7f822748d0e4e707058ec3bf78936549bdd9120dad1a2914dfd4622c",
+      "equal": true
+    },
+    "hermes/call-omp/scripts/gate/resolve-capability-grant.py": {
+      "commit_sha256": "db632a2c77486ba46bd19ed2fd2a56078becf7daa28d85c142408513c919cd4d",
+      "disk_sha256": "db632a2c77486ba46bd19ed2fd2a56078becf7daa28d85c142408513c919cd4d",
+      "equal": true
+    },
+    "hermes/call-omp/scripts/lib/omp-lib.sh": {
+      "commit_sha256": "e3ab71c3d70cbb1002754d43f0ad9b57c840dabe25528b15b887c72603ce74ab",
+      "disk_sha256": "e3ab71c3d70cbb1002754d43f0ad9b57c840dabe25528b15b887c72603ce74ab",
+      "equal": true
+    },
+    "hermes/call-omp/scripts/omp-acp-probe.sh": {
+      "commit_sha256": "1ea048339d3d26350164059dff63e83ee49939b8d64a15488101af4c1460716c",
+      "disk_sha256": "1ea048339d3d26350164059dff63e83ee49939b8d64a15488101af4c1460716c",
+      "equal": true
+    },
+    "hermes/call-omp/scripts/omp-acp-smoke.sh": {
+      "commit_sha256": "2533cc15ff36bc3ccef912ef7486d8dddea4bc51b262bb0adc1d372b4a8dfaa2",
+      "disk_sha256": "2533cc15ff36bc3ccef912ef7486d8dddea4bc51b262bb0adc1d372b4a8dfaa2",
+      "equal": true
+    },
+    "hermes/call-omp/scripts/omp-bundle-code-audit.sh": {
+      "commit_sha256": "a045d85f94762afd186d6afa0ceb953a8e96005b305e6013df1d330dbee779f7",
+      "disk_sha256": "a045d85f94762afd186d6afa0ceb953a8e96005b305e6013df1d330dbee779f7",
+      "equal": true
+    },
+    "hermes/call-omp/scripts/omp-finish.sh": {
+      "commit_sha256": "06241414d3ffd6f9606e2cf33bcecede91c3104c63ff26f51c7d6749efcb0fd1",
+      "disk_sha256": "06241414d3ffd6f9606e2cf33bcecede91c3104c63ff26f51c7d6749efcb0fd1",
+      "equal": true
+    },
+    "hermes/call-omp/scripts/omp-gc.sh": {
+      "commit_sha256": "a9cbc57efbc704551f765fe708d6c10aa54d6a743b748d4ef858bdd6c8e7a60e",
+      "disk_sha256": "a9cbc57efbc704551f765fe708d6c10aa54d6a743b748d4ef858bdd6c8e7a60e",
+      "equal": true
+    },
+    "hermes/call-omp/scripts/omp-monitor.sh": {
+      "commit_sha256": "e024d66f2ef310fa51e8add213849a0ce5d67b0872e4a42d46183eae8a6007a3",
+      "disk_sha256": "e024d66f2ef310fa51e8add213849a0ce5d67b0872e4a42d46183eae8a6007a3",
+      "equal": true
+    },
+    "hermes/call-omp/scripts/omp-resource-supervisor.py": {
+      "commit_sha256": "6388581c75fbeb6d32b93569f462f6377bb778c046f72cd673a4affe34ff01b3",
+      "disk_sha256": "6388581c75fbeb6d32b93569f462f6377bb778c046f72cd673a4affe34ff01b3",
+      "equal": true
+    },
+    "hermes/call-omp/scripts/omp-send.sh": {
+      "commit_sha256": "7703bb4ba064972e8f7de31c73a68026e3d12f50ff1506784d288e905d8d9023",
+      "disk_sha256": "7703bb4ba064972e8f7de31c73a68026e3d12f50ff1506784d288e905d8d9023",
+      "equal": true
+    },
+    "hermes/call-omp/scripts/omp-start.sh": {
+      "commit_sha256": "673bfa98c395a3a1bf59d47418c721614160bd4c733dec341bd5d2420d26c122",
+      "disk_sha256": "673bfa98c395a3a1bf59d47418c721614160bd4c733dec341bd5d2420d26c122",
+      "equal": true
+    },
+    "hermes/call-omp/scripts/omp-stop.sh": {
+      "commit_sha256": "527126fe43e1ebee0716dfdc7232a2680a8d21decda03b11a28cb7b6fd055f6b",
+      "disk_sha256": "527126fe43e1ebee0716dfdc7232a2680a8d21decda03b11a28cb7b6fd055f6b",
+      "equal": true
+    },
+    "hermes/call-omp/scripts/omp_stream_classifier.py": {
+      "commit_sha256": "60836a427865214d4958d00d6b5f50a21867d6f202d6e480f65d018e6be845e1",
+      "disk_sha256": "60836a427865214d4958d00d6b5f50a21867d6f202d6e480f65d018e6be845e1",
+      "equal": true
+    },
+    "hermes/call-omp/scripts/required-actions-validate.py": {
+      "commit_sha256": "fd89211674abd4330ee2a09afbf84825cd8de4809454a41287ad5250613f0598",
+      "disk_sha256": "fd89211674abd4330ee2a09afbf84825cd8de4809454a41287ad5250613f0598",
+      "equal": true
+    },
+    "hermes/call-omp/templates/audit-prompt-template.md": {
+      "commit_sha256": "9a964a5a770772c536926413213dfc7165d22f947ca3beab7b86e9c07018e4e6",
+      "disk_sha256": "9a964a5a770772c536926413213dfc7165d22f947ca3beab7b86e9c07018e4e6",
+      "equal": true
+    },
+    "hermes/call-omp/templates/delegation-package-template.md": {
+      "commit_sha256": "1fa85400d59cd70bb9928855c7f8ad9b5373c5611008a4ad01e0e26f39de466a",
+      "disk_sha256": "1fa85400d59cd70bb9928855c7f8ad9b5373c5611008a4ad01e0e26f39de466a",
+      "equal": true
+    },
+    "hermes/call-omp/templates/execute-prompt-template.md": {
+      "commit_sha256": "d24ac3b77b6b96fea7f7af34e846cd81c1ed0bcc14310b1935f68f862b76c516",
+      "disk_sha256": "d24ac3b77b6b96fea7f7af34e846cd81c1ed0bcc14310b1935f68f862b76c516",
+      "equal": true
+    },
+    "hermes/call-omp/templates/govern-prompt-template.md": {
+      "commit_sha256": "41f858dc2f10dae050c9be8edb276260848dc853a579bf2f4b9b460911bf1129",
+      "disk_sha256": "41f858dc2f10dae050c9be8edb276260848dc853a579bf2f4b9b460911bf1129",
+      "equal": true
+    },
+    "hermes/call-omp/tests/process_probe.py": {
+      "commit_sha256": "220edf118b2fea02e725cce05b7fd5a826f534c23fab62f864bd2d12484e1f2e",
+      "disk_sha256": "220edf118b2fea02e725cce05b7fd5a826f534c23fab62f864bd2d12484e1f2e",
+      "equal": true
+    },
+    "hermes/call-omp/tests/test_process_probe.py": {
+      "commit_sha256": "8ffd27692a844937a7fb04addfc55b05040ae31dfd4cc83ca18311a55982233f",
+      "disk_sha256": "8ffd27692a844937a7fb04addfc55b05040ae31dfd4cc83ca18311a55982233f",
+      "equal": true
+    }
+  },
+  "prior_evidence_unchanged": true,
+  "watched_metadata_deltas": [
+    {
+      "before": {
+        "path": "/Users/alexcai/.hermes",
+        "mode": "0o40700",
+        "size": 6944,
+        "mtime_ns": 1790142868084960214,
+        "inode": 88607699
+      },
+      "after": {
+        "path": "/Users/alexcai/.hermes",
+        "mode": "0o40700",
+        "size": 6944,
+        "mtime_ns": 1790143154691917874,
+        "inode": 88607699
+      }
+    }
+  ],
+  "git_remote_config_equal": true,
+  "hook_equal": true,
+  "refs_removed": [
+    "refs/heads/Loveacup/call-omp-independent-candidate aa44eecc4630e96c82f7688a44ec2e452b8fdfae"
+  ],
+  "refs_added": [
+    "refs/heads/Loveacup/call-omp-independent-candidate 3c0caa8bdcb9c6b89a066ed8a7a00adab708fd60"
+  ],
+  "producer_checks": "OBSERVED_ASSERTIONS_SATISFIED; not final W1 verdict"
+}

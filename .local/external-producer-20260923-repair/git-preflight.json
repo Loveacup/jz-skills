@@ -1,0 +1,63 @@
+{
+  "observed_ns": 1790142637755590000,
+  "before_any_status": true,
+  "config": {
+    "argv": [
+      "git",
+      "config",
+      "--show-origin",
+      "--show-scope",
+      "--includes",
+      "--get-regexp",
+      "^(include.*|filter\\..*|diff\\..*\\.textconv|core\\.(fsmonitor|hookspath|attributesfile)|extensions\\..*)$"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": ""
+  },
+  "config_names": {
+    "argv": [
+      "git",
+      "config",
+      "--show-origin",
+      "--show-scope",
+      "--includes",
+      "--name-only",
+      "--list"
+    ],
+    "exit": 0,
+    "stdout": "unknown\tfile:/Library/Developer/CommandLineTools/usr/share/git-core/gitconfig\tcredential.helper\nunknown\tfile:/Library/Developer/CommandLineTools/usr/share/git-core/gitconfig\tinit.defaultbranch\nglobal\tfile:/Users/alexcai/.gitconfig\tuser.name\nglobal\tfile:/Users/alexcai/.gitconfig\tuser.email\nglobal\tfile:/Users/alexcai/.gitconfig\tcredential.https://github.com.helper\nglobal\tfile:/Users/alexcai/.gitconfig\tcredential.https://github.com.helper\nglobal\tfile:/Users/alexcai/.gitconfig\tcredential.https://gist.github.com.helper\nglobal\tfile:/Users/alexcai/.gitconfig\tcredential.https://gist.github.com.helper\nlocal\tfile:/Users/alexcai/code/jz-skills/.git/config\tcore.repositoryformatversion\nlocal\tfile:/Users/alexcai/code/jz-skills/.git/config\tcore.filemode\nlocal\tfile:/Users/alexcai/code/jz-skills/.git/config\tcore.bare\nlocal\tfile:/Users/alexcai/code/jz-skills/.git/config\tcore.logallrefupdates\nlocal\tfile:/Users/alexcai/code/jz-skills/.git/config\tcore.ignorecase\nlocal\tfile:/Users/alexcai/code/jz-skills/.git/config\tcore.precomposeunicode\nlocal\tfile:/Users/alexcai/code/jz-skills/.git/config\tremote.origin.url\nlocal\tfile:/Users/alexcai/code/jz-skills/.git/config\tremote.origin.fetch\nlocal\tfile:/Users/alexcai/code/jz-skills/.git/config\tbranch.main.remote\nlocal\tfile:/Users/alexcai/code/jz-skills/.git/config\tbranch.main.merge\nlocal\tfile:/Users/alexcai/code/jz-skills/.git/config\tbranch.call-omp-od2.remote\nlocal\tfile:/Users/alexcai/code/jz-skills/.git/config\tbranch.call-omp-od2.merge\nlocal\tfile:/Users/alexcai/code/jz-skills/.git/config\tcredential.https://github.com.helper\nlocal\tfile:/Users/alexcai/code/jz-skills/.git/config\tcredential.https://github.com.username\nlocal\tfile:/Users/alexcai/code/jz-skills/.git/config\tbranch.Loveacup/call-omp-independent-candidate.base\nlocal\tfile:/Users/alexcai/code/jz-skills/.git/config\tpush.autosetupremote\nlocal\tfile:/Users/alexcai/code/jz-skills/.git/config\tbranch.Loveacup/call-omp-independent-review.base\ncommand\tcommand line:\tcredential.interactive\ncommand\tcommand line:\tcredential.guiprompt\n",
+    "stderr": ""
+  },
+  "attributes": {
+    "argv": [
+      "git",
+      "check-attr",
+      "--all",
+      "--",
+      "hermes/call-omp/tests/process_probe.py",
+      "hermes/call-omp/tests/test_process_probe.py"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "hook": {
+    "path": "/Users/alexcai/code/jz-skills/.git/hooks/pre-commit",
+    "resolved": "/Users/alexcai/code/jz-skills/deploy/hooks/pre-commit",
+    "sha256": "1997126a0df269cadf47d44ff1fb042f5b0e163fbcf988b620d425e4569a9397",
+    "bytes": "#!/bin/bash\n# jz-skills pre-commit hook \u2014 pdf source \u81ea\u6d3d\u95e8\uff08blocker#3 \u673a\u5668\u5f3a\u5236\u89e6\u53d1\uff09\n# \u5b89\u88c5: bash deploy/hooks/install.sh   \uff08\u6216\u624b\u52a8 ln -s ../../deploy/hooks/pre-commit .git/hooks/pre-commit\uff09\n# \u7ed5\u8fc7: git commit --no-verify\n#\n# \u4ec5\u5f53\u672c\u6b21\u63d0\u4ea4\u6d89\u53ca shared/2pdf/ \u65f6\u89e6\u53d1\uff1b\u53ea\u8dd1 --source-only\uff08\u4e0d\u8981\u6c42 canonical \u5df2\u90e8\u7f72\uff09\u3002\nset -uo pipefail\nREPO_ROOT=\"$(git rev-parse --show-toplevel)\"\nif git diff --cached --name-only | grep -q '^shared/2pdf/'; then\n  echo \"[pre-commit] shared/2pdf \u6539\u52a8 \u2192 \u8dd1 pdf-drift-gate --source-only\"\n  bash \"$REPO_ROOT/deploy/2pdf-drift-gate.sh\" --source-only || {\n    echo \"[pre-commit] \u274c pdf source \u81ea\u6d3d\u95e8\u672a\u901a\u8fc7\uff0c\u63d0\u4ea4\u5df2\u963b\u6b62\uff08\u7ed5\u8fc7: git commit --no-verify\uff09\"\n    exit 1\n  }\nfi\nexit 0\n",
+    "expected_predicate": "git diff --cached --name-only | grep -q '^shared/2pdf/'",
+    "expected_branch": "false; exit 0; no gate invocation"
+  },
+  "head": {
+    "argv": [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    "exit": 0,
+    "stdout": "aa44eecc4630e96c82f7688a44ec2e452b8fdfae\n",
+    "stderr": ""
+  }
+}

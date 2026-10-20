@@ -1,0 +1,36 @@
+{
+  "schema": "hermes-w1-remediation-owner-authorization.v1",
+  "recorded_at": "2026-09-23",
+  "source": "Interactive owner decision after independent W1 reviews",
+  "call_omp": {
+    "owner_text": "授权一次修复提交",
+    "authorized": true,
+    "scope": "One new separately governed external producer repair of the rejected call-omp candidate, one additional local commit, fresh normal/failure/cancel evidence, and a new independent review.",
+    "forbidden": [
+      "push",
+      "install or deploy",
+      "amend, rebase, reset or history rewrite",
+      "runtime repoint",
+      "Hermes, credential, provider, Gateway or Kanban mutation"
+    ]
+  },
+  "cc_tmux": {
+    "owner_text": "授权一次受限原生场景",
+    "authorized": true,
+    "scope": "One current-version native scenario wave covering normal, auth-or-unsent negative, controlled failure and cancellation using the currently enabled Claude hooks. Honcho and claude-mem may create or update session, peer, message, service and state records caused by those exact scenario sessions and prompts.",
+    "retention_and_cleanup": "Record exact scenario/session identities and available hook-created record identities. External memory records are retained as authorized test evidence and must not be deleted as cleanup. Cleanup is limited to exact-owned tmux sessions, watchers, locks and temporary runtime state.",
+    "required": [
+      "Attribute or keep BLOCKED any ~/.claude.json drift.",
+      "Preserve all pre-existing tmux sessions and Claude processes.",
+      "Do not change hooks, plugins, settings, credentials or provider configuration.",
+      "Do not claim scenario acceptance from launch, submission or cleanup alone."
+    ],
+    "forbidden": [
+      "credential login, logout or refresh",
+      "deleting or rewriting pre-existing Honcho or claude-mem data",
+      "install or deploy",
+      "Hermes, Gateway, Kanban or call-omp mutation"
+    ]
+  },
+  "deployment_status": "NOT_ADMITTED"
+}

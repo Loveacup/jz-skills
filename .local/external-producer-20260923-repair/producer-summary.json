@@ -1,0 +1,193 @@
+{
+  "schema": "call-omp-external-repair-producer-summary.v2",
+  "created_ns": 1790143314295098000,
+  "role": "Producer only; no final W1 PASS authored",
+  "deployment_status": "NOT_ADMITTED",
+  "delivery": "REPAIR_COMMIT_AND_CONTRACT_SCOPED_EVIDENCE_PRODUCED_WITH_EXPLICIT_BLOCKERS",
+  "candidate_commit": "3c0caa8bdcb9c6b89a066ed8a7a00adab708fd60",
+  "parent": "aa44eecc4630e96c82f7688a44ec2e452b8fdfae",
+  "additional_commits": 1,
+  "source_paths": [
+    "hermes/call-omp/tests/process_probe.py",
+    "hermes/call-omp/tests/test_process_probe.py"
+  ],
+  "focused_tests": {
+    "count": 15,
+    "exit": 0,
+    "evidence": "focused-tests-new-commit.json"
+  },
+  "rejected_item_disposition": [
+    {
+      "item": 1,
+      "producer_observation": "SCOPED_COMMIT_PRODUCED",
+      "evidence": [
+        "git-preflight.json",
+        "pre-commit.exact-bytes",
+        "git-seam-and-commit.json",
+        "producer-readback.json"
+      ],
+      "detail": "Exactly two staged paths; normal local commit, hook enabled and observed, shared/2pdf predicate false, exit 0, required parent; only candidate branch ref changed in observed interval."
+    },
+    {
+      "item": 2,
+      "producer_observation": "REPAIRED_AND_FOCUSED_TESTS_SATISFIED",
+      "evidence": [
+        "focused-tests-new-commit.log",
+        "focused-tests-new-commit.json"
+      ],
+      "detail": "Literal-empty rc1 only dead; whitespace stderr/stdout, invalid stat/date/row, timeout, executable/query/SID errors and races unknown; zombies distinct; C-locale unbounded-width command-last ps plus POSIX getsid (Darwin sess is not reliable numeric SID)."
+    },
+    {
+      "item": 3,
+      "producer_observation": "PARTIAL_BLOCKED",
+      "evidence": [
+        "normal-dependencies-before.json",
+        "failure-dependencies-before.json",
+        "cancel-dependencies-before.json",
+        "producer-readback.json"
+      ],
+      "detail": "Fresh receipts on new commit bind 1083/1084/1083 known files before/after: scripts, full template bytes, harness/helper/fixture bytes, Python interpreter and stdlib, OMP executable and system utilities. Native captured files hash-verified; source/template/test bytes match commit. Normal edited artifact separately bound immediately before/after consumer execution.",
+      "blocked": "No dynamic loader/syscall observer for implicit OMP extensions, MCP or runtime configuration and native shared-cache dependencies. Known-file manifest is not proof of every actual transitive load; unobserved dependencies remain unknown, with no reconstruction substituted for missing file hashes."
+    },
+    {
+      "item": 4,
+      "producer_observation": "THREE_SCENARIO_ASSERTIONS_SATISFIED",
+      "evidence": [
+        "producer-readback.json"
+      ],
+      "detail": "One normal, failure and cancellation each; zero retries. Normal consumer cases and worker 0/accept 0 separate. Failure worker 1/rejected/accept 2. Cancel worker 143/rejected/cleanup_confirmed/accept 2; all three exact-owned processes dead on literal-empty rc1, named unrelated sentinel same identity alive before/after stop, then harness-owned sentinel reaped. Worker PID/PPID/PGID/SID matches native resource; runner/child numeric identity matches self-report; ps full command display and start-time retained.",
+      "limit": "ps display escapes non-ASCII/newlines under C locale and is not raw argv; full stdout retained. Observed ancestry only, not a system-wide escaped-descendant guarantee. ps/getSID observations are race-checked but not atomic handles."
+    },
+    {
+      "item": 5,
+      "producer_observation": "BLOCKED",
+      "evidence": [
+        "watched-before.json",
+        "watched-after.json",
+        "producer-readback.json"
+      ],
+      "detail": "Prior evidence bytes unchanged; hook identity and local remote config unchanged; only authorized candidate branch ref advanced. Bounded installed-skill/runtime entry metadata captured; no content reads of credentials/provider runtime configuration.",
+      "blocked": "~/.hermes directory mtime changed, attribution unknown. Credential/provider contents, Gateway/Kanban state, transitive installed runtime contents and remote server push/audit are not covered by authorized observers. Metadata stability cannot certify no mutation, and no-forbidden-mutation remains BLOCKED."
+    }
+  ],
+  "scenario_receipts": {
+    "normal": {
+      "receipt": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-normal-4c2aacbe4ca7/receipt.json",
+      "sha256": "7a95f53776bde39d8cc65b0964cd55ea4fdc66bd4bdf66c05b9dbfc9290b94e7",
+      "worker_exit": 0,
+      "accept_exit": 0,
+      "dependency_count": 1083,
+      "changes": [
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-normal-4c2aacbe4ca7/normalize.py"
+      ],
+      "attempt_id": "a2e5a126-d3e2-4ef8-bb13-7119e64c97bb",
+      "launch_fingerprint": "25f5c02710bd5f5ef6f687cfb6cdb9701bd42ba81c7d0f548b9e8804b717b5b9",
+      "native_file_hashes_verified": 9
+    },
+    "failure": {
+      "receipt": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-failure-8d02fc496431/receipt.json",
+      "sha256": "e71ad056f43ff65ccafbbaf4a28d839f8b200ff7b1dfe68220da4522cd4f712c",
+      "worker_exit": 1,
+      "accept_exit": 2,
+      "dependency_count": 1084,
+      "changes": [],
+      "attempt_id": "63fb16bc-ceed-462c-923d-4a340a47a5ee",
+      "launch_fingerprint": "fe1b35fbdf58f665bbaec23d9600f13abebd0e1804e2696ee7d622455739d0f0",
+      "native_file_hashes_verified": 8
+    },
+    "cancel": {
+      "receipt": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923-repair/real-omp-cancel-a72b9c8ac92e/receipt.json",
+      "sha256": "37d0332270ae87d32d72640ae434e67f4e7d65a43540392d3a8687ccd261f1eb",
+      "worker_exit": 143,
+      "accept_exit": 2,
+      "dependency_count": 1083,
+      "changes": [],
+      "attempt_id": "08586661-9b99-4849-880d-9972600a292b",
+      "launch_fingerprint": "37ab12e6a67c8be3d8ac1d0f9be162a5f9dee7ab5a6a0c08e644032ae60bf6e0",
+      "native_file_hashes_verified": 9,
+      "owned_identity_consistency": {
+        "tool_runner": {
+          "pid": 44884,
+          "ppid": 42233,
+          "pgid": 44884,
+          "sid": 44884,
+          "start_time": "Wed Sep 23 13:58:29 2026"
+        },
+        "tool_child": {
+          "pid": 44885,
+          "ppid": 44884,
+          "pgid": 44884,
+          "sid": 44884,
+          "start_time": "Wed Sep 23 13:58:29 2026"
+        },
+        "omp_worker": {
+          "pid": 42233,
+          "ppid": 42209,
+          "pgid": 42233,
+          "sid": 42233,
+          "start_time": "Wed Sep 23 13:58:05 2026"
+        }
+      },
+      "full_command_lengths": {
+        "tool_runner": 284,
+        "tool_child": 13,
+        "omp_worker": 6878
+      },
+      "post_harness_sentinel_probe": {
+        "pid": 44903,
+        "argv": [
+          "/bin/ps",
+          "-ww",
+          "-p",
+          "44903",
+          "-o",
+          "pid=,ppid=,pgid=,stat=,lstart=,command="
+        ],
+        "observed_at": 1790143230841862000,
+        "state": "dead",
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": ""
+      }
+    }
+  },
+  "prior_evidence_unchanged": true,
+  "watched_metadata_deltas": [
+    {
+      "before": {
+        "path": "/Users/alexcai/.hermes",
+        "mode": "0o40700",
+        "size": 6944,
+        "mtime_ns": 1790142868084960214,
+        "inode": 88607699
+      },
+      "after": {
+        "path": "/Users/alexcai/.hermes",
+        "mode": "0o40700",
+        "size": 6944,
+        "mtime_ns": 1790143154691917874,
+        "inode": 88607699
+      }
+    }
+  ],
+  "git_refs_added": [
+    "refs/heads/Loveacup/call-omp-independent-candidate 3c0caa8bdcb9c6b89a066ed8a7a00adab708fd60"
+  ],
+  "git_refs_removed": [
+    "refs/heads/Loveacup/call-omp-independent-candidate aa44eecc4630e96c82f7688a44ec2e452b8fdfae"
+  ],
+  "setup_failures": [],
+  "scenario_retries": 0,
+  "not_run": [
+    "formatter",
+    "linter",
+    "project-wide tests",
+    "push",
+    "install",
+    "deploy",
+    "history rewrite",
+    "runtime repoint"
+  ],
+  "next_owner": "Fresh independent reviewer decides final W1 verdict; BLOCKED observations are not acceptance.",
+  "qmd": "未检索到; qmd search call-omp W1 -n 3 returned No results found."
+}

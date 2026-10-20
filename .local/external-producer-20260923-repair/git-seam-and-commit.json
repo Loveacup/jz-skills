@@ -1,0 +1,67 @@
+{
+  "staged": {
+    "argv": [
+      "git",
+      "diff",
+      "--cached",
+      "--name-only"
+    ],
+    "exit": 0,
+    "stdout": "hermes/call-omp/tests/process_probe.py\nhermes/call-omp/tests/test_process_probe.py\n",
+    "stderr": ""
+  },
+  "add": {
+    "argv": [
+      "git",
+      "add",
+      "--",
+      "hermes/call-omp/tests/process_probe.py",
+      "hermes/call-omp/tests/test_process_probe.py"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "hook_sha256": "1997126a0df269cadf47d44ff1fb042f5b0e163fbcf988b620d425e4569a9397",
+  "hook_predicate_branch": "false: neither staged path starts shared/2pdf/; hook exits 0",
+  "commit": {
+    "argv": [
+      "git",
+      "commit",
+      "-m",
+      "fix(call-omp): fail closed on process query errors / \u4fee\u590d\u8fdb\u7a0b\u63a2\u9488\u9519\u8bef\u5206\u7c7b"
+    ],
+    "exit": 0,
+    "stdout": "[Loveacup/call-omp-independent-candidate 3c0caa8] fix(call-omp): fail closed on process query errors / \u4fee\u590d\u8fdb\u7a0b\u63a2\u9488\u9519\u8bef\u5206\u7c7b\n 2 files changed, 199 insertions(+), 122 deletions(-)\n",
+    "stderr": "13:54:28.617708 exec-cmd.c:145          trace: resolved executable path from Darwin stack: /Library/Developer/CommandLineTools/usr/bin/git\n13:54:28.617863 exec-cmd.c:267          trace: resolved executable dir: /Library/Developer/CommandLineTools/usr/bin\n13:54:28.618645 git.c:476               trace: built-in: git commit -m 'fix(call-omp): fail closed on process query errors / \u4fee\u590d\u8fdb\u7a0b\u63a2\u9488\u9519\u8bef\u5206\u7c7b'\n13:54:28.626109 run-command.c:1541      run_processes_parallel: preparing to run up to 1 tasks\n13:54:28.626119 run-command.c:673       trace: run_command: GIT_EDITOR=: GIT_INDEX_FILE=/Users/alexcai/code/jz-skills/.git/worktrees/call-omp-independent-candidate/index /Users/alexcai/code/jz-skills/.git/hooks/pre-commit\n13:54:28.626122 run-command.c:765       trace: start_command: /Users/alexcai/code/jz-skills/.git/hooks/pre-commit\n13:54:28.667785 exec-cmd.c:145          trace: resolved executable path from Darwin stack: /Library/Developer/CommandLineTools/usr/libexec/git-core/git\n13:54:28.668013 exec-cmd.c:267          trace: resolved executable dir: /Library/Developer/CommandLineTools/usr/libexec/git-core\n13:54:28.668167 git.c:476               trace: built-in: git rev-parse --show-toplevel\n13:54:28.671826 exec-cmd.c:145          trace: resolved executable path from Darwin stack: /Library/Developer/CommandLineTools/usr/libexec/git-core/git\n13:54:28.672083 exec-cmd.c:267          trace: resolved executable dir: /Library/Developer/CommandLineTools/usr/libexec/git-core\n13:54:28.672243 git.c:476               trace: built-in: git diff --cached --name-only\n13:54:28.674133 run-command.c:1568      run_processes_parallel: done\n13:54:28.676527 run-command.c:673       trace: run_command: git maintenance run --auto --no-quiet --detach\n13:54:28.676553 run-command.c:765       trace: start_command: /Library/Developer/CommandLineTools/usr/libexec/git-core/git maintenance run --auto --no-quiet --detach\n13:54:28.679828 exec-cmd.c:145          trace: resolved executable path from Darwin stack: /Library/Developer/CommandLineTools/usr/libexec/git-core/git\n13:54:28.680114 exec-cmd.c:267          trace: resolved executable dir: /Library/Developer/CommandLineTools/usr/libexec/git-core\n13:54:28.680570 git.c:476               trace: built-in: git maintenance run --auto --no-quiet --detach\n"
+  },
+  "identity": {
+    "argv": [
+      "git",
+      "log",
+      "-1",
+      "--format=%H %P"
+    ],
+    "exit": 0,
+    "stdout": "3c0caa8bdcb9c6b89a066ed8a7a00adab708fd60 aa44eecc4630e96c82f7688a44ec2e452b8fdfae\n",
+    "stderr": ""
+  },
+  "changed": {
+    "argv": [
+      "git",
+      "diff-tree",
+      "--no-commit-id",
+      "--name-status",
+      "-r",
+      "HEAD"
+    ],
+    "exit": 0,
+    "stdout": "M\thermes/call-omp/tests/process_probe.py\nM\thermes/call-omp/tests/test_process_probe.py\n",
+    "stderr": ""
+  },
+  "probe_test_log_sha256": "22489a1670f8dfeea9b761125f2d1f74d715cb3022d028ac79c9dd5c16141fee",
+  "source_sha256": {
+    "hermes/call-omp/tests/process_probe.py": "220edf118b2fea02e725cce05b7fd5a826f534c23fab62f864bd2d12484e1f2e",
+    "hermes/call-omp/tests/test_process_probe.py": "8ffd27692a844937a7fb04addfc55b05040ae31dfd4cc83ca18311a55982233f"
+  }
+}

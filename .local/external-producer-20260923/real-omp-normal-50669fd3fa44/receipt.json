@@ -1,0 +1,178 @@
+{
+  "schema": "call-omp-external-producer-scenario.v1",
+  "mode": "normal",
+  "scope": "external-producer candidate source/test evidence only; not Hermes-chain, not installation, not deployment acceptance; final verdict belongs to an independent reviewer",
+  "candidate_root": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate",
+  "candidate_commit": "aa44eecc4630e96c82f7688a44ec2e452b8fdfae",
+  "candidate_parent": "8d6200cb79cf43845bc37444504156dfbfe9c056",
+  "worktree_status_porcelain": "?? .local/\n",
+  "harness_path": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/run-scenario.py",
+  "harness_sha256": "2bde089eb884546e7669ace6fe5f6d584af00c20a74305b533c14b3b1e48fbdf",
+  "process_probe_sha256": "c76c96c2569556dc71614ffb22e27fc0e71fb456b8d2ab3d677ea703ce8eae69",
+  "lib_omp_lib_sha256": "e3ab71c3d70cbb1002754d43f0ad9b57c840dabe25528b15b887c72603ce74ab",
+  "resource_supervisor_sha256": "6388581c75fbeb6d32b93569f462f6377bb778c046f72cd673a4affe34ff01b3",
+  "runtime_sha256": {
+    "hermes/call-omp/scripts/call-omp-check.sh": "a178aea9efd89cf751444dae52c6521a60d92a27d6d688c73f9e88f44e20d638",
+    "hermes/call-omp/scripts/call-omp-smoke.sh": "85c5207a22616f67e64209953975adbeec8be7d13d127cad3c91d5e95c1c6355",
+    "hermes/call-omp/scripts/gate/danger-patterns.txt": "774d6c1a4735c4a2ef3b2f1df449938de9735af10adb5e35c1ce37bcc0e9da22",
+    "hermes/call-omp/scripts/gate/gate-counter.sh": "941e159b419ce68f83b760e6b2fbe975cc92960b0212a90846a8e44c67091a80",
+    "hermes/call-omp/scripts/gate/gate-danger.sh": "ad561df06fa7ef2f2912e88203e29a88f3bc3df9e9fe500cb06ecd72decbe56f",
+    "hermes/call-omp/scripts/gate/gate-verify.sh": "304f450f7f822748d0e4e707058ec3bf78936549bdd9120dad1a2914dfd4622c",
+    "hermes/call-omp/scripts/gate/resolve-capability-grant.py": "db632a2c77486ba46bd19ed2fd2a56078becf7daa28d85c142408513c919cd4d",
+    "hermes/call-omp/scripts/lib/omp-lib.sh": "e3ab71c3d70cbb1002754d43f0ad9b57c840dabe25528b15b887c72603ce74ab",
+    "hermes/call-omp/scripts/omp-acp-probe.sh": "1ea048339d3d26350164059dff63e83ee49939b8d64a15488101af4c1460716c",
+    "hermes/call-omp/scripts/omp-acp-smoke.sh": "2533cc15ff36bc3ccef912ef7486d8dddea4bc51b262bb0adc1d372b4a8dfaa2",
+    "hermes/call-omp/scripts/omp-bundle-code-audit.sh": "a045d85f94762afd186d6afa0ceb953a8e96005b305e6013df1d330dbee779f7",
+    "hermes/call-omp/scripts/omp-finish.sh": "06241414d3ffd6f9606e2cf33bcecede91c3104c63ff26f51c7d6749efcb0fd1",
+    "hermes/call-omp/scripts/omp-gc.sh": "a9cbc57efbc704551f765fe708d6c10aa54d6a743b748d4ef858bdd6c8e7a60e",
+    "hermes/call-omp/scripts/omp-monitor.sh": "e024d66f2ef310fa51e8add213849a0ce5d67b0872e4a42d46183eae8a6007a3",
+    "hermes/call-omp/scripts/omp-resource-supervisor.py": "6388581c75fbeb6d32b93569f462f6377bb778c046f72cd673a4affe34ff01b3",
+    "hermes/call-omp/scripts/omp-send.sh": "7703bb4ba064972e8f7de31c73a68026e3d12f50ff1506784d288e905d8d9023",
+    "hermes/call-omp/scripts/omp-start.sh": "673bfa98c395a3a1bf59d47418c721614160bd4c733dec341bd5d2420d26c122",
+    "hermes/call-omp/scripts/omp-stop.sh": "527126fe43e1ebee0716dfdc7232a2680a8d21decda03b11a28cb7b6fd055f6b",
+    "hermes/call-omp/scripts/omp_stream_classifier.py": "60836a427865214d4958d00d6b5f50a21867d6f202d6e480f65d018e6be845e1",
+    "hermes/call-omp/scripts/required-actions-validate.py": "fd89211674abd4330ee2a09afbf84825cd8de4809454a41287ad5250613f0598"
+  },
+  "omp_binary": {
+    "requested": "omp",
+    "path": "/opt/homebrew/bin/omp",
+    "sha256": "2b2ff2084a34f61a018634c03929aaa9117009d107dbef553d8fc51eb5c28b14",
+    "version": "omp/18.2.7"
+  },
+  "system_tools": {
+    "bash": "GNU bash, version 5.3.15(1)-release (aarch64-apple-darwin25.4.0)",
+    "python3": "Python 3.14.7",
+    "jq": "jq-1.7.1-apple",
+    "ps": "/bin/ps",
+    "platform": "Darwin AlexdeMac-mini-7994.local 25.5.0 Darwin Kernel Version 25.5.0: Tue Jun  9 22:26:22 PDT 2026; root:xnu-12377.121.10~1/RELEASE_ARM64_T8132 arm64"
+  },
+  "workspace": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44",
+  "state_path": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-state-external-producer-normal.json",
+  "commands": [
+    {
+      "argv": [
+        "bash",
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/omp-start.sh",
+        "--package-json",
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44/package.json"
+      ],
+      "exit_code": 0,
+      "started_ns": 1790139008322296000,
+      "finished_ns": 1790139008681706000
+    },
+    {
+      "argv": [
+        "bash",
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/omp-send.sh",
+        "--state",
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-state-external-producer-normal.json",
+        "--async",
+        "--max-time",
+        "90"
+      ],
+      "exit_code": 0,
+      "started_ns": 1790139008681824000,
+      "finished_ns": 1790139009473093000
+    },
+    {
+      "argv": [
+        "bash",
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/omp-monitor.sh",
+        "--state",
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-state-external-producer-normal.json",
+        "--watch",
+        "--interval",
+        "1",
+        "--timeout",
+        "180"
+      ],
+      "exit_code": 0,
+      "started_ns": 1790139009473309000,
+      "finished_ns": 1790139049074626000
+    },
+    {
+      "argv": [
+        "bash",
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/omp-finish.sh",
+        "--state",
+        "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-state-external-producer-normal.json",
+        "--accept"
+      ],
+      "exit_code": 0,
+      "started_ns": 1790139049077643000,
+      "finished_ns": 1790139049314887000
+    }
+  ],
+  "status": "SCENARIO_ASSERTIONS_SATISFIED_PRODUCER_SCOPE",
+  "resource_receipt": {
+    "attempt_id": "0e14e159-7601-48a8-bb5d-9d262005ebfe",
+    "capture_mode": "execute_v1",
+    "child_identity": {
+      "identity_observed": true,
+      "pgid": 77742,
+      "pid": 77742,
+      "session_id": 77742,
+      "supervisor_pid": 77731
+    },
+    "cleanup_confirmed": true,
+    "cleanup_scope": "observed_process_group",
+    "control_file": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-control-external-producer-normal.json",
+    "escaped_descendant_evidence": false,
+    "exit_code": 0,
+    "launch_fingerprint": "c8e13429764fdd77e32706867ca494a41bd5fdae3768a028bc1cf3613e9033a1",
+    "max_seconds": 120.0,
+    "pid_store": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-pids-external-producer-normal.json",
+    "process_identity_guard": "unreaped_leader_until_last_group_signal",
+    "raw_bytes": 72590,
+    "raw_cap": 8388608,
+    "raw_lines": 314,
+    "raw_output": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-raw-external-producer-normal.json",
+    "raw_sha256": "3d4d757d5587e1ccc1e08643079b2a5dbea3642f25a050076d9cc2ddcfd2b37f",
+    "reason": "normal_completion",
+    "run": {
+      "ended_at": "2026-09-23T04:50:47Z",
+      "exit_code": 0,
+      "pid_store": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-pids-external-producer-normal.json",
+      "started_at": "2026-09-23T04:50:09Z",
+      "supervisor_exit_code": 0,
+      "worker_exit_code": 0
+    },
+    "schema": "call-omp-resource-supervisor.v2",
+    "state_file": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-resource-external-producer-normal.json",
+    "status": "reported",
+    "stderr_bytes": 0,
+    "stderr_lines": 0,
+    "stderr_output": "/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-50669fd3fa44-state/omp-raw-external-producer-normal.json.err",
+    "stderr_sha256": "",
+    "stderr_truncated": false,
+    "stdout_truncated": false,
+    "supervisor_exit_code": 0,
+    "task_id": "external-producer-normal",
+    "task_id_source": "call-omp-send",
+    "terminal_decision_cutoff": "post_cleanup_signal_block_then_control_read",
+    "terminal_reason": "normal_completion",
+    "worker_exit_code": 0,
+    "worker_signal": null
+  },
+  "consumer_cases": [
+    {
+      "input": "  Alpha\tBETA\n",
+      "expected": "alpha beta",
+      "actual": "alpha beta"
+    },
+    {
+      "input": "Straße  A",
+      "expected": "strasse a",
+      "actual": "strasse a"
+    },
+    {
+      "input": "  ",
+      "expected": "",
+      "actual": ""
+    }
+  ],
+  "artifact_sha256": "b9b70d5bd7ac027ae45f2eb6a68ed3b56f26a828f74fb1de14d8ddc55ff636ee",
+  "attempt_id": "0e14e159-7601-48a8-bb5d-9d262005ebfe",
+  "launch_fingerprint": "c8e13429764fdd77e32706867ca494a41bd5fdae3768a028bc1cf3613e9033a1",
+  "accept_exit_code": 0
+}

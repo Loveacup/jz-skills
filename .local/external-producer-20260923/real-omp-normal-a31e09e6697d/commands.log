@@ -1,0 +1,14 @@
+
+$ bash /Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/omp-start.sh --package-json /Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-a31e09e6697d/package.json
+===📋 BEGIN omp-start (relay verbatim)===
+✅ 委派包 gate 全过 → status=gated
+   task_id : external-producer-normal
+   mode    : execute   channel: shell
+   criteria: 3 条   risk: low
+   state   : /Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-a31e09e6697d-state/omp-state-external-producer-normal.json
+   下一步  : omp-send.sh --state /Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-a31e09e6697d-state/omp-state-external-producer-normal.json
+===📋 END===
+task_id=external-producer-normal state=/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-a31e09e6697d-state/omp-state-external-producer-normal.json status=gated
+
+$ bash /Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/hermes/call-omp/scripts/omp-send.sh --state /Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-a31e09e6697d-state/omp-state-real-normal.json --async --max-time 90
+omp-send: 读不到 --state '/Users/alexcai/orca/workspaces/jz-skills/call-omp-independent-candidate/.local/external-producer-20260923/real-omp-normal-a31e09e6697d-state/omp-state-real-normal.json'
