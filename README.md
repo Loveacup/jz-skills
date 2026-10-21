@@ -36,6 +36,7 @@ jz-skills/
 ├── _archived-video-analysis-engine/  ← 🗄️ Retired into link-insight
 ├── _archived-bilibili-video-analyzer/  ← 🗄️ Retired legacy video entry
 ├── _archived-xhs-crawler/  ← 🗄️ Xiaohongshu capabilities absorbed into link-insight
+├── _archived-stdd-omp/  ← STDD skill archived; not an active install source
 └── deploy/          ← 🔧 Sync‑back & drift tooling
 ```
 
@@ -43,10 +44,10 @@ jz-skills/
 |-------|-----------|--------|-------|
 | 🧩 Shared | `shared/` | 22 | Works across Hermes, Claude Code, OMP, and pi |
 | ⚡ Hermes | `hermes/` | 20 | Hermes‑only (macOS orchestrator) |
-| 🎯 OMP | `omp/` | 2 | OMP‑only — STDD methodology + operations |
+| 🎯 OMP | `omp/` | 1 | OMP operations; STDD retired |
 | 🪟 Pi | `pi/` | 2 | Windows / pi‑only |
 | 🗄️ Archived | `_archived-hermes-3S6M-profiles/` | 12 profiles | Retired 三省六部 governance profiles |
-| **Total** | | **47 skills** | |
+| **Total** | | **46 skills** | |
 
 <details>
 <summary>🌳 Full skill tree</summary>
@@ -100,9 +101,8 @@ hermes/                              ⚡ 19 skills
 ├── tradingagents                # A股/市场分析
 └── tts-manager                  # TTS 供应商注册+语音测试
 
-omp/                                 🎯 2 skills
-├── omp-ops                      # OMP 配置、模型、API Key、search 提供商运维
-└── stdd-omp                     # STDD 方法论 OMP 侧实现：三梁+四步循环+独立验收
+omp/                                 🎯 1 skill
+└── omp-ops                      # OMP 配置、模型、API Key、search 提供商运维
 
 pi/                                  🪟 2 skills
 ├── pi-grill                     # 歧义守护 v3.1
@@ -153,20 +153,9 @@ OMP 运维核心技能 — 配置管理、模型供应商、API Key、搜索提�
 
 → [`omp/omp-ops/`](omp/omp-ops/)
 
-### 📐 stdd-omp · STDD 方法论 OMP 实现
+### stdd-omp · 已归档
 
-> **13 commits in last 7 days** — autonomous verification loops · 自主验证闭环
-
-STDD (Spec-and-Test Driven Development) methodology skill for OMP. Runs the full STDD micro-loop inside OMP with objective gates, independent auditor wiring, and autonomous verification.
-STDD 方法论在 OMP 侧的完整实现。在 OMP 内运行完整 STDD 微循环，客观门控 + 独立审计接线 + 自主验证。
-
-- **三梁架构 · Three Beams:** Beam 1 (spec alignment) → Beam 2 (test coverage) → Beam 3 (evidence verification) — full verification chain / 三梁验证链：规格对齐→测试覆盖→证据验证
-- **四步循环 · Four-Step Loop:** Spec → Accept → Build → Verify — autonomous iteration with human only inputting requirements / 规格→验收→构建→验证 — 自主迭代，人只输入需求
-- **独立验收 · Independent Audit:** Reviewer + Claim Verify dual advisors; evidence ladder + claimcheck for anti-hallucination / 双 advisor 委员会；证据阶梯+claimcheck 反幻觉
-- **量化档 · Quantitative Scoring:** Upstream truth calibration + quantitative scoring tiers for objective gating / 上游真相校准+量化档客观门控
-- **Agent-Reach 式自部署:** `--text` mode for agent-actionable output; forced entrypoint rewrite + compliance Red Flags table / agent 可操作的文本输出模式 + 强制入口重写 + 合规红旗表
-
-→ [`omp/stdd-omp/`](omp/stdd-omp/)
+2026-10-22 按用户决定退役。完整历史实现移至 [`_archived-stdd-omp/`](_archived-stdd-omp/)，仅供历史参考，不作为安装或部署入口。Mac mini 的已安装技能同时移出活动 pool；这不等于已清除复制到其他位置的规则、hook 或旧会话上下文。
 
 ### 🔍 web-research-router · 检索总控 v5.2
 
@@ -278,12 +267,11 @@ Hermes 通过 RPC / Shell / 实验性 ACP 调用 OMP 做独立审计与证据化
 | 🎓 | [teach-hermes](hermes/teach-hermes/) | Cross-session teaching in Telegram / Telegram 教学 |
 | 🚀 | [call-omp](hermes/call-omp/) | 🆕 fail-closed OMP bridge v0.8.0 / OMP 安全审计桥 |
 
-### omp/ — OMP Methodology & Operations · OMP 方法论与运维 (2 skills)
+### omp/ — OMP Operations · OMP 运维 (1 skill)
 
 | | Skill | Purpose · 用途 |
 |---|-------|----------------|
 | ⚙️ | [omp-ops](omp/omp-ops/) | OMP config, models, API keys, search providers / OMP 配置运维 |
-| 📐 | [stdd-omp](omp/stdd-omp/) | STDD micro-loop: spec→accept→build→verify / STDD 微循环 |
 
 ### pi/ — Personal Intelligence Extensions · 个人智能扩展 (2 skills)
 
@@ -301,6 +289,7 @@ Hermes 通过 RPC / Shell / 实验性 ACP 调用 OMP 做独立审计与证据化
 | 🗄️ | [`_archived-video-analysis-engine/`](_archived-video-analysis-engine/) | Video analysis retired into `link-insight`; includes richer Mac mini runtime snapshot (credentials/caches excluded). |
 | 🗄️ | [`_archived-bilibili-video-analyzer/`](_archived-bilibili-video-analyzer/) | Retired Bilibili compatibility entry and historical runtime implementation; use `link-insight`. |
 | 🗄️ | [`_archived-xhs-crawler/`](_archived-xhs-crawler/) | All Xiaohongshu capabilities absorbed into `link-insight` (`xhs search/creator/show`, `run start`); filtered Mac mini runtime snapshot excludes credentials, caches, host-private binding and external downloader checkout. |
+| | [`_archived-stdd-omp/`](_archived-stdd-omp/) | STDD retired by user decision on 2026-10-22; historical source only, not for deployment. |
 
 ---
 
