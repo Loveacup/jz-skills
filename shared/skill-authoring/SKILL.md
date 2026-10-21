@@ -2,7 +2,7 @@
 name: skill-authoring
 description: Create, revise, import, or audit Agent Skills; govern a named skill collection or agent instruction files such as AGENTS.md. Not for ordinary coding or executing a skill's subject task.
 type: routine
-version: 6.1.1
+version: 6.2.0
 author: Hermes Agent
 license: MIT
 metadata:
@@ -23,13 +23,17 @@ Use your judgment to choose the approach. Draw on model knowledge for familiar c
 
 **Wording-only edits:** make the focused change, check meaning and affected links, then finish. For substantive work, keep the result and its important acceptance conditions clear; choose the amount of planning and validation the task warrants.
 
-Before changing an existing skill's behavior, read its core-requirements document—what the skill must keep delivering. If it has none, extract one from current behavior first. This skill's own: [core requirements](references/core-requirements.md).
+Before changing an existing skill's behavior, establish what it must keep delivering from its existing requirements and actual behavior. A small skill can keep that baseline in its body or existing notes; do not create a separate requirements file just to begin an edit. This maintained family keeps its existing [core requirements](references/core-requirements.md). Choose traceability proportional to the work as [Author](references/author.md#keep-the-skill-traceable) explains.
 
 ## Design for judgment
 
 Give the consuming agent the goal, task-specific knowledge, useful decision cues and a way to recognize a good result. Explain why a method works and when it applies. Let the agent choose tools, sequence ordinary steps, retrieve current information and adapt methods to the situation.
 
 Keep exact interfaces, required output contracts and necessary safety constraints concrete. Recommended methods are adaptable; explicit user requirements and applicable host rules remain binding. More detail earns its place when it supplies missing expertise or prevents a real failure, not merely because it makes the document look complete.
+
+Write for complete outcomes with the least delivery and maintenance burden, not the fewest lines. Prefer existing capabilities; add structure for a current consumer, obligation or demonstrated gap. Judge safeguards by what they detect and how rejection, recovery or diagnosis changes the result. Use the task's actual exposure and consequences, not hypothetical future users, to choose the engineering burden. Repair the instruction causing unnecessary work rather than stacking counter-rules. These are decision cues, not a new checklist, proof file or review stage.
+
+Make verification answer a consequential question and reuse evidence that still applies to the final state. Repeat for changed behavior, failed checks, unresolved material uncertainty or explicit requirements, not to demonstrate diligence. Finish when the requested result and proportionate evidence are complete. State meaningful limitations beside the claims they qualify; omit ritual cautionary footers and internal process narration that do not help the reader decide or act.
 
 ## Reach for depth when useful
 
@@ -50,4 +54,4 @@ Complete the requested artifact and inspect whether it actually serves the task.
 
 Creation or review does not grant permission to publish, delete, repoint a consumer, change credentials or deploy elsewhere. Follow the named action's authority and the conditional release guidance. Missing required evidence leaves that claim blocked, while independent work can continue. Changing this skill does not waive the rules currently governing the session.
 
-Describe what changed, what was actually checked and what remains uncertain. Prefer repairing an implicated idea or resource to accumulating another warning after every run. A behavior change also leaves its trace in the skill's change history and core requirements as [Author](references/author.md#keep-the-skill-traceable) describes.
+Describe what changed, what was actually checked and any uncertainty material to using the result. Prefer repairing an implicated idea or resource to accumulating another warning after every run. Record behavior changes through the skill's existing history or an appropriately small note; update requirements when their meaning changed, as [Author](references/author.md#keep-the-skill-traceable) describes.

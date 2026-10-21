@@ -42,6 +42,10 @@ For example, a document-extraction skill can explain how to recognize a missing 
 
 Write for the task, not for one model. A shared skill guides every contributor's agent, and those agents run different models. A constraint that exists only to compensate for one model's past behavior—acting without permission, skipping checks, stopping early—belongs in that host's adapter or carries its reason inline, so a model without that weakness is not overconstrained by it.
 
+Choose engineering from the actual use. A one-off analysis may need only a direct script; a personal tool usually needs a clear working path, not multi-tenant infrastructure. Shared services need the protections justified by their real exposure and commitments, not every possible safeguard. In each setting, preserve required behavior, authorization and data integrity. Reuse project capabilities, standard-library or native platform features, and installed dependencies when they fit; introduce a new mechanism to close a concrete gap, not to reach the end of a mandatory search ladder.
+
+An instruction earns its place by supplying useful knowledge or changing a consequential decision. For a safeguard, explain what it detects and what rejection, recovery or diagnosis accomplishes. Do not infer value or waste from names such as checksum, retry or compatibility layer. Inspect an existing protection before narrowing it; lack of an explanation is not evidence it is useless. Reduce the cause of repeated confirmation or overengineering in the owning rule rather than appending another ban. A larger change can be the simplest complete solution when required callers, state or tests must change together.
+
 ## Organize around use
 
 Keep the common direction at the entrypoint. Put specialist depth, rare recovery and host-specific bindings behind links that explain when the material helps. Keep jointly required constraints near the operation that needs them; scattering them across files can cause omissions.
@@ -50,9 +54,9 @@ Examples clarify a genuinely ambiguous decision. Templates help when consumers r
 
 ## Keep the skill traceable
 
-Every skill carries a core-requirements document and a change history, inside the skill so they travel with it (conventionally `references/core-requirements.md` and `CHANGELOG.md` or `references/changelog.md`). The requirements list, with stable IDs, what the skill must keep delivering: trigger boundary, consumer-visible result, boundaries it must not cross, non-goals. Extract them from actual behavior and stated needs; an entry earns its place only if losing it would be an observable regression. A dozen is typical. This is not a plan or PRD.
+Keep the skill's important behavior and changes traceable in a form proportional to its size and maintenance needs. A small skill can state its trigger, result, boundaries and non-goals in the body, and record a meaningful change in an existing history or short note. Separate requirements files, stable IDs and a dedicated changelog are useful for complex or long-maintained families, not mandatory accessories or prerequisites for an ordinary edit. Preserve existing useful records; this guidance does not authorize deleting them or overriding a project's required records.
 
-New skill: write the requirements from the agreed inputs, result, trigger and boundaries before the body is finished. Existing skill: read them before changing behavior; if absent, extract them first as the baseline. Each behavior change ends with a change-history entry stating what it improved, preserved and how that was confirmed, citing the IDs touched, and with the requirements updated where one was added, narrowed or retired. Retiring one is a user decision.
+Before changing behavior, read the existing requirements where they live and compare with the actual skill. If no explicit baseline exists, identify what must survive as part of the edit; create another document only when it adds maintenance value. Record what improved, what stayed intact and how it was checked in the existing appropriate record, citing IDs when the skill uses them. Update requirements only when one was added, narrowed or retired. Removing a user-required capability needs the user's decision; traceability does not turn an agent-added suggestion into a binding requirement.
 
 ## Try the work and refine
 

@@ -1,6 +1,14 @@
 # Changelog
 
-Version entries describe changes, not proof that a runtime loaded or correctly used them. Deployment and publication require their own evidence. From v6.1.0 each entry states what it improved, what it preserved, and how that was confirmed, citing IDs from [core requirements](./core-requirements.md).
+Version entries describe changes, not proof that a runtime loaded or correctly used them. Deployment and publication require their own evidence. This maintained family uses its existing history and [core requirements](./core-requirements.md); v6.2.0 makes that record format optional for smaller skills rather than universal.
+
+## v6.2.0 — 2026-10-22
+
+**Improved.** CR03, CR04, CR05: guidance favors complete outcomes with the least delivery and maintenance burden, reuse before new mechanisms, safeguards judged by detection and response, meaningful verification and a concrete stopping point. Actual users and exposure determine engineering burden. Reader-facing qualifications stay beside the claims they change instead of becoming ritual risk footers. CR10 was narrowed with AlexCai's approval: small skills may keep requirements in their body and changes in existing notes; separate files and stable IDs are optional unless the target project requires them. The repository's matching authoring clause was updated so it does not reimpose the old universal requirement.
+
+**Preserved.** Discovery and conditional reference routes, useful existing records, complete user-facing capabilities, required project verifiers, authorization, privacy, data integrity, source reconciliation and separate apply/deploy/publish boundaries. The Hermes default copy retains local-only authoring, context-audit, import and deployment knowledge. No hooks, guards, services or runtime repoints were added.
+
+**Evidence.** The source-level basis is the actual advisory Skill code in [Stop That Shit](https://github.com/lennney/stop-that-shit/blob/8bc1ac558167121e7f28d9fb0bec05c039952206/skills/stop-that-shit/SKILL.md), its [STSS](https://github.com/lennney/stop-that-shit/blob/8bc1ac558167121e7f28d9fb0bec05c039952206/skills/stss/SKILL.md), [Ponytail](https://github.com/DietrichGebert/ponytail/blob/09c434ab73ca43761c5d8b0c5d341926c2fba710/skills/ponytail/SKILL.md) and [Smallest Complete](https://github.com/JetXu-LLM/smallest-complete/blob/5f8a928082ff3f5e1e9d7c6b5f7142b4b95b8826/skills/smallest-complete/SKILL.md), read for this revision. These are design inputs, not measured GPT improvement. Static and consumer checks are recorded in the local task audit; no all-task, cross-model or token-saving claim is made.
 
 ## v6.1.1 — 2026-10-20
 
