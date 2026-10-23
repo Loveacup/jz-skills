@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Storage analysis
+
+- Added bounded `storage analyze` with explicit root groups, non-overlapping observed hotspots, account-home resolution, same-inode alias deduplication, targeted application-container ownership metadata and honest unknown/partial coverage. Avoid repeated aggregate du for roots selected for deeper attribution. No sizes are declared physically reclaimable; old catalogue/cleanup and scheduled behavior remain unchanged.
+- Added private offline HTML output with escaped local paths, no scripts/network/deletion service and exclusive new-file creation. The design is inspired by KKKKhazix/khazix-skills storage-analyzer at `322346ded8129436b3f64707789a73e732ae24d9`; upstream code/templates/server were not copied. Broad cache-as-safe assumptions and default deletion controls were deliberately not adopted.
+- Fixed an existing APFS health-check edge case: a measured zero free-byte value no longer falls through to unknown. A regression demonstrates critical/full-container status without changing score thresholds.
+
 ### Cleanup
 
 - Owner decision 2026-10-11 supersedes the native-interface-only policy: current-task authorized cleanup may use scoped tool-native commands, exact-path filesystem operations or available native UI after independent exact-manifest review. No repeated per-item confirmation under delegated-review authority; no driver installation prerequisite for commands. Inactive Hermes backup copies and explicitly requested account Trash are permitted after recovery-loss, scope, identity/use and irreversible-consequence review. Live originals, privileges/security changes and unapproved volumes remain excluded. Audit actual effects and disclose pathname ABA residual risk; no atomic inode-binding claim. CLI code/catalogue/CAUTION flag remain unchanged.

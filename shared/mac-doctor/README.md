@@ -21,6 +21,15 @@ Cleanup is separate from diagnosis. Owner authorization plus review of exact tar
 
 ## Architecture
 
+### Storage attribution and offline reports
+
+`scripts/mac-doctor storage analyze --json` surveys account-home/Library hot spots and Applications under a 30-second command budget. Use repeatable `--root /absolute/directory` for targeted follow-up, `--min-mb`, `--top`, `--max-entries` and `--budget-sec` (maximum 120) to control work. Existing `storage --json` remains the unchanged narrow cleanup catalogue.
+
+For a private, shareable-by-choice static view, add `--html /absolute/new-report.html`. It is escaped, self-contained, and has no external resources, JavaScript, filesystem server or deletion buttons; an existing file is never overwritten. No browser is opened automatically. Group paths can reveal private names, so do not publish/upload the report without permission.
+
+The analysis distinguishes APFS container free space, observed allocated directory sizes, incomplete measurements and unknown reclaimability. Parent groups are not summed; planned detailed roots avoid redundant aggregate du calls and same-inode aliases are excluded from repeat measurement/ranking. Models, toolchains, app containers and databases never become automatically disposable from their names. See [storage analysis](references/storage-analysis.md). Collector, cron configuration, cleanup catalogue and approval requirements are unchanged.
+
+
 - **Core CLI** (`scripts/mac-doctor`, `scripts/macdoctor/`): on-demand checks, scores, storage scan, clean plan/apply/receipts, history, status, and install/uninstall. Checks and scans are read-only.
 - **L1 collector** (`scripts/collector-daemon.py`): optional LaunchAgent samples metrics to local SQLite, evaluates alerts, and prunes history according to retention. Installing it does not register Hermes jobs.
 - **Optional Hermes adapter** (`adapters/hermes/`): watchdog and triage scripts plus cron-job specifications. The JSON is a specification; `mac-doctor install` prints it but does not register jobs. To edit jobs in the cron-worker profile, use `hermes -p cron-worker cron edit`. See [`adapters/hermes/README.md`](adapters/hermes/README.md).
@@ -51,3 +60,4 @@ Paths are resolved by `scripts/macdoctor/paths.py`. The data directory precedenc
 | [Pearcleaner](https://github.com/alienator88/Pearcleaner) | Trash as a reversible destination | Trash movement is not reported as freed space |
 | [mSCP](https://github.com/usnistgov/macos_security) | traceable security controls | no automatic enforcement of personal-device baselines |
 | [Anthropic skills](https://github.com/anthropics/skills) | concise skill routing with scripts/references | implementation stays in tested CLI |
+| [storage-analyzer](https://github.com/KKKKhazix/khazix-skills/tree/322346ded8129436b3f64707789a73e732ae24d9/storage-analyzer) | root groups, ownership hints, top consumers and offline report reading flow | independently implemented; no upstream scanner/server/template copied, no automatic green cleanup or delete service |

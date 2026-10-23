@@ -18,7 +18,9 @@ def apfs_free(command: Command, timeout: float):
         info = plistlib.loads(stdout.encode() if isinstance(stdout, str) else stdout)
     except Exception:
         info = {}
-    free = info.get("APFSContainerFree") or info.get("ContainerFreeSpace")
+    free = info.get("APFSContainerFree")
+    if free is None:
+        free = info.get("ContainerFreeSpace")
     total = info.get("APFSContainerSize") or info.get("ContainerTotalSpace")
     if rc or not isinstance(free, int) or not isinstance(total, int) or total <= 0:
         state, value, evidence = "unknown", None, (stderr or "Could not read APFS container plist")[:300]

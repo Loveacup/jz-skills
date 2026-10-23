@@ -9,6 +9,7 @@ Run `scripts/mac-doctor COMMAND --help` for the executable parser. Root options 
 | `check` | `--category {performance,storage,security,hardware,network,devenv}` repeatable; `--id ID` repeatable; `--timeout S` (default 10, `0<S≤300`); `--json` | All registered checks by default; report envelope below. |
 | `score` | `--timeout S`; `--json` | `{scores:{security,performance,storage,coverage},status}`. |
 | `storage` | `--json` | Read-only scan summary: `items`, `item_count`, `known_size_bytes`, `unknown_size_count`, `report_only_count`, `read_only:true`. |
+| `storage analyze` | repeatable `--root ABS_DIR`; `--min-mb N` (50); `--top N` (5, maximum 100); `--budget-sec S` (30, maximum 120); `--max-entries N` (200, maximum 1000); `--json`; optional `--html ABS_NEW_FILE` | `storage-analysis/v1`: APFS metadata, groups, disjoint observed hotspots, explicit coverage and non-additive accounting. Reclaimability remains null. Optional HTML is a new private static artifact, never overwrites. See [scope/limits](storage-analysis.md). |
 | `clean targets` | `--json` | Current target catalogue as JSON. |
 | `clean plan` | `--target ID` repeatable; `--include-caution`; `--json` | Saves one-hour plan and emits its ID and items. SAFE only by default; `--include-caution` adds CAUTION items for review only (apply always refuses them). |
 | `clean apply PLAN_ID` | required `--yes`; optional `--renew-if-unchanged`, `--json` | Revalidate and attempt exactly the approved plan; only SAFE items execute. Explicit unchanged-manifest renewal may replace an expired SAFE/native plan with a matching fresh plan, then immediately apply through normal gates; defaults still refuse expiry. |
@@ -56,6 +57,7 @@ A score group with no checks in this run is `null` (text output: "not checked"),
 
 - **check/score:** 0 pass/skip; 1 warn, unknown, or error; 2 critical; 3 usage/internal error.
 - **storage/clean:** storage and successful targets/plan return 0; clean plan invalid target/error returns 2; apply refusal returns 2, per-item failed action returns 1; receipts read/parse error returns 3; parser usage error returns 2.
+- **storage analyze:** 0 selected roots completed under the declared exclusion policy; 1 incomplete scan (budget/entry limits, unreadable data, failed du or explicit missing root), while still returning the partial report; 2 unsupported platform, invalid limits/path or failed report creation. APFS metadata has its own ok/unknown status and is not a whole-host pass. No automatic retry, cleanup or background process.
 - **status:** 1 when latest snapshot is stale/unknown or LaunchAgent is not loaded; otherwise 0.
 - **verify:** 1 if any check is FAIL, otherwise 0 (UNKNOWN is not FAIL).
 - **install/uninstall/history/preferences/triage:** 0 on successful operation; failures return nonzero (install/uninstall propagate subprocess status where available; history read error 1; invalid preference key 1; unavailable Hermes triage 1). Argparse usage errors return 2.

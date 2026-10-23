@@ -49,7 +49,8 @@ If `$SKILL_DIR` is unavailable, use the skill loader's resolved file path to loc
 |---|---|
 | Health overview | `scripts/mac-doctor score` (or detailed `check`) |
 | Slow Mac, memory pressure, swap | `scripts/mac-doctor check --category performance` |
-| Disk full | `scripts/mac-doctor check --category storage`; `storage`; then, only if requested, `clean plan` |
+| Disk full / storage attribution | `scripts/mac-doctor check --category storage`; `storage analyze --json` for bounded root groups/Top hotspots; `storage` for the existing cleanup catalogue; only then, if requested, `clean plan` |
+| Offline storage report | `scripts/mac-doctor storage analyze --html ABSOLUTE_NEW_FILE --json`; read `references/storage-analysis.md` |
 | Security posture | `scripts/mac-doctor check --category security` |
 | Hardware, network, developer environment | `scripts/mac-doctor check --category hardware`, `network`, or `devenv` |
 | History and trends | `scripts/mac-doctor history` |
@@ -59,6 +60,8 @@ If `$SKILL_DIR` is unavailable, use the skill loader's resolved file path to loc
 | Optional watchdog alert gate | `scripts/mac-doctor jev preview` / `jev ask`; read `references/jev.md` |
 
 `check` and `score` are on-demand CLI operations. A score is three subsystem scores plus coverage—not a single overall health grade.
+
+`storage analyze` adds read-only attribution inspired by storage-analyzer, not a deletion backend. It uses the OS-account home rather than a profile's redirected HOME; default command budget is 30 seconds, each du at most 3 seconds, maximum 200 immediate entries per root. Unknown, partial and excluded paths are explicit; nested groups and same-inode aliases are not additive. Report occupied allocated bytes, never equate them to reclaimable space. `--html` only writes a new private static artifact, with no network assets, server or delete controls. Keep routine watchdog/collector cadence unchanged; do not run broad analysis on every tick or turn its findings into cleanup permission. Read `references/storage-analysis.md` for selective follow-up and limits.
 
 ## User-facing report contract
 
@@ -75,6 +78,7 @@ Report: (1) a one-line conclusion, (2) evidence with check IDs and measured valu
 ## References
 
 - `references/checks.md` — checks, IDs, thresholds, scoring and coverage.
+- `references/storage-analysis.md` — bounded storage attribution, ownership hints, accounting, offline reports and cron-use boundaries.
 - `references/cleanup.md` — target catalogue, gates, plans and receipts.
 - `references/collector-and-alerts.md` — background collector, configuration, alerts and database.
 - `references/cli.md` — command, JSON, and exit-code details.

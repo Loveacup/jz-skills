@@ -27,6 +27,25 @@ def _storage(args):
     return 0
 
 
+def _analyze(args):
+    from .storage_analysis import analyze
+    if sys.platform != 'darwin':
+        _emit({'error': 'unsupported_platform', 'read_only': True}, True)
+        return 2
+    try:
+        report = analyze(args.root, min_bytes=int(args.min_mb * 1024 * 1024),
+                         top=args.top, budget_seconds=args.budget_sec,
+                         max_entries=args.max_entries)
+        if args.html:
+            from .storage_report import write_html
+            report['html_report'] = write_html(report, args.html)
+    except (OSError, ValueError, OverflowError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    _emit(report, args.json)
+    return 0 if report['coverage']['complete'] else 1
+
+
 def _targets(args):
     _emit(clean.load_targets(), args.json)
     return 0
@@ -71,6 +90,16 @@ def register(subparsers):
     storage = subparsers.add_parser("storage", help="Read-only storage target scan")
     storage.add_argument("--json", action="store_true")
     storage.set_defaults(func=_storage)
+    storage_sub = storage.add_subparsers(dest='storage_command')
+    analysis = storage_sub.add_parser('analyze', help='Bounded read-only storage attribution, not cleanup')
+    analysis.add_argument('--root', action='append', help='Absolute directory; repeatable, default account hot spots')
+    analysis.add_argument('--min-mb', type=float, default=50)
+    analysis.add_argument('--top', type=int, default=5)
+    analysis.add_argument('--budget-sec', type=float, default=30)
+    analysis.add_argument('--max-entries', type=int, default=200)
+    analysis.add_argument('--json', action='store_true')
+    analysis.add_argument('--html', help='Write a new private offline HTML file; never overwrite')
+    analysis.set_defaults(func=_analyze)
 
     clean_parser = subparsers.add_parser("clean", help="Plan and apply safe cleanup")
     commands = clean_parser.add_subparsers(dest="clean_command", required=True)
