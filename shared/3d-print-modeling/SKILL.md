@@ -2,7 +2,7 @@
 name: 3d-print-modeling
 description: "用于3D打印项目的需求澄清、现场归档、建模修改、切片设置与质量排查、可编辑3MF交付及Dot协调；先读核心需求，权衡结构与参数联动，分阶段快审并回收有证据的经验。"
 metadata:
-  version: "1.1.1"
+  version: "1.2.0"
 ---
 
 # 3D打印建模与项目协作
@@ -23,6 +23,7 @@ metadata:
 - **Dot协调、本地Codex执行**：共用本项目技能主源，按[自动组织、版本核对与轻量协作](references/dot-local-collaboration.md)由Dot担任项目经理，下发时统一会话名，收阶段报告并统一沟通；用户也可直聊执行者，关键决定及时同步。本地核心需求保持唯一，项目查找、派活、MakerWorld参考模型取得与报告衔接由Dot组织。
 - **需要HTML审阅、CAD、打印性分析、尺寸图纸或实际切片**：按[工具选择与运行边界](references/tool-routing.md)查当前实际可用能力，任务需要且已安装时才读对应技能。未安装不自动部署；本包不包含兄弟工具或固定运行环境。
 - **设备与材料背景**：[简短设备/材料背景](references/user-printing-profile.md)。材料可随时替换；概念先按功能讨论，只在影响尺寸、弹性或界面时核当次用料，见[材料与几何](references/geometry-validation.md#材料只提供建模条件)。实际切片再核工程与设备。
+- **拓竹机型/送料与材料兼容、Studio功能或打印质量/HMS问题**：按[官方Wiki查证](references/reference-research.md#按问题查拓竹官方wiki)查对应页面；用当前机料与软件条件筛选，核相关正文，项目内简记实际采用的依据。
 - **连接、支承或活动结构**：[常用结构卡](references/common-structures.md)按标题取用；借鉴已做项目读[项目结构库](references/project-patterns.md)，沿用机制与取舍，尺寸和批准不移植。
 - **Gridfinity、SKÅDIS、蜂窝墙或B-RAIL接口**：按[模块体系索引](references/modular-systems.md)只读目标系统，保留接口核心并独立设计功能体；引用中的数字几何不作实物兼容或承载保证。
 - **网片、镂空和沥水**：先评估切片器填充、顶底层、墙与对象设置能否形成所需结构，再决定显式CAD网格；检查实际路径，见[可编辑工程](references/slicing-and-delivery.md#可编辑工程与一致性)。
@@ -36,4 +37,4 @@ metadata:
 
 本地技能须被当前会话发现或读取才生效，不保证后台监听、自动同步云端或所有会话自动加载。共享文件写入前重读，实质进度后只合并本次负责段落。
 
-公开版1.1.1的内容边界与来源见[发布说明](references/publication-notes.md)。具体项目资料和验证证据保留在项目目录。
+公开版1.2.0的内容边界与来源见[发布说明](references/publication-notes.md)。具体项目资料和验证证据保留在项目目录。
