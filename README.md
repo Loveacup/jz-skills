@@ -9,7 +9,7 @@
 >
 > 一个面向多 CLI AI Agent 的个人技能中心：技能由 AI Agent 自行编写、审计与演进，同时部署至 Hermes、Claude Code、OMP 与 pi (Windows) 四个平台。
 
-`2pdf` and `2md` are maintained in [Loveacup/2pdf](https://github.com/Loveacup/2pdf) and [Loveacup/2md](https://github.com/Loveacup/2md). This hub pins them as submodules; their own license terms apply, not this hub's MIT license.
+`2pdf`, `2md`, and `3d-print-modeling` are maintained in [Loveacup/2pdf](https://github.com/Loveacup/2pdf), [Loveacup/2md](https://github.com/Loveacup/2md), and [Loveacup/3d-print-modeling](https://github.com/Loveacup/3d-print-modeling). This hub pins them as submodules; consult each repository's own license and source notices rather than assuming this hub's MIT license covers them.
 
 ```bash
 git clone --recurse-submodules https://github.com/Loveacup/jz-skills.git
@@ -17,11 +17,11 @@ git clone --recurse-submodules https://github.com/Loveacup/jz-skills.git
 git submodule update --init --recursive
 ```
 
-Edit/commit/push each skill in its own repository, then commit the updated submodule pointer here. Reverse synchronization from runtime copies is disabled for these two skills. Full deployment is not needed for existing source symlinks.
+Edit/commit/push each skill in its own repository, then commit the updated submodule pointer here. Reverse synchronization from runtime copies is disabled for these independent skills; `3d-print-modeling` has no automatic runtime deployment mapping. Full deployment is not needed for existing source symlinks.
 
 ---
 
-[3d-print-modeling](shared/3d-print-modeling/) 提供按项目使用的FDM建模、审核、切片交付与Dot协作流程。文档和附件收敛到所属项目，知识库不留副本或跳转；本次仅发布源文件，不自动部署到各CLI。
+[3d-print-modeling](https://github.com/Loveacup/3d-print-modeling) 已独立维护，`shared/3d-print-modeling` 仅保留子模块引用。它理解诉求并推进完整3D打印项目，连接建模、视觉表达、制造、项目管理与每次使用的知识循环；[配套上游与按需安装](https://github.com/Loveacup/3d-print-modeling/blob/main/references/upstream-skills.md)包含来源与许可边界。原主技能Issues #1/#3已转移至[新仓库](https://github.com/Loveacup/3d-print-modeling/issues)，旧链接与评论保留；兄弟DfAM问题仍留本仓库#2。历史正文保留在[1.3.0提交](https://github.com/Loveacup/jz-skills/tree/0d3530a126e6ccb7956d7ac1a30459f3f398dfc4/shared/3d-print-modeling)，不再维护第二份源码；本次不部署各CLI。
 
 ## 📂 Structure
 

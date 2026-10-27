@@ -4,3 +4,6 @@
 [submodule "shared/2md"]
 	path = shared/2md
 	url = https://github.com/Loveacup/2md.git
+[submodule "shared/3d-print-modeling"]
+	path = shared/3d-print-modeling
+	url = https://github.com/Loveacup/3d-print-modeling.git
