@@ -70,7 +70,7 @@ shared/                              🧩 23 skills (+1 archived)
 ├── obsidian-md-ac               # OFM + Mermaid + JSON Canvas 参考
 ├── 2pdf                         # PDF editing/forms/light extraction/typesetting
 ├── 2md                          # document→Markdown, image assets/transcription, Marker parsing
-├── skill-authoring              # 技能合规创作+七维评分（v4.0.0）
+├── skill-authoring              # Migration note only; maintained in Loveacup/skill-authoring
 ├── supermemory-maintenance      # Supermemory v7 参考
 ├── surge-gateway                # Surge 家庭代理网关
 ├── unifi-ops                    # UniFi AP/交换机/Controller 运维
@@ -187,18 +187,13 @@ Hermes 通过 RPC / Shell / 实验性 ACP 调用 OMP 做独立审计与证据化
 
 → [`hermes/call-omp/`](hermes/call-omp/)
 
-### ✍️ skill-authoring · 技能创作合规 v4.0.0
+### ✍️ skill-authoring · Independently maintained / 独立维护
 
-> **5 commits in last 7 days** — SROF framework + v4.0.0 redesign · SROF 框架+v4.0.0 重构
+[Skill Authoring](https://github.com/Loveacup/skill-authoring) is now maintained in its own public repository. Use that repository for current authoring, evaluation, governance and installation guidance.
+Skill Authoring 已迁移至独立公开仓库；创作、评估、治理及安装说明以新仓库为准。
 
-11-step compliance creation + 7-dimension scoring for skills. Latest: v4.0.0 first-principles redesign + SROF (Skill Runtime Orchestration Framework).
-11步合规创作+七维评分。最新：v4.0.0 第一性原理重构 + SROF 运行时编排框架。
-
-- **v4.0.0 重构:** First-principles redesign — streamlined 11-step workflow with sharper quality gates / 第一性原理重构，精简流程+更锐利的质量门
-- **SROF v1.1:** Skill Runtime Orchestration Framework — gate scripts + setup engine + lock generator for reproducible skill execution / 技能运行时编排框架 — 门控脚本+安装引擎+锁生成器
-- **独立审计闭环:** SROF v1.0 received CONDITIONAL PASS independent audit from OMP / SROF v1.0 获 OMP 独立审计 CONDITIONAL PASS
-
-→ [`shared/skill-authoring/`](shared/skill-authoring/)
+This collection no longer installs or reverse-syncs Skill Authoring. The old discoverable entry is retired; see the [migration note](shared/skill-authoring/) for history and migration boundaries.
+本合集不再部署或反向同步 Skill Authoring；旧活动入口已退役，历史与迁移边界见[迁移说明](shared/skill-authoring/)。
 
 > Previously featured skills like cqi-plan-writer and vault-keeper remain in the full catalog below but have been superseded or stabilized. auto-diary moved to its own private repo (`Loveacup/auto-diary`).
 > 此前入选的技能如 cqi-plan-writer、vault-keeper 仍保留在下方完整目录中，但已被取代或趋于稳定。auto-diary 已迁出到独立私有仓库 `Loveacup/auto-diary`。
@@ -216,7 +211,7 @@ Hermes 通过 RPC / Shell / 实验性 ACP 调用 OMP 做独立审计与证据化
 |---|-------|----------------|
 | 🐙 | [github](shared/github/) | Full GitHub ops / GitHub 全操作 |
 | 📋 | [grill-with-docs](shared/grill-with-docs/) | Design review against governance docs / 设计审查 |
-| ✍️ | [skill-authoring](shared/skill-authoring/) | v4.0.0 11-step, 7-dim scoring / 合规创作 |
+| ✍️ | [skill-authoring](https://github.com/Loveacup/skill-authoring) | Independent repository; migration note only here / 独立维护，本地仅迁移说明 |
 | 🎯 | [goalgen](shared/goalgen/) | Multi-CLI goal instruction generator / 通用 goal 生成器 |
 | 🍎 | [mac-doctor](shared/mac-doctor/) | Read-only macOS diagnostics and gated native cleanup / macOS 巡检与受限原生清理 |
 | 📄 | [2pdf](https://github.com/Loveacup/2pdf) | Independent submodule: PDF editing/forms and Markdown→PDF / 独立排版与 PDF 工具 |
@@ -303,8 +298,8 @@ cd ~/code/jz-skills && ./deploy/sync-all.sh hermes   # → ~/.hermes/skills/
 ./deploy/sync-all.sh pi        # → ~/.pi/skills/
 ```
 
-> ⚠️ **Before creating or modifying skills, read [CLAUDE.md](CLAUDE.md).** All skills must pass [skill-authoring](shared/skill-authoring/) compliance.
-> 创作或修改 skill 前，先读 [CLAUDE.md](CLAUDE.md)。所有 skill 必须通过 [skill-authoring](shared/skill-authoring/) 合规审查。
+> ⚠️ **Before creating or modifying skills, read [CLAUDE.md](CLAUDE.md).** All skills must be reviewed using [skill-authoring](https://github.com/Loveacup/skill-authoring) guidance.
+> 创作或修改 skill 前，先读 [CLAUDE.md](CLAUDE.md)。所有 skill 必须通过 [skill-authoring](https://github.com/Loveacup/skill-authoring) 指导的审查。
 
 ---
 
@@ -341,7 +336,7 @@ hermes gateway restart -p default
 |---|-------------|---------------------|
 | 1 | **Naming · 命名** | `lowercase-hyphens` only. No `_`, no CamelCase. |
 | 2 | **YAML frontmatter** | Every SKILL.md must have `name` + `description` + `version` + `author` + `license`. |
-| 3 | **Compliance · 合规** | All skills must pass [skill-authoring v4.0](shared/skill-authoring/) (11-step, 7-dim). |
+| 3 | **Compliance · 合规** | Follow the current [skill-authoring](https://github.com/Loveacup/skill-authoring) authoring and review guidance. |
 | 4 | **Cross-platform · 跨平台** | `shared/` skills: no hardcoded paths, no platform-specific tools. |
 | 5 | **Commits · 提交** | Bilingual: `type(scope): EN description / 中文描述`. |
 | 6 | **Sync · 同步** | Always `sync-back.sh --dry-run` before commit. Never skip sanitize. |

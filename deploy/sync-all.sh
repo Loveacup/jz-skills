@@ -112,7 +112,6 @@ sync_hermes() {
   # Shared (cross-platform) skills
   mkdir -p "$base/governance" "$base/productivity"
   copy_skill_dir "$REPO_ROOT/shared/grill-with-docs"        "$base/governance"
-  copy_skill_dir "$REPO_ROOT/shared/skill-authoring"        "$base/governance"
   copy_skill_dir "$REPO_ROOT/shared/goalgen"               "$base/governance"
   deploy_shared_multi "$REPO_ROOT/shared/2pdf"   # blocker#2: canonical + 4-runtime symlinks（不再造 legacy pdf shadow）
   deploy_shared_multi "$REPO_ROOT/shared/2md"   # document-to-Markdown parsing and image assets
@@ -167,7 +166,6 @@ sync_hermes() {
     local pd="$REAL_HOME/.hermes/profiles/$prof/skills"
     mkdir -p "$pd/research" "$pd/github" "$pd/governance" "$pd/productivity" "$pd/autonomous-ai-agents" "$pd/apple" "$pd/hermes" "$pd/social-media" "$pd/smart-home"
     copy_skill_dir "$REPO_ROOT/shared/grill-with-docs"        "$pd/governance"
-    copy_skill_dir "$REPO_ROOT/shared/skill-authoring"        "$pd/governance"
     copy_skill_dir "$REPO_ROOT/shared/goalgen"               "$pd/governance"
     copy_skill_dir "$REPO_ROOT/shared/github"                "$pd"
     copy_skill_dir "$REPO_ROOT/shared/xhs-tech-writer"        "$pd/hermes"
@@ -207,7 +205,6 @@ sync_cc() {
   echo "→ Syncing to Claude Code..."
 
   cp -r "$REPO_ROOT/shared/grill-with-docs/SKILL.md"      "$base/grill-with-docs.md"
-  cp -r "$REPO_ROOT/shared/skill-authoring/SKILL.md"      "$base/skill-authoring.md"
   cp -r "$REPO_ROOT/shared/goalgen/SKILL.md"             "$base/goalgen.md"
   # shared/destiny-matrix 不在此部署：~/.claude/skills/destiny-matrix 是它的开发源（含不入库的 memory/），
   # 入库方向为 rsync 该目录 → shared/destiny-matrix，排除 memory/ _archive/ cache/ __pycache__/。
@@ -229,7 +226,6 @@ sync_pi() {
   echo "→ Syncing to pi ($base)..."
 
   cp -r "$REPO_ROOT/shared/grill-with-docs"  "$base/"
-  cp -r "$REPO_ROOT/shared/skill-authoring"  "$base/"
   cp -r "$REPO_ROOT/shared/goalgen"  "$base/"
   copy_skill_dir "$REPO_ROOT/shared/destiny-matrix" "$base"   # rm+cp，避免 cp -r 在已有目录下嵌套
 

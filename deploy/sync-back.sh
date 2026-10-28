@@ -63,6 +63,16 @@ if [ "$DRY_RUN" = false ] && [ "$FORCE_ALL" = false ] && [ "${#ONLY_PATHS[@]}" -
   exit 2
 fi
 
+# Retired standalone source must never be recreated from a runtime copy.
+for wanted in "${ONLY_PATHS[@]}"; do
+  case "$wanted" in
+    shared/skill-authoring|shared/skill-authoring/)
+      echo "ERROR: Skill Authoring moved to https://github.com/Loveacup/skill-authoring; reverse sync is forbidden." >&2
+      exit 3
+      ;;
+  esac
+done
+
 echo "🔍 Reverse sync: Hermes → jz-skills repo"
 [ "$DRY_RUN" = true ] && echo "   (DRY RUN — no files will be copied)"
 [ "${#ONLY_PATHS[@]}" -gt 0 ] && printf '   scope: %s\n' "${ONLY_PATHS[@]}"
@@ -116,7 +126,6 @@ in_scope() {
 PAIRS=(
   # === shared ===
   "shared/grill-with-docs|governance/grill-with-docs"
-  "shared/skill-authoring|governance/skill-authoring"
   "shared/2pdf|2pdf"
   "shared/2md|2md"
   "shared/strategic-insight-longform|productivity/strategic-insight-longform"

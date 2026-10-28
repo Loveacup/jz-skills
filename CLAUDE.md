@@ -67,12 +67,12 @@ Skills in `hermes/` MAY reference Hermes-specific paths and tools.
 
 ## Skill Authoring · 技能创作
 
-Skill creation and behavior-changing edits follow the current [skill-authoring contract](shared/skill-authoring/):
+Skill creation and behavior-changing edits follow the current [skill-authoring contract](https://github.com/Loveacup/skill-authoring):
 - Define trigger/anti-trigger, consumer-visible behavior, boundaries, and risk before editing.
 - Use progressive disclosure by task need; there is no fixed line ceiling, scorecard, warning-table shape, or test quota.
 - Verify the changed behavior proportionally: focused checks for text-only edits, realistic scenarios for behavior changes, and a fresh independent verifier for high-impact changes.
 - Treat source/canonical application, named-target runtime deployment, publication, and retirement as separate states. Preparing or reviewing a skill never implies commit, push, broad sync, deletion, or baseline mutation.
-- Keep important behavior and changes traceable in proportion to the skill's size and maintenance needs, following `shared/skill-authoring/references/author.md#keep-the-skill-traceable`. Small skills can use the body and existing notes; separate requirements files, stable IDs and dedicated changelogs are optional unless the target project requires them. Preserve useful existing records, read the baseline before behavior changes, and record what improved, stayed intact and was checked. Update requirements when their meaning changes.
+- Keep important behavior and changes traceable in proportion to the skill's size and maintenance needs, following [the standalone traceability guidance](https://github.com/Loveacup/skill-authoring/blob/main/references/author.md#keep-the-skill-traceable). Small skills can use the body and existing notes; separate requirements files, stable IDs and dedicated changelogs are optional unless the target project requires them. Preserve useful existing records, read the baseline before behavior changes, and record what improved, stayed intact and was checked. Update requirements when their meaning changes.
 ---
 
 ## 📝 Commit Conventions · 提交规范
