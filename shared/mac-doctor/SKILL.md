@@ -50,6 +50,7 @@ If `$SKILL_DIR` is unavailable, use the skill loader's resolved file path to loc
 | Health overview | `scripts/mac-doctor score` (or detailed `check`) |
 | Slow Mac, memory pressure, swap | `scripts/mac-doctor check --category performance` |
 | Disk full / storage attribution | `scripts/mac-doctor check --category storage`; `storage analyze --json` for bounded root groups/Top hotspots; `storage` for the existing cleanup catalogue; only then, if requested, `clean plan` |
+| Space falls again; large WAL or deleted-open files | Read `references/storage-analysis.md` (growth/retirement) and `references/diagnostics-playbook.md` (stateful recovery); separate observation from authorized lifecycle changes |
 | Offline storage report | `scripts/mac-doctor storage analyze --html ABSOLUTE_NEW_FILE --json`; read `references/storage-analysis.md` |
 | Security posture | `scripts/mac-doctor check --category security` |
 | Hardware, network, developer environment | `scripts/mac-doctor check --category hardware`, `network`, or `devenv` |

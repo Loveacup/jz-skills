@@ -38,6 +38,21 @@ Cache-like naming is not cleanup authorization. `.cargo` can contain toolchains,
 
 For the report: state the dominant observed consumers, measurement basis, coverage gaps and useful next selected root. Recommend app-native storage controls for managed app data. Do not claim an unknown amount of space can be released, advise a broad cache purge, or turn age/extension/size into disposal permission.
 
+## Repeated investigations: growth and retirement
+
+Separate recurring producers from disposable residue. Compare timestamped, non-overlapping observations with existing history: scheduled backups, consolidation exports, caches rebuilding, swap allocation and deleted-open objects can explain renewed pressure better than another purge. Producer/config changes require their own authority. Do not sum nominal directory deltas into an exact explanation of APFS free-space change.
+
+Reuse the previous inventory and blocked reasons; descend only into changed or unexplained hotspots. Keep new candidates separate from an approved batch. Stop when the user's bounded question is answered or the remaining gain requires a material retirement decision; a completed cleanup does not authorize an unsolicited full-disk audit.
+
+Choose evidence by lifecycle:
+
+- Application updates: compare installed, rollback and staged versions, updater state and process references. A pending update can have no open handles. After a user completes an update, recheck the changed item and distinguish updater-owned removals from agent cleanup; do not refresh a failed gate repeatedly to catch an idle interval.
+- Browser runtimes: inspect package registrations and callers. Several versions may serve different consumers; an isolated system-browser smoke test neither authorizes runtime deletion nor proves all projects migrated.
+- Experiments and research: check path references, recovery archives, retained-for-audit records and uncommitted/untracked work. Equal content hashes establish duplicate bytes, not expendability. Preserve unique source and receipts; propose an explicit retirement or archive/extracted-copy choice before removing referenced assets.
+- Python bytecode: scope generated files, check matching source and Git tracking, then assess all proposed paths. A sample of idle directories is not whole-batch clearance. Preserve unrelated research changes.
+
+Offer a small ranked set with purpose, nominal size, present-use evidence and remaining decisions. Keep capacity relief separate from prevention of future growth.
+
 ## Offline report
 
 `--html` requires an absolute **new** output filename. The artifact is created with mode 0600 and exclusive creation; an existing file/symlink is refused, never overwritten. It is local static HTML with collapsible root sections, escaped paths and strict CSP; no scripts, external assets, browser auto-open, HTTP server, cleanup button or command executor. Writing this explicitly requested artifact is the only additional write performed by analysis.

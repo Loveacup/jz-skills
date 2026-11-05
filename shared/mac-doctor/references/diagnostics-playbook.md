@@ -45,6 +45,14 @@ If a swap increase coincides with gateway termination, treat it as an incident s
 - `clean plan` gives exact CLI candidate objects; display and approve before gated apply. Separately, current-task owner authorization and exact-manifest review may permit scoped command/filesystem/UI disposal under `cleanup.md`. Delegated review avoids repeated per-item confirmation; missing GUI capability is not a command-cleanup blocker. Never widen a target or bypass active-use, identity or live-data protection failures.
 - For local Time Machine snapshots, `storage` reports dates and per-date commands only. Consider at most one exact snapshot command after user review; never bulk-thin/delete snapshots as part of a routine.
 
+## Stateful files and controlled recovery
+
+Treat SQLite WAL/SHM, swap and deleted-but-open files as lifecycle problems, not ordinary cleanup targets. Collect logical size, allocated blocks, owner processes and timestamps without opening the database when metadata suffices. `PRAGMA wal_checkpoint(PASSIVE)` attempts writes; `query_only` or a read-only connection does not make checkpoint observational. Even database opens/closes may affect WAL lifecycle. Obtain scoped recovery authority before such operations and disclose exactly what ran.
+
+For authorized recovery, resolve the actual executable, installed version, manager and all known database holders first. Follow the owner's supported shutdown/reopen path. Verify old-owner exit once; a missing PID/socket after successful shutdown is expected, not a reason to retry stop commands. Stop at the agreed failure/space threshold. Do not introduce runtime-check overrides, stronger signals or a different manager to force an incompatible command to run.
+
+Afterward distinguish database integrity, successful queries and service topology. A client falling back to direct database access does not prove the shared daemon restarted. When several connections or commands occurred, report the sequence without attributing truncation to one unproven cause. Never unlink active WAL/SHM or swap files. Deduplicate deleted-open regular files by device/inode and label their sizes logical; release requires the owner to close them under separate authority.
+
 ## Profile cache duplication and models
 
 Hermes may redirect a profile process's `HOME`, so a profile's `.cache`, `.npm`, or `Library/Caches` may be distinct from the account user's directories. mac-doctor data paths use the system account home; use actual discovered profile paths only for diagnosis. Compare inventory/paths rather than assuming identical caches.
